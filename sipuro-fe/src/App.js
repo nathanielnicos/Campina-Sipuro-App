@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import POList from './components/POList';
-import POCreate from './components/POCreate';
-import Login from './components/Login';
+import POList from './components/po/POList';
+import POCreateModal from './components/po/POCreateModal';
+import Login from './components/auth/Login';
+import Navbar from './components/layout/Navbar';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -9,7 +10,6 @@ function App() {
   const [selectedPoId, setSelectedPoId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Ambil session user dari localStorage saat pertama kali dimuat
   useEffect(() => {
     const savedUser = localStorage.getItem('sipuro_user');
     if (savedUser) {
@@ -52,22 +52,13 @@ function App() {
     setSelectedPoId(null);
   };
 
-  // Jika belum login, tampilkan layar Login
   if (!user) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
     <div className="App" style={{ padding: '20px' }}>
-      {/* Header Bar User Info & Logout */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '10px 15px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
-        <div>
-          <strong>{user.name}</strong> ({user.role}) - Code/ID: {user.code}
-        </div>
-        <button onClick={handleLogout} style={{ padding: '6px 12px', cursor: 'pointer', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px' }}>
-          Logout
-        </button>
-      </div>
+      <Navbar user={user} onLogout={handleLogout} />
 
       <POList
         key={refreshKey}
@@ -78,7 +69,7 @@ function App() {
       />
 
       {showCreateModal && (
-        <POCreate
+        <POCreateModal
           poId={selectedPoId}
           customerId={user.id}
           userRole={user.role}
