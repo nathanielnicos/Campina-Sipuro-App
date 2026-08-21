@@ -1,0 +1,14 @@
+# Node dependencies (menjangkau node_modules di folder manapun)
+**/node_modules/
+
+# Environment variables (menjangkau semua variasi .env di folder manapun)
+**/.env
+**/.env.*
+
+# Build outputs
+**/dist/
+**/build/
+
+# Logs & System files
+*.log
+.DS_Store
