@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import POList from './components/po/POList';
 import POCreateModal from './components/po/POCreateModal';
+import PPICBatchAllocationPage from './components/ppic/PPICBatchAllocationPage';
 import Login from './components/auth/Login';
 import Navbar from './components/layout/Navbar';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('po-list'); // State untuk tab navigasi
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPoId, setSelectedPoId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -13,13 +15,18 @@ function App() {
   useEffect(() => {
     const savedUser = localStorage.getItem('sipuro_user');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      const parsedUser = JSON.parse(savedUser);
+      setUser(parsedUser);
+      // Memastikan tab aktif langsung mengarah ke 'po-list' saat halaman pertama kali di-load
+      setActiveTab('po-list');
     }
   }, []);
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem('sipuro_user', JSON.stringify(userData));
+    // Langsung set tab aktif ke 'po-list' saat user berhasil login
+    setActiveTab('po-list');
   };
 
   const handleLogout = () => {
@@ -58,15 +65,27 @@ function App() {
 
   return (
     <div className="App" style={{ padding: '20px' }}>
-      <Navbar user={user} onLogout={handleLogout} />
-
-      <POList
-        key={refreshKey}
-        customerId={user.role === 'CUSTOMER' ? user.id : null}
-        userRole={user.role}
-        onCreateNewPO={handleOpenCreate}
-        onSelectPODetail={handleSelectPODetail}
+      <Navbar
+        user={user}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onLogout={handleLogout}
       />
+
+      {/* Render tampilan berdasarkan tab aktif */}
+      {activeTab === 'po-list' && (
+        <POList
+          key={refreshKey}
+          customerId={user.role === 'CUSTOMER' ? user.id : null}
+          user={user}
+          onCreateNewPO={handleOpenCreate}
+          onSelectPODetail={handleSelectPODetail}
+        />
+      )}
+
+      {activeTab === 'ppic-batch' && user.role === 'PPIC' && (
+        <PPICBatchAllocationPage currentUser={user} />
+      )}
 
       {showCreateModal && (
         <POCreateModal

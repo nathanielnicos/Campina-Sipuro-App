@@ -35,8 +35,8 @@ exports.login = async (req, res) => {
 
         } else if (role_type === 'EMPLOYEE') {
             const query = `
-                SELECT employee_id, full_name, department, role 
-                FROM campina_db.employees 
+                SELECT employee_id, full_name, department
+                FROM campina_db.employees
                 WHERE employee_id = ? AND password = ? AND is_suspended = 0
             `;
             const [rows] = await campinaDb.query(query, [username, password]);

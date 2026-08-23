@@ -6,6 +6,8 @@ const authRoutes = require('./routes/authRoutes');
 const masterRoutes = require('./routes/masterRoutes');
 const poRoutes = require('./routes/poRoutes');
 const ppicRoutes = require('./routes/ppicRoutes');
+const batchRoutes = require('./routes/batchRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,6 +26,8 @@ app.use('/api', authRoutes);
 app.use('/api', masterRoutes);
 app.use('/api/po', poRoutes);
 app.use('/api/ppic', ppicRoutes);
+app.use('/api/batches', batchRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Run Server
 app.listen(PORT, () => {

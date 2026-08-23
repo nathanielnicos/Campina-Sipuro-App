@@ -21,10 +21,12 @@ const POActions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpd
                     Tutup
                 </button>
 
-                {poId && userRole !== 'CUSTOMER' && (
+                {/* Approve & Reject hanya muncul untuk non-CUSTOMER dan saat status "Waiting for Confirmation" */}
+                {poId && userRole !== 'CUSTOMER' && poStatus === 'Waiting for Confirmation' && (
                     <>
                         <button
                             type="button"
+                            disabled={loading}
                             onClick={() => onUpdateStatus('Rejected')}
                             style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                         >
@@ -32,6 +34,7 @@ const POActions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpd
                         </button>
                         <button
                             type="button"
+                            disabled={loading}
                             onClick={() => onUpdateStatus('Waiting Batch Assignment')}
                             style={{ padding: '8px 16px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                         >
@@ -40,9 +43,13 @@ const POActions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpd
                     </>
                 )}
 
-                {!poId && userRole === 'CUSTOMER' && (
-                    <button type="submit" disabled={loading} style={{ padding: '8px 16px', backgroundColor: '#0d6efd', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                        Simpan PO
+                {userRole === 'CUSTOMER' && (!poId || poStatus === 'Waiting for Confirmation') && (
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        style={{ padding: '8px 16px', backgroundColor: '#0d6efd', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                        {poId ? 'Simpan Perubahan' : 'Simpan PO'}
                     </button>
                 )}
             </div>

@@ -1,53 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchPOListApi } from '../../services/poApi';
 import PORow from './PORow';
 
-const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail }) => {
+const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
     const [poList, setPoList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        const getPOList = async () => {
-            try {
-                setLoading(true);
-                setError('');
-                const result = await fetchPOListApi(customerId);
+    // Bungkus getPOList dengan useCallback
+    const getPOList = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError('');
+            const result = await fetchPOListApi(customerId);
 
-                if (result.success) {
-                    setPoList(result.data);
-                } else {
-                    setError(result.message || 'Gagal mengambil data PO.');
-                }
-            } catch (err) {
-                console.error('Error fetching PO:', err);
-                setError('Terjadi kesalahan jaringan atau server mati.');
-            } finally {
-                setLoading(false);
+            if (result.success) {
+                setPoList(result.data);
+            } else {
+                setError(result.message || 'Gagal mengambil data PO.');
             }
-        };
-
-        getPOList();
+        } catch (err) {
+            console.error('Error fetching PO:', err);
+            setError('Terjadi kesalahan jaringan atau server mati.');
+        } finally {
+            setLoading(false);
+        }
     }, [customerId]);
+
+    useEffect(() => {
+        getPOList();
+    }, [getPOList]);
 
     return (
         <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h2>Daftar Purchase Order (PO)</h2>
-                <button
-                    onClick={onCreateNewPO}
-                    style={{
-                        padding: '10px 16px',
-                        backgroundColor: '#007bff',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                    }}
-                >
-                    + Create New PO
-                </button>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {/* Tombol Create PO untuk Customer */}
+                    {user?.role === 'CUSTOMER' && (
+                        <button
+                            onClick={onCreateNewPO}
+                            style={{
+                                padding: '10px 16px',
+                                backgroundColor: '#007bff',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            + Create New PO
+                        </button>
+                    )}
+                </div>
             </div>
 
             {loading && <p>Memuat data PO...</p>}
@@ -78,6 +85,7 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail }) => {
                                 <PORow
                                     key={po.po_header_id}
                                     po={po}
+                                    user={user}
                                     onSelectPODetail={onSelectPODetail}
                                 />
                             ))

@@ -13,10 +13,11 @@ async function refreshPOStatus(connection, poHeaderId) {
     let isAllAllocationsClosed = true;
 
     for (const item of details) {
+        // 1. Cek apakah total kebutuhan kuantitas PO sudah teralokasi penuh
         const [allocRows] = await connection.query(
             `SELECT SUM(allocated_qty) AS total_allocated 
              FROM sipuro_db.po_batch_allocations 
-             WHERE po_detail_id = ? AND status = 'Active'`,
+             WHERE po_detail_id = ?`,
             [item.po_detail_id]
         );
         const totalAllocated = allocRows[0].total_allocated || 0;
@@ -25,15 +26,15 @@ async function refreshPOStatus(connection, poHeaderId) {
             isFullyAllocated = false;
         }
 
-        const [batchStatusRows] = await connection.query(
-            `SELECT b.status 
-             FROM sipuro_db.po_batch_allocations pba
-             JOIN sipuro_db.batches b ON pba.batch_id = b.batch_id
-             WHERE pba.po_detail_id = ? AND pba.status = 'Active'`,
+        // 2. Cek apakah masih ada alokasi PO yang berstatus 'Open'
+        const [openAllocRows] = await connection.query(
+            `SELECT COUNT(*) AS open_count 
+             FROM sipuro_db.po_batch_allocations 
+             WHERE po_detail_id = ? AND status = 'Open'`,
             [item.po_detail_id]
         );
 
-        if (batchStatusRows.length === 0 || batchStatusRows.some(b => b.status !== 'Close')) {
+        if (openAllocRows[0].open_count > 0) {
             isAllAllocationsClosed = false;
         }
     }

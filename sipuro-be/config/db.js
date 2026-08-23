@@ -24,5 +24,9 @@ const campinaDb = mysql.createPool({
 
 module.exports = {
   sipuroDb,
-  campinaDb
+  campinaDb,
+  // Menambahkan alias agar modul yang melakukan const db = require('./db') tetap berjalan dengan aman
+  query: (...args) => sipuroDb.query(...args),
+  execute: (...args) => sipuroDb.execute(...args),
+  getConnection: () => sipuroDb.getConnection()
 };

@@ -7,6 +7,7 @@ const ItemRow = ({
     searchTerm,
     openDropdown,
     products,
+    isReadOnly,
     onSearchChange,
     onFocusDropdown,
     onSelectProduct,
@@ -15,6 +16,20 @@ const ItemRow = ({
     onRemoveItem,
     isMultipleItems
 }) => {
+    const actionButtonStyle = {
+        padding: '6px 12px',
+        fontSize: '12px',
+        height: '32px',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        boxSizing: 'border-box',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        whiteSpace: 'nowrap'
+    };
+
     return (
         <tr>
             <td style={{ position: 'relative' }}>
@@ -24,10 +39,11 @@ const ItemRow = ({
                     value={searchTerm !== undefined ? searchTerm : ''}
                     onFocus={() => onFocusDropdown(index)}
                     onChange={(e) => onSearchChange(index, e.target.value)}
+                    disabled={isReadOnly}
                     style={{ width: '100%', padding: '6px', boxSizing: 'border-box' }}
                 />
 
-                {openDropdown === index && (
+                {!isReadOnly && openDropdown === index && (
                     <div style={{
                         position: 'absolute', top: '100%', left: 0, right: 0,
                         maxHeight: '180px', overflowY: 'auto', backgroundColor: '#fff',
@@ -57,6 +73,7 @@ const ItemRow = ({
                     type="text"
                     value={item.qty || ''}
                     onChange={(e) => onQtyChange(index, e.target.value)}
+                    disabled={isReadOnly}
                     style={{ width: '100%', padding: '6px', boxSizing: 'border-box', textAlign: 'center' }}
                     placeholder="0"
                 />
@@ -68,6 +85,7 @@ const ItemRow = ({
                     <select
                         value={item.selected_uom}
                         onChange={(e) => onUomChange(index, e.target.value)}
+                        disabled={isReadOnly}
                         style={{ width: '100%', padding: '6px 2px', boxSizing: 'border-box' }}
                     >
                         {item.base_uom && <option value={item.base_uom}>{item.base_uom}</option>}
@@ -78,15 +96,19 @@ const ItemRow = ({
             </td>
             <td style={{ textAlign: 'right' }}>{formatCurrency(item.total_price)}</td>
             <td style={{ textAlign: 'center' }}>
-                {isMultipleItems && (
-                    <button
-                        type="button"
-                        onClick={() => onRemoveItem(index)}
-                        style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px' }}
-                    >
-                        Hapus
-                    </button>
-                )}
+                <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+                    {!isReadOnly && isMultipleItems ? (
+                        <button
+                            type="button"
+                            onClick={() => onRemoveItem(index)}
+                            style={{ ...actionButtonStyle, backgroundColor: '#dc3545', color: '#fff' }}
+                        >
+                            Hapus
+                        </button>
+                    ) : (
+                        <span style={{ color: '#aaa', fontSize: '12px' }}>-</span>
+                    )}
+                </div>
             </td>
         </tr>
     );

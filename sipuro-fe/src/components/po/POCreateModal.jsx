@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getStatusStyle } from '../../utils/statusHelper';
 import { calculateUnitPrice } from '../../utils/priceCalculator';
 import {
@@ -42,15 +42,63 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
     const [openDropdown, setOpenDropdown] = useState(null);
     const [ppnPercent, setPpnPercent] = useState(null);
 
+    const loadPODetailData = useCallback(async () => {
+        if (!poId) return;
+        try {
+            const poRes = await fetchPODetail(poId);
+            if (poRes.success && poRes.data) {
+                const poHeader = poRes.data.header || {};
+                const poItems = poRes.data.items || [];
+
+                setPoStatus(poHeader.status || '');
+                if (poHeader.requested_delivery_date) {
+                    const d = new Date(poHeader.requested_delivery_date);
+                    setRequestedDeliveryDate(d.toISOString().split('T')[0]);
+                }
+                setDeliveryAddress(poHeader.delivery_address || '');
+                setDescription(poHeader.description || '');
+
+                if (poItems.length > 0) {
+                    const mappedItems = poItems.map(item => ({
+                        po_detail_id: item.po_detail_id || item.id,
+                        id_product: item.id_product || item.product_id,
+                        product_code: item.product_code || item.code || '',
+                        product_name: item.product_name || item.name || '',
+                        qty: item.qty || 1,
+                        base_price: parseFloat(item.base_price) || 0,
+                        unit_price: parseFloat(item.unit_price || item.base_price) || 0,
+                        base_uom: item.base_uom || item.uom || 'PCS',
+                        selected_uom: item.uom || item.base_uom || 'PCS',
+                        pcs_per_ctn: item.pcs_per_ctn || 1,
+                        ctn_per_plt: item.ctn_per_plt || 1,
+                        total_price: parseFloat(item.total_price) || 0
+                    }));
+                    setItems(mappedItems);
+
+                    const initialSearch = {};
+                    mappedItems.forEach((itm, idx) => {
+                        if (itm.product_code || itm.product_name) {
+                            initialSearch[idx] = `${itm.product_code} - ${itm.product_name}`;
+                        }
+                    });
+                    setSearchTerm(initialSearch);
+                }
+            } else {
+                setError(poRes.message || 'Gagal memuat detail PO.');
+            }
+        } catch (err) {
+            console.error('Error fetching PO detail:', err);
+            setError('Gagal memuat detail PO dari server.');
+        }
+    }, [poId]);
+
     useEffect(() => {
         const initData = async () => {
             try {
-                // 1. Fetch Products
                 const prodRes = await fetchProducts();
                 if (prodRes.success) setProducts(prodRes.data);
                 else setError('Gagal memuat katalog produk.');
 
-                // 2. Fetch Customer Detail
                 if (customerId) {
                     const custRes = await fetchCustomerDetail(customerId);
                     if (custRes.success && custRes.data) {
@@ -58,7 +106,6 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                     }
                 }
 
-                // 3. Fetch Company Profile
                 const profileRes = await fetchCompanyProfile();
                 if (profileRes.success && profileRes.data?.ppn_percent !== undefined) {
                     setPpnPercent(profileRes.data.ppn_percent);
@@ -66,49 +113,8 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                     setError(profileRes.message || 'Gagal memuat tarif PPN.');
                 }
 
-                // 4. Fetch Existing PO Detail (If Editing / View)
                 if (poId) {
-                    const poRes = await fetchPODetail(poId);
-                    if (poRes.success && poRes.data) {
-                        const poHeader = poRes.data.header || {};
-                        const poItems = poRes.data.items || [];
-
-                        setPoStatus(poHeader.status || '');
-                        if (poHeader.requested_delivery_date) {
-                            const d = new Date(poHeader.requested_delivery_date);
-                            setRequestedDeliveryDate(d.toISOString().split('T')[0]);
-                        }
-                        setDeliveryAddress(poHeader.delivery_address || '');
-                        setDescription(poHeader.description || '');
-
-                        if (poItems.length > 0) {
-                            const mappedItems = poItems.map(item => ({
-                                po_detail_id: item.po_detail_id,
-                                id_product: item.id_product,
-                                product_code: item.product_code || '',
-                                product_name: item.product_name || '',
-                                qty: item.qty || 1,
-                                base_price: parseFloat(item.base_price) || 0,
-                                unit_price: parseFloat(item.unit_price || item.base_price) || 0,
-                                base_uom: item.base_uom || item.uom || 'PCS',
-                                selected_uom: item.uom || item.base_uom || 'PCS',
-                                pcs_per_ctn: item.pcs_per_ctn || 1,
-                                ctn_per_plt: item.ctn_per_plt || 1,
-                                total_price: parseFloat(item.total_price) || 0
-                            }));
-                            setItems(mappedItems);
-
-                            const initialSearch = {};
-                            mappedItems.forEach((itm, idx) => {
-                                if (itm.product_code || itm.product_name) {
-                                    initialSearch[idx] = `${itm.product_code} - ${itm.product_name}`;
-                                }
-                            });
-                            setSearchTerm(initialSearch);
-                        }
-                    } else {
-                        setError(poRes.message || 'Gagal memuat detail PO.');
-                    }
+                    await loadPODetailData();
                 }
             } catch (err) {
                 console.error('Error fetching data:', err);
@@ -117,7 +123,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
         };
 
         initData();
-    }, [customerId, poId]);
+    }, [customerId, poId, loadPODetailData]);
 
     const handleSelectProduct = (index, prod) => {
         const basePrice = parseFloat(prod.base_price) || 0;
@@ -297,7 +303,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
             backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
             <div style={{
-                backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '850px', maxHeight: '90vh', overflowY: 'auto'
+                backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '900px', maxHeight: '90vh', overflowY: 'auto'
             }}>
                 <h2>
                     {poId ? `Detail Purchase Order #${poId}` : 'Buat Purchase Order (PO) Baru'}
@@ -321,6 +327,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                                 value={requestedDeliveryDate}
                                 onChange={(e) => setRequestedDeliveryDate(e.target.value)}
                                 required
+                                disabled={userRole === 'PPIC'}
                                 style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                             />
                         </div>
@@ -331,6 +338,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                                 placeholder="Alamat pengiriman..."
                                 value={deliveryAddress}
                                 onChange={(e) => setDeliveryAddress(e.target.value)}
+                                disabled={userRole === 'PPIC'}
                                 style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                             />
                         </div>
@@ -343,6 +351,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                             placeholder="Catatan tambahan untuk pesanan..."
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
+                            disabled={userRole === 'PPIC'}
                             style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                         />
                     </div>
@@ -354,11 +363,11 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                         <thead>
                             <tr style={{ backgroundColor: '#f2f2f2' }}>
                                 <th style={{ width: '35%' }}>Produk</th>
-                                <th style={{ width: '18%' }}>Harga Satuan</th>
-                                <th style={{ width: '12%' }}>Qty</th>
-                                <th style={{ width: '13%' }}>UOM</th>
-                                <th style={{ width: '16%' }}>Total Harga</th>
-                                <th style={{ width: '6%' }}>Aksi</th>
+                                <th style={{ width: '15%' }}>Harga Satuan</th>
+                                <th style={{ width: '10%' }}>Qty</th>
+                                <th style={{ width: '12%' }}>UOM</th>
+                                <th style={{ width: '18%' }}>Total Harga</th>
+                                <th style={{ width: '10%' }}>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -370,6 +379,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                                     searchTerm={searchTerm[index]}
                                     openDropdown={openDropdown}
                                     products={products}
+                                    isReadOnly={userRole === 'PPIC'}
                                     onSearchChange={(i, val) => {
                                         setSearchTerm({ ...searchTerm, [i]: val });
                                         setOpenDropdown(i);
@@ -385,13 +395,15 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                         </tbody>
                     </table>
 
-                    <button
-                        type="button"
-                        onClick={handleAddItem}
-                        style={{ marginBottom: '20px', padding: '6px 12px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                        + Tambah Baris Produk
-                    </button>
+                    {userRole !== 'PPIC' && (
+                        <button
+                            type="button"
+                            onClick={handleAddItem}
+                            style={{ marginBottom: '20px', padding: '6px 12px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                            + Tambah Baris Produk
+                        </button>
+                    )}
 
                     <POSummary
                         subtotal={subtotal}

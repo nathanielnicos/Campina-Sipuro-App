@@ -57,6 +57,20 @@ exports.getPODetail = async (req, res) => {
     }
 };
 
+// Fungsi pembantu untuk mengalkulasi base_qty secara otomatis berdasarkan UOM
+const calculateBaseQty = (qty, uom, product) => {
+    const uppercaseUom = (uom || '').toUpperCase();
+    const pcsPerCtn = product ? Number(product.pcs_per_ctn || 1) : 1;
+    const ctnPerPlt = product ? Number(product.ctn_per_plt || 1) : 1;
+
+    if (uppercaseUom === 'CTN') {
+        return qty * pcsPerCtn;
+    } else if (uppercaseUom === 'PLT') {
+        return qty * pcsPerCtn * ctnPerPlt;
+    }
+    return qty; // Jika UOM sudah dalam Base UOM (seperti PCS)
+};
+
 exports.createPO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
@@ -80,6 +94,14 @@ exports.createPO = async (req, res) => {
         const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
         const poNumber = `PO-${dateStr}-${Math.floor(100 + Math.random() * 900)}`;
 
+        // Ambil data konversi produk sekaligus
+        const productIds = items.map(item => item.id_product);
+        const [productRows] = await campinaDb.query(
+            `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM campina_db.products WHERE id_product IN (?)`,
+            [productIds]
+        );
+        const productMap = new Map(productRows.map(p => [p.id_product, p]));
+
         await connection.beginTransaction();
 
         const [headerResult] = await connection.query(
@@ -93,11 +115,15 @@ exports.createPO = async (req, res) => {
             const qty = parseInt(item.qty) || 0;
             const totalPrice = item.total_price !== undefined ? parseFloat(item.total_price) : (unitPrice * qty);
             const selectedUom = item.selected_uom || item.uom || item.base_uom || 'PCS';
-            return [poHeaderId, item.id_product, qty, selectedUom, unitPrice, totalPrice, item.notes || null];
+
+            const product = productMap.get(item.id_product);
+            const baseQty = calculateBaseQty(qty, selectedUom, product);
+
+            return [poHeaderId, item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null];
         });
 
         await connection.query(
-            `INSERT INTO sipuro_db.po_details (po_header_id, id_product, qty, uom, base_price, total_price, notes) VALUES ?`,
+            `INSERT INTO sipuro_db.po_details (po_header_id, id_product, qty, base_qty, uom, base_price, total_price, notes) VALUES ?`,
             [detailValues]
         );
 
@@ -135,6 +161,14 @@ exports.updatePO = async (req, res) => {
         });
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
+        // Ambil data konversi produk sekaligus
+        const productIds = items.map(item => item.id_product);
+        const [productRows] = await campinaDb.query(
+            `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM campina_db.products WHERE id_product IN (?)`,
+            [productIds]
+        );
+        const productMap = new Map(productRows.map(p => [p.id_product, p]));
+
         await connection.beginTransaction();
 
         await connection.query(
@@ -157,15 +191,18 @@ exports.updatePO = async (req, res) => {
             const totalPrice = item.total_price !== undefined ? parseFloat(item.total_price) : (unitPrice * qty);
             const selectedUom = item.selected_uom || item.uom || item.base_uom || 'PCS';
 
+            const product = productMap.get(item.id_product);
+            const baseQty = calculateBaseQty(qty, selectedUom, product);
+
             if (item.po_detail_id && existingIds.includes(item.po_detail_id)) {
                 await connection.query(
-                    `UPDATE sipuro_db.po_details SET id_product = ?, qty = ?, uom = ?, base_price = ?, total_price = ?, notes = ? WHERE po_detail_id = ?`,
-                    [item.id_product, qty, selectedUom, unitPrice, totalPrice, item.notes || null, item.po_detail_id]
+                    `UPDATE sipuro_db.po_details SET id_product = ?, qty = ?, base_qty = ?, uom = ?, base_price = ?, total_price = ?, notes = ? WHERE po_detail_id = ?`,
+                    [item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null, item.po_detail_id]
                 );
             } else {
                 await connection.query(
-                    `INSERT INTO sipuro_db.po_details (po_header_id, id_product, qty, uom, base_price, total_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                    [id, item.id_product, qty, selectedUom, unitPrice, totalPrice, item.notes || null]
+                    `INSERT INTO sipuro_db.po_details (po_header_id, id_product, qty, base_qty, uom, base_price, total_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [id, item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null]
                 );
             }
         }
