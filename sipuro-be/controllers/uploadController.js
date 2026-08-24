@@ -44,8 +44,15 @@ exports.previewExcelUpload = async (req, res) => {
             ORDER BY pb.plan_production_date ASC, ph.requested_delivery_date ASC, ph.created_at ASC
         `);
 
-        // D. Jalankan Kalkulasi FIFO Pro-rata
-        const { previewResults, unallocatedStocks } = calculateFifoAllocation(excelDataMap, openAllocations || []);
+        // C2. Ambil Master seluruh produk sebagai Fallback Nama Produk
+        const [allProducts] = await db.query('SELECT id_product, product_code, product_name FROM campina_db.products');
+
+        // D. Jalankan Kalkulasi FIFO Pro-rata dengan mengirim data Master Produk
+        const { previewResults, unallocatedStocks } = calculateFifoAllocation(
+            excelDataMap,
+            openAllocations || [],
+            allProducts || []
+        );
 
         return res.json({
             success: true,

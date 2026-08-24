@@ -1,10 +1,12 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api'; // Sesuaikan port backend Anda
+const API_BASE_URL = 'http://localhost:5000/api';
 
-export const fetchUnassignedSummary = async () => {
+export const fetchUnassignedSummary = async (page = 1, limit = 10) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/ppic/unassigned-summary`);
+        const response = await axios.get(`${API_BASE_URL}/ppic/unassigned-summary`, {
+            params: { page, limit }
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching unassigned summary:', error);
@@ -32,9 +34,11 @@ export const assignBatchBulk = async (payload) => {
     }
 };
 
-export const fetchBatchMapping = async () => {
+export const fetchBatchMapping = async (page = 1, limit = 10) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/ppic/batch-mapping`);
+        const response = await axios.get(`${API_BASE_URL}/ppic/batch-mapping`, {
+            params: { page, limit }
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching batch mapping:', error);

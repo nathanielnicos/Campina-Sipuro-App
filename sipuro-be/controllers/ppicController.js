@@ -2,9 +2,36 @@ const XLSX = require('xlsx');
 const { sipuroDb } = require('../config/db');
 const { refreshPOStatus, AUTO_CLOSE_THRESHOLD_PERCENT } = require('../helpers/ppicHelper');
 
-// 1. Mengambil Rekap SKU yang belum dialokasikan ke Batch (Tab 1)
+// 1. Mengambil Rekap SKU yang belum dialokasikan ke Batch (Tab 1 - Server-side Pagination)
 exports.getUnassignedSummary = async (req, res) => {
     try {
+        const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(req.query.limit, 10) || 10);
+        const offset = (pageNum - 1) * limitNum;
+
+        // Query Total Unique SKU yang membutuhkan alokasi
+        const countQuery = `
+            SELECT COUNT(*) AS total FROM (
+                SELECT p.id_product
+                FROM sipuro_db.po_details d
+                JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
+                JOIN campina_db.products p ON d.id_product = p.id_product
+                LEFT JOIN (
+                    SELECT po_detail_id, SUM(allocated_qty) AS total_allocated
+                    FROM sipuro_db.po_batch_allocations
+                    GROUP BY po_detail_id
+                ) alloc ON d.po_detail_id = alloc.po_detail_id
+                WHERE h.status IN ('Waiting Batch Assignment', 'On Process')
+                  AND d.deleted_at IS NULL
+                  AND (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0
+                GROUP BY p.id_product
+            ) sub;
+        `;
+        const [countRows] = await sipuroDb.query(countQuery);
+        const totalItems = Number(countRows[0]?.total || 0);
+        const totalPages = Math.ceil(totalItems / limitNum);
+
+        // Query Data Paged
         const query = `
             SELECT 
                 p.id_product,
@@ -34,14 +61,21 @@ exports.getUnassignedSummary = async (req, res) => {
               AND d.deleted_at IS NULL
               AND (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0
             GROUP BY p.id_product, p.product_code, p.product_name, p.base_uom
-            ORDER BY p.product_code ASC;
+            ORDER BY p.product_code ASC
+            LIMIT ${limitNum} OFFSET ${offset};
         `;
 
         const [rows] = await sipuroDb.query(query);
 
         res.json({
             success: true,
-            data: rows
+            data: rows,
+            pagination: {
+                totalItems,
+                totalPages,
+                currentPage: pageNum,
+                limit: limitNum
+            }
         });
     } catch (error) {
         console.error('Error fetching unassigned summary:', error);
@@ -53,9 +87,24 @@ exports.getUnassignedSummary = async (req, res) => {
     }
 };
 
-// 2. Mengambil Detail Mapping Batch ke PO (Tab 2 - Monitoring)
+// 2. Mengambil Detail Mapping Batch ke PO (Tab 2 - Server-side Pagination)
 exports.getAllocatedBatchMapping = async (req, res) => {
     try {
+        const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(req.query.limit, 10) || 10);
+        const offset = (pageNum - 1) * limitNum;
+
+        // Query Total Items
+        const countQuery = `
+            SELECT COUNT(DISTINCT b.id) AS total
+            FROM sipuro_db.batches b
+            JOIN sipuro_db.po_batch_allocations pba ON b.id = pba.id_batch;
+        `;
+        const [countRows] = await sipuroDb.query(countQuery);
+        const totalItems = Number(countRows[0]?.total || 0);
+        const totalPages = Math.ceil(totalItems / limitNum);
+
+        // Query Data Paged
         const query = `
             SELECT 
                 b.id AS id_batch,
@@ -81,14 +130,21 @@ exports.getAllocatedBatchMapping = async (req, res) => {
             JOIN sipuro_db.po_details d ON pba.po_detail_id = d.po_detail_id
             JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
             GROUP BY b.id, b.batch_number, b.status, b.plan_production_date, p.product_code, p.product_name
-            ORDER BY b.id DESC;
+            ORDER BY b.id DESC
+            LIMIT ${limitNum} OFFSET ${offset};
         `;
 
         const [rows] = await sipuroDb.query(query);
 
         res.json({
             success: true,
-            data: rows
+            data: rows,
+            pagination: {
+                totalItems,
+                totalPages,
+                currentPage: pageNum,
+                limit: limitNum
+            }
         });
     } catch (error) {
         console.error('Error fetching batch mapping:', error);
@@ -124,7 +180,7 @@ exports.assignBatchBulk = async (req, res) => {
     try {
         const {
             id_product,
-            allocation_mode, // 'NEW' atau 'EXISTING'
+            allocation_mode,
             selected_batch_id,
             batch_number,
             plan_production_date,
@@ -143,7 +199,6 @@ exports.assignBatchBulk = async (req, res) => {
 
         await connection.beginTransaction();
 
-        // Ambil item PO yang belum teralokasi secara FIFO (PO terlama dulu)
         const [unassignedItems] = await connection.query(`
             SELECT 
                 d.po_detail_id, 
@@ -217,7 +272,6 @@ exports.assignBatchBulk = async (req, res) => {
             targetId = newBatch.insertId;
         }
 
-        // Distribusikan reqQty ke item-item PO menggunakan prinsip FIFO
         let remainingToDistribute = reqQty;
         const affectedHeaders = new Set();
 
@@ -260,7 +314,7 @@ exports.assignBatchBulk = async (req, res) => {
     }
 };
 
-// 5. Preview Output File Excel (Tanpa Modifikasi DB)
+// 5. Preview Output File Excel
 exports.previewProduction = async (req, res) => {
     try {
         if (!req.file) {

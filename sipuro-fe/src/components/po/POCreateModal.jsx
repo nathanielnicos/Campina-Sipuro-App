@@ -13,6 +13,7 @@ import {
 import ItemRow from './ItemRow';
 import POSummary from './POSummary';
 import POActions from './POActions';
+import PaginationControl from '../common/PaginationControl';
 
 const initialItemState = {
     id_product: '',
@@ -41,6 +42,10 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
     const [searchTerm, setSearchTerm] = useState({});
     const [openDropdown, setOpenDropdown] = useState(null);
     const [ppnPercent, setPpnPercent] = useState(null);
+
+    // State Pagination Item SKU
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const loadPODetailData = useCallback(async () => {
         if (!poId) return;
@@ -199,6 +204,10 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
     const taxAmount = subtotal * (ppnPercent / 100);
     const grandTotal = subtotal + taxAmount;
 
+    // Kalkulasi Data Pagination Item
+    const totalPages = Math.ceil(items.length / pageSize) || 1;
+    const paginatedItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -328,7 +337,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                                 onChange={(e) => setRequestedDeliveryDate(e.target.value)}
                                 required
                                 disabled={userRole === 'PPIC'}
-                                style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                                style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                             />
                         </div>
                         <div>
@@ -339,7 +348,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                                 value={deliveryAddress}
                                 onChange={(e) => setDeliveryAddress(e.target.value)}
                                 disabled={userRole === 'PPIC'}
-                                style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                                style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                             />
                         </div>
                     </div>
@@ -352,54 +361,73 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             disabled={userRole === 'PPIC'}
-                            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                            style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                         />
                     </div>
 
-                    <hr style={{ margin: '20px 0' }} />
+                    <hr style={{ margin: '20px 0', border: 'none', borderTop: '1px solid #dee2e6' }} />
 
-                    <h3>Daftar Produk</h3>
-                    <table border="1" cellPadding="8" cellSpacing="0" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px' }}>
-                        <thead>
-                            <tr style={{ backgroundColor: '#f2f2f2' }}>
-                                <th style={{ width: '35%' }}>Produk</th>
-                                <th style={{ width: '15%' }}>Harga Satuan</th>
-                                <th style={{ width: '10%' }}>Qty</th>
-                                <th style={{ width: '12%' }}>UOM</th>
-                                <th style={{ width: '18%' }}>Total Harga</th>
-                                <th style={{ width: '10%' }}>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items.map((item, index) => (
-                                <ItemRow
-                                    key={index}
-                                    index={index}
-                                    item={item}
-                                    searchTerm={searchTerm[index]}
-                                    openDropdown={openDropdown}
-                                    products={products}
-                                    isReadOnly={userRole === 'PPIC'}
-                                    onSearchChange={(i, val) => {
-                                        setSearchTerm({ ...searchTerm, [i]: val });
-                                        setOpenDropdown(i);
-                                    }}
-                                    onFocusDropdown={(i) => setOpenDropdown(i)}
-                                    onSelectProduct={handleSelectProduct}
-                                    onQtyChange={handleQtyChange}
-                                    onUomChange={handleUomChange}
-                                    onRemoveItem={handleRemoveItem}
-                                    isMultipleItems={items.length > 1}
-                                />
-                            ))}
-                        </tbody>
-                    </table>
+                    <h3 style={{ marginBottom: '12px' }}>Daftar Produk</h3>
+
+                    {/* Menghapus overflow: hidden agar dropdown z-index tidak terpotong */}
+                    <div style={{ borderRadius: '8px', border: '1px solid #dee2e6', marginBottom: '16px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
+                                    <th style={{ padding: '12px 16px', width: '35%' }}>Produk</th>
+                                    <th style={{ padding: '12px 16px', width: '15%', textAlign: 'right' }}>Harga Satuan</th>
+                                    <th style={{ padding: '12px 16px', width: '12%', textAlign: 'center' }}>Qty</th>
+                                    <th style={{ padding: '12px 16px', width: '12%' }}>UOM</th>
+                                    <th style={{ padding: '12px 16px', width: '18%', textAlign: 'right' }}>Total Harga</th>
+                                    <th style={{ padding: '12px 16px', width: '8%', textAlign: 'center' }}>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedItems.map((item, localIndex) => {
+                                    const actualIndex = (currentPage - 1) * pageSize + localIndex;
+                                    return (
+                                        <ItemRow
+                                            key={actualIndex}
+                                            index={actualIndex}
+                                            item={item}
+                                            searchTerm={searchTerm[actualIndex]}
+                                            openDropdown={openDropdown}
+                                            products={products}
+                                            isReadOnly={userRole === 'PPIC'}
+                                            onSearchChange={(i, val) => {
+                                                setSearchTerm({ ...searchTerm, [i]: val });
+                                                setOpenDropdown(i);
+                                            }}
+                                            onFocusDropdown={(i) => setOpenDropdown(i)}
+                                            onSelectProduct={handleSelectProduct}
+                                            onQtyChange={handleQtyChange}
+                                            onUomChange={handleUomChange}
+                                            onRemoveItem={handleRemoveItem}
+                                            isMultipleItems={items.length > 1}
+                                        />
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+
+                        {/* Komponen Pagination Control yang Ditambahkan */}
+                        <PaginationControl
+                            pagination={{
+                                currentPage,
+                                totalPages,
+                                totalItems: items.length,
+                                limit: pageSize
+                            }}
+                            onPageChange={(p) => setCurrentPage(p)}
+                            onLimitChange={(l) => { setPageSize(l); setCurrentPage(1); }}
+                        />
+                    </div>
 
                     {userRole !== 'PPIC' && (
                         <button
                             type="button"
                             onClick={handleAddItem}
-                            style={{ marginBottom: '20px', padding: '6px 12px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            style={{ marginBottom: '20px', padding: '8px 16px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                         >
                             + Tambah Baris Produk
                         </button>

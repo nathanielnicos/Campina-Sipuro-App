@@ -2,7 +2,12 @@ const { sipuroDb, campinaDb } = require('../config/db');
 
 exports.getPOList = async (req, res) => {
     try {
-        const { customer_id } = req.query;
+        const { customer_id, page = 1, limit = 10 } = req.query;
+
+        const pageNum = parseInt(page, 10) || 1;
+        const limitNum = parseInt(limit, 10) || 10;
+        const offset = (pageNum - 1) * limitNum;
+
         let whereClause = '';
         const queryParams = [];
 
@@ -11,6 +16,17 @@ exports.getPOList = async (req, res) => {
             queryParams.push(customer_id);
         }
 
+        // Query untuk menghitung total baris (total data)
+        const countQuery = `
+            SELECT COUNT(DISTINCT h.po_header_id) AS total
+            FROM sipuro_db.po_headers h
+            ${whereClause}
+        `;
+        const [countRows] = await sipuroDb.query(countQuery, queryParams);
+        const totalItems = countRows[0]?.total || 0;
+        const totalPages = Math.ceil(totalItems / limitNum);
+
+        // Query data dengan LIMIT & OFFSET
         const query = `
             SELECT h.po_header_id, h.po_number, h.created_at, h.requested_delivery_date, h.total_amount, h.status, c.company_name, COUNT(d.po_detail_id) AS total_items
             FROM sipuro_db.po_headers h
@@ -19,9 +35,22 @@ exports.getPOList = async (req, res) => {
             ${whereClause}
             GROUP BY h.po_header_id
             ORDER BY h.created_at DESC
+            LIMIT ? OFFSET ?
         `;
-        const [rows] = await sipuroDb.query(query, queryParams);
-        res.json({ success: true, data: rows });
+
+        const dataQueryParams = [...queryParams, limitNum, offset];
+        const [rows] = await sipuroDb.query(query, dataQueryParams);
+
+        res.json({
+            success: true,
+            data: rows,
+            pagination: {
+                totalItems,
+                totalPages,
+                currentPage: pageNum,
+                limit: limitNum
+            }
+        });
     } catch (error) {
         console.error('Error fetching PO list:', error);
         res.status(500).json({ success: false, message: 'Gagal mengambil data Purchase Order', error: error.message });

@@ -30,63 +30,90 @@ const ItemRow = ({
         whiteSpace: 'nowrap'
     };
 
+    const inputStyle = {
+        width: '100%',
+        padding: '6px 10px',
+        boxSizing: 'border-box',
+        borderRadius: '4px',
+        border: '1px solid #ced4da',
+        fontSize: '14px',
+        backgroundColor: isReadOnly ? '#e9ecef' : '#fff'
+    };
+
+    const filteredProducts = products.filter(p => {
+        const kw = (searchTerm || '').toLowerCase();
+        return p.product_code.toLowerCase().includes(kw) || p.product_name.toLowerCase().includes(kw);
+    });
+
     return (
-        <tr>
-            <td style={{ position: 'relative' }}>
+        <tr style={{ borderBottom: '1px solid #dee2e6' }}>
+            <td style={{ padding: '12px 16px', position: 'relative' }}>
                 <input
                     type="text"
                     placeholder="Cari Kode / Nama..."
                     value={searchTerm !== undefined ? searchTerm : ''}
                     onFocus={() => onFocusDropdown(index)}
+                    onClick={() => onFocusDropdown(index)}
                     onChange={(e) => onSearchChange(index, e.target.value)}
                     disabled={isReadOnly}
-                    style={{ width: '100%', padding: '6px', boxSizing: 'border-box' }}
+                    style={inputStyle}
                 />
 
                 {!isReadOnly && openDropdown === index && (
                     <div style={{
-                        position: 'absolute', top: '100%', left: 0, right: 0,
-                        maxHeight: '180px', overflowY: 'auto', backgroundColor: '#fff',
-                        border: '1px solid #ccc', borderRadius: '4px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 1000
+                        position: 'absolute',
+                        top: '100%',
+                        left: '16px',
+                        right: '16px',
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        backgroundColor: '#fff',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        zIndex: 9999
                     }}>
-                        {products
-                            .filter(p => {
-                                const kw = (searchTerm || '').toLowerCase();
-                                return p.product_code.toLowerCase().includes(kw) || p.product_name.toLowerCase().includes(kw);
-                            })
-                            .map(p => (
+                        {filteredProducts.length === 0 ? (
+                            <div style={{ padding: '8px 12px', color: '#6c757d', fontSize: '13px' }}>
+                                Produk tidak ditemukan
+                            </div>
+                        ) : (
+                            filteredProducts.map(p => (
                                 <div
                                     key={p.id_product}
                                     onClick={() => onSelectProduct(index, p)}
                                     onMouseDown={(e) => e.preventDefault()}
-                                    style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: '13px' }}
+                                    style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f3f5', fontSize: '13px' }}
                                 >
                                     <strong>{p.product_code}</strong> - {p.product_name}
                                 </div>
-                            ))}
+                            ))
+                        )}
                     </div>
                 )}
             </td>
-            <td style={{ textAlign: 'right' }}>{formatCurrency(item.unit_price)}</td>
-            <td>
+            <td style={{ padding: '12px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
+                {formatCurrency(item.unit_price)}
+            </td>
+            <td style={{ padding: '12px 16px' }}>
                 <input
                     type="text"
                     value={item.qty || ''}
                     onChange={(e) => onQtyChange(index, e.target.value)}
                     disabled={isReadOnly}
-                    style={{ width: '100%', padding: '6px', boxSizing: 'border-box', textAlign: 'center' }}
+                    style={{ ...inputStyle, textAlign: 'center' }}
                     placeholder="0"
                 />
             </td>
-            <td>
+            <td style={{ padding: '12px 16px' }}>
                 {!item.id_product ? (
-                    <span style={{ color: '#999', fontSize: '12px', display: 'block', textAlign: 'center' }}>-</span>
+                    <span style={{ color: '#999', fontSize: '14px', display: 'block', textAlign: 'center' }}>-</span>
                 ) : (
                     <select
                         value={item.selected_uom}
                         onChange={(e) => onUomChange(index, e.target.value)}
                         disabled={isReadOnly}
-                        style={{ width: '100%', padding: '6px 2px', boxSizing: 'border-box' }}
+                        style={inputStyle}
                     >
                         {item.base_uom && <option value={item.base_uom}>{item.base_uom}</option>}
                         {item.base_uom !== 'CTN' && Number(item.pcs_per_ctn) > 0 && <option value="CTN">CTN</option>}
@@ -94,8 +121,10 @@ const ItemRow = ({
                     </select>
                 )}
             </td>
-            <td style={{ textAlign: 'right' }}>{formatCurrency(item.total_price)}</td>
-            <td style={{ textAlign: 'center' }}>
+            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                {formatCurrency(item.total_price)}
+            </td>
+            <td style={{ padding: '12px 16px', textAlign: 'center', verticalAlign: 'middle' }}>
                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
                     {!isReadOnly && isMultipleItems ? (
                         <button
@@ -106,7 +135,7 @@ const ItemRow = ({
                             Hapus
                         </button>
                     ) : (
-                        <span style={{ color: '#aaa', fontSize: '12px' }}>-</span>
+                        <span style={{ color: '#aaa', fontSize: '14px' }}>-</span>
                     )}
                 </div>
             </td>

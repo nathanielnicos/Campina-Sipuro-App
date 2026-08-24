@@ -20,6 +20,26 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // State Pagination Tab 1 (Summary / Pending SKU)
+    const [summaryPage, setSummaryPage] = useState(1);
+    const [summaryLimit, setSummaryLimit] = useState(10);
+    const [summaryPagination, setSummaryPagination] = useState({
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        limit: 10
+    });
+
+    // State Pagination Tab 2 (Batch Mapping)
+    const [mappingPage, setMappingPage] = useState(1);
+    const [mappingLimit, setMappingLimit] = useState(10);
+    const [mappingPagination, setMappingPagination] = useState({
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        limit: 10
+    });
+
     const [uploadFile, setUploadFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [previewData, setPreviewData] = useState(null);
@@ -42,16 +62,38 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
         setLoading(true);
         setError('');
         if (activeTab === 'summary') {
-            const res = await fetchUnassignedSummary();
-            if (res.success) setSummaryList(res.data || []);
-            else setError(res.message);
+            const res = await fetchUnassignedSummary(summaryPage, summaryLimit);
+            if (res && res.success) {
+                setSummaryList(res.data || []);
+                if (res.pagination) {
+                    setSummaryPagination({
+                        currentPage: Number(res.pagination.currentPage) || 1,
+                        totalPages: Number(res.pagination.totalPages) || 1,
+                        totalItems: Number(res.pagination.totalItems) || 0,
+                        limit: Number(res.pagination.limit) || 10
+                    });
+                }
+            } else {
+                setError(res?.message || 'Gagal mengambil data rekap kebutuhan batch.');
+            }
         } else {
-            const res = await fetchBatchMapping();
-            if (res.success) setMappingList(res.data || []);
-            else setError(res.message);
+            const res = await fetchBatchMapping(mappingPage, mappingLimit);
+            if (res && res.success) {
+                setMappingList(res.data || []);
+                if (res.pagination) {
+                    setMappingPagination({
+                        currentPage: Number(res.pagination.currentPage) || 1,
+                        totalPages: Number(res.pagination.totalPages) || 1,
+                        totalItems: Number(res.pagination.totalItems) || 0,
+                        limit: Number(res.pagination.limit) || 10
+                    });
+                }
+            } else {
+                setError(res?.message || 'Gagal mengambil riwayat mapping batch.');
+            }
         }
         setLoading(false);
-    }, [activeTab]);
+    }, [activeTab, summaryPage, summaryLimit, mappingPage, mappingLimit]);
 
     useEffect(() => {
         loadData();
@@ -250,9 +292,26 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
             {loading ? (
                 <p>Memuat data...</p>
             ) : activeTab === 'summary' ? (
-                <PendingSkuTable summaryList={summaryList} onOpenModal={handleOpenModal} />
+                <PendingSkuTable
+                    summaryList={summaryList}
+                    onOpenModal={handleOpenModal}
+                    pagination={summaryPagination}
+                    onPageChange={(newPage) => setSummaryPage(newPage)}
+                    onLimitChange={(newLimit) => {
+                        setSummaryLimit(newLimit);
+                        setSummaryPage(1);
+                    }}
+                />
             ) : (
-                <BatchMappingTable mappingList={mappingList} />
+                <BatchMappingTable
+                    mappingList={mappingList}
+                    pagination={mappingPagination}
+                    onPageChange={(newPage) => setMappingPage(newPage)}
+                    onLimitChange={(newLimit) => {
+                        setMappingLimit(newLimit);
+                        setMappingPage(1);
+                    }}
+                />
             )}
 
             <ProductionPreviewModal

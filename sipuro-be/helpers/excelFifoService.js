@@ -83,7 +83,7 @@ const parseProductionExcel = (fileBuffer) => {
 /**
  * Algoritma FIFO + Pro-rata Toleransi 90%
  */
-const calculateFifoAllocation = (excelDataMap, openAllocations) => {
+const calculateFifoAllocation = (excelDataMap, openAllocations, allProducts = []) => {
     const previewResults = [];
     const unallocatedStocks = [];
 
@@ -128,14 +128,13 @@ const calculateFifoAllocation = (excelDataMap, openAllocations) => {
                     fulfilledQty = remainingExcelQty;
                 } else {
                     fulfilledQty = Math.round(row.allocated_qty * realizationRatio);
-                    remainingExcelQty -= fulfilledQty;
                 }
             } else {
                 fulfilledQty = Math.min(row.allocated_qty, remainingExcelQty);
-                remainingExcelQty -= fulfilledQty;
             }
 
-            // Penentuan status baris alokasi secara independen per PO Detail
+            remainingExcelQty -= fulfilledQty;
+
             const isRowClosed = fulfilledQty >= row.allocated_qty || (isBatchClose && fulfilledQty > 0);
 
             previewResults.push({
@@ -157,11 +156,16 @@ const calculateFifoAllocation = (excelDataMap, openAllocations) => {
 
         if (remainingExcelQty > 0 && excelMatch) {
             const firstRow = batch.rows[0] || {};
+
+            // Perbaikan Fallback Nama Produk
+            const matchedMasterProduct = allProducts.find(p => p.product_code === (firstRow.product_code || excelMatch.itemCode));
+            const productNameDisplay = firstRow.product_name || (matchedMasterProduct ? matchedMasterProduct.product_name : '');
+
             unallocatedStocks.push({
                 batchNumber: batch.batch_number,
                 idProduct: batch.id_product,
                 productCode: firstRow.product_code || excelMatch.itemCode || '',
-                productName: firstRow.product_name || 'Produk Tanpa Nama',
+                productName: productNameDisplay,
                 qtyAvailable: remainingExcelQty,
                 productionDate: actStartDate
             });
@@ -174,13 +178,18 @@ const calculateFifoAllocation = (excelDataMap, openAllocations) => {
 
     // 3. Tangani Batch Baru dari Excel yang tidak terdaftar di PO manapun
     Object.values(excelStockMap).forEach((unmatched) => {
-        // Cari nama produk dari daftar alokasi yang kodenya sama
         const matchedAllocation = openAllocations.find(a => a.product_code === unmatched.itemCode);
+        const matchedMasterProduct = allProducts.find(p => p.product_code === unmatched.itemCode);
 
         const productCodeDisplay = unmatched.itemCode || 'SKU Tidak Diketahui';
-        const productNameDisplay = matchedAllocation
-            ? matchedAllocation.product_name
-            : (unmatched.productName || 'Produk Tanpa Nama');
+
+        // Perbaikan pencarian nama produk
+        let productNameDisplay = '';
+        if (matchedAllocation && matchedAllocation.product_name) {
+            productNameDisplay = matchedAllocation.product_name;
+        } else if (matchedMasterProduct && matchedMasterProduct.product_name) {
+            productNameDisplay = matchedMasterProduct.product_name;
+        }
 
         unallocatedStocks.push({
             batchNumber: unmatched.batchNumber,

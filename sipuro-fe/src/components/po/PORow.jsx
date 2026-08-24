@@ -4,13 +4,13 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 
 const PORow = ({ po, onSelectPODetail }) => {
     return (
-        <tr>
-            <td><strong>{po.po_number}</strong></td>
-            <td>{formatDate(po.created_at)}</td>
-            <td>{formatDate(po.requested_delivery_date)}</td>
-            <td>{po.total_items} SKU</td>
-            <td>{formatCurrency(po.total_amount)}</td>
-            <td>
+        <tr style={{ borderBottom: '1px solid #dee2e6' }}>
+            <td style={{ padding: '12px 16px' }}><strong>{po.po_number}</strong></td>
+            <td style={{ padding: '12px 16px' }}>{formatDate(po.created_at)}</td>
+            <td style={{ padding: '12px 16px' }}>{formatDate(po.requested_delivery_date)}</td>
+            <td style={{ padding: '12px 16px' }}>{po.total_items} SKU</td>
+            <td style={{ padding: '12px 16px' }}>{formatCurrency(po.total_amount)}</td>
+            <td style={{ padding: '12px 16px' }}>
                 <span style={{
                     padding: '4px 8px',
                     borderRadius: '4px',
@@ -22,7 +22,7 @@ const PORow = ({ po, onSelectPODetail }) => {
                     {po.status}
                 </span>
             </td>
-            <td>
+            <td style={{ padding: '12px 16px' }}>
                 <button
                     onClick={() => onSelectPODetail && onSelectPODetail(po.po_header_id)}
                     style={{

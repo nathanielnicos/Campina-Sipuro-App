@@ -1,21 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchPOListApi } from '../../services/poApi';
 import PORow from './PORow';
+import PaginationControl from '../common/PaginationControl';
 
 const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
     const [poList, setPoList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // Bungkus getPOList dengan useCallback
+    // State Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+
     const getPOList = useCallback(async () => {
         try {
             setLoading(true);
             setError('');
-            const result = await fetchPOListApi(customerId);
+            const result = await fetchPOListApi(customerId, currentPage, pageSize);
 
             if (result.success) {
                 setPoList(result.data);
+                if (result.pagination) {
+                    setTotalPages(result.pagination.totalPages);
+                    setTotalItems(result.pagination.totalItems);
+                }
             } else {
                 setError(result.message || 'Gagal mengambil data PO.');
             }
@@ -25,11 +35,22 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
         } finally {
             setLoading(false);
         }
-    }, [customerId]);
+    }, [customerId, currentPage, pageSize]);
 
     useEffect(() => {
         getPOList();
     }, [getPOList]);
+
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
+
+    const handleLimitChange = (newLimit) => {
+        setPageSize(newLimit);
+        setCurrentPage(1);
+    };
 
     return (
         <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
@@ -37,7 +58,6 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                 <h2>Daftar Purchase Order (PO)</h2>
 
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    {/* Tombol Create PO untuk Customer */}
                     {user?.role === 'CUSTOMER' && (
                         <button
                             onClick={onCreateNewPO}
@@ -61,37 +81,53 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
             {error && <p style={{ color: 'red' }}>{error}</p>}
 
             {!loading && !error && (
-                <table border="1" cellPadding="10" cellSpacing="0" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: '#f2f2f2' }}>
-                            <th>Kode PO</th>
-                            <th>Tanggal Dibuat</th>
-                            <th>Tanggal Kirim Diminta</th>
-                            <th>Total Item</th>
-                            <th>Total Harga (Inc. PPN)</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {poList.length === 0 ? (
-                            <tr>
-                                <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
-                                    Belum ada Purchase Order yang dibuat.
-                                </td>
-                            </tr>
-                        ) : (
-                            poList.map((po) => (
-                                <PORow
-                                    key={po.po_header_id}
-                                    po={po}
-                                    user={user}
-                                    onSelectPODetail={onSelectPODetail}
-                                />
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                                    <th style={{ padding: '12px 16px' }}>Kode PO</th>
+                                    <th style={{ padding: '12px 16px' }}>Tanggal Dibuat</th>
+                                    <th style={{ padding: '12px 16px' }}>Tanggal Kirim Diminta</th>
+                                    <th style={{ padding: '12px 16px' }}>Total Item</th>
+                                    <th style={{ padding: '12px 16px' }}>Total Harga (Inc. PPN)</th>
+                                    <th style={{ padding: '12px 16px' }}>Status</th>
+                                    <th style={{ padding: '12px 16px' }}>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {poList.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                                            Belum ada Purchase Order yang dibuat.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    poList.map((po) => (
+                                        <PORow
+                                            key={po.po_header_id}
+                                            po={po}
+                                            user={user}
+                                            onSelectPODetail={onSelectPODetail}
+                                        />
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Reusable Pagination Component */}
+                    <PaginationControl
+                        pagination={{
+                            currentPage,
+                            totalPages,
+                            totalItems,
+                            limit: pageSize
+                        }}
+                        onPageChange={handlePageChange}
+                        onLimitChange={handleLimitChange}
+                    />
+                </div>
             )}
         </div>
     );

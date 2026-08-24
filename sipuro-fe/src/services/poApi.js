@@ -1,7 +1,7 @@
 const BASE_URL = 'http://localhost:5000/api';
 
-export const fetchPOListApi = async (customerId) => {
-    const res = await fetch(`${BASE_URL}/po?customer_id=${customerId}`);
+export const fetchPOListApi = async (customerId, page = 1, limit = 10) => {
+    const res = await fetch(`${BASE_URL}/po?customer_id=${customerId}&page=${page}&limit=${limit}`);
     return await res.json();
 };
 
