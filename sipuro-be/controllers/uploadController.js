@@ -1,5 +1,6 @@
 const { sipuroDb: db } = require('../config/db');
 const { parseProductionExcel, calculateFifoAllocation } = require('../helpers/excelFifoService');
+const { refreshPOStatus } = require('../helpers/ppicHelper');
 
 /**
  * 1. API Preview Upload Excel (POST /api/upload/preview)
@@ -129,26 +130,19 @@ exports.commitExcelAllocation = async (req, res) => {
             }
         }
 
-        // E. Evaluasi & Auto-Update Status PO Header (`Completed` / `On Process`)
+        // E. Evaluasi & Auto-Update Presisi Status PO Header via Helper Terpusat
         const poDetailIds = [...new Set(allocations.map(a => a.poDetailId))];
+        const poHeaderIds = new Set();
+
         for (const pdId of poDetailIds) {
             const [[pd]] = await connection.query('SELECT po_header_id FROM po_details WHERE po_detail_id = ?', [pdId]);
-            if (pd) {
-                const poHeaderId = pd.po_header_id;
-
-                const [unfulfilledDetails] = await connection.query(`
-                    SELECT pd.po_detail_id 
-                    FROM po_details pd
-                    LEFT JOIN po_batch_allocations pba ON pd.po_detail_id = pba.po_detail_id
-                    WHERE pd.po_header_id = ? AND (pba.status = 'Open' OR pba.id IS NULL)
-                `, [poHeaderId]);
-
-                if (unfulfilledDetails.length === 0) {
-                    await connection.query('UPDATE po_headers SET status = "Completed" WHERE po_header_id = ?', [poHeaderId]);
-                } else {
-                    await connection.query('UPDATE po_headers SET status = "On Process" WHERE po_header_id = ?', [poHeaderId]);
-                }
+            if (pd && pd.po_header_id) {
+                poHeaderIds.add(pd.po_header_id);
             }
+        }
+
+        for (const poHeaderId of poHeaderIds) {
+            await refreshPOStatus(connection, poHeaderId);
         }
 
         await connection.commit();

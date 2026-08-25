@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { refreshPOStatus } = require('../helpers/ppicHelper');
 
 /**
  * 1. Ambil daftar batch yang sudah ada berdasarkan Product/SKU (untuk dropdown 'Select Existing Batch')
@@ -7,7 +8,7 @@ exports.getExistingBatchesByProduct = async (req, res) => {
     try {
         const { productId } = req.params;
         const [batches] = await db.query(
-            'SELECT id, batch_number, plan_production_date, status FROM po_batches WHERE id_product = ? AND status = "Open"',
+            'SELECT id, batch_number, plan_production_date, status FROM batches WHERE id_product = ? AND status = "Open"',
             [productId]
         );
         return res.json({ success: true, data: batches });
@@ -34,21 +35,19 @@ exports.createBatchAllocation = async (req, res) => {
         let batchId = null;
 
         if (isNewBatch) {
-            // A. Jika buat Batch baru, pastikan kode batch belum dipakai
-            const [existing] = await connection.query('SELECT id FROM po_batches WHERE batch_number = ?', [batchNumber]);
+            const [existing] = await connection.query('SELECT id FROM batches WHERE batch_number = ?', [batchNumber]);
             if (existing.length > 0) {
                 await connection.rollback();
                 return res.status(400).json({ success: false, message: 'Kode Batch sudah terdaftar di sistem.' });
             }
 
             const [batchResult] = await connection.query(
-                'INSERT INTO po_batches (batch_number, id_product, plan_production_date, status) VALUES (?, ?, ?, "Open")',
+                'INSERT INTO batches (batch_number, id_product, plan_production_date, status) VALUES (?, ?, ?, "Open")',
                 [batchNumber, productId, planProductionDate]
             );
             batchId = batchResult.insertId;
         } else {
-            // B. Jika pilih Batch existing
-            const [existingBatch] = await connection.query('SELECT id FROM po_batches WHERE batch_number = ?', [batchNumber]);
+            const [existingBatch] = await connection.query('SELECT id FROM batches WHERE batch_number = ?', [batchNumber]);
             if (existingBatch.length === 0) {
                 await connection.rollback();
                 return res.status(404).json({ success: false, message: 'Batch existing tidak ditemukan.' });
@@ -56,11 +55,16 @@ exports.createBatchAllocation = async (req, res) => {
             batchId = existingBatch[0].id;
         }
 
-        // C. Simpan ke Pivot Alokasi `po_batch_allocations`
         await connection.query(
             'INSERT INTO po_batch_allocations (po_detail_id, id_batch, allocated_qty, fulfilled_qty, status) VALUES (?, ?, ?, 0, "Open")',
             [poDetailId, batchId, allocatedQty]
         );
+
+        // EVALUASI STATUS PO HEADER SETELAH BUAT BATCH
+        const [[pd]] = await connection.query('SELECT po_header_id FROM po_details WHERE po_detail_id = ?', [poDetailId]);
+        if (pd && pd.po_header_id) {
+            await refreshPOStatus(connection, pd.po_header_id);
+        }
 
         await connection.commit();
         return res.json({ success: true, message: 'Berhasil mengalokasikan batch ke item PO.' });
@@ -69,6 +73,173 @@ exports.createBatchAllocation = async (req, res) => {
         await connection.rollback();
         console.error('Create Batch Allocation Error:', error);
         return res.status(500).json({ success: false, message: 'Gagal mengalokasikan batch: ' + error.message });
+    } finally {
+        connection.release();
+    }
+};
+
+/**
+ * 3. Ambil Daftar Stok Lebihan Produksi (Unallocated Stocks)
+ * Memastikan hanya mengambil stok yang qty_available > 0
+ */
+exports.getUnallocatedStocks = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
+        const [countResult] = await db.query(
+            'SELECT COUNT(*) as total FROM unallocated_stocks WHERE qty_available > 0'
+        );
+        const totalItems = countResult[0]?.total || 0;
+
+        const [rows] = await db.query(`
+            SELECT 
+                us.id,
+                us.batch_number,
+                us.id_product,
+                us.qty_available,
+                us.production_date,
+                p.product_code,
+                p.product_name
+            FROM unallocated_stocks us
+            LEFT JOIN campina_db.products p ON us.id_product = p.id_product
+            WHERE us.qty_available > 0
+            ORDER BY us.production_date DESC, us.id DESC
+            LIMIT ? OFFSET ?
+        `, [limit, offset]);
+
+        return res.json({
+            success: true,
+            data: rows,
+            pagination: {
+                currentPage: page,
+                totalPages: Math.ceil(totalItems / limit) || 1,
+                totalItems,
+                limit
+            }
+        });
+    } catch (error) {
+        console.error('Get Unallocated Stocks Error:', error);
+        return res.status(500).json({ success: false, message: 'Gagal mengambil data stok lebihan.' });
+    }
+};
+
+/**
+ * 4. Ambil Daftar Batch/PO Allocations yang Masih 'Open' Berdasarkan SKU Produk
+ */
+exports.getOpenAllocationsByProduct = async (req, res) => {
+    try {
+        const { productId } = req.params;
+
+        const [rows] = await db.query(`
+            SELECT 
+                pba.id AS allocation_id,
+                pba.allocated_qty,
+                pba.fulfilled_qty,
+                (pba.allocated_qty - pba.fulfilled_qty) AS remaining_qty,
+                pb.batch_number,
+                ph.po_number,
+                ph.requested_delivery_date
+            FROM po_batch_allocations pba
+            JOIN batches pb ON pba.id_batch = pb.id
+            JOIN po_details pd ON pba.po_detail_id = pd.po_detail_id
+            JOIN po_headers ph ON pd.po_header_id = ph.po_header_id
+            WHERE pb.id_product = ? AND pba.status = 'Open' AND pb.status = 'Open'
+            ORDER BY ph.requested_delivery_date ASC
+        `, [productId]);
+
+        return res.json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Get Open Allocations Error:', error);
+        return res.status(500).json({ success: false, message: 'Gagal mengambil alokasi open.' });
+    }
+};
+
+/**
+ * 5. Eksekusi Alokasi Lebihan Stok ke Batch/PO Kurang (Dengan Evaluasi Status 3-Tingkat)
+ */
+exports.reallocateUnallocatedStock = async (req, res) => {
+    const connection = await db.getConnection();
+    try {
+        const { unallocatedId, targetAllocationId, allocateQty } = req.body;
+
+        const qtyToAlloc = parseInt(allocateQty, 10);
+        if (!unallocatedId || !targetAllocationId || !qtyToAlloc || qtyToAlloc <= 0) {
+            return res.status(400).json({ success: false, message: 'Data alokasi stok tidak valid.' });
+        }
+
+        await connection.beginTransaction();
+
+        // A. Validasi Stok Lebihan Eksisting
+        const [[unallocated]] = await connection.query(
+            'SELECT id, qty_available FROM unallocated_stocks WHERE id = ? FOR UPDATE',
+            [unallocatedId]
+        );
+
+        if (!unallocated || unallocated.qty_available < qtyToAlloc) {
+            await connection.rollback();
+            return res.status(400).json({ success: false, message: 'Sisa stok lebihan tidak mencukupi.' });
+        }
+
+        // B. Validasi Target Allocation (Ambil id_batch & po_detail_id)
+        const [[targetAlloc]] = await connection.query(
+            'SELECT id, id_batch, po_detail_id, allocated_qty, fulfilled_qty FROM po_batch_allocations WHERE id = ? FOR UPDATE',
+            [targetAllocationId]
+        );
+
+        if (!targetAlloc) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: 'Target alokasi tidak ditemukan.' });
+        }
+
+        const batchId = targetAlloc.id_batch;
+        const poDetailId = targetAlloc.po_detail_id;
+        const newFulfilledQty = targetAlloc.fulfilled_qty + qtyToAlloc;
+
+        // C. TINGKAT 1: Cek Toleransi 90% untuk Status PO Allocation
+        const poRatio = targetAlloc.allocated_qty > 0 ? (newFulfilledQty / targetAlloc.allocated_qty) : 0;
+        const newAllocStatus = poRatio >= 0.90 ? 'Close' : 'Open';
+
+        await connection.query(
+            'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ? WHERE id = ?',
+            [newFulfilledQty, newAllocStatus, targetAllocationId]
+        );
+
+        // D. Potong Qty Available Lebihan Stok
+        const newUnallocatedQty = unallocated.qty_available - qtyToAlloc;
+        await connection.query(
+            'UPDATE unallocated_stocks SET qty_available = ? WHERE id = ?',
+            [newUnallocatedQty, unallocatedId]
+        );
+
+        // E. TINGKAT 2: Cek Keseluruhan PO Allocation dalam Batch
+        const [remainingOpenAllocations] = await connection.query(
+            'SELECT COUNT(*) as openCount FROM po_batch_allocations WHERE id_batch = ? AND status = "Open"',
+            [batchId]
+        );
+
+        const openCount = remainingOpenAllocations[0]?.openCount || 0;
+        const newBatchStatus = openCount === 0 ? 'Close' : 'Open';
+
+        await connection.query(
+            'UPDATE batches SET status = ? WHERE id = ?',
+            [newBatchStatus, batchId]
+        );
+
+        // F. TINGKAT 3: Evaluasi Presisi Status PO Header (po_headers) via Helper
+        const [[pd]] = await connection.query('SELECT po_header_id FROM po_details WHERE po_detail_id = ?', [poDetailId]);
+        if (pd && pd.po_header_id) {
+            await refreshPOStatus(connection, pd.po_header_id);
+        }
+
+        await connection.commit();
+        return res.json({ success: true, message: 'Stok lebihan berhasil dialokasikan.' });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Reallocate Stock Error:', error);
+        return res.status(500).json({ success: false, message: 'Gagal mengalokasikan stok: ' + error.message });
     } finally {
         connection.release();
     }

@@ -35,6 +35,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
     const [requestedDeliveryDate, setRequestedDeliveryDate] = useState('');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [description, setDescription] = useState('');
+    const [rejectionReason, setRejectionReason] = useState('');
     const [items, setItems] = useState([{ ...initialItemState }]);
 
     const [loading, setLoading] = useState(false);
@@ -62,6 +63,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                 }
                 setDeliveryAddress(poHeader.delivery_address || '');
                 setDescription(poHeader.description || '');
+                setRejectionReason(poHeader.rejection_reason || '');
 
                 if (poItems.length > 0) {
                     const mappedItems = poItems.map(item => ({
@@ -328,6 +330,22 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                 {error && <p style={{ color: 'red' }}>{error}</p>}
 
                 <form onSubmit={handleSubmit}>
+                    {poStatus === 'Rejected' && (
+                        <div style={{
+                            backgroundColor: '#f8d7da',
+                            color: '#842029',
+                            border: '1px solid #f5c2c7',
+                            padding: '12px 16px',
+                            borderRadius: '6px',
+                            marginBottom: '16px'
+                        }}>
+                            <strong style={{ display: 'block', marginBottom: '4px' }}>Alasan Penolakan:</strong>
+                            <p style={{ margin: 0, fontSize: '14px', whiteSpace: 'pre-line' }}>
+                                {rejectionReason || 'Tidak ada alasan penolakan yang dicantumkan.'}
+                            </p>
+                        </div>
+                    )}
+
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                         <div>
                             <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Tanggal Pengiriman Diminta *</label>
@@ -369,7 +387,6 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
 
                     <h3 style={{ marginBottom: '12px' }}>Daftar Produk</h3>
 
-                    {/* Menghapus overflow: hidden agar dropdown z-index tidak terpotong */}
                     <div style={{ borderRadius: '8px', border: '1px solid #dee2e6', marginBottom: '16px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                             <thead>
@@ -410,7 +427,6 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                             </tbody>
                         </table>
 
-                        {/* Komponen Pagination Control yang Ditambahkan */}
                         <PaginationControl
                             pagination={{
                                 currentPage,

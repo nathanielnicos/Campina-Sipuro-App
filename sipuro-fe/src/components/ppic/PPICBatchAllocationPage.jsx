@@ -5,11 +5,13 @@ import {
     fetchBatchMapping,
     fetchBatchesBySku,
     previewProductionApi,
-    confirmProductionApi
+    confirmProductionApi,
+    fetchUnallocatedStocks
 } from '../../services/ppicApi';
 
 import PendingSkuTable from './PendingSkuTable';
 import BatchMappingTable from './BatchMappingTable';
+import UnallocatedStockTable from './UnallocatedStockTable';
 import ProductionPreviewModal from './ProductionPreviewModal';
 import BatchAllocationModal from './BatchAllocationModal';
 
@@ -17,6 +19,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     const [activeTab, setActiveTab] = useState('summary');
     const [summaryList, setSummaryList] = useState([]);
     const [mappingList, setMappingList] = useState([]);
+    const [unallocatedList, setUnallocatedList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -34,6 +37,16 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     const [mappingPage, setMappingPage] = useState(1);
     const [mappingLimit, setMappingLimit] = useState(10);
     const [mappingPagination, setMappingPagination] = useState({
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        limit: 10
+    });
+
+    // State Pagination Tab 3 (Unallocated Stocks)
+    const [unallocatedPage, setUnallocatedPage] = useState(1);
+    const [unallocatedLimit, setUnallocatedLimit] = useState(10);
+    const [unallocatedPagination, setUnallocatedPagination] = useState({
         currentPage: 1,
         totalPages: 1,
         totalItems: 0,
@@ -76,7 +89,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
             } else {
                 setError(res?.message || 'Gagal mengambil data rekap kebutuhan batch.');
             }
-        } else {
+        } else if (activeTab === 'mapping') {
             const res = await fetchBatchMapping(mappingPage, mappingLimit);
             if (res && res.success) {
                 setMappingList(res.data || []);
@@ -91,9 +104,24 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
             } else {
                 setError(res?.message || 'Gagal mengambil riwayat mapping batch.');
             }
+        } else if (activeTab === 'unallocated') {
+            const res = await fetchUnallocatedStocks(unallocatedPage, unallocatedLimit);
+            if (res && res.success) {
+                setUnallocatedList(res.data || []);
+                if (res.pagination) {
+                    setUnallocatedPagination({
+                        currentPage: Number(res.pagination.currentPage) || 1,
+                        totalPages: Number(res.pagination.totalPages) || 1,
+                        totalItems: Number(res.pagination.totalItems) || 0,
+                        limit: Number(res.pagination.limit) || 10
+                    });
+                }
+            } else {
+                setError(res?.message || 'Gagal mengambil data stok lebihan.');
+            }
         }
         setLoading(false);
-    }, [activeTab, summaryPage, summaryLimit, mappingPage, mappingLimit]);
+    }, [activeTab, summaryPage, summaryLimit, mappingPage, mappingLimit, unallocatedPage, unallocatedLimit]);
 
     useEffect(() => {
         loadData();
@@ -273,7 +301,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                         color: activeTab === 'summary' ? '#0d6efd' : '#6c757d'
                     }}
                 >
-                    Kebutuhan Alokasi (Pending SKU)
+                    Belum Ada Batch
                 </button>
                 <button
                     onClick={() => setActiveTab('mapping')}
@@ -283,7 +311,17 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                         color: activeTab === 'mapping' ? '#0d6efd' : '#6c757d'
                     }}
                 >
-                    Monitoring Batch & Mapping PO
+                    Daftar Batch
+                </button>
+                <button
+                    onClick={() => setActiveTab('unallocated')}
+                    style={{
+                        padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold',
+                        borderBottom: activeTab === 'unallocated' ? '3px solid #0d6efd' : 'none',
+                        color: activeTab === 'unallocated' ? '#0d6efd' : '#6c757d'
+                    }}
+                >
+                    Lebihan Hasil Produksi
                 </button>
             </div>
 
@@ -302,7 +340,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                         setSummaryPage(1);
                     }}
                 />
-            ) : (
+            ) : activeTab === 'mapping' ? (
                 <BatchMappingTable
                     mappingList={mappingList}
                     pagination={mappingPagination}
@@ -311,6 +349,17 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                         setMappingLimit(newLimit);
                         setMappingPage(1);
                     }}
+                />
+            ) : (
+                <UnallocatedStockTable
+                    unallocatedList={unallocatedList}
+                    pagination={unallocatedPagination}
+                    onPageChange={(newPage) => setUnallocatedPage(newPage)}
+                    onLimitChange={(newLimit) => {
+                        setUnallocatedLimit(newLimit);
+                        setUnallocatedPage(1);
+                    }}
+                    onRefresh={loadData}
                 />
             )}
 

@@ -1,52 +1,63 @@
 // AUTO-CLOSE BATCH THRESHOLD
 const AUTO_CLOSE_THRESHOLD_PERCENT = 90;
 
+/**
+ * Helper untuk menghitung & memperbarui status po_headers secara presisi
+ */
 async function refreshPOStatus(connection, poHeaderId) {
-    const [details] = await connection.query(
-        `SELECT po_detail_id, base_qty FROM sipuro_db.po_details WHERE po_header_id = ? AND deleted_at IS NULL`,
-        [poHeaderId]
-    );
+    // A. Cek Pemenuhan Pembuatan Batch per SKU di PO
+    // Membandingkan base_qty pada po_details dengan SUM(allocated_qty) dari po_batch_allocations
+    const [qtyCheck] = await connection.query(`
+        SELECT 
+            pd.po_detail_id,
+            pd.base_qty,
+            COALESCE(SUM(pba.allocated_qty), 0) AS total_allocated_qty
+        FROM sipuro_db.po_details pd
+        LEFT JOIN sipuro_db.po_batch_allocations pba ON pd.po_detail_id = pba.po_detail_id
+        WHERE pd.po_header_id = ? AND pd.deleted_at IS NULL
+        GROUP BY pd.po_detail_id, pd.base_qty
+    `, [poHeaderId]);
 
-    if (details.length === 0) return;
+    // Jika tidak ada detail PO, hentikan proses
+    if (!qtyCheck || qtyCheck.length === 0) return;
 
-    let isFullyAllocated = true;
-    let isAllAllocationsClosed = true;
+    // B. Evaluasi apakah SELURUH detail SKU pada PO sudah dibuatkan batch sesuai target base_qty
+    let isFullyAssigned = true;
 
-    for (const item of details) {
-        // 1. Cek apakah total kebutuhan kuantitas PO sudah teralokasi penuh
-        const [allocRows] = await connection.query(
-            `SELECT SUM(allocated_qty) AS total_allocated 
-             FROM sipuro_db.po_batch_allocations 
-             WHERE po_detail_id = ?`,
-            [item.po_detail_id]
-        );
-        const totalAllocated = allocRows[0].total_allocated || 0;
+    for (const item of qtyCheck) {
+        const targetQty = Number(item.base_qty);
+        const allocatedQty = Number(item.total_allocated_qty);
 
-        if (totalAllocated < item.base_qty) {
-            isFullyAllocated = false;
-        }
-
-        // 2. Cek apakah masih ada alokasi PO yang berstatus 'Open'
-        const [openAllocRows] = await connection.query(
-            `SELECT COUNT(*) AS open_count 
-             FROM sipuro_db.po_batch_allocations 
-             WHERE po_detail_id = ? AND status = 'Open'`,
-            [item.po_detail_id]
-        );
-
-        if (openAllocRows[0].open_count > 0) {
-            isAllAllocationsClosed = false;
+        // Jika alokasi batch masih kurang dari target base_qty, maka batch belum lengkap
+        if (allocatedQty < targetQty) {
+            isFullyAssigned = false;
+            break;
         }
     }
 
-    let newPOStatus = 'Waiting Batch Assignment';
-    if (isFullyAllocated) {
-        newPOStatus = isAllAllocationsClosed ? 'Completed' : 'On Process';
+    // C. Jika pembuatan batch belum memenuhi total base_qty PO -> "Waiting Batch Assignment"
+    if (!isFullyAssigned) {
+        await connection.query(
+            `UPDATE sipuro_db.po_headers SET status = 'Waiting Batch Assignment' WHERE po_header_id = ?`,
+            [poHeaderId]
+        );
+        return;
     }
+
+    // D. Jika Pembuatan Batch SUDAH LENGKAP (100%), Cek Status Pemenuhan Aktual (Open vs Close)
+    const [openAllocations] = await connection.query(`
+        SELECT pba.id
+        FROM sipuro_db.po_batch_allocations pba
+        JOIN sipuro_db.po_details pd ON pba.po_detail_id = pd.po_detail_id
+        WHERE pd.po_header_id = ? AND pba.status = 'Open'
+    `, [poHeaderId]);
+
+    const isAllClosed = openAllocations.length === 0;
+    const finalStatus = isAllClosed ? 'Completed' : 'On Process';
 
     await connection.query(
         `UPDATE sipuro_db.po_headers SET status = ? WHERE po_header_id = ?`,
-        [newPOStatus, poHeaderId]
+        [finalStatus, poHeaderId]
     );
 }
 

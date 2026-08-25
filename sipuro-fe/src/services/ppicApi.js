@@ -46,6 +46,40 @@ export const fetchBatchMapping = async (page = 1, limit = 10) => {
     }
 };
 
+// --- ENDPOINT UNALLOCATED STOCKS ---
+
+export const fetchUnallocatedStocks = async (page = 1, limit = 10) => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/batches/unallocated`, {
+            params: { page, limit }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching unallocated stocks:', error);
+        return { success: false, message: error.response?.data?.message || 'Gagal memuat data stok lebihan.' };
+    }
+};
+
+export const fetchOpenAllocationsByProduct = async (productId) => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/batches/open-allocations/${productId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching open allocations:', error);
+        return { success: false, message: error.response?.data?.message || 'Gagal memuat target alokasi.' };
+    }
+};
+
+export const reallocateStockApi = async (payload) => {
+    try {
+        const response = await axios.post(`${API_BASE_URL}/batches/reallocate`, payload);
+        return response.data;
+    } catch (error) {
+        console.error('Error reallocating stock:', error);
+        return { success: false, message: error.response?.data?.message || 'Gagal mengalokasikan stok lebihan.' };
+    }
+};
+
 // --- ENDPOINT TERHUBUNG KE UPLOAD CONTROLLER ---
 
 export const previewProductionApi = async (formData) => {
