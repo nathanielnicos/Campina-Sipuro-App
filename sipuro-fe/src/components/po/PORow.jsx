@@ -1,6 +1,6 @@
 import React from 'react';
 import { getStatusStyle } from '../../utils/statusHelper';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatQty } from '../../utils/formatters';
 
 const PORow = ({ po, onSelectPODetail }) => {
     return (
@@ -8,7 +8,7 @@ const PORow = ({ po, onSelectPODetail }) => {
             <td style={{ padding: '12px 16px' }}><strong>{po.po_number}</strong></td>
             <td style={{ padding: '12px 16px' }}>{formatDate(po.created_at)}</td>
             <td style={{ padding: '12px 16px' }}>{formatDate(po.requested_delivery_date)}</td>
-            <td style={{ padding: '12px 16px' }}>{po.total_items} SKU</td>
+            <td style={{ padding: '12px 16px' }}>{formatQty(po.total_items)} SKU</td>
             <td style={{ padding: '12px 16px' }}>{formatCurrency(po.total_amount)}</td>
             <td style={{ padding: '12px 16px' }}>
                 <span style={{

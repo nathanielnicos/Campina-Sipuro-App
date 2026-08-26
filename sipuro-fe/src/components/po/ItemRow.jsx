@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatQty } from '../../utils/formatters';
 
 const ItemRow = ({
     index,
@@ -44,6 +44,13 @@ const ItemRow = ({
         const kw = (searchTerm || '').toLowerCase();
         return p.product_code.toLowerCase().includes(kw) || p.product_name.toLowerCase().includes(kw);
     });
+
+    const handleQtyInputChange = (e) => {
+        // Ambil angka murni saja (tanpa pemisah ribuan)
+        const rawValue = e.target.value.replace(/\D/g, '');
+        // Kirim nilai murni ke parent component
+        onQtyChange(index, rawValue);
+    };
 
     return (
         <tr style={{ borderBottom: '1px solid #dee2e6' }}>
@@ -98,8 +105,8 @@ const ItemRow = ({
             <td style={{ padding: '12px 16px' }}>
                 <input
                     type="text"
-                    value={item.qty || ''}
-                    onChange={(e) => onQtyChange(index, e.target.value)}
+                    value={item.qty ? formatQty(item.qty) : ''}
+                    onChange={handleQtyInputChange}
                     disabled={isReadOnly}
                     style={{ ...inputStyle, textAlign: 'center' }}
                     placeholder="0"

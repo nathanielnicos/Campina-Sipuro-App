@@ -36,8 +36,12 @@ export const savePO = async (poId, payload) => {
     return await res.json();
 };
 
-export const cancelPOApi = async (poId) => {
-    const res = await fetch(`${BASE_URL}/po/${poId}/cancel`, { method: 'PATCH' });
+export const cancelPOApi = async (poId, canceledBy) => {
+    const res = await fetch(`${BASE_URL}/po/${poId}/cancel`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ canceled_by: canceledBy })
+    });
     return await res.json();
 };
 

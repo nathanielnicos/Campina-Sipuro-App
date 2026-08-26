@@ -1,10 +1,6 @@
 import React from 'react';
+import { formatQty } from '../../utils/formatters';
 import PaginationControl from '../common/PaginationControl';
-
-const formatQty = (value) => {
-    if (value === null || value === undefined || isNaN(value)) return '0';
-    return Number(value).toLocaleString('id-ID');
-};
 
 const PendingSkuTable = ({
     summaryList = [],
@@ -16,16 +12,16 @@ const PendingSkuTable = ({
     return (
         <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
             <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed' }}>
                     <thead>
                         <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                            <th style={{ padding: '12px 16px' }}>Kode SKU</th>
-                            <th style={{ padding: '12px 16px' }}>Nama Produk</th>
-                            <th style={{ padding: '12px 16px' }}>Satuan (UOM)</th>
-                            <th style={{ padding: '12px 16px', textAlign: 'right' }}>Total Qty Dibutuhkan</th>
-                            <th style={{ padding: '12px 16px', textAlign: 'center' }}>Jumlah PO</th>
-                            <th style={{ padding: '12px 16px' }}>Rincian PO & Qty</th>
-                            <th style={{ padding: '12px 16px', textAlign: 'center' }}>Aksi</th>
+                            <th style={{ padding: '12px 10px', width: '13%', whiteSpace: 'nowrap' }}>Kode Produk</th>
+                            <th style={{ padding: '12px 10px', width: '33%' }}>Nama Produk</th>
+                            <th style={{ padding: '12px 10px', width: '13%', textAlign: 'right', whiteSpace: 'nowrap' }}>Total Qty Dibutuhkan</th>
+                            <th style={{ padding: '12px 10px', width: '9%', textAlign: 'center', whiteSpace: 'nowrap' }}>Jumlah PO</th>
+                            <th style={{ padding: '12px 10px', width: '13%', whiteSpace: 'nowrap' }}>No PO</th>
+                            <th style={{ padding: '12px 10px', width: '6%', textAlign: 'right', whiteSpace: 'nowrap' }}>Qty PO</th>
+                            <th style={{ padding: '12px 10px', width: '13%', textAlign: 'center', whiteSpace: 'nowrap' }}>Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -36,27 +32,79 @@ const PendingSkuTable = ({
                                 </td>
                             </tr>
                         ) : (
-                            summaryList.map((row) => (
-                                <tr key={row.id_product} style={{ borderBottom: '1px solid #dee2e6' }}>
-                                    <td style={{ padding: '12px 16px' }}><strong>{row.product_code}</strong></td>
-                                    <td style={{ padding: '12px 16px' }}>{row.product_name}</td>
-                                    <td style={{ padding: '12px 16px' }}>{row.base_uom}</td>
-                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold' }}>{formatQty(row.total_qty_needed)}</td>
+                            summaryList.map((row) => {
+                                const poItems = row.po_numbers
+                                    ? row.po_numbers.split('\n').filter(Boolean)
+                                    : [];
 
-                                    {/* Perubahan di sini: Hanya menampilkan angka */}
-                                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>{row.total_po_count}</td>
+                                return (
+                                    <tr key={row.id_product} style={{ borderBottom: '1px solid #dee2e6' }}>
+                                        <td style={{ padding: '12px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                                            <strong>{row.product_code}</strong>
+                                        </td>
+                                        <td style={{ padding: '12px 10px', verticalAlign: 'middle', wordBreak: 'break-word' }}>
+                                            {row.product_name}
+                                        </td>
+                                        <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                                            {formatQty(row.total_qty_needed)}
+                                        </td>
+                                        <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                            {formatQty(row.total_po_count)}
+                                        </td>
 
-                                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#333', whiteSpace: 'pre-line', lineHeight: '1.5' }}>{row.po_numbers}</td>
-                                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                                        <button
-                                            onClick={() => onOpenModal(row)}
-                                            style={{ backgroundColor: '#0d6efd', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
-                                        >
-                                            + Alokasikan Batch
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
+                                        {/* Kolom No PO */}
+                                        <td style={{ padding: '12px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap', lineHeight: '1.6' }}>
+                                            {poItems.length > 0 ? (
+                                                poItems.map((item, idx) => {
+                                                    const poNumber = item.split(' (')[0];
+                                                    return <div key={idx} style={{ fontWeight: '500' }}>{poNumber}</div>;
+                                                })
+                                            ) : (
+                                                '-'
+                                            )}
+                                        </td>
+
+                                        {/* Kolom Qty PO */}
+                                        <td style={{ padding: '12px 10px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap', lineHeight: '1.6' }}>
+                                            {poItems.length > 0 ? (
+                                                poItems.map((item, idx) => {
+                                                    const match = item.match(/\((.*?)\)/);
+                                                    const rawQty = match ? match[1].replace(/\D/g, '') : '';
+                                                    const formattedQty = rawQty ? formatQty(rawQty) : '-';
+
+                                                    return (
+                                                        <div key={idx}>
+                                                            {formattedQty}
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                '-'
+                                            )}
+                                        </td>
+
+                                        {/* Kolom Aksi */}
+                                        <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                            <button
+                                                onClick={() => onOpenModal(row)}
+                                                style={{
+                                                    backgroundColor: '#0d6efd',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    padding: '6px 12px',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600',
+                                                    fontSize: '12px',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                + Alokasikan Batch
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>

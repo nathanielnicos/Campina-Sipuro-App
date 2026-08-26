@@ -1,4 +1,5 @@
 const { sipuroDb, campinaDb } = require('../config/db');
+const { createNotification } = require('../helpers/notificationHelper');
 
 exports.getPOList = async (req, res) => {
     try {
@@ -16,7 +17,6 @@ exports.getPOList = async (req, res) => {
             queryParams.push(customer_id);
         }
 
-        // Query untuk menghitung total baris (total data)
         const countQuery = `
             SELECT COUNT(DISTINCT h.po_header_id) AS total
             FROM sipuro_db.po_headers h
@@ -26,7 +26,6 @@ exports.getPOList = async (req, res) => {
         const totalItems = countRows[0]?.total || 0;
         const totalPages = Math.ceil(totalItems / limitNum);
 
-        // Query data dengan LIMIT & OFFSET
         const query = `
             SELECT h.po_header_id, h.po_number, h.created_at, h.requested_delivery_date, h.total_amount, h.status, c.company_name, COUNT(d.po_detail_id) AS total_items
             FROM sipuro_db.po_headers h
@@ -86,7 +85,6 @@ exports.getPODetail = async (req, res) => {
     }
 };
 
-// Fungsi pembantu untuk mengalkulasi base_qty secara otomatis berdasarkan UOM
 const calculateBaseQty = (qty, uom, product) => {
     const uppercaseUom = (uom || '').toUpperCase();
     const pcsPerCtn = product ? Number(product.pcs_per_ctn || 1) : 1;
@@ -97,7 +95,7 @@ const calculateBaseQty = (qty, uom, product) => {
     } else if (uppercaseUom === 'PLT') {
         return qty * pcsPerCtn * ctnPerPlt;
     }
-    return qty; // Jika UOM sudah dalam Base UOM (seperti PCS)
+    return qty;
 };
 
 exports.createPO = async (req, res) => {
@@ -107,6 +105,12 @@ exports.createPO = async (req, res) => {
         if (!customer_id || !requested_delivery_date || !items || items.length === 0) {
             return res.status(400).json({ success: false, message: 'Data tidak lengkap.' });
         }
+
+        const [customerRows] = await sipuroDb.query(
+            `SELECT company_name FROM sipuro_db.customers WHERE customer_id = ?`,
+            [customer_id]
+        );
+        const customerName = customerRows.length > 0 ? customerRows[0].company_name : 'Customer';
 
         const [profileRows] = await campinaDb.query(`SELECT ppn_percent FROM campina_db.company_profile LIMIT 1`);
         const ppn_percent = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
@@ -123,7 +127,6 @@ exports.createPO = async (req, res) => {
         const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
         const poNumber = `PO-${dateStr}-${Math.floor(100 + Math.random() * 900)}`;
 
-        // Ambil data konversi produk sekaligus
         const productIds = items.map(item => item.id_product);
         const [productRows] = await campinaDb.query(
             `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM campina_db.products WHERE id_product IN (?)`,
@@ -157,6 +160,18 @@ exports.createPO = async (req, res) => {
         );
 
         await connection.commit();
+
+        // 1. Notifikasi PO Baru (Customer -> PPIC)
+        await createNotification({
+            title: 'PO Baru Masuk',
+            message: `${poNumber} telah dibuat oleh ${customerName}.`,
+            recipientType: 'EMPLOYEE',
+            recipientDepartment: 'PPIC',
+            senderType: 'CUSTOMER',
+            senderId: customer_id,
+            link: '/po-list'
+        });
+
         res.json({ success: true, message: 'Purchase Order berhasil dibuat!', data: { po_header_id: poHeaderId, po_number: poNumber } });
     } catch (error) {
         await connection.rollback();
@@ -171,11 +186,19 @@ exports.updatePO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
         const { id } = req.params;
-        const { requested_delivery_date, delivery_address, description, items } = req.body;
+        const { requested_delivery_date, delivery_address, description, items, updated_by } = req.body;
 
-        const [checkRows] = await connection.query(`SELECT status FROM sipuro_db.po_headers WHERE po_header_id = ?`, [id]);
+        const [checkRows] = await connection.query(
+            `SELECT h.po_number, h.status, h.customer_id, c.company_name 
+             FROM sipuro_db.po_headers h
+             LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id 
+             WHERE h.po_header_id = ?`,
+            [id]
+        );
         if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO tidak ditemukan.' });
-        if (checkRows[0].status !== 'Waiting for Confirmation') {
+
+        const poData = checkRows[0];
+        if (poData.status !== 'Waiting for Confirmation') {
             return res.status(400).json({ success: false, message: 'PO tidak dapat diubah karena status bukan "Waiting for Confirmation".' });
         }
 
@@ -190,7 +213,6 @@ exports.updatePO = async (req, res) => {
         });
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
-        // Ambil data konversi produk sekaligus
         const productIds = items.map(item => item.id_product);
         const [productRows] = await campinaDb.query(
             `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM campina_db.products WHERE id_product IN (?)`,
@@ -237,6 +259,18 @@ exports.updatePO = async (req, res) => {
         }
 
         await connection.commit();
+
+        // 2. Notifikasi Edit PO (Customer -> PPIC)
+        await createNotification({
+            title: 'PO Diperbarui',
+            message: `${poData.po_number} telah diperbarui oleh ${poData.company_name || 'Customer'}.`,
+            recipientType: 'EMPLOYEE',
+            recipientDepartment: 'PPIC',
+            senderType: 'CUSTOMER',
+            senderId: updated_by || poData.customer_id,
+            link: '/po-list'
+        });
+
         res.json({ success: true, message: 'Purchase Order berhasil diperbarui!' });
     } catch (error) {
         await connection.rollback();
@@ -250,13 +284,35 @@ exports.updatePO = async (req, res) => {
 exports.cancelPO = async (req, res) => {
     try {
         const { id } = req.params;
-        const [checkRows] = await sipuroDb.query(`SELECT status FROM sipuro_db.po_headers WHERE po_header_id = ?`, [id]);
+        const { canceled_by } = req.body;
+
+        const [checkRows] = await sipuroDb.query(
+            `SELECT h.po_number, h.status, h.customer_id, c.company_name 
+             FROM sipuro_db.po_headers h
+             LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id 
+             WHERE h.po_header_id = ?`,
+            [id]
+        );
         if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO tidak ditemukan.' });
-        if (checkRows[0].status !== 'Waiting for Confirmation') {
+
+        const poData = checkRows[0];
+        if (poData.status !== 'Waiting for Confirmation') {
             return res.status(400).json({ success: false, message: 'PO tidak dapat dibatalkan karena status bukan "Waiting for Confirmation".' });
         }
 
         await sipuroDb.query(`UPDATE sipuro_db.po_headers SET status = 'Canceled' WHERE po_header_id = ?`, [id]);
+
+        // 3. Notifikasi Pembatalan PO (Customer -> PPIC)
+        await createNotification({
+            title: 'PO Dibatalkan',
+            message: `${poData.po_number} telah dibatalkan oleh ${poData.company_name || 'Customer'}.`,
+            recipientType: 'EMPLOYEE',
+            recipientDepartment: 'PPIC',
+            senderType: 'CUSTOMER',
+            senderId: canceled_by || poData.customer_id,
+            link: '/po-list'
+        });
+
         res.json({ success: true, message: 'Purchase Order berhasil dibatalkan.' });
     } catch (error) {
         console.error('Error cancelling PO:', error);
@@ -270,13 +326,36 @@ exports.updatePOStatus = async (req, res) => {
         const { status, notes, updated_by } = req.body;
         if (!status) return res.status(400).json({ success: false, message: 'Status wajib diisi.' });
 
+        const [poRows] = await sipuroDb.query(
+            `SELECT po_number, customer_id FROM sipuro_db.po_headers WHERE po_header_id = ?`,
+            [id]
+        );
+
+        if (poRows.length === 0) return res.status(404).json({ success: false, message: 'Data PO tidak ditemukan.' });
+
+        const targetPo = poRows[0];
+
         const query = `
             UPDATE sipuro_db.po_headers 
             SET status = ?, rejection_reason = ?, confirmed_by = ?, confirmed_at = NOW() 
             WHERE po_header_id = ?
         `;
-        const [result] = await sipuroDb.query(query, [status, notes || null, updated_by || null, id]);
-        if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Data PO tidak ditemukan.' });
+        await sipuroDb.query(query, [status, notes || null, updated_by || null, id]);
+
+        const isApproved = status === 'Waiting Batch Assignment';
+        const notifTitle = isApproved ? 'PO Diterima' : 'PO Ditolak';
+        const actionText = isApproved ? 'diterima' : 'ditolak';
+
+        // 4. Notifikasi Approval/Rejection (PPIC -> Customer)
+        await createNotification({
+            title: notifTitle,
+            message: `${targetPo.po_number} telah ${actionText} oleh PPIC.${notes ? ` Catatan: ${notes}` : ''}`,
+            recipientType: 'CUSTOMER',
+            recipientId: targetPo.customer_id,
+            senderType: 'EMPLOYEE',
+            senderId: updated_by || null,
+            link: '/po-list'
+        });
 
         res.json({ success: true, message: `Status PO berhasil diperbarui menjadi ${status}.` });
     } catch (error) {

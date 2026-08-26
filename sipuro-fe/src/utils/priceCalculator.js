@@ -1,18 +1,13 @@
-export const calculateUnitPrice = (basePrice, baseUom, selectedUom, pcsPerCtn, ctnPerPlt) => {
-    const pCtn = parseFloat(pcsPerCtn) || 1;
-    const cPlt = parseFloat(ctnPerPlt) || 1;
-    let factor = 1;
+export const calculateUnitPrice = (basePrice, baseUom, selectedUom, pcsPerCtn = 1, ctnPerPlt = 1) => {
+    const pCtn = Number(pcsPerCtn) || 1;
+    const cPlt = Number(ctnPerPlt) || 1;
+    if (baseUom === selectedUom) return basePrice;
 
-    if (baseUom === 'PCS') {
-        if (selectedUom === 'CTN') factor = pCtn;
-        else if (selectedUom === 'PLT') factor = pCtn * cPlt;
-    } else if (baseUom === 'CTN') {
-        if (selectedUom === 'PCS') factor = 1 / pCtn;
-        else if (selectedUom === 'PLT') factor = cPlt;
-    } else if (baseUom === 'PLT') {
-        if (selectedUom === 'CTN') factor = 1 / cPlt;
-        else if (selectedUom === 'PCS') factor = 1 / (pCtn * cPlt);
-    }
+    const RATES = {
+        PCS: { CTN: pCtn, PLT: pCtn * cPlt },
+        CTN: { PCS: 1 / pCtn, PLT: cPlt },
+        PLT: { CTN: 1 / cPlt, PCS: 1 / (pCtn * cPlt) }
+    };
 
-    return basePrice * factor;
+    return basePrice * (RATES[baseUom]?.[selectedUom] || 1);
 };

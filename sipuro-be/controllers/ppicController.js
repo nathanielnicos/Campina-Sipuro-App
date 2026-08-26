@@ -104,7 +104,7 @@ exports.getAllocatedBatchMapping = async (req, res) => {
         const totalItems = Number(countRows[0]?.total || 0);
         const totalPages = Math.ceil(totalItems / limitNum);
 
-        // Query Data Paged
+        // Query Data Paged menggantikan JSON_ARRAYAGG dengan GROUP_CONCAT
         const query = `
             SELECT 
                 b.id AS id_batch,
@@ -116,14 +116,9 @@ exports.getAllocatedBatchMapping = async (req, res) => {
                 SUM(pba.allocated_qty) AS total_allocated_qty,
                 SUM(pba.fulfilled_qty) AS total_fulfilled_qty,
                 GROUP_CONCAT(
-                    DISTINCT CONCAT(
-                        h.po_number, 
-                        ' [Target: ', FORMAT(pba.allocated_qty, 0), 
-                        ' | Terpenuhi: ', FORMAT(pba.fulfilled_qty, 0), ']'
-                    )
-                    ORDER BY h.po_header_id ASC 
-                    SEPARATOR '\n'
-                ) AS po_numbers
+                    CONCAT(h.po_number, ':', pba.allocated_qty, ':', pba.fulfilled_qty, ':', pba.status)
+                    SEPARATOR '||'
+                ) AS raw_po_allocations
             FROM sipuro_db.batches b
             JOIN campina_db.products p ON b.id_product = p.id_product
             JOIN sipuro_db.po_batch_allocations pba ON b.id = pba.id_batch
@@ -136,9 +131,30 @@ exports.getAllocatedBatchMapping = async (req, res) => {
 
         const [rows] = await sipuroDb.query(query);
 
+        // Parse string GROUP_CONCAT menjadi array object po_allocations
+        const formattedRows = rows.map(row => {
+            const allocations = row.raw_po_allocations
+                ? row.raw_po_allocations.split('||').map(item => {
+                    const [po_number, allocated_qty, fulfilled_qty, status] = item.split(':');
+                    return {
+                        po_number,
+                        allocated_qty: Number(allocated_qty) || 0,
+                        fulfilled_qty: Number(fulfilled_qty) || 0,
+                        status
+                    };
+                })
+                : [];
+
+            delete row.raw_po_allocations;
+            return {
+                ...row,
+                po_allocations: allocations
+            };
+        });
+
         res.json({
             success: true,
-            data: rows,
+            data: formattedRows,
             pagination: {
                 totalItems,
                 totalPages,

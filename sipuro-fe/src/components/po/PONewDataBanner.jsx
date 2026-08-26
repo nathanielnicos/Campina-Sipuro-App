@@ -1,0 +1,40 @@
+import React from 'react';
+
+const PONewDataBanner = ({ show, onRefresh }) => {
+    if (!show) return null;
+
+    return (
+        <div style={{
+            backgroundColor: '#e7f5ff',
+            border: '1px solid #74c0fc',
+            borderRadius: '6px',
+            padding: '10px 16px',
+            marginBottom: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '13px',
+            color: '#1864ab'
+        }}>
+            <span>💡 Ada PO baru yang telah dibuat oleh Customer.</span>
+            <button
+                type="button"
+                onClick={onRefresh}
+                style={{
+                    backgroundColor: '#1c7ed6',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '4px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                }}
+            >
+                Tampilkan Data Terbaru
+            </button>
+        </div>
+    );
+};
+
+export default PONewDataBanner;

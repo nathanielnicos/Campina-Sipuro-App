@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 import PaginationControl from '../common/PaginationControl';
 import { fetchOpenAllocationsByProduct, reallocateStockApi } from '../../services/ppicApi';
-
-const formatQty = (value) => {
-    if (value === null || value === undefined || isNaN(value)) return '0';
-    return Number(value).toLocaleString('id-ID');
-};
+import { formatQty } from '../../utils/formatters'; // Sesuaikan path utils sesuai lokasi file Anda
 
 const UnallocatedStockTable = ({
     unallocatedList = [],

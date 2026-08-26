@@ -1,9 +1,5 @@
 import React from 'react';
-
-const formatQty = (value) => {
-    if (value === null || value === undefined || isNaN(value)) return '0';
-    return Number(value).toLocaleString('id-ID');
-};
+import { formatQty } from '../../utils/formatters';
 
 const BatchAllocationModal = ({
     isOpen,
@@ -27,6 +23,33 @@ const BatchAllocationModal = ({
 }) => {
     if (!isOpen || !selectedSku) return null;
 
+    // Handler untuk memformat input angka secara real-time
+    const handleQtyChange = (e) => {
+        const rawValue = e.target.value.replace(/\D/g, ''); // Hapus karakter non-angka
+        if (rawValue === '') {
+            setAllocatedQty('');
+            return;
+        }
+
+        let numericVal = Number(rawValue);
+        const maxVal = Number(selectedSku.total_qty_needed) || 0;
+
+        // Validasi agar tidak melebihi sisa kebutuhan
+        if (maxVal > 0 && numericVal > maxVal) {
+            numericVal = maxVal;
+        }
+
+        // Menyimpan nilai murni (string murni tanpa titik) ke state
+        setAllocatedQty(String(numericVal));
+    };
+
+    // Handler submit untuk mengembalikan nilai ke angka murni sebelum diproses
+    const handleFormSubmit = (e) => {
+        e.preventDefault();
+        const cleanQty = String(allocatedQty).replace(/\D/g, ''); // Pastikan hanya angka murni
+        onSubmit(e, cleanQty);
+    };
+
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -40,18 +63,17 @@ const BatchAllocationModal = ({
                 </p>
 
                 <div style={{ backgroundColor: '#e9ecef', padding: '10px', borderRadius: '4px', marginBottom: '16px', fontSize: '13px' }}>
-                    Sisa Kebutuhan: <strong>{formatQty(selectedSku.total_qty_needed)} {selectedSku.base_uom}</strong> ({selectedSku.total_po_count} PO)
+                    Sisa Kebutuhan: <strong>{formatQty(selectedSku.total_qty_needed)} {selectedSku.base_uom}</strong> ({formatQty(selectedSku.total_po_count)} PO)
                 </div>
 
-                <form onSubmit={onSubmit}>
+                <form onSubmit={handleFormSubmit}>
                     <div style={{ marginBottom: '14px' }}>
                         <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Qty Alokasi Batch *</label>
                         <input
-                            type="number"
-                            min="1"
-                            max={selectedSku.total_qty_needed}
-                            value={allocatedQty}
-                            onChange={(e) => setAllocatedQty(e.target.value)}
+                            type="text"
+                            value={allocatedQty ? formatQty(allocatedQty) : ''}
+                            onChange={handleQtyChange}
+                            placeholder="0"
                             required
                             style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                         />

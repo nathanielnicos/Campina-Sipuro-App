@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatQty } from '../../utils/formatters';
 import PaginationControl from '../common/PaginationControl';
 
 const ProductionPreviewModal = ({
@@ -36,6 +37,12 @@ const ProductionPreviewModal = ({
         (unallocCurrentPage - 1) * unallocPageSize,
         unallocCurrentPage * unallocPageSize
     );
+
+    // Handler Input Qty (Kirim angka murni ke state parent)
+    const handleQtyInputChange = (actualIndex, e) => {
+        const rawValue = e.target.value.replace(/\D/g, '');
+        onFulfilledChange(actualIndex, rawValue);
+    };
 
     return (
         <div style={{
@@ -92,7 +99,7 @@ const ProductionPreviewModal = ({
                                 <thead>
                                     <tr style={{ backgroundColor: '#f1f3f5' }}>
                                         <th>No PO</th>
-                                        <th>SKU / Produk</th>
+                                        <th>Produk</th>
                                         <th>No Batch</th>
                                         <th style={{ textAlign: 'center', width: '100px' }}>Tgl Rencana</th>
                                         <th style={{ textAlign: 'center', width: '100px' }}>Tgl Aktual</th>
@@ -130,13 +137,14 @@ const ProductionPreviewModal = ({
                                                     }}>
                                                         {formattedActDate}
                                                     </td>
-                                                    <td style={{ textAlign: 'right' }}>{item.allocatedQty}</td>
+                                                    <td style={{ textAlign: 'right' }}>{formatQty(item.allocatedQty)}</td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         <input
-                                                            type="number"
-                                                            value={item.fulfilledQty}
-                                                            onChange={(e) => onFulfilledChange(actualIndex, e.target.value)}
-                                                            style={{ width: '70px', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}
+                                                            type="text"
+                                                            value={item.fulfilledQty ? formatQty(item.fulfilledQty) : ''}
+                                                            onChange={(e) => handleQtyInputChange(actualIndex, e)}
+                                                            style={{ width: '90px', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}
+                                                            placeholder="0"
                                                         />
                                                     </td>
                                                     <td style={{ textAlign: 'center' }}>
@@ -180,7 +188,7 @@ const ProductionPreviewModal = ({
                                     }}>
                                         <thead>
                                             <tr>
-                                                <th>SKU / Produk</th>
+                                                <th>Produk</th>
                                                 <th>No Batch</th>
                                                 <th style={{ textAlign: 'right' }}>Sisa Qty Tersedia</th>
                                             </tr>
@@ -201,7 +209,7 @@ const ProductionPreviewModal = ({
                                                     <tr key={sIdx}>
                                                         <td>{productDisplay}</td>
                                                         <td>{stk.batchNumber}</td>
-                                                        <td style={{ textAlign: 'right' }}>{stk.qtyAvailable}</td>
+                                                        <td style={{ textAlign: 'right' }}>{formatQty(stk.qtyAvailable)}</td>
                                                     </tr>
                                                 );
                                             })}

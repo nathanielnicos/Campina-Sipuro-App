@@ -8,6 +8,7 @@ const poRoutes = require('./routes/poRoutes');
 const ppicRoutes = require('./routes/ppicRoutes');
 const batchRoutes = require('./routes/batchRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,6 +29,7 @@ app.use('/api/po', poRoutes);
 app.use('/api/ppic', ppicRoutes);
 app.use('/api/batches', batchRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Run Server
 app.listen(PORT, () => {

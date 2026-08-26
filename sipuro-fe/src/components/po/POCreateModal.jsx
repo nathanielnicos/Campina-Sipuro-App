@@ -71,7 +71,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
                         id_product: item.id_product || item.product_id,
                         product_code: item.product_code || item.code || '',
                         product_name: item.product_name || item.name || '',
-                        qty: item.qty || 1,
+                        qty: parseInt(item.qty, 10) || 1,
                         base_price: parseFloat(item.base_price) || 0,
                         unit_price: parseFloat(item.unit_price || item.base_price) || 0,
                         base_uom: item.base_uom || item.uom || 'PCS',
@@ -158,7 +158,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
     };
 
     const handleQtyChange = (index, rawValue) => {
-        const cleanNumber = rawValue.replace(/\D/g, '');
+        const cleanNumber = String(rawValue).replace(/\./g, '').replace(/\D/g, '');
         const qty = parseInt(cleanNumber, 10) || 0;
 
         const updatedItems = [...items];
@@ -226,6 +226,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
 
         const payload = {
             customer_id: customerId,
+            updated_by: customerId,
             requested_delivery_date: requestedDeliveryDate,
             delivery_address: deliveryAddress,
             description,
@@ -235,7 +236,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
             items: items.map(item => ({
                 po_detail_id: item.po_detail_id || undefined,
                 id_product: item.id_product,
-                qty: item.qty,
+                qty: Number(item.qty),
                 selected_uom: item.selected_uom,
                 unit_price: item.unit_price,
                 total_price: item.total_price
@@ -264,7 +265,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
 
         try {
             setLoading(true);
-            const result = await cancelPOApi(poId);
+            const result = await cancelPOApi(poId, customerId);
             if (result.success) {
                 alert('PO berhasil dibatalkan!');
                 if (onSuccess) onSuccess();
