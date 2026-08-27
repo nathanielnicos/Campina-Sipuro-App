@@ -103,8 +103,8 @@ const ProductionPreviewModal = ({
                                         <th>No Batch</th>
                                         <th style={{ textAlign: 'center', width: '100px' }}>Tgl Rencana</th>
                                         <th style={{ textAlign: 'center', width: '100px' }}>Tgl Aktual</th>
-                                        <th style={{ textAlign: 'right' }}>Target Qty</th>
-                                        <th style={{ textAlign: 'center', width: '110px' }}>Qty Terpenuhi</th>
+                                        <th style={{ textAlign: 'center' }}>Kuantitas Target (PCS)</th>
+                                        <th style={{ textAlign: 'center', width: '110px' }}>Kuantitas Terpenuhi (PCS)</th>
                                         <th style={{ textAlign: 'center' }}>Status</th>
                                     </tr>
                                 </thead>
@@ -180,7 +180,7 @@ const ProductionPreviewModal = ({
                     {/* Tabel Kelebihan Stok Produksi */}
                     {unallocatedStocks.length > 0 && (
                         <div>
-                            <h4 style={{ marginBottom: '8px', color: '#856404' }}>Kelebihan Stok Produksi</h4>
+                            <h4 style={{ marginBottom: '8px', color: '#856404' }}>Kelebihan Produksi</h4>
                             <div style={{ border: '1px solid #ffeeba', borderRadius: '4px', backgroundColor: '#fff3cd' }}>
                                 <div style={{ overflowX: 'auto' }}>
                                     <table border="1" cellPadding="6" cellSpacing="0" style={{
@@ -190,7 +190,7 @@ const ProductionPreviewModal = ({
                                             <tr>
                                                 <th>Produk</th>
                                                 <th>No Batch</th>
-                                                <th style={{ textAlign: 'right' }}>Sisa Qty Tersedia</th>
+                                                <th style={{ textAlign: 'right' }}>Kuantitas (PCS)</th>
                                             </tr>
                                         </thead>
                                         <tbody>

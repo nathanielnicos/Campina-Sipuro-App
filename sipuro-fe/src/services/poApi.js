@@ -1,7 +1,18 @@
 const BASE_URL = 'http://localhost:5000/api';
 
-export const fetchPOListApi = async (customerId, page = 1, limit = 10) => {
-    const res = await fetch(`${BASE_URL}/po?customer_id=${customerId}&page=${page}&limit=${limit}`);
+export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters = {}) => {
+    const { search = '', startDate = '', endDate = '', status = '' } = filters;
+    const params = new URLSearchParams({
+        customer_id: customerId || '',
+        page,
+        limit,
+        search,
+        startDate,
+        endDate,
+        status
+    });
+
+    const res = await fetch(`${BASE_URL}/po?${params.toString()}`);
     return await res.json();
 };
 

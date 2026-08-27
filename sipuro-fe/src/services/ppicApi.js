@@ -2,10 +2,26 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-export const fetchUnassignedSummary = async (page = 1, limit = 10) => {
+// --- ENDPOINT DASHBOARD PPIC ---
+
+export const getPPICDashboardStats = async (mode = 'YTD', startDate = null, endDate = null) => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/ppic/dashboard-stats`, {
+            params: { mode, startDate, endDate }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching PPIC dashboard stats:', error);
+        return { success: false, message: error.response?.data?.message || 'Gagal memuat statistik dasbor.' };
+    }
+};
+
+// --- ENDPOINT REKAP & ALOKASI BATCH ---
+
+export const fetchUnassignedSummary = async (page = 1, limit = 10, filters = {}) => {
     try {
         const response = await axios.get(`${API_BASE_URL}/ppic/unassigned-summary`, {
-            params: { page, limit }
+            params: { page, limit, ...filters }
         });
         return response.data;
     } catch (error) {
@@ -34,10 +50,10 @@ export const assignBatchBulk = async (payload) => {
     }
 };
 
-export const fetchBatchMapping = async (page = 1, limit = 10) => {
+export const fetchBatchMapping = async (page = 1, limit = 10, filters = {}) => {
     try {
         const response = await axios.get(`${API_BASE_URL}/ppic/batch-mapping`, {
-            params: { page, limit }
+            params: { page, limit, ...filters }
         });
         return response.data;
     } catch (error) {
@@ -48,11 +64,21 @@ export const fetchBatchMapping = async (page = 1, limit = 10) => {
 
 // --- ENDPOINT UNALLOCATED STOCKS ---
 
-export const fetchUnallocatedStocks = async (page = 1, limit = 10) => {
+export const fetchUnallocatedStocks = async (page = 1, limit = 10, searchStock = '', prodDate = '') => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/batches/unallocated`, {
-            params: { page, limit }
-        });
+        let params = { page, limit };
+
+        // Fleksibel: Menerima argumen berupa Objek filters maupun String individual
+        if (typeof searchStock === 'object' && searchStock !== null) {
+            const filters = searchStock;
+            params.searchStock = filters.searchStock || filters.search || '';
+            params.prodDate = filters.prodDate || '';
+        } else {
+            if (searchStock) params.searchStock = searchStock;
+            if (prodDate) params.prodDate = prodDate;
+        }
+
+        const response = await axios.get(`${API_BASE_URL}/batches/unallocated`, { params });
         return response.data;
     } catch (error) {
         console.error('Error fetching unallocated stocks:', error);

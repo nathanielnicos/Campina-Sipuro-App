@@ -7,6 +7,7 @@ const ItemRow = ({
     searchTerm,
     openDropdown,
     products,
+    userRole,
     isReadOnly,
     onSearchChange,
     onFocusDropdown,
@@ -16,6 +17,8 @@ const ItemRow = ({
     onRemoveItem,
     isMultipleItems
 }) => {
+    const isCustomer = userRole !== 'PPIC';
+
     const actionButtonStyle = {
         padding: '6px 12px',
         fontSize: '12px',
@@ -40,8 +43,12 @@ const ItemRow = ({
         backgroundColor: isReadOnly ? '#e9ecef' : '#fff'
     };
 
+    // Filter daftar produk saat pengetikan di dropdown
     const filteredProducts = products.filter(p => {
         const kw = (searchTerm || '').toLowerCase();
+        if (isCustomer) {
+            return p.product_name.toLowerCase().includes(kw);
+        }
         return p.product_code.toLowerCase().includes(kw) || p.product_name.toLowerCase().includes(kw);
     });
 
@@ -57,7 +64,7 @@ const ItemRow = ({
             <td style={{ padding: '12px 16px', position: 'relative' }}>
                 <input
                     type="text"
-                    placeholder="Cari Kode / Nama..."
+                    placeholder={isCustomer ? "Cari Nama Produk..." : "Cari Kode / Nama..."}
                     value={searchTerm !== undefined ? searchTerm : ''}
                     onFocus={() => onFocusDropdown(index)}
                     onClick={() => onFocusDropdown(index)}
@@ -92,16 +99,27 @@ const ItemRow = ({
                                     onMouseDown={(e) => e.preventDefault()}
                                     style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f3f5', fontSize: '13px' }}
                                 >
-                                    <strong>{p.product_code}</strong> - {p.product_name}
+                                    {isCustomer ? (
+                                        p.product_name
+                                    ) : (
+                                        <>
+                                            <strong>{p.product_code}</strong> - {p.product_name}
+                                        </>
+                                    )}
                                 </div>
                             ))
                         )}
                     </div>
                 )}
             </td>
-            <td style={{ padding: '12px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
-                {formatCurrency(item.unit_price)}
-            </td>
+
+            {/* Sembunyikan Harga Satuan untuk PPIC */}
+            {userRole !== 'PPIC' && (
+                <td style={{ padding: '12px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
+                    {formatCurrency(item.unit_price)}
+                </td>
+            )}
+
             <td style={{ padding: '12px 16px' }}>
                 <input
                     type="text"
@@ -128,9 +146,14 @@ const ItemRow = ({
                     </select>
                 )}
             </td>
-            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', verticalAlign: 'middle' }}>
-                {formatCurrency(item.total_price)}
-            </td>
+
+            {/* Sembunyikan Total Harga untuk PPIC */}
+            {userRole !== 'PPIC' && (
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                    {formatCurrency(item.total_price)}
+                </td>
+            )}
+
             <td style={{ padding: '12px 16px', textAlign: 'center', verticalAlign: 'middle' }}>
                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
                     {!isReadOnly && isMultipleItems ? (

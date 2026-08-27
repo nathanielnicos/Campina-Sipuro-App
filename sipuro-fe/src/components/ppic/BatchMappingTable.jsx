@@ -7,14 +7,36 @@ const BatchMappingTable = ({
     mappingList = [],
     pagination = { currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 },
     onPageChange,
-    onLimitChange
+    onLimitChange,
+    searchQuery,
+    setSearchQuery,
+    planDate,
+    setPlanDate,
+    batchStatus,
+    setBatchStatus,
+    onResetFilters
 }) => {
-    // State untuk Switch View Mode: 'BATCH' atau 'PO'
     const [viewMode, setViewMode] = useState('BATCH');
 
-    // Mengolah & mengelompokkan data hierarkis jika viewMode === 'PO'
+    // Handler langsung persis seperti POList
+    const handleSearchChange = (e) => {
+        setSearchQuery(e.target.value);
+        if (onPageChange) onPageChange(1);
+    };
+
+    const isFilterActive = Boolean(searchQuery || planDate || batchStatus);
+
+    const handlePlanDateChange = (e) => {
+        setPlanDate(e.target.value);
+        if (onPageChange) onPageChange(1);
+    };
+
+    const handleStatusChange = (e) => {
+        setBatchStatus(e.target.value);
+        if (onPageChange) onPageChange(1);
+    };
+
     const renderPoView = () => {
-        // Struct: poMap[poNumber] = { totalRowCount: number, skus: { [productCode]: { productName, batches: [] } } }
         const poMap = {};
 
         mappingList.forEach((row) => {
@@ -51,7 +73,6 @@ const BatchMappingTable = ({
                     status: po.status || '-'
                 });
 
-                // Hitung total baris untuk rowSpan Nomor PO
                 poMap[poNum].totalRowCount += 1;
             });
         });
@@ -87,7 +108,6 @@ const BatchMappingTable = ({
 
                     return (
                         <tr key={`${poGroup.po_number}-${skuGroup.product_code}-${batch.batch_number}-${batchIdx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
-                            {/* Sel Utama Nomor PO (Gabung Banyak Baris) */}
                             {showPoCell && (
                                 <td
                                     rowSpan={poGroup.totalRowCount}
@@ -103,7 +123,6 @@ const BatchMappingTable = ({
                                 </td>
                             )}
 
-                            {/* Sel Produk / SKU */}
                             {showSkuCell && (
                                 <td
                                     rowSpan={skuRowCount}
@@ -118,7 +137,6 @@ const BatchMappingTable = ({
                                 </td>
                             )}
 
-                            {/* Detail Batch & Statistik Alokasi */}
                             <td style={{ padding: '10px 14px', fontWeight: '500' }}>
                                 {batch.batch_number}
                             </td>
@@ -161,7 +179,6 @@ const BatchMappingTable = ({
         });
     };
 
-    // Render tampilan original (Berdasarkan Batch)
     const renderBatchView = () => {
         if (mappingList.length === 0) {
             return (
@@ -185,7 +202,6 @@ const BatchMappingTable = ({
 
                 return (
                     <tr key={`${row.id_batch}-${idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
-                        {/* Kolom Induk / Master Batch */}
                         {idx === 0 && (
                             <>
                                 <td rowSpan={allocations.length} style={{ padding: '12px 14px', verticalAlign: 'top', backgroundColor: '#fff' }}>
@@ -208,7 +224,6 @@ const BatchMappingTable = ({
                             </>
                         )}
 
-                        {/* Kolom Detail PO */}
                         <td style={{ padding: '10px 14px', fontWeight: '500' }}>
                             {po.po_number}
                         </td>
@@ -240,97 +255,162 @@ const BatchMappingTable = ({
     };
 
     return (
-        <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
-            {/* Header Control Switcher */}
+        <div>
+            {/* Filter Bar Tab 2 */}
             <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '12px 16px',
-                borderBottom: '1px solid #dee2e6',
-                backgroundColor: '#f8f9fa'
+                backgroundColor: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                border: '1px solid #dee2e6',
+                marginBottom: '20px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                gap: '12px',
+                alignItems: 'end'
             }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: '#495057' }}>
-                    Tampilkan Data Berdasarkan:
-                </span>
-
-                {/* Segmented Control Button */}
-                <div style={{ display: 'flex', backgroundColor: '#e9ecef', borderRadius: '6px', padding: '3px' }}>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Pencarian Data</label>
+                    <input
+                        type="text"
+                        placeholder="Cari Batch / Produk / PO..."
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                    />
+                </div>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Rencana Produksi</label>
+                    <input
+                        type="date"
+                        value={planDate}
+                        onChange={handlePlanDateChange}
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                    />
+                </div>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Status Batch</label>
+                    <select
+                        value={batchStatus}
+                        onChange={handleStatusChange}
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                    >
+                        <option value="">Semua Status</option>
+                        <option value="Open">Open</option>
+                        <option value="Close">Close</option>
+                    </select>
+                </div>
+                <div>
                     <button
-                        type="button"
-                        onClick={() => setViewMode('BATCH')}
+                        onClick={onResetFilters}
+                        disabled={!isFilterActive}
                         style={{
-                            padding: '6px 14px',
-                            border: 'none',
+                            width: '100%',
+                            padding: '8px 12px',
+                            backgroundColor: isFilterActive ? '#dc3545' : '#e9ecef',
+                            color: isFilterActive ? '#fff' : '#adb5bd',
+                            border: isFilterActive ? '1px solid #dc3545' : '1px solid #ced4da',
                             borderRadius: '4px',
-                            fontSize: '12px',
+                            cursor: isFilterActive ? 'pointer' : 'not-allowed',
                             fontWeight: 'bold',
-                            cursor: 'pointer',
-                            backgroundColor: viewMode === 'BATCH' ? '#0d6efd' : 'transparent',
-                            color: viewMode === 'BATCH' ? '#fff' : '#6c757d',
-                            transition: 'all 0.2s'
+                            transition: 'all 0.2s ease'
                         }}
                     >
-                        Nomor Batch
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setViewMode('PO')}
-                        style={{
-                            padding: '6px 14px',
-                            border: 'none',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            backgroundColor: viewMode === 'PO' ? '#0d6efd' : 'transparent',
-                            color: viewMode === 'PO' ? '#fff' : '#6c757d',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        Nomor PO
+                        Reset Filter
                     </button>
                 </div>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                            {viewMode === 'BATCH' ? (
-                                <>
-                                    <th style={{ padding: '12px 14px' }}>Nomor Batch</th>
-                                    <th style={{ padding: '12px 14px' }}>Produk</th>
-                                    <th style={{ padding: '12px 14px', textAlign: 'center' }}>Rencana Produksi</th>
-                                    <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Batch</th>
-                                    <th style={{ padding: '12px 14px' }}>PO</th>
-                                </>
-                            ) : (
-                                <>
-                                    <th style={{ padding: '12px 14px' }}>Nomor PO</th>
-                                    <th style={{ padding: '12px 14px' }}>Produk</th>
-                                    <th style={{ padding: '12px 14px' }}>Nomor Batch</th>
-                                    <th style={{ padding: '12px 14px', textAlign: 'center' }}>Rencana Produksi</th>
-                                    <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Batch</th>
-                                </>
-                            )}
-                            <th style={{ padding: '12px 14px', textAlign: 'right' }}>Target Alokasi</th>
-                            <th style={{ padding: '12px 14px', textAlign: 'right' }}>Terpenuhi</th>
-                            <th style={{ padding: '12px 14px', textAlign: 'center' }}>Persentase</th>
-                            <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Alokasi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {viewMode === 'BATCH' ? renderBatchView() : renderPoView()}
-                    </tbody>
-                </table>
-            </div>
+            {/* Tabel & Switcher View Mode */}
+            <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid #dee2e6',
+                    backgroundColor: '#f8f9fa'
+                }}>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#495057' }}>
+                        Tampilkan Data Berdasarkan:
+                    </span>
 
-            <PaginationControl
-                pagination={pagination}
-                onPageChange={onPageChange}
-                onLimitChange={onLimitChange}
-            />
+                    <div style={{ display: 'flex', backgroundColor: '#e9ecef', borderRadius: '6px', padding: '3px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('BATCH')}
+                            style={{
+                                padding: '6px 14px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                backgroundColor: viewMode === 'BATCH' ? '#0d6efd' : 'transparent',
+                                color: viewMode === 'BATCH' ? '#fff' : '#6c757d',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Nomor Batch
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('PO')}
+                            style={{
+                                padding: '6px 14px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                backgroundColor: viewMode === 'PO' ? '#0d6efd' : 'transparent',
+                                color: viewMode === 'PO' ? '#fff' : '#6c757d',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Nomor PO
+                        </button>
+                    </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
+                                {viewMode === 'BATCH' ? (
+                                    <>
+                                        <th style={{ padding: '12px 14px' }}>Nomor Batch</th>
+                                        <th style={{ padding: '12px 14px' }}>Produk</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Rencana Produksi</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Batch</th>
+                                        <th style={{ padding: '12px 14px' }}>PO</th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th style={{ padding: '12px 14px' }}>Nomor PO</th>
+                                        <th style={{ padding: '12px 14px' }}>Produk</th>
+                                        <th style={{ padding: '12px 14px' }}>Nomor Batch</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Rencana Produksi</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Batch</th>
+                                    </>
+                                )}
+                                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Target Alokasi (PCS)</th>
+                                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Terpenuhi (PCS)</th>
+                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Persentase</th>
+                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Alokasi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {viewMode === 'BATCH' ? renderBatchView() : renderPoView()}
+                        </tbody>
+                    </table>
+                </div>
+
+                <PaginationControl
+                    pagination={pagination}
+                    onPageChange={onPageChange}
+                    onLimitChange={onLimitChange}
+                />
+            </div>
         </div>
     );
 };

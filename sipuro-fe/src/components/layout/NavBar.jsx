@@ -27,19 +27,27 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
                 </button>
 
                 {user.role === 'PPIC' && (
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('ppic-batch')}
-                        style={getButtonStyle('ppic-batch')}
-                    >
-                        Alokasi Batch
-                    </button>
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('ppic-dashboard')}
+                            style={getButtonStyle('ppic-dashboard')}
+                        >
+                            Dasbor PPIC
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('ppic-batch')}
+                            style={getButtonStyle('ppic-batch')}
+                        >
+                            Alokasi Batch
+                        </button>
+                    </>
                 )}
             </div>
 
             {/* Sisi Kanan: Lonceng Notifikasi, Profil User & Logout */}
             <div style={styles.flexCenterGap16}>
-                {/* Lonceng Notifikasi dipindah ke sebelah kiri profil dan dikirimkan role user */}
                 <NotificationBell
                     user={user}
                     onNewPoDetected={() => {

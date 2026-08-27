@@ -40,13 +40,13 @@ exports.previewExcelUpload = async (req, res) => {
             JOIN batches pb ON pba.id_batch = pb.id
             JOIN po_details pd ON pba.po_detail_id = pd.po_detail_id
             JOIN po_headers ph ON pd.po_header_id = ph.po_header_id
-            JOIN campina_db.products p ON pb.id_product = p.id_product
+            JOIN sipuro_db.products p ON pb.id_product = p.id_product
             WHERE pba.status = 'Open' AND pb.status = 'Open'
             ORDER BY pb.plan_production_date ASC, ph.requested_delivery_date ASC, ph.created_at ASC
         `);
 
         // C2. Ambil Master seluruh produk sebagai Fallback Nama Produk
-        const [allProducts] = await db.query('SELECT id_product, product_code, product_name FROM campina_db.products');
+        const [allProducts] = await db.query('SELECT id_product, product_code, product_name FROM sipuro_db.products');
 
         // D. Jalankan Kalkulasi FIFO Pro-rata dengan mengirim data Master Produk
         const { previewResults, unallocatedStocks } = calculateFifoAllocation(

@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import POList from './components/po/POList';
 import POCreateModal from './components/po/POCreateModal';
 import PPICBatchAllocationPage from './components/ppic/PPICBatchAllocationPage';
+import PPICDashboard from './components/ppic/PPICDashboard';
 import Login from './components/auth/Login';
 import Navbar from './components/layout/Navbar';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('po-list'); // State untuk tab navigasi
+  const [activeTab, setActiveTab] = useState('po-list');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPoId, setSelectedPoId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -17,16 +18,14 @@ function App() {
     if (savedUser) {
       const parsedUser = JSON.parse(savedUser);
       setUser(parsedUser);
-      // Memastikan tab aktif langsung mengarah ke 'po-list' saat halaman pertama kali di-load
-      setActiveTab('po-list');
+      setActiveTab(parsedUser.role === 'PPIC' ? 'ppic-dashboard' : 'po-list');
     }
   }, []);
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem('sipuro_user', JSON.stringify(userData));
-    // Langsung set tab aktif ke 'po-list' saat user berhasil login
-    setActiveTab('po-list');
+    setActiveTab(userData.role === 'PPIC' ? 'ppic-dashboard' : 'po-list');
   };
 
   const handleLogout = () => {
@@ -73,6 +72,10 @@ function App() {
       />
 
       {/* Render tampilan berdasarkan tab aktif */}
+      {activeTab === 'ppic-dashboard' && user.role === 'PPIC' && (
+        <PPICDashboard />
+      )}
+
       {activeTab === 'po-list' && (
         <POList
           key={refreshKey}

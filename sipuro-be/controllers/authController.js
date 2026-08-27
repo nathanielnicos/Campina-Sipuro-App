@@ -1,4 +1,4 @@
-const { sipuroDb, campinaDb } = require('../config/db');
+const { sipuroDb } = require('../config/db');
 
 exports.login = async (req, res) => {
     try {
@@ -36,10 +36,10 @@ exports.login = async (req, res) => {
         } else if (role_type === 'EMPLOYEE') {
             const query = `
                 SELECT employee_id, full_name, department
-                FROM campina_db.employees
+                FROM sipuro_db.employees
                 WHERE employee_id = ? AND password = ? AND is_suspended = 0
             `;
-            const [rows] = await campinaDb.query(query, [username, password]);
+            const [rows] = await sipuroDb.query(query, [username, password]);
 
             if (rows.length === 0) {
                 return res.status(401).json({

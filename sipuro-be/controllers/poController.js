@@ -1,21 +1,43 @@
-const { sipuroDb, campinaDb } = require('../config/db');
+const { sipuroDb } = require('../config/db');
 const { createNotification } = require('../helpers/notificationHelper');
 
 exports.getPOList = async (req, res) => {
     try {
-        const { customer_id, page = 1, limit = 10 } = req.query;
+        const { customer_id, page = 1, limit = 10, search, startDate, endDate, status } = req.query;
 
         const pageNum = parseInt(page, 10) || 1;
         const limitNum = parseInt(limit, 10) || 10;
         const offset = (pageNum - 1) * limitNum;
 
-        let whereClause = '';
+        const conditions = [];
         const queryParams = [];
 
         if (customer_id && customer_id !== 'null' && customer_id !== 'undefined') {
-            whereClause = 'WHERE h.customer_id = ?';
+            conditions.push('h.customer_id = ?');
             queryParams.push(customer_id);
         }
+
+        if (search && search.trim() !== '') {
+            conditions.push('h.po_number LIKE ?');
+            queryParams.push(`%${search.trim()}%`);
+        }
+
+        if (startDate && startDate !== '') {
+            conditions.push('DATE(h.created_at) >= ?');
+            queryParams.push(startDate);
+        }
+
+        if (endDate && endDate !== '') {
+            conditions.push('DATE(h.created_at) <= ?');
+            queryParams.push(endDate);
+        }
+
+        if (status && status !== '') {
+            conditions.push('h.status = ?');
+            queryParams.push(status);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
         const countQuery = `
             SELECT COUNT(DISTINCT h.po_header_id) AS total
@@ -73,7 +95,7 @@ exports.getPODetail = async (req, res) => {
         const detailQuery = `
             SELECT d.*, p.product_code, p.product_name, p.base_uom, p.pcs_per_ctn, p.ctn_per_plt
             FROM sipuro_db.po_details d
-            JOIN campina_db.products p ON d.id_product = p.id_product
+            JOIN sipuro_db.products p ON d.id_product = p.id_product
             WHERE d.po_header_id = ? AND d.deleted_at IS NULL
         `;
         const [detailRows] = await sipuroDb.query(detailQuery, [id]);
@@ -106,13 +128,18 @@ exports.createPO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Data tidak lengkap.' });
         }
 
+        const safeDescription = description ? description.trim().slice(0, 50) : null;
+
         const [customerRows] = await sipuroDb.query(
-            `SELECT company_name FROM sipuro_db.customers WHERE customer_id = ?`,
+            `SELECT company_name, customer_code FROM sipuro_db.customers WHERE customer_id = ?`,
             [customer_id]
         );
         const customerName = customerRows.length > 0 ? customerRows[0].company_name : 'Customer';
+        const customerCode = (customerRows.length > 0 && customerRows[0].customer_code)
+            ? customerRows[0].customer_code
+            : 'CUST';
 
-        const [profileRows] = await campinaDb.query(`SELECT ppn_percent FROM campina_db.company_profile LIMIT 1`);
+        const [profileRows] = await sipuroDb.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
         const ppn_percent = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
 
         let subtotal = 0;
@@ -123,13 +150,33 @@ exports.createPO = async (req, res) => {
         });
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
-        const today = new Date();
-        const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-        const poNumber = `PO-${dateStr}-${Math.floor(100 + Math.random() * 900)}`;
+        const currentYear = new Date().getFullYear();
+
+        const [lastPoRows] = await sipuroDb.query(
+            `SELECT po_number FROM sipuro_db.po_headers 
+             WHERE YEAR(created_at) = ? 
+             ORDER BY po_header_id DESC LIMIT 1`,
+            [currentYear]
+        );
+
+        let nextSeq = 1;
+
+        if (lastPoRows.length > 0 && lastPoRows[0].po_number) {
+            const lastPoNumber = lastPoRows[0].po_number;
+            const parts = lastPoNumber.split('/');
+            const lastSeq = parseInt(parts[0], 10);
+
+            if (!isNaN(lastSeq)) {
+                nextSeq = lastSeq + 1;
+            }
+        }
+
+        const formattedSeq = String(nextSeq).padStart(3, '0');
+        const poNumber = `${formattedSeq}/PO/${customerCode}/${currentYear}`;
 
         const productIds = items.map(item => item.id_product);
-        const [productRows] = await campinaDb.query(
-            `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM campina_db.products WHERE id_product IN (?)`,
+        const [productRows] = await sipuroDb.query(
+            `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM sipuro_db.products WHERE id_product IN (?)`,
             [productIds]
         );
         const productMap = new Map(productRows.map(p => [p.id_product, p]));
@@ -138,7 +185,7 @@ exports.createPO = async (req, res) => {
 
         const [headerResult] = await connection.query(
             `INSERT INTO sipuro_db.po_headers (po_number, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address, description, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Waiting for Confirmation')`,
-            [poNumber, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', description || null]
+            [poNumber, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription]
         );
 
         const poHeaderId = headerResult.insertId;
@@ -161,7 +208,6 @@ exports.createPO = async (req, res) => {
 
         await connection.commit();
 
-        // 1. Notifikasi PO Baru (Customer -> PPIC)
         await createNotification({
             title: 'PO Baru Masuk',
             message: `${poNumber} telah dibuat oleh ${customerName}.`,
@@ -188,6 +234,8 @@ exports.updatePO = async (req, res) => {
         const { id } = req.params;
         const { requested_delivery_date, delivery_address, description, items, updated_by } = req.body;
 
+        const safeDescription = description ? description.trim().slice(0, 50) : null;
+
         const [checkRows] = await connection.query(
             `SELECT h.po_number, h.status, h.customer_id, c.company_name 
              FROM sipuro_db.po_headers h
@@ -202,7 +250,7 @@ exports.updatePO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'PO tidak dapat diubah karena status bukan "Waiting for Confirmation".' });
         }
 
-        const [profileRows] = await campinaDb.query(`SELECT ppn_percent FROM campina_db.company_profile LIMIT 1`);
+        const [profileRows] = await sipuroDb.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
         const ppn_percent = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
 
         let subtotal = 0;
@@ -214,8 +262,8 @@ exports.updatePO = async (req, res) => {
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
         const productIds = items.map(item => item.id_product);
-        const [productRows] = await campinaDb.query(
-            `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM campina_db.products WHERE id_product IN (?)`,
+        const [productRows] = await sipuroDb.query(
+            `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM sipuro_db.products WHERE id_product IN (?)`,
             [productIds]
         );
         const productMap = new Map(productRows.map(p => [p.id_product, p]));
@@ -224,7 +272,7 @@ exports.updatePO = async (req, res) => {
 
         await connection.query(
             `UPDATE sipuro_db.po_headers SET subtotal = ?, ppn_percent = ?, total_amount = ?, requested_delivery_date = ?, delivery_address = ?, description = ? WHERE po_header_id = ?`,
-            [subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', description || null, id]
+            [subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription, id]
         );
 
         const [existingDetails] = await connection.query(`SELECT po_detail_id FROM sipuro_db.po_details WHERE po_header_id = ? AND deleted_at IS NULL`, [id]);
@@ -260,7 +308,6 @@ exports.updatePO = async (req, res) => {
 
         await connection.commit();
 
-        // 2. Notifikasi Edit PO (Customer -> PPIC)
         await createNotification({
             title: 'PO Diperbarui',
             message: `${poData.po_number} telah diperbarui oleh ${poData.company_name || 'Customer'}.`,
@@ -302,7 +349,6 @@ exports.cancelPO = async (req, res) => {
 
         await sipuroDb.query(`UPDATE sipuro_db.po_headers SET status = 'Canceled' WHERE po_header_id = ?`, [id]);
 
-        // 3. Notifikasi Pembatalan PO (Customer -> PPIC)
         await createNotification({
             title: 'PO Dibatalkan',
             message: `${poData.po_number} telah dibatalkan oleh ${poData.company_name || 'Customer'}.`,
@@ -326,6 +372,12 @@ exports.updatePOStatus = async (req, res) => {
         const { status, notes, updated_by } = req.body;
         if (!status) return res.status(400).json({ success: false, message: 'Status wajib diisi.' });
 
+        const safeNotes = notes ? notes.trim().slice(0, 50) : null;
+
+        if (status === 'Rejected' && !safeNotes) {
+            return res.status(400).json({ success: false, message: 'Alasan penolakan wajib diisi (maksimal 50 karakter).' });
+        }
+
         const [poRows] = await sipuroDb.query(
             `SELECT po_number, customer_id FROM sipuro_db.po_headers WHERE po_header_id = ?`,
             [id]
@@ -340,16 +392,15 @@ exports.updatePOStatus = async (req, res) => {
             SET status = ?, rejection_reason = ?, confirmed_by = ?, confirmed_at = NOW() 
             WHERE po_header_id = ?
         `;
-        await sipuroDb.query(query, [status, notes || null, updated_by || null, id]);
+        await sipuroDb.query(query, [status, safeNotes, updated_by || null, id]);
 
         const isApproved = status === 'Waiting Batch Assignment';
         const notifTitle = isApproved ? 'PO Diterima' : 'PO Ditolak';
         const actionText = isApproved ? 'diterima' : 'ditolak';
 
-        // 4. Notifikasi Approval/Rejection (PPIC -> Customer)
         await createNotification({
             title: notifTitle,
-            message: `${targetPo.po_number} telah ${actionText} oleh PPIC.${notes ? ` Catatan: ${notes}` : ''}`,
+            message: `${targetPo.po_number} telah ${actionText} oleh PPIC.${safeNotes ? ` Catatan: ${safeNotes}` : ''}`,
             recipientType: 'CUSTOMER',
             recipientId: targetPo.customer_id,
             senderType: 'EMPLOYEE',

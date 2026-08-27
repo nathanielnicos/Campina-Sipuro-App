@@ -23,42 +23,42 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // State Pagination Tab 1 (Summary / Pending SKU)
+    // --- State Filter Tab 1 (Belum Ada Batch) ---
+    const [searchProduct1, setSearchProduct1] = useState('');
+    const [searchPo1, setSearchPo1] = useState('');
+
+    // --- State Filter Tab 2 (Daftar Batch) ---
+    const [searchQuery2, setSearchQuery2] = useState('');
+    const [planDate2, setPlanDate2] = useState('');
+    const [batchStatus2, setBatchStatus2] = useState('');
+
+    // --- State Filter Tab 3 (Kelebihan Produksi) ---
+    const [searchStock3, setSearchStock3] = useState('');
+    const [prodDate3, setProdDate3] = useState('');
+
+    // State Pagination Tab 1
     const [summaryPage, setSummaryPage] = useState(1);
     const [summaryLimit, setSummaryLimit] = useState(10);
-    const [summaryPagination, setSummaryPagination] = useState({
-        currentPage: 1,
-        totalPages: 1,
-        totalItems: 0,
-        limit: 10
-    });
+    const [summaryPagination, setSummaryPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
-    // State Pagination Tab 2 (Batch Mapping)
+    // State Pagination Tab 2
     const [mappingPage, setMappingPage] = useState(1);
     const [mappingLimit, setMappingLimit] = useState(10);
-    const [mappingPagination, setMappingPagination] = useState({
-        currentPage: 1,
-        totalPages: 1,
-        totalItems: 0,
-        limit: 10
-    });
+    const [mappingPagination, setMappingPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
-    // State Pagination Tab 3 (Unallocated Stocks)
+    // State Pagination Tab 3
     const [unallocatedPage, setUnallocatedPage] = useState(1);
     const [unallocatedLimit, setUnallocatedLimit] = useState(10);
-    const [unallocatedPagination, setUnallocatedPagination] = useState({
-        currentPage: 1,
-        totalPages: 1,
-        totalItems: 0,
-        limit: 10
-    });
+    const [unallocatedPagination, setUnallocatedPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
+    // Upload & Preview States
     const [uploadFile, setUploadFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [previewData, setPreviewData] = useState(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [saving, setSaving] = useState(false);
 
+    // Modal Manual Allocation States
     const [selectedSku, setSelectedSku] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [allocationMode, setAllocationMode] = useState('');
@@ -75,7 +75,8 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
         setLoading(true);
         setError('');
         if (activeTab === 'summary') {
-            const res = await fetchUnassignedSummary(summaryPage, summaryLimit);
+            const filters = { searchProduct: searchProduct1, searchPo: searchPo1 };
+            const res = await fetchUnassignedSummary(summaryPage, summaryLimit, filters);
             if (res && res.success) {
                 setSummaryList(res.data || []);
                 if (res.pagination) {
@@ -90,7 +91,8 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                 setError(res?.message || 'Gagal mengambil data rekap kebutuhan batch.');
             }
         } else if (activeTab === 'mapping') {
-            const res = await fetchBatchMapping(mappingPage, mappingLimit);
+            const filters = { search: searchQuery2, planDate: planDate2, batchStatus: batchStatus2 };
+            const res = await fetchBatchMapping(mappingPage, mappingLimit, filters);
             if (res && res.success) {
                 setMappingList(res.data || []);
                 if (res.pagination) {
@@ -105,7 +107,8 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                 setError(res?.message || 'Gagal mengambil riwayat mapping batch.');
             }
         } else if (activeTab === 'unallocated') {
-            const res = await fetchUnallocatedStocks(unallocatedPage, unallocatedLimit);
+            const filters = { search: searchStock3, prodDate: prodDate3 };
+            const res = await fetchUnallocatedStocks(unallocatedPage, unallocatedLimit, filters);
             if (res && res.success) {
                 setUnallocatedList(res.data || []);
                 if (res.pagination) {
@@ -121,11 +124,36 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
             }
         }
         setLoading(false);
-    }, [activeTab, summaryPage, summaryLimit, mappingPage, mappingLimit, unallocatedPage, unallocatedLimit]);
+    }, [
+        activeTab,
+        summaryPage, summaryLimit, searchProduct1, searchPo1,
+        mappingPage, mappingLimit, searchQuery2, planDate2, batchStatus2,
+        unallocatedPage, unallocatedLimit, searchStock3, prodDate3
+    ]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    // Resetters
+    const handleResetTab1 = () => {
+        setSearchProduct1('');
+        setSearchPo1('');
+        setSummaryPage(1);
+    };
+
+    const handleResetTab2 = () => {
+        setSearchQuery2('');
+        setPlanDate2('');
+        setBatchStatus2('');
+        setMappingPage(1);
+    };
+
+    const handleResetTab3 = () => {
+        setSearchStock3('');
+        setProdDate3('');
+        setUnallocatedPage(1);
+    };
 
     const handleUploadSubmit = async (e) => {
         e.preventDefault();
@@ -268,14 +296,49 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     };
 
     return (
-        <div style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div>
-                    <h2 style={{ margin: 0 }}>Alokasi Batch Produksi</h2>
-                    <p style={{ color: '#666', margin: '4px 0 0 0' }}>Kelola kebutuhan alokasi batch dan upload realisasi hasil produksi.</p>
+        <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
+            {/* Header: Tab Navigation Sejajar Form Upload */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderBottom: '2px solid #dee2e6',
+                marginBottom: '20px'
+            }}>
+                <div style={{ display: 'flex' }}>
+                    <button
+                        onClick={() => setActiveTab('summary')}
+                        style={{
+                            padding: '12px 20px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px',
+                            borderBottom: activeTab === 'summary' ? '3px solid #0d6efd' : '3px solid transparent',
+                            color: activeTab === 'summary' ? '#0d6efd' : '#6c757d'
+                        }}
+                    >
+                        Belum Ada Batch
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('mapping')}
+                        style={{
+                            padding: '12px 20px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px',
+                            borderBottom: activeTab === 'mapping' ? '3px solid #0d6efd' : '3px solid transparent',
+                            color: activeTab === 'mapping' ? '#0d6efd' : '#6c757d'
+                        }}
+                    >
+                        Daftar Batch
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('unallocated')}
+                        style={{
+                            padding: '12px 20px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px',
+                            borderBottom: activeTab === 'unallocated' ? '3px solid #0d6efd' : '3px solid transparent',
+                            color: activeTab === 'unallocated' ? '#0d6efd' : '#6c757d'
+                        }}
+                    >
+                        Kelebihan Produksi
+                    </button>
                 </div>
 
-                <form onSubmit={handleUploadSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '10px 14px', borderRadius: '6px', border: '1px solid #ddd' }}>
+                <form onSubmit={handleUploadSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '6px 10px', borderRadius: '6px', border: '1px solid #dee2e6', marginBottom: '6px' }}>
                     <input
                         type="file"
                         accept=".xlsx, .xls"
@@ -292,76 +355,79 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                 </form>
             </div>
 
-            <div style={{ display: 'flex', borderBottom: '2px solid #dee2e6', marginBottom: '20px' }}>
-                <button
-                    onClick={() => setActiveTab('summary')}
-                    style={{
-                        padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold',
-                        borderBottom: activeTab === 'summary' ? '3px solid #0d6efd' : 'none',
-                        color: activeTab === 'summary' ? '#0d6efd' : '#6c757d'
-                    }}
-                >
-                    Belum Ada Batch
-                </button>
-                <button
-                    onClick={() => setActiveTab('mapping')}
-                    style={{
-                        padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold',
-                        borderBottom: activeTab === 'mapping' ? '3px solid #0d6efd' : 'none',
-                        color: activeTab === 'mapping' ? '#0d6efd' : '#6c757d'
-                    }}
-                >
-                    Daftar Batch
-                </button>
-                <button
-                    onClick={() => setActiveTab('unallocated')}
-                    style={{
-                        padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold',
-                        borderBottom: activeTab === 'unallocated' ? '3px solid #0d6efd' : 'none',
-                        color: activeTab === 'unallocated' ? '#0d6efd' : '#6c757d'
-                    }}
-                >
-                    Lebihan Hasil Produksi
-                </button>
-            </div>
-
             {error && <div style={{ color: 'red', marginBottom: '16px' }}>{error}</div>}
 
-            {loading ? (
-                <p>Memuat data...</p>
-            ) : activeTab === 'summary' ? (
-                <PendingSkuTable
-                    summaryList={summaryList}
-                    onOpenModal={handleOpenModal}
-                    pagination={summaryPagination}
-                    onPageChange={(newPage) => setSummaryPage(newPage)}
-                    onLimitChange={(newLimit) => {
-                        setSummaryLimit(newLimit);
-                        setSummaryPage(1);
-                    }}
-                />
-            ) : activeTab === 'mapping' ? (
-                <BatchMappingTable
-                    mappingList={mappingList}
-                    pagination={mappingPagination}
-                    onPageChange={(newPage) => setMappingPage(newPage)}
-                    onLimitChange={(newLimit) => {
-                        setMappingLimit(newLimit);
-                        setMappingPage(1);
-                    }}
-                />
-            ) : (
-                <UnallocatedStockTable
-                    unallocatedList={unallocatedList}
-                    pagination={unallocatedPagination}
-                    onPageChange={(newPage) => setUnallocatedPage(newPage)}
-                    onLimitChange={(newLimit) => {
-                        setUnallocatedLimit(newLimit);
-                        setUnallocatedPage(1);
-                    }}
-                    onRefresh={loadData}
-                />
-            )}
+            {/* Komponen Tabel tetap di-render (tidak di-unmount) saat loading */}
+            <div style={{ position: 'relative', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+                {loading && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 10,
+                        fontSize: '12px',
+                        color: '#0d6efd',
+                        fontWeight: 'bold',
+                        zIndex: 10
+                    }}>
+                        Memuat data...
+                    </div>
+                )}
+
+                {activeTab === 'summary' && (
+                    <PendingSkuTable
+                        summaryList={summaryList}
+                        onOpenModal={handleOpenModal}
+                        pagination={summaryPagination}
+                        onPageChange={(newPage) => setSummaryPage(newPage)}
+                        onLimitChange={(newLimit) => {
+                            setSummaryLimit(newLimit);
+                            setSummaryPage(1);
+                        }}
+                        searchProduct={searchProduct1}
+                        setSearchProduct={(val) => { setSearchProduct1(val); setSummaryPage(1); }}
+                        searchPo={searchPo1}
+                        setSearchPo={(val) => { setSearchPo1(val); setSummaryPage(1); }}
+                        onResetFilters={handleResetTab1}
+                    />
+                )}
+
+                {activeTab === 'mapping' && (
+                    <BatchMappingTable
+                        mappingList={mappingList}
+                        pagination={mappingPagination}
+                        onPageChange={(newPage) => setMappingPage(newPage)}
+                        onLimitChange={(newLimit) => {
+                            setMappingLimit(newLimit);
+                            setMappingPage(1);
+                        }}
+                        searchQuery={searchQuery2}
+                        setSearchQuery={(val) => { setSearchQuery2(val); setMappingPage(1); }}
+                        planDate={planDate2}
+                        setPlanDate={(val) => { setPlanDate2(val); setMappingPage(1); }}
+                        batchStatus={batchStatus2}
+                        setBatchStatus={(val) => { setBatchStatus2(val); setMappingPage(1); }}
+                        onResetFilters={handleResetTab2}
+                    />
+                )}
+
+                {activeTab === 'unallocated' && (
+                    <UnallocatedStockTable
+                        unallocatedList={unallocatedList}
+                        pagination={unallocatedPagination}
+                        onPageChange={(newPage) => setUnallocatedPage(newPage)}
+                        onLimitChange={(newLimit) => {
+                            setUnallocatedLimit(newLimit);
+                            setUnallocatedPage(1);
+                        }}
+                        onRefresh={loadData}
+                        searchStock={searchStock3}
+                        setSearchStock={(val) => setSearchStock3(val)}
+                        prodDate={prodDate3}
+                        setProdDate={(val) => setProdDate3(val)}
+                        onResetFilters={handleResetTab3}
+                    />
+                )}
+            </div>
 
             <ProductionPreviewModal
                 isOpen={isPreviewOpen}

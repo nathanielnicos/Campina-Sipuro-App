@@ -2,12 +2,34 @@ const XLSX = require('xlsx');
 const { sipuroDb } = require('../config/db');
 const { refreshPOStatus, AUTO_CLOSE_THRESHOLD_PERCENT } = require('../helpers/ppicHelper');
 
-// 1. Mengambil Rekap SKU yang belum dialokasikan ke Batch (Tab 1 - Server-side Pagination)
+// 1. Mengambil Rekap SKU yang belum dialokasikan ke Batch (Tab 1 - Filter & Server-side Pagination)
 exports.getUnassignedSummary = async (req, res) => {
     try {
         const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limitNum = Math.max(1, parseInt(req.query.limit, 10) || 10);
         const offset = (pageNum - 1) * limitNum;
+
+        const { searchProduct, searchPo } = req.query;
+
+        // Filtering Clause
+        let whereClauses = [
+            `h.status IN ('Waiting Batch Assignment', 'On Process')`,
+            `d.deleted_at IS NULL`,
+            `(d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0`
+        ];
+        let queryParams = [];
+
+        if (searchProduct) {
+            whereClauses.push(`(p.product_code LIKE ? OR p.product_name LIKE ?)`);
+            queryParams.push(`%${searchProduct}%`, `%${searchProduct}%`);
+        }
+
+        if (searchPo) {
+            whereClauses.push(`h.po_number LIKE ?`);
+            queryParams.push(`%${searchPo}%`);
+        }
+
+        const whereSql = whereClauses.join(' AND ');
 
         // Query Total Unique SKU yang membutuhkan alokasi
         const countQuery = `
@@ -15,19 +37,17 @@ exports.getUnassignedSummary = async (req, res) => {
                 SELECT p.id_product
                 FROM sipuro_db.po_details d
                 JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
-                JOIN campina_db.products p ON d.id_product = p.id_product
+                JOIN sipuro_db.products p ON d.id_product = p.id_product
                 LEFT JOIN (
                     SELECT po_detail_id, SUM(allocated_qty) AS total_allocated
                     FROM sipuro_db.po_batch_allocations
                     GROUP BY po_detail_id
                 ) alloc ON d.po_detail_id = alloc.po_detail_id
-                WHERE h.status IN ('Waiting Batch Assignment', 'On Process')
-                  AND d.deleted_at IS NULL
-                  AND (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0
+                WHERE ${whereSql}
                 GROUP BY p.id_product
             ) sub;
         `;
-        const [countRows] = await sipuroDb.query(countQuery);
+        const [countRows] = await sipuroDb.query(countQuery, queryParams);
         const totalItems = Number(countRows[0]?.total || 0);
         const totalPages = Math.ceil(totalItems / limitNum);
 
@@ -51,21 +71,19 @@ exports.getUnassignedSummary = async (req, res) => {
                 ) AS po_numbers
             FROM sipuro_db.po_details d
             JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
-            JOIN campina_db.products p ON d.id_product = p.id_product
+            JOIN sipuro_db.products p ON d.id_product = p.id_product
             LEFT JOIN (
                 SELECT po_detail_id, SUM(allocated_qty) AS total_allocated
                 FROM sipuro_db.po_batch_allocations
                 GROUP BY po_detail_id
             ) alloc ON d.po_detail_id = alloc.po_detail_id
-            WHERE h.status IN ('Waiting Batch Assignment', 'On Process')
-              AND d.deleted_at IS NULL
-              AND (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0
+            WHERE ${whereSql}
             GROUP BY p.id_product, p.product_code, p.product_name, p.base_uom
             ORDER BY p.product_code ASC
             LIMIT ${limitNum} OFFSET ${offset};
         `;
 
-        const [rows] = await sipuroDb.query(query);
+        const [rows] = await sipuroDb.query(query, queryParams);
 
         res.json({
             success: true,
@@ -87,24 +105,50 @@ exports.getUnassignedSummary = async (req, res) => {
     }
 };
 
-// 2. Mengambil Detail Mapping Batch ke PO (Tab 2 - Server-side Pagination)
+// 2. Mengambil Detail Mapping Batch ke PO (Tab 2 - Filter & Server-side Pagination)
 exports.getAllocatedBatchMapping = async (req, res) => {
     try {
         const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limitNum = Math.max(1, parseInt(req.query.limit, 10) || 10);
         const offset = (pageNum - 1) * limitNum;
 
+        const { search, planDate, batchStatus } = req.query;
+
+        let whereClauses = [];
+        let queryParams = [];
+
+        if (search) {
+            whereClauses.push(`(b.batch_number LIKE ? OR p.product_code LIKE ? OR p.product_name LIKE ? OR h.po_number LIKE ?)`);
+            queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        if (planDate) {
+            whereClauses.push(`DATE(b.plan_production_date) = ?`);
+            queryParams.push(planDate);
+        }
+
+        if (batchStatus) {
+            whereClauses.push(`b.status = ?`);
+            queryParams.push(batchStatus);
+        }
+
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
         // Query Total Items
         const countQuery = `
             SELECT COUNT(DISTINCT b.id) AS total
             FROM sipuro_db.batches b
-            JOIN sipuro_db.po_batch_allocations pba ON b.id = pba.id_batch;
+            JOIN sipuro_db.products p ON b.id_product = p.id_product
+            JOIN sipuro_db.po_batch_allocations pba ON b.id = pba.id_batch
+            JOIN sipuro_db.po_details d ON pba.po_detail_id = d.po_detail_id
+            JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
+            ${whereSql};
         `;
-        const [countRows] = await sipuroDb.query(countQuery);
+        const [countRows] = await sipuroDb.query(countQuery, queryParams);
         const totalItems = Number(countRows[0]?.total || 0);
         const totalPages = Math.ceil(totalItems / limitNum);
 
-        // Query Data Paged menggantikan JSON_ARRAYAGG dengan GROUP_CONCAT
+        // Query Data Paged
         const query = `
             SELECT 
                 b.id AS id_batch,
@@ -120,16 +164,17 @@ exports.getAllocatedBatchMapping = async (req, res) => {
                     SEPARATOR '||'
                 ) AS raw_po_allocations
             FROM sipuro_db.batches b
-            JOIN campina_db.products p ON b.id_product = p.id_product
+            JOIN sipuro_db.products p ON b.id_product = p.id_product
             JOIN sipuro_db.po_batch_allocations pba ON b.id = pba.id_batch
             JOIN sipuro_db.po_details d ON pba.po_detail_id = d.po_detail_id
             JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
+            ${whereSql}
             GROUP BY b.id, b.batch_number, b.status, b.plan_production_date, p.product_code, p.product_name
             ORDER BY b.id DESC
             LIMIT ${limitNum} OFFSET ${offset};
         `;
 
-        const [rows] = await sipuroDb.query(query);
+        const [rows] = await sipuroDb.query(query, queryParams);
 
         // Parse string GROUP_CONCAT menjadi array object po_allocations
         const formattedRows = rows.map(row => {
@@ -352,7 +397,8 @@ exports.previewProduction = async (req, res) => {
             }
         });
 
-        const previewData = [];
+        const previewResults = [];
+        const unallocatedStocks = [];
 
         for (const [batchNum, actualOutput] of Object.entries(batchOutputMap)) {
             const [allocations] = await sipuroDb.query(`
@@ -369,7 +415,7 @@ exports.previewProduction = async (req, res) => {
                     h.po_number,
                     h.po_header_id
                 FROM sipuro_db.batches b
-                JOIN campina_db.products p ON b.id_product = p.id_product
+                JOIN sipuro_db.products p ON b.id_product = p.id_product
                 JOIN sipuro_db.po_batch_allocations pba ON b.id = pba.id_batch
                 JOIN sipuro_db.po_details d ON pba.po_detail_id = d.po_detail_id
                 JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
@@ -380,36 +426,37 @@ exports.previewProduction = async (req, res) => {
                 const targetQty = allocations.reduce((acc, curr) => acc + Number(curr.allocated_qty), 0);
                 const ratio = targetQty > 0 ? actualOutput / targetQty : 0;
 
-                const poDetails = allocations.map(alloc => {
+                allocations.forEach(alloc => {
                     const calculatedFulfilled = Math.round(alloc.allocated_qty * ratio);
-                    return {
+                    previewResults.push({
                         allocation_id: alloc.allocation_id,
                         po_detail_id: alloc.po_detail_id,
                         po_header_id: alloc.po_header_id,
+                        id_batch: alloc.id_batch,
+                        batch_number: batchNum,
                         po_number: alloc.po_number,
-                        allocated_qty: alloc.allocated_qty,
-                        calculated_fulfilled: calculatedFulfilled,
-                        manual_fulfilled: calculatedFulfilled
-                    };
+                        product_code: alloc.product_code,
+                        product_name: alloc.product_name,
+                        allocatedQty: alloc.allocated_qty,
+                        fulfilledQty: calculatedFulfilled,
+                        rowStatus: calculatedFulfilled >= alloc.allocated_qty ? 'Close' : 'Open'
+                    });
                 });
 
-                const achievementPercent = targetQty > 0 ? (actualOutput / targetQty) * 100 : 0;
-
-                previewData.push({
-                    id_batch: allocations[0].id_batch,
-                    batch_number: batchNum,
-                    product_code: allocations[0].product_code,
-                    product_name: allocations[0].product_name,
-                    actual_excel_output: actualOutput,
-                    target_qty: targetQty,
-                    achievement_percent: achievementPercent.toFixed(1),
-                    auto_close: achievementPercent >= AUTO_CLOSE_THRESHOLD_PERCENT,
-                    po_details: poDetails
-                });
+                if (actualOutput > targetQty) {
+                    unallocatedStocks.push({
+                        id_batch: allocations[0].id_batch,
+                        batch_number: batchNum,
+                        id_product: allocations[0].id_product,
+                        product_code: allocations[0].product_code,
+                        product_name: allocations[0].product_name,
+                        surplusQty: actualOutput - targetQty
+                    });
+                }
             }
         }
 
-        if (previewData.length === 0) {
+        if (previewResults.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Tidak ada batch aktif di DB yang cocok dengan nomor batch di file Excel ini.'
@@ -419,7 +466,12 @@ exports.previewProduction = async (req, res) => {
         res.json({
             success: true,
             message: 'Preview hasil alokasi berhasil diproses.',
-            data: previewData
+            data: {
+                processTimestamp: new Date().toISOString(),
+                fileName: req.file.originalname,
+                previewResults,
+                unallocatedStocks
+            }
         });
 
     } catch (error) {
@@ -432,51 +484,63 @@ exports.previewProduction = async (req, res) => {
 exports.confirmProduction = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
-        const { batches } = req.body;
+        const { allocations, unallocatedStocks } = req.body;
 
-        if (!batches || !Array.isArray(batches) || batches.length === 0) {
-            return res.status(400).json({ success: false, message: 'Data konfirmasi tidak valid.' });
+        if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
+            return res.status(400).json({ success: false, message: 'Data alokasi konfirmasi tidak valid.' });
         }
 
         await connection.beginTransaction();
 
-        for (const batch of batches) {
-            const isAutoClose = Number(batch.achievement_percent) >= AUTO_CLOSE_THRESHOLD_PERCENT;
-            const newBatchStatus = isAutoClose ? 'Close' : 'Open';
+        const affectedHeaders = new Set();
+        const affectedBatches = new Set();
+
+        for (const item of allocations) {
+            const addQty = Number(item.fulfilledQty) || 0;
 
             await connection.query(
-                `UPDATE sipuro_db.batches SET status = ?, actual_production_date = CURDATE() WHERE id = ?`,
-                [newBatchStatus, batch.id_batch]
+                `UPDATE sipuro_db.po_batch_allocations SET fulfilled_qty = fulfilled_qty + ?, status = ? WHERE id = ?`,
+                [addQty, item.rowStatus, item.allocation_id]
             );
 
-            if (isAutoClose) {
+            await connection.query(
+                `UPDATE sipuro_db.po_details SET fulfilled_qty = fulfilled_qty + ? WHERE po_detail_id = ?`,
+                [addQty, item.po_detail_id]
+            );
+
+            affectedHeaders.add(item.po_header_id);
+            affectedBatches.add(item.id_batch);
+        }
+
+        // Simpan Lebihan Stok (Unallocated Stocks)
+        if (unallocatedStocks && Array.isArray(unallocatedStocks) && unallocatedStocks.length > 0) {
+            for (const stock of unallocatedStocks) {
                 await connection.query(
-                    `UPDATE sipuro_db.po_batch_allocations SET status = 'Close' WHERE id_batch = ?`,
-                    [batch.id_batch]
+                    `INSERT INTO sipuro_db.unallocated_stocks (id_batch, id_product, qty_available, production_date)
+                     VALUES (?, ?, ?, CURDATE())
+                     ON DUPLICATE KEY UPDATE qty_available = qty_available + VALUES(qty_available)`,
+                    [stock.id_batch, stock.id_product, stock.surplusQty]
                 );
             }
+        }
 
-            const affectedHeaders = new Set();
+        // Update status batch jika semua alokasinya closed
+        for (const batchId of affectedBatches) {
+            const [openAlloc] = await connection.query(
+                `SELECT id FROM sipuro_db.po_batch_allocations WHERE id_batch = ? AND status = 'Open'`,
+                [batchId]
+            );
 
-            for (const poItem of batch.po_details) {
-                const addQty = Number(poItem.manual_fulfilled) || 0;
-
+            if (openAlloc.length === 0) {
                 await connection.query(
-                    `UPDATE sipuro_db.po_batch_allocations SET fulfilled_qty = fulfilled_qty + ? WHERE id = ?`,
-                    [addQty, poItem.allocation_id]
+                    `UPDATE sipuro_db.batches SET status = 'Close', actual_production_date = CURDATE() WHERE id = ?`,
+                    [batchId]
                 );
-
-                await connection.query(
-                    `UPDATE sipuro_db.po_details SET fulfilled_qty = fulfilled_qty + ? WHERE po_detail_id = ?`,
-                    [addQty, poItem.po_detail_id]
-                );
-
-                affectedHeaders.add(poItem.po_header_id);
             }
+        }
 
-            for (const poHeaderId of affectedHeaders) {
-                await refreshPOStatus(connection, poHeaderId);
-            }
+        for (const poHeaderId of affectedHeaders) {
+            await refreshPOStatus(connection, poHeaderId);
         }
 
         await connection.commit();
@@ -488,5 +552,123 @@ exports.confirmProduction = async (req, res) => {
         res.status(500).json({ success: false, message: 'Gagal menyimpan hasil produksi', error: error.message });
     } finally {
         connection.release();
+    }
+};
+
+// 7. Mengambil Statistik Data Dasbor PPIC (Mendukung YTD, MTD, & Filter Tanggal Dibuat PO)
+exports.getDashboardStats = async (req, res) => {
+    try {
+        const { mode = 'YTD', startDate, endDate } = req.query;
+
+        let trendQuery = '';
+
+        if (mode === 'MTD') {
+            trendQuery = `
+                WITH RECURSIVE dates AS (
+                    SELECT DATE_FORMAT(NOW(), '%Y-%m-01') AS date_val
+                    UNION ALL
+                    SELECT date_val + INTERVAL 1 DAY
+                    FROM dates
+                    WHERE date_val + INTERVAL 1 DAY <= CURRENT_DATE()
+                )
+                SELECT 
+                    DATE_FORMAT(d.date_val, '%Y-%m-%d') AS label_key,
+                    DATE_FORMAT(d.date_val, '%d %b') AS month_label,
+                    COALESCE(SUM(pod.base_qty), 0) AS total_volume
+                FROM dates d
+                LEFT JOIN sipuro_db.po_headers poh 
+                    ON DATE(poh.created_at) = d.date_val
+                   AND poh.status NOT IN ('Rejected', 'Canceled')
+                LEFT JOIN sipuro_db.po_details pod 
+                    ON poh.po_header_id = pod.po_header_id AND pod.deleted_at IS NULL
+                GROUP BY d.date_val, label_key, month_label
+                ORDER BY d.date_val ASC;
+            `;
+        } else {
+            trendQuery = `
+                WITH RECURSIVE months AS (
+                    SELECT DATE_FORMAT(NOW(), '%Y-01-01') AS month_val
+                    UNION ALL
+                    SELECT month_val + INTERVAL 1 MONTH
+                    FROM months
+                    WHERE month_val + INTERVAL 1 MONTH <= DATE_FORMAT(NOW(), '%Y-%m-01')
+                )
+                SELECT 
+                    DATE_FORMAT(m.month_val, '%Y-%m') AS label_key,
+                    DATE_FORMAT(m.month_val, '%b %Y') AS month_label,
+                    COALESCE(SUM(pod.base_qty), 0) AS total_volume
+                FROM months m
+                LEFT JOIN sipuro_db.po_headers poh 
+                    ON DATE_FORMAT(poh.created_at, '%Y-%m') = DATE_FORMAT(m.month_val, '%Y-%m')
+                   AND poh.status NOT IN ('Rejected', 'Canceled')
+                LEFT JOIN sipuro_db.po_details pod 
+                    ON poh.po_header_id = pod.po_header_id AND pod.deleted_at IS NULL
+                GROUP BY m.month_val, label_key, month_label
+                ORDER BY m.month_val ASC;
+            `;
+        }
+
+        const [monthlyStats] = await sipuroDb.query(trendQuery);
+
+        let statusWhere = [];
+        let topProductsWhere = [`d.deleted_at IS NULL`, `h.status NOT IN ('Rejected', 'Canceled')`];
+        let queryParamsStatus = [];
+        let queryParamsTop = [];
+
+        if (startDate) {
+            statusWhere.push(`DATE(created_at) >= ?`);
+            topProductsWhere.push(`DATE(h.created_at) >= ?`);
+            queryParamsStatus.push(startDate);
+            queryParamsTop.push(startDate);
+        }
+
+        if (endDate) {
+            statusWhere.push(`DATE(created_at) <= ?`);
+            topProductsWhere.push(`DATE(h.created_at) <= ?`);
+            queryParamsStatus.push(endDate);
+            queryParamsTop.push(endDate);
+        }
+
+        const statusWhereClause = statusWhere.length > 0 ? `WHERE ${statusWhere.join(' AND ')}` : '';
+        const topProductsWhereClause = `WHERE ${topProductsWhere.join(' AND ')}`;
+
+        const [statusStats] = await sipuroDb.query(`
+            SELECT 
+                status, 
+                COUNT(*) AS count 
+            FROM sipuro_db.po_headers 
+            ${statusWhereClause}
+            GROUP BY status;
+        `, queryParamsStatus);
+
+        const [topProducts] = await sipuroDb.query(`
+            SELECT 
+                p.product_code,
+                p.product_name,
+                COALESCE(SUM(d.base_qty), 0) AS total_qty
+            FROM sipuro_db.po_details d
+            JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
+            JOIN sipuro_db.products p ON d.id_product = p.id_product
+            ${topProductsWhereClause}
+            GROUP BY d.id_product, p.product_code, p.product_name
+            ORDER BY total_qty DESC
+            LIMIT 5;
+        `, queryParamsTop);
+
+        res.json({
+            success: true,
+            data: {
+                monthlyStats,
+                statusStats,
+                topProducts
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching PPIC dashboard stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Gagal mengambil data statistik dasbor.',
+            error: error.message
+        });
     }
 };

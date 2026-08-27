@@ -1,15 +1,15 @@
-const { sipuroDb, campinaDb } = require('../config/db');
+const { sipuroDb } = require('../config/db');
 
 exports.getProducts = async (req, res) => {
     try {
         const query = `
             SELECT p.id_product, p.product_code, p.product_name, p.base_uom, p.pcs_per_ctn, p.ctn_per_plt, sp.price AS base_price
-            FROM campina_db.products p
-            JOIN campina_db.product_selling_prices sp ON p.id_product = sp.id_product
+            FROM sipuro_db.products p
+            JOIN sipuro_db.product_selling_prices sp ON p.id_product = sp.id_product
             WHERE p.is_active = 1 AND sp.start_date <= CURDATE() AND (sp.end_date IS NULL OR sp.end_date >= CURDATE())
             ORDER BY p.product_name ASC
         `;
-        const [rows] = await campinaDb.query(query);
+        const [rows] = await sipuroDb.query(query);
         res.json({ success: true, data: rows });
     } catch (error) {
         console.error('Error fetching products:', error);
@@ -19,8 +19,8 @@ exports.getProducts = async (req, res) => {
 
 exports.getCompanyProfile = async (req, res) => {
     try {
-        const query = `SELECT ppn_percent FROM campina_db.company_profile LIMIT 1`;
-        const [rows] = await campinaDb.query(query);
+        const query = `SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`;
+        const [rows] = await sipuroDb.query(query);
         if (rows.length === 0 || rows[0].ppn_percent === null) {
             return res.status(404).json({ success: false, message: 'Data PPN tidak ditemukan di company_profile.' });
         }

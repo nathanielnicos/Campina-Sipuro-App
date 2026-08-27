@@ -6,7 +6,6 @@ const AUTO_CLOSE_THRESHOLD_PERCENT = 90;
  */
 async function refreshPOStatus(connection, poHeaderId) {
     // A. Cek Pemenuhan Pembuatan Batch per SKU di PO
-    // Membandingkan base_qty pada po_details dengan SUM(allocated_qty) dari po_batch_allocations
     const [qtyCheck] = await connection.query(`
         SELECT 
             pd.po_detail_id,
@@ -18,7 +17,6 @@ async function refreshPOStatus(connection, poHeaderId) {
         GROUP BY pd.po_detail_id, pd.base_qty
     `, [poHeaderId]);
 
-    // Jika tidak ada detail PO, hentikan proses
     if (!qtyCheck || qtyCheck.length === 0) return;
 
     // B. Evaluasi apakah SELURUH detail SKU pada PO sudah dibuatkan batch sesuai target base_qty
@@ -28,7 +26,6 @@ async function refreshPOStatus(connection, poHeaderId) {
         const targetQty = Number(item.base_qty);
         const allocatedQty = Number(item.total_allocated_qty);
 
-        // Jika alokasi batch masih kurang dari target base_qty, maka batch belum lengkap
         if (allocatedQty < targetQty) {
             isFullyAssigned = false;
             break;
