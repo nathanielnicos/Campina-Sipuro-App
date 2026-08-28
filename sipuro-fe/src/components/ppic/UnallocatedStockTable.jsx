@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PaginationControl from '../common/PaginationControl';
 import { fetchOpenAllocationsByProduct, reallocateStockApi } from '../../services/ppicApi';
-import { formatQty } from '../../utils/formatters';
+import { formatDate, formatQty } from '../../utils/formatters'; // Samakan formatter dengan BatchMappingTable
 
 const UnallocatedStockTable = ({
     unallocatedList = [],
@@ -22,16 +22,13 @@ const UnallocatedStockTable = ({
     const [loadingAlloc, setLoadingAlloc] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // Handler langsung persis seperti POList & Tab Lainnya
     const handleStockSearchChange = (e) => {
-        const val = e.target.value;
-        setSearchStock(val);
+        setSearchStock(e.target.value);
         if (onPageChange) onPageChange(1);
     };
 
     const handleProdDateChange = (e) => {
-        const val = e.target.value;
-        setProdDate(val);
+        setProdDate(e.target.value);
         if (onPageChange) onPageChange(1);
     };
 
@@ -148,7 +145,7 @@ const UnallocatedStockTable = ({
                                 <th style={{ padding: '12px 16px' }}>No. Batch Asal</th>
                                 <th style={{ padding: '12px 16px' }}>Kode Produk</th>
                                 <th style={{ padding: '12px 16px' }}>Nama Produk</th>
-                                <th style={{ padding: '12px 16px' }}>Tgl Produksi</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'center' }}>Tgl Produksi</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right' }}>Kuantitas (PCS)</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'center' }}>Aksi</th>
                             </tr>
@@ -166,7 +163,10 @@ const UnallocatedStockTable = ({
                                         <td style={{ padding: '12px 16px' }}><strong>{item.batch_number}</strong></td>
                                         <td style={{ padding: '12px 16px' }}>{item.product_code || '-'}</td>
                                         <td style={{ padding: '12px 16px' }}>{item.product_name || '-'}</td>
-                                        <td style={{ padding: '12px 16px' }}>{item.production_date ? item.production_date.split('T')[0] : '-'}</td>
+                                        {/* Menggunakan formatDate agar sama persis seperti Tab BatchMapping */}
+                                        <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                            {formatDate(item.production_date)}
+                                        </td>
                                         <td style={{ padding: '12px 16px', textAlign: 'right', color: '#198754', fontWeight: 'bold' }}>
                                             {formatQty(item.qty_available)}
                                         </td>

@@ -68,13 +68,16 @@ export const fetchUnallocatedStocks = async (page = 1, limit = 10, searchStock =
     try {
         let params = { page, limit };
 
-        // Fleksibel: Menerima argumen berupa Objek filters maupun String individual
         if (typeof searchStock === 'object' && searchStock !== null) {
             const filters = searchStock;
+            params.search = filters.search || filters.searchStock || '';
             params.searchStock = filters.searchStock || filters.search || '';
             params.prodDate = filters.prodDate || '';
         } else {
-            if (searchStock) params.searchStock = searchStock;
+            if (searchStock) {
+                params.search = searchStock;
+                params.searchStock = searchStock;
+            }
             if (prodDate) params.prodDate = prodDate;
         }
 
