@@ -2,7 +2,7 @@ import React from 'react';
 import { getStatusStyle } from '../../utils/statusHelper';
 import { formatCurrency, formatDate, formatQty } from '../../utils/formatters';
 
-const PORow = ({ po, onSelectPODetail, user }) => {
+const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
     return (
         <tr style={{ borderBottom: '1px solid #dee2e6' }}>
             <td style={{ padding: '12px 16px' }}><strong>{po.po_number}</strong></td>
@@ -25,19 +25,39 @@ const PORow = ({ po, onSelectPODetail, user }) => {
                 </span>
             </td>
             <td style={{ padding: '12px 16px' }}>
-                <button
-                    onClick={() => onSelectPODetail && onSelectPODetail(po.po_header_id)}
-                    style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#17a2b8',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Detail
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                        onClick={() => onSelectPODetail && onSelectPODetail(po.po_header_id)}
+                        style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#17a2b8',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        Detail
+                    </button>
+                    <button
+                        onClick={() => onOpenPdfModal && onOpenPdfModal(po.po_header_id)}
+                        style={{
+                            padding: '6px 10px',
+                            backgroundColor: '#dc3545',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                        }}
+                        title="Buka Preview PDF"
+                    >
+                        📄 PDF
+                    </button>
+                </div>
             </td>
         </tr>
     );

@@ -64,3 +64,33 @@ export const updatePOStatusApi = async (poId, status, notes, updatedBy) => {
     });
     return await res.json();
 };
+
+export const exportPoExcelApi = async (customerId, filters = {}) => {
+    try {
+        const { search = '', startDate = '', endDate = '', status = '' } = filters;
+        const params = new URLSearchParams({
+            customer_id: customerId || '',
+            search,
+            startDate,
+            endDate,
+            status
+        });
+
+        const res = await fetch(`${BASE_URL}/po/export-excel?${params.toString()}`);
+        if (!res.ok) throw new Error('Gagal mengunduh file Excel');
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Rekap_PO_${new Date().toISOString().split('T')[0]}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        return { success: true };
+    } catch (error) {
+        console.error('Error downloading PO excel:', error);
+        return { success: false, message: error.message };
+    }
+};

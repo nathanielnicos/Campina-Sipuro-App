@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { fetchPOListApi } from '../../services/poApi';
+import { fetchPOListApi, exportPoExcelApi } from '../../services/poApi';
 import PORow from './PORow';
+import POPdfModal from './POPdfModal';
 import PaginationControl from '../common/PaginationControl';
 
 const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
     const [poList, setPoList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [exporting, setExporting] = useState(false);
+
+    // State Modal PDF Preview
+    const [selectedPdfPoId, setSelectedPdfPoId] = useState(null);
 
     // State Filter & Search
     const [search, setSearch] = useState('');
@@ -80,6 +85,13 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
         setCurrentPage(1);
     };
 
+    const handleExportExcel = async () => {
+        setExporting(true);
+        const filters = { search, startDate, endDate, status };
+        await exportPoExcelApi(customerId, filters);
+        setExporting(false);
+    };
+
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages) {
             setCurrentPage(newPage);
@@ -100,45 +112,52 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                 borderRadius: '8px',
                 border: '1px solid #dee2e6',
                 marginBottom: '20px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                display: 'flex',
+                flexWrap: 'wrap',
                 gap: '12px',
-                alignItems: 'end'
+                alignItems: 'flex-end'
             }}>
-                <div>
+                {/* Cari PO Number */}
+                <div style={{ flex: '1 1 180px', minWidth: '150px' }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Cari PO Number</label>
                     <input
                         type="text"
                         placeholder="Contoh: 001/PO/..."
                         value={search}
                         onChange={handleSearchChange}
-                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '13px' }}
                     />
                 </div>
-                <div>
+
+                {/* Dari Tanggal */}
+                <div style={{ flex: '0 0 135px' }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Dari Tanggal</label>
                     <input
                         type="date"
                         value={startDate}
                         onChange={handleStartDateChange}
-                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '12px' }}
                     />
                 </div>
-                <div>
+
+                {/* Sampai Tanggal */}
+                <div style={{ flex: '0 0 135px' }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Sampai Tanggal</label>
                     <input
                         type="date"
                         value={endDate}
                         onChange={handleEndDateChange}
-                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '12px' }}
                     />
                 </div>
-                <div>
+
+                {/* Status PO */}
+                <div style={{ flex: '0 0 160px' }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Status PO</label>
                     <select
                         value={status}
                         onChange={handleStatusChange}
-                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '12px' }}
                     >
                         <option value="">Semua Status</option>
                         <option value="Waiting for Confirmation">Waiting for Confirmation</option>
@@ -147,12 +166,13 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                         <option value="Canceled">Canceled</option>
                     </select>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+
+                {/* Group Tombol Aksi */}
+                <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
                     <button
                         onClick={handleResetFilters}
                         disabled={!isFilterActive}
                         style={{
-                            flex: 1,
                             padding: '8px 12px',
                             backgroundColor: isFilterActive ? '#dc3545' : '#e9ecef',
                             color: isFilterActive ? '#fff' : '#adb5bd',
@@ -160,16 +180,35 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                             borderRadius: '4px',
                             cursor: isFilterActive ? 'pointer' : 'not-allowed',
                             fontWeight: 'bold',
+                            fontSize: '13px',
+                            whiteSpace: 'nowrap',
                             transition: 'all 0.2s ease'
                         }}
                     >
                         Reset Filter
                     </button>
+                    <button
+                        onClick={handleExportExcel}
+                        disabled={exporting}
+                        style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#28a745',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: exporting ? 'not-allowed' : 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '13px',
+                            whiteSpace: 'nowrap',
+                            opacity: exporting ? 0.7 : 1
+                        }}
+                    >
+                        {exporting ? 'Exporting...' : '📊 Export Excel'}
+                    </button>
                     {user?.role === 'CUSTOMER' && (
                         <button
                             onClick={onCreateNewPO}
                             style={{
-                                flex: 1,
                                 padding: '8px 12px',
                                 backgroundColor: '#007bff',
                                 color: '#fff',
@@ -177,6 +216,7 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                                 fontWeight: 'bold',
+                                fontSize: '13px',
                                 whiteSpace: 'nowrap'
                             }}
                         >
@@ -220,6 +260,7 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                                             po={po}
                                             user={user}
                                             onSelectPODetail={onSelectPODetail}
+                                            onOpenPdfModal={(poId) => setSelectedPdfPoId(poId)}
                                         />
                                     ))
                                 )}
@@ -238,6 +279,14 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                         onLimitChange={handleLimitChange}
                     />
                 </div>
+            )}
+
+            {/* Render POPdfModal jika ada ID yang dipilih */}
+            {selectedPdfPoId && (
+                <POPdfModal
+                    poId={selectedPdfPoId}
+                    onClose={() => setSelectedPdfPoId(null)}
+                />
             )}
         </div>
     );
