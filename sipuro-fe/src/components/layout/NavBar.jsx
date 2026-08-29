@@ -33,7 +33,7 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
                             onClick={() => setActiveTab('ppic-dashboard')}
                             style={getButtonStyle('ppic-dashboard')}
                         >
-                            Dasbor PPIC
+                            Dasbor
                         </button>
                         <button
                             type="button"

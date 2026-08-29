@@ -41,22 +41,26 @@ const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
                     >
                         Detail
                     </button>
-                    <button
-                        onClick={() => onOpenPdfModal && onOpenPdfModal(po.po_header_id)}
-                        style={{
-                            padding: '6px 10px',
-                            backgroundColor: '#dc3545',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 'bold'
-                        }}
-                        title="Buka Preview PDF"
-                    >
-                        📄 PDF
-                    </button>
+
+                    {/* Sembunyikan Tombol Preview PDF untuk Role PPIC */}
+                    {user?.role !== 'PPIC' && (
+                        <button
+                            onClick={() => onOpenPdfModal && onOpenPdfModal(po.po_header_id)}
+                            style={{
+                                padding: '6px 10px',
+                                backgroundColor: '#dc3545',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                            }}
+                            title="Buka Preview PDF"
+                        >
+                            📄 PDF
+                        </button>
+                    )}
                 </div>
             </td>
         </tr>

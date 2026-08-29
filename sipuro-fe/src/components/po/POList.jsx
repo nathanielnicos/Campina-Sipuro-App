@@ -187,24 +187,29 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                     >
                         Reset Filter
                     </button>
-                    <button
-                        onClick={handleExportExcel}
-                        disabled={exporting}
-                        style={{
-                            padding: '8px 12px',
-                            backgroundColor: '#28a745',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: exporting ? 'not-allowed' : 'pointer',
-                            fontWeight: 'bold',
-                            fontSize: '13px',
-                            whiteSpace: 'nowrap',
-                            opacity: exporting ? 0.7 : 1
-                        }}
-                    >
-                        {exporting ? 'Exporting...' : '📊 Export Excel'}
-                    </button>
+
+                    {/* Sembunyikan Tombol Export Excel untuk Role PPIC */}
+                    {user?.role !== 'PPIC' && (
+                        <button
+                            onClick={handleExportExcel}
+                            disabled={exporting}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: '#28a745',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: exporting ? 'not-allowed' : 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '13px',
+                                whiteSpace: 'nowrap',
+                                opacity: exporting ? 0.7 : 1
+                            }}
+                        >
+                            {exporting ? 'Exporting...' : '📊 Export Excel'}
+                        </button>
+                    )}
+
                     {user?.role === 'CUSTOMER' && (
                         <button
                             onClick={onCreateNewPO}

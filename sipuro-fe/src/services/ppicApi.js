@@ -132,3 +132,34 @@ export const confirmProductionApi = async (payload) => {
         return { success: false, message: error.response?.data?.message || 'Gagal menyimpan data alokasi.' };
     }
 };
+
+// PERBAIKAN: Menggunakan Axios + Blob & URL Route Backend yang Benar
+export const exportBatchExcelApi = async (params) => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/ppic/export-batch-excel`, {
+            params,
+            responseType: 'blob'
+        });
+
+        const blob = new Blob([response.data], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        a.download = `Export_Batch_${todayStr}.xlsx`;
+
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Export Excel Error:', error);
+        return { success: false, message: 'Gagal mengunduh berkas Excel.' };
+    }
+};

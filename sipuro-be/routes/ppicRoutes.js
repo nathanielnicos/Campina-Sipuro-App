@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const ppicController = require('../controllers/ppicController');
+const ppicController = require('../controllers/ppic/ppicController');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -16,10 +16,13 @@ router.post('/assign-batch-bulk', ppicController.assignBatchBulk);
 // Endpoint Monitoring Batch
 router.get('/batch-mapping', ppicController.getAllocatedBatchMapping);
 
-// Upload Excel -> Preview (Disesuaikan dengan ppicApi.js)
+// Upload Excel -> Preview
 router.post('/upload/preview', upload.single('file'), ppicController.previewProduction);
 
-// Konfirmasi Simpan Hasil Produksi ke DB (Disesuaikan dengan ppicApi.js)
+// Konfirmasi Simpan Hasil Produksi ke DB
 router.post('/upload/commit', ppicController.confirmProduction);
+
+// Endpoint Export Excel
+router.get('/export-batch-excel', ppicController.exportBatchMappingExcel);
 
 module.exports = router;

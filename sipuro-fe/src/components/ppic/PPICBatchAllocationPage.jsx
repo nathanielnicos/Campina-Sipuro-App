@@ -23,42 +23,40 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // --- State Filter Tab 1 (Belum Ada Batch) ---
+    // State Filter Tab 1
     const [searchProduct1, setSearchProduct1] = useState('');
     const [searchPo1, setSearchPo1] = useState('');
 
-    // --- State Filter Tab 2 (Daftar Batch) ---
+    // State Filter Tab 2 (Dengan rentang tanggal fromDate & toDate)
     const [searchQuery2, setSearchQuery2] = useState('');
-    const [planDate2, setPlanDate2] = useState('');
+    const [fromDate2, setFromDate2] = useState('');
+    const [toDate2, setToDate2] = useState('');
     const [batchStatus2, setBatchStatus2] = useState('');
 
-    // --- State Filter Tab 3 (Kelebihan Produksi) ---
+    // State Filter Tab 3
     const [searchStock3, setSearchStock3] = useState('');
     const [prodDate3, setProdDate3] = useState('');
 
-    // State Pagination Tab 1
+    // Pagination
     const [summaryPage, setSummaryPage] = useState(1);
     const [summaryLimit, setSummaryLimit] = useState(10);
     const [summaryPagination, setSummaryPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
-    // State Pagination Tab 2
     const [mappingPage, setMappingPage] = useState(1);
     const [mappingLimit, setMappingLimit] = useState(10);
     const [mappingPagination, setMappingPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
-    // State Pagination Tab 3
     const [unallocatedPage, setUnallocatedPage] = useState(1);
     const [unallocatedLimit, setUnallocatedLimit] = useState(10);
     const [unallocatedPagination, setUnallocatedPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
-    // Upload & Preview States
+    // Modals
     const [uploadFile, setUploadFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [previewData, setPreviewData] = useState(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    // Modal Manual Allocation States
     const [selectedSku, setSelectedSku] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [allocationMode, setAllocationMode] = useState('');
@@ -91,7 +89,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                 setError(res?.message || 'Gagal mengambil data rekap kebutuhan batch.');
             }
         } else if (activeTab === 'mapping') {
-            const filters = { search: searchQuery2, planDate: planDate2, batchStatus: batchStatus2 };
+            const filters = { search: searchQuery2, fromDate: fromDate2, toDate: toDate2, batchStatus: batchStatus2 };
             const res = await fetchBatchMapping(mappingPage, mappingLimit, filters);
             if (res && res.success) {
                 setMappingList(res.data || []);
@@ -127,7 +125,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     }, [
         activeTab,
         summaryPage, summaryLimit, searchProduct1, searchPo1,
-        mappingPage, mappingLimit, searchQuery2, planDate2, batchStatus2,
+        mappingPage, mappingLimit, searchQuery2, fromDate2, toDate2, batchStatus2,
         unallocatedPage, unallocatedLimit, searchStock3, prodDate3
     ]);
 
@@ -135,7 +133,6 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
         loadData();
     }, [loadData]);
 
-    // Resetters
     const handleResetTab1 = () => {
         setSearchProduct1('');
         setSearchPo1('');
@@ -144,7 +141,8 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
 
     const handleResetTab2 = () => {
         setSearchQuery2('');
-        setPlanDate2('');
+        setFromDate2('');
+        setToDate2('');
         setBatchStatus2('');
         setMappingPage(1);
     };
@@ -297,7 +295,6 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
 
     return (
         <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
-            {/* Header: Tab Navigation Sejajar Form Upload */}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -357,7 +354,6 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
 
             {error && <div style={{ color: 'red', marginBottom: '16px' }}>{error}</div>}
 
-            {/* Komponen Tabel tetap di-render (tidak di-unmount) saat loading */}
             <div style={{ position: 'relative', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
                 {loading && (
                     <div style={{
@@ -402,8 +398,10 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                         }}
                         searchQuery={searchQuery2}
                         setSearchQuery={(val) => { setSearchQuery2(val); setMappingPage(1); }}
-                        planDate={planDate2}
-                        setPlanDate={(val) => { setPlanDate2(val); setMappingPage(1); }}
+                        fromDate={fromDate2}
+                        setFromDate={(val) => { setFromDate2(val); setMappingPage(1); }}
+                        toDate={toDate2}
+                        setToDate={(val) => { setToDate2(val); setMappingPage(1); }}
                         batchStatus={batchStatus2}
                         setBatchStatus={(val) => { setBatchStatus2(val); setMappingPage(1); }}
                         onResetFilters={handleResetTab2}

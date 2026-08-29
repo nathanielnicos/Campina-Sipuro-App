@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { getStatusStyle } from '../../utils/statusHelper';
 import { formatDate, formatQty } from '../../utils/formatters';
 import PaginationControl from '../common/PaginationControl';
+import { exportBatchExcelApi } from '../../services/ppicApi';
 
 const BatchMappingTable = ({
     mappingList = [],
@@ -10,30 +11,52 @@ const BatchMappingTable = ({
     onLimitChange,
     searchQuery,
     setSearchQuery,
-    planDate,
-    setPlanDate,
+    fromDate,
+    setFromDate,
+    toDate,
+    setToDate,
     batchStatus,
     setBatchStatus,
     onResetFilters
 }) => {
     const [viewMode, setViewMode] = useState('BATCH');
+    const [exporting, setExporting] = useState(false);
 
-    // Handler langsung persis seperti POList
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value);
         if (onPageChange) onPageChange(1);
     };
 
-    const isFilterActive = Boolean(searchQuery || planDate || batchStatus);
+    const isFilterActive = Boolean(searchQuery || fromDate || toDate || batchStatus);
 
-    const handlePlanDateChange = (e) => {
-        setPlanDate(e.target.value);
+    const handleFromDateChange = (e) => {
+        setFromDate(e.target.value);
+        if (onPageChange) onPageChange(1);
+    };
+
+    const handleToDateChange = (e) => {
+        setToDate(e.target.value);
         if (onPageChange) onPageChange(1);
     };
 
     const handleStatusChange = (e) => {
         setBatchStatus(e.target.value);
         if (onPageChange) onPageChange(1);
+    };
+
+    const handleExportExcel = async () => {
+        setExporting(true);
+        const res = await exportBatchExcelApi({
+            search: searchQuery,
+            fromDate,
+            toDate,
+            batchStatus
+        });
+        setExporting(false);
+
+        if (!res.success) {
+            alert(res.message);
+        }
     };
 
     const renderPoView = () => {
@@ -264,7 +287,7 @@ const BatchMappingTable = ({
                 border: '1px solid #dee2e6',
                 marginBottom: '20px',
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                 gap: '12px',
                 alignItems: 'end'
             }}>
@@ -279,11 +302,20 @@ const BatchMappingTable = ({
                     />
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Rencana Produksi</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Dari Tanggal</label>
                     <input
                         type="date"
-                        value={planDate}
-                        onChange={handlePlanDateChange}
+                        value={fromDate}
+                        onChange={handleFromDateChange}
+                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                    />
+                </div>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Sampai Tanggal</label>
+                    <input
+                        type="date"
+                        value={toDate}
+                        onChange={handleToDateChange}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
                     />
                 </div>
@@ -299,12 +331,12 @@ const BatchMappingTable = ({
                         <option value="Close">Close</option>
                     </select>
                 </div>
-                <div>
+                <div style={{ display: 'flex', gap: '8px' }}>
                     <button
                         onClick={onResetFilters}
                         disabled={!isFilterActive}
                         style={{
-                            width: '100%',
+                            flex: 1,
                             padding: '8px 12px',
                             backgroundColor: isFilterActive ? '#dc3545' : '#e9ecef',
                             color: isFilterActive ? '#fff' : '#adb5bd',
@@ -315,7 +347,25 @@ const BatchMappingTable = ({
                             transition: 'all 0.2s ease'
                         }}
                     >
-                        Reset Filter
+                        Reset
+                    </button>
+                    <button
+                        onClick={handleExportExcel}
+                        disabled={exporting}
+                        style={{
+                            flex: 1,
+                            padding: '8px 12px',
+                            backgroundColor: '#198754',
+                            color: '#fff',
+                            border: '1px solid #198754',
+                            borderRadius: '4px',
+                            cursor: exporting ? 'not-allowed' : 'pointer',
+                            fontWeight: 'bold',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        {exporting ? 'Mengunduh...' : 'Export Excel'}
                     </button>
                 </div>
             </div>
