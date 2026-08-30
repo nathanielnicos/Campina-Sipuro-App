@@ -4,10 +4,12 @@ import {
     assignBatchBulk,
     fetchBatchMapping,
     fetchBatchesBySku,
-    previewProductionApi,
-    confirmProductionApi,
     fetchUnallocatedStocks
 } from '../../services/ppicApi';
+import {
+    previewProductionApi,
+    confirmProductionApi
+} from '../../services/productionUploadApi';
 
 import PendingSkuTable from './PendingSkuTable';
 import BatchMappingTable from './BatchMappingTable';
@@ -211,11 +213,9 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     };
 
     const handleRejectPreview = () => {
-        if (window.confirm('Batalkan proses upload? Data tidak akan disimpan ke database.')) {
-            setIsPreviewOpen(false);
-            setPreviewData(null);
-            setUploadFile(null);
-        }
+        setIsPreviewOpen(false);
+        setPreviewData(null);
+        setUploadFile(null);
     };
 
     const handleOpenModal = async (sku) => {

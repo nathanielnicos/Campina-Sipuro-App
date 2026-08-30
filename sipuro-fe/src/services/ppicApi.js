@@ -109,31 +109,8 @@ export const reallocateStockApi = async (payload) => {
     }
 };
 
-// --- ENDPOINT TERHUBUNG KE UPLOAD CONTROLLER ---
+// --- EXPORT EXCEL ---
 
-export const previewProductionApi = async (formData) => {
-    try {
-        const response = await axios.post(`${API_BASE_URL}/upload/preview`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        return response.data;
-    } catch (error) {
-        console.error('Error previewing production file:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal membaca file produksi.' };
-    }
-};
-
-export const confirmProductionApi = async (payload) => {
-    try {
-        const response = await axios.post(`${API_BASE_URL}/upload/commit`, payload);
-        return response.data;
-    } catch (error) {
-        console.error('Error confirming production:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal menyimpan data alokasi.' };
-    }
-};
-
-// PERBAIKAN: Menggunakan Axios + Blob & URL Route Backend yang Benar
 export const exportBatchExcelApi = async (params) => {
     try {
         const response = await axios.get(`${API_BASE_URL}/ppic/export-batch-excel`, {

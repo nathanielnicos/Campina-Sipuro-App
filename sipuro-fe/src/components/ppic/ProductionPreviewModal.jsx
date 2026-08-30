@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { formatQty } from '../../utils/formatters';
 import PaginationControl from '../common/PaginationControl';
 
@@ -11,12 +11,12 @@ const ProductionPreviewModal = ({
     onRejectPreview
 }) => {
     // State Pagination Tabel Realisasi PO
-    const [allocCurrentPage, setAllocCurrentPage] = useState(1);
-    const [allocPageSize, setAllocPageSize] = useState(10);
+    const [allocCurrentPage, setAllocCurrentPage] = React.useState(1);
+    const [allocPageSize, setAllocPageSize] = React.useState(10);
 
     // State Pagination Tabel Kelebihan Stok
-    const [unallocCurrentPage, setUnallocCurrentPage] = useState(1);
-    const [unallocPageSize, setUnallocPageSize] = useState(10);
+    const [unallocCurrentPage, setUnallocCurrentPage] = React.useState(1);
+    const [unallocPageSize, setUnallocPageSize] = React.useState(10);
 
     if (!isOpen || !previewData) return null;
 
@@ -38,7 +38,6 @@ const ProductionPreviewModal = ({
         unallocCurrentPage * unallocPageSize
     );
 
-    // Handler Input Qty (Kirim angka murni ke state parent)
     const handleQtyInputChange = (actualIndex, e) => {
         const rawValue = e.target.value.replace(/\D/g, '');
         onFulfilledChange(actualIndex, rawValue);
@@ -164,7 +163,6 @@ const ProductionPreviewModal = ({
                             </table>
                         </div>
 
-                        {/* Pagination Realisasi PO */}
                         <PaginationControl
                             pagination={{
                                 currentPage: allocCurrentPage,
@@ -217,7 +215,6 @@ const ProductionPreviewModal = ({
                                     </table>
                                 </div>
 
-                                {/* Pagination Kelebihan Stok */}
                                 <PaginationControl
                                     pagination={{
                                         currentPage: unallocCurrentPage,
@@ -239,17 +236,21 @@ const ProductionPreviewModal = ({
                     <button
                         onClick={onRejectPreview}
                         disabled={saving}
-                        style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                     >
-                        Tolak / Batal
+                        Tutup
                     </button>
-                    <button
-                        onClick={onConfirmSave}
-                        disabled={saving}
-                        style={{ padding: '8px 16px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                        {saving ? 'Menyimpan...' : 'Terima & Simpan Data'}
-                    </button>
+
+                    {/* Sembunyikan tombol simpan jika file terdeteksi merupakan unggahan ulang / sama */}
+                    {!previewData.isReupload && (
+                        <button
+                            onClick={onConfirmSave}
+                            disabled={saving}
+                            style={{ padding: '8px 16px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                            {saving ? 'Menyimpan...' : 'Simpan'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

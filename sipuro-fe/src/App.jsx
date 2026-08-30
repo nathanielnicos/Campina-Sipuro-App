@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import POList from './components/po/POList';
-import POCreateModal from './components/po/POCreateModal';
+import POCreateModal from './components/po/create-modal/POCreateModal';
 import PPICBatchAllocationPage from './components/ppic/PPICBatchAllocationPage';
 import PPICDashboard from './components/ppic/PPICDashboard';
+
+import EmployeeListPage from './components/superadmin/EmployeeListPage';
+import CustomerListPage from './components/superadmin/CustomerListPage';
+import ProductListPage from './components/superadmin/ProductListPage';
+import PriceListPage from './components/superadmin/PriceListPage';
+
 import Login from './components/auth/Login';
 import Navbar from './components/layout/Navbar';
 
@@ -13,19 +19,25 @@ function App() {
   const [selectedPoId, setSelectedPoId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const getDefaultTab = (role) => {
+    if (role === 'PPIC') return 'ppic-dashboard';
+    if (role === 'SUPERADMIN' || role === 'ADMIN') return 'sa-employees';
+    return 'po-list';
+  };
+
   useEffect(() => {
     const savedUser = localStorage.getItem('sipuro_user');
     if (savedUser) {
       const parsedUser = JSON.parse(savedUser);
       setUser(parsedUser);
-      setActiveTab(parsedUser.role === 'PPIC' ? 'ppic-dashboard' : 'po-list');
+      setActiveTab(getDefaultTab(parsedUser.role));
     }
   }, []);
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem('sipuro_user', JSON.stringify(userData));
-    setActiveTab(userData.role === 'PPIC' ? 'ppic-dashboard' : 'po-list');
+    setActiveTab(getDefaultTab(userData.role));
   };
 
   const handleLogout = () => {
@@ -62,6 +74,8 @@ function App() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
+  const isSuperAdmin = user.role === 'SUPERADMIN' || user.role === 'ADMIN';
+
   return (
     <div className="App" style={{ padding: '20px' }}>
       <Navbar
@@ -71,11 +85,17 @@ function App() {
         onLogout={handleLogout}
       />
 
-      {/* Render tampilan berdasarkan tab aktif */}
-      {activeTab === 'ppic-dashboard' && user.role === 'PPIC' && (
-        <PPICDashboard />
-      )}
+      {/* RENDER SUPERADMIN */}
+      {isSuperAdmin && activeTab === 'sa-employees' && <EmployeeListPage />}
+      {isSuperAdmin && activeTab === 'sa-customers' && <CustomerListPage />}
+      {isSuperAdmin && activeTab === 'sa-products' && <ProductListPage />}
+      {isSuperAdmin && activeTab === 'sa-prices' && <PriceListPage />}
 
+      {/* RENDER PPIC */}
+      {activeTab === 'ppic-dashboard' && user.role === 'PPIC' && <PPICDashboard />}
+      {activeTab === 'ppic-batch' && user.role === 'PPIC' && <PPICBatchAllocationPage currentUser={user} />}
+
+      {/* RENDER PO */}
       {activeTab === 'po-list' && (
         <POList
           key={refreshKey}
@@ -84,10 +104,6 @@ function App() {
           onCreateNewPO={handleOpenCreate}
           onSelectPODetail={handleSelectPODetail}
         />
-      )}
-
-      {activeTab === 'ppic-batch' && user.role === 'PPIC' && (
-        <PPICBatchAllocationPage currentUser={user} />
       )}
 
       {showCreateModal && (

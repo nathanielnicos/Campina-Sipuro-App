@@ -23,9 +23,8 @@ const BatchAllocationModal = ({
 }) => {
     if (!isOpen || !selectedSku) return null;
 
-    // Handler untuk memformat input angka secara real-time
     const handleQtyChange = (e) => {
-        const rawValue = e.target.value.replace(/\D/g, ''); // Hapus karakter non-angka
+        const rawValue = e.target.value.replace(/\D/g, '');
         if (rawValue === '') {
             setAllocatedQty('');
             return;
@@ -34,19 +33,22 @@ const BatchAllocationModal = ({
         let numericVal = Number(rawValue);
         const maxVal = Number(selectedSku.total_qty_needed) || 0;
 
-        // Validasi agar tidak melebihi sisa kebutuhan
         if (maxVal > 0 && numericVal > maxVal) {
             numericVal = maxVal;
         }
 
-        // Menyimpan nilai murni (string murni tanpa titik) ke state
         setAllocatedQty(String(numericVal));
     };
 
-    // Handler submit untuk mengembalikan nilai ke angka murni sebelum diproses
     const handleFormSubmit = (e) => {
         e.preventDefault();
-        const cleanQty = String(allocatedQty).replace(/\D/g, ''); // Pastikan hanya angka murni
+
+        // Konfirmasi Simpan Alokasi
+        if (!window.confirm('Apakah Anda yakin ingin menyimpan alokasi batch ini?')) {
+            return;
+        }
+
+        const cleanQty = String(allocatedQty).replace(/\D/g, '');
         onSubmit(e, cleanQty);
     };
 

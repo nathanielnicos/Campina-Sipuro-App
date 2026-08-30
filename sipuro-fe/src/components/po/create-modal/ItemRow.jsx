@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency, formatQty } from '../../utils/formatters';
+import { formatCurrency, formatQty } from '../../../utils/formatters';
 
 const ItemRow = ({
     index,

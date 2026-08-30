@@ -14,19 +14,26 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
         transition: 'all 0.2s'
     });
 
+    const isSuperAdmin = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN';
+    const isPPIC = user?.role === 'PPIC';
+    const isCustomer = user?.role === 'CUSTOMER';
+
     return (
         <div style={styles.container}>
-            {/* Navigasi Utama */}
             <div style={styles.flexCenterGap12}>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('po-list')}
-                    style={getButtonStyle('po-list')}
-                >
-                    Daftar PO
-                </button>
+                {/* MENU CUSTOMER */}
+                {isCustomer && (
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('po-list')}
+                        style={getButtonStyle('po-list')}
+                    >
+                        Daftar PO
+                    </button>
+                )}
 
-                {user.role === 'PPIC' && (
+                {/* MENU PPIC */}
+                {isPPIC && (
                     <>
                         <button
                             type="button"
@@ -37,6 +44,13 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
                         </button>
                         <button
                             type="button"
+                            onClick={() => setActiveTab('po-list')}
+                            style={getButtonStyle('po-list')}
+                        >
+                            Daftar PO
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => setActiveTab('ppic-batch')}
                             style={getButtonStyle('ppic-batch')}
                         >
@@ -44,9 +58,42 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
                         </button>
                     </>
                 )}
+
+                {/* MENU SUPERADMIN */}
+                {isSuperAdmin && (
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('sa-employees')}
+                            style={getButtonStyle('sa-employees')}
+                        >
+                            Daftar Karyawan
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('sa-customers')}
+                            style={getButtonStyle('sa-customers')}
+                        >
+                            Daftar Pelanggan
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('sa-products')}
+                            style={getButtonStyle('sa-products')}
+                        >
+                            Daftar Produk
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('sa-prices')}
+                            style={getButtonStyle('sa-prices')}
+                        >
+                            Daftar Harga Jual
+                        </button>
+                    </>
+                )}
             </div>
 
-            {/* Sisi Kanan: Lonceng Notifikasi, Profil User & Logout */}
             <div style={styles.flexCenterGap16}>
                 <NotificationBell
                     user={user}

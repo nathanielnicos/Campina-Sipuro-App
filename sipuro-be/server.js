@@ -4,10 +4,12 @@ const cors = require('cors');
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
 const masterRoutes = require('./routes/masterRoutes');
+const masterUploadRoutes = require('./routes/masterUploadRoutes'); // Tambahan: Route Upload Master Produk & Harga
+const superadminRoutes = require('./routes/superadminRoutes');     // Rute khusus Superadmin
 const poRoutes = require('./routes/poRoutes');
 const ppicRoutes = require('./routes/ppicRoutes');
 const batchRoutes = require('./routes/batchRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
+const productionUploadRoutes = require('./routes/productionUploadRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
@@ -24,11 +26,13 @@ app.get('/', (req, res) => {
 
 // Register API Routes
 app.use('/api', authRoutes);
-app.use('/api', masterRoutes);
+app.use('/api/master', masterRoutes);                       // Katalog/Order Customer (/api/master/products, dll)
+app.use('/api/upload/master', masterUploadRoutes);         // Upload Master Produk & Harga (/api/upload/master/products/preview, dll)
+app.use('/api/superadmin', superadminRoutes);               // View Tabel Master Superadmin (/api/superadmin/products, dll)
 app.use('/api/po', poRoutes);
 app.use('/api/ppic', ppicRoutes);
 app.use('/api/batches', batchRoutes);
-app.use('/api/upload', uploadRoutes);
+app.use('/api/upload/production', productionUploadRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Run Server

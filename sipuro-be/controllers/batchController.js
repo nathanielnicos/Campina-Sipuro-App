@@ -1,4 +1,4 @@
-const db = require('../config/db');
+const { sipuroDb: db } = require('../config/db');
 const { refreshPOStatus } = require('../helpers/ppicHelper');
 
 /**
@@ -119,7 +119,7 @@ exports.getUnallocatedStocks = async (req, res) => {
         const [countResult] = await db.query(countQuery, queryParams);
         const totalItems = Number(countResult[0]?.total || 0);
 
-        // Query Data Paged
+        // Query Data Paged (Aman: limit & offset menggunakan placeholder ?)
         const dataQuery = `
             SELECT 
                 us.id,
@@ -133,10 +133,10 @@ exports.getUnallocatedStocks = async (req, res) => {
             LEFT JOIN products p ON us.id_product = p.id_product
             ${whereSql}
             ORDER BY us.production_date DESC, us.id DESC
-            LIMIT ${limit} OFFSET ${offset}
+            LIMIT ? OFFSET ?
         `;
 
-        const [rows] = await db.query(dataQuery, queryParams);
+        const [rows] = await db.query(dataQuery, [...queryParams, limit, offset]);
 
         return res.json({
             success: true,

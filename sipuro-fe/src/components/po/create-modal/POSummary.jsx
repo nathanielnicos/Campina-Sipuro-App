@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency } from '../../../utils/formatters';
 
 const POSummary = ({ subtotal, ppnPercent, taxAmount, grandTotal, userRole }) => {
     // Jika role adalah PPIC, jangan tampilkan ringkasan harga apapun

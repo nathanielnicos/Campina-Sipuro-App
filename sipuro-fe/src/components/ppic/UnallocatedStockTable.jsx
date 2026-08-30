@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PaginationControl from '../common/PaginationControl';
 import { fetchOpenAllocationsByProduct, reallocateStockApi } from '../../services/ppicApi';
-import { formatDate, formatQty } from '../../utils/formatters'; // Samakan formatter dengan BatchMappingTable
+import { formatDate, formatQty } from '../../utils/formatters';
 
 const UnallocatedStockTable = ({
     unallocatedList = [],
@@ -62,6 +62,11 @@ const UnallocatedStockTable = ({
         const inputQty = Number(qtyToAllocate);
         if (!inputQty || inputQty <= 0) return alert('Qty alokasi harus lebih dari 0');
         if (inputQty > selectedStock.qty_available) return alert('Qty alokasi melebihi stok lebihan yang tersedia!');
+
+        // Konfirmasi konfirmasi sebelum menyimpan alokasi stok lebihan
+        if (!window.confirm('Apakah Anda yakin ingin memindahkan stok lebihan ini ke batch/PO target yang dipilih?')) {
+            return;
+        }
 
         const payload = {
             unallocatedId: selectedStock.id,
@@ -163,7 +168,6 @@ const UnallocatedStockTable = ({
                                         <td style={{ padding: '12px 16px' }}><strong>{item.batch_number}</strong></td>
                                         <td style={{ padding: '12px 16px' }}>{item.product_code || '-'}</td>
                                         <td style={{ padding: '12px 16px' }}>{item.product_name || '-'}</td>
-                                        {/* Menggunakan formatDate agar sama persis seperti Tab BatchMapping */}
                                         <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                             {formatDate(item.production_date)}
                                         </td>
