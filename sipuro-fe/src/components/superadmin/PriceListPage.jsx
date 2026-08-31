@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getPrices } from '../../services/superadminApi';
 import { previewPricesApi, commitPricesApi } from '../../services/masterUploadApi';
 import UploadPreviewModal from './UploadPreviewModal';
+import PaginationControl from '../common/PaginationControl';
 
 const PriceListPage = () => {
     const [prices, setPrices] = useState([]);
@@ -10,19 +11,45 @@ const PriceListPage = () => {
     const [uploading, setUploading] = useState(false);
     const [previewModal, setPreviewModal] = useState({ open: false, title: '', data: null });
 
-    useEffect(() => {
-        fetchPrices();
-    }, []);
+    // State Filter & Search
+    const [search, setSearch] = useState('');
 
-    const fetchPrices = async () => {
+    // State Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+
+    const fetchPricesData = useCallback(async () => {
         try {
-            const res = await axios.get('/api/product-prices');
-            setPrices(res.data.data || res.data);
+            setLoadingData(true);
+            const res = await getPrices(currentPage, pageSize, search);
+            if (res.success) {
+                setPrices(res.data);
+                if (res.pagination) {
+                    setTotalPages(res.pagination.totalPages);
+                    setTotalItems(res.pagination.totalItems);
+                }
+            }
         } catch (err) {
             console.error('Gagal mengambil data harga:', err);
         } finally {
             setLoadingData(false);
         }
+    }, [currentPage, pageSize, search]);
+
+    useEffect(() => {
+        fetchPricesData();
+    }, [fetchPricesData]);
+
+    const handleSearchChange = (e) => {
+        setSearch(e.target.value);
+        setCurrentPage(1);
+    };
+
+    const handleResetFilter = () => {
+        setSearch('');
+        setCurrentPage(1);
     };
 
     const handlePreviewPrices = async (e) => {
@@ -43,23 +70,81 @@ const PriceListPage = () => {
 
     const handleConfirmCommit = async (items) => {
         try {
-            const res = await commitPricesApi(items);
+            const savedUser = localStorage.getItem('sipuro_user');
+            const currentUser = savedUser ? JSON.parse(savedUser) : null;
+            const createdBy = currentUser?.code || currentUser?.username || 'SYSTEM';
+
+            const res = await commitPricesApi(items, createdBy); // Tambahkan createdBy di parameter kedua
             if (res.success) {
                 alert(res.message);
                 setPreviewModal({ open: false, title: '', data: null });
                 setSelectedFile(null);
-                fetchPrices();
+                fetchPricesData();
             }
         } catch (err) {
             alert('Gagal menyimpan data ke database.');
         }
     };
 
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
+
+    const handleLimitChange = (newLimit) => {
+        setPageSize(newLimit);
+        setCurrentPage(1);
+    };
+
     return (
         <div style={{ fontFamily: 'sans-serif' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h3>Daftar Harga Jual Produk</h3>
-                <form onSubmit={handlePreviewPrices} style={{ display: 'flex', gap: '8px' }}>
+            {/* Header Form Filter & Upload */}
+            <div style={{
+                backgroundColor: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                border: '1px solid #dee2e6',
+                marginBottom: '20px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+                gap: '12px'
+            }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+                    <div style={{ minWidth: '220px' }}>
+                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                            Cari Kode / Nama Produk
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="Cari Kode atau Nama Produk..."
+                            value={search}
+                            onChange={handleSearchChange}
+                            style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '13px' }}
+                        />
+                    </div>
+                    {search && (
+                        <button
+                            onClick={handleResetFilter}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: '#dc3545',
+                                color: '#fff',
+                                border: '1px solid #dc3545',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '13px'
+                            }}
+                        >
+                            Reset Filter
+                        </button>
+                    )}
+                </div>
+
+                <form onSubmit={handlePreviewPrices} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <input
                         type="file"
                         accept=".xlsx, .xls"
@@ -80,32 +165,47 @@ const PriceListPage = () => {
             {loadingData ? (
                 <div>Memuat data harga...</div>
             ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                            <th style={{ padding: '10px' }}>Kode Produk</th>
-                            <th style={{ padding: '10px' }}>Nama Produk</th>
-                            <th style={{ padding: '10px' }}>Harga Jual</th>
-                            <th style={{ padding: '10px' }}>Mulai Berlaku</th>
-                            <th style={{ padding: '10px' }}>Selesai Berlaku</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {prices.length === 0 ? (
-                            <tr><td colSpan="5" style={{ padding: '15px', textAlign: 'center' }}>Tidak ada data harga</td></tr>
-                        ) : (
-                            prices.map((pr) => (
-                                <tr key={pr.price_id} style={{ borderBottom: '1px solid #e9ecef' }}>
-                                    <td style={{ padding: '10px', fontWeight: 'bold' }}>{pr.product_code || pr.id_product}</td>
-                                    <td style={{ padding: '10px' }}>{pr.product_name || '-'}</td>
-                                    <td style={{ padding: '10px' }}>Rp {Number(pr.price).toLocaleString('id-ID')}</td>
-                                    <td style={{ padding: '10px' }}>{pr.start_date ? new Date(pr.start_date).toLocaleDateString('id-ID') : '-'}</td>
-                                    <td style={{ padding: '10px' }}>{pr.end_date ? new Date(pr.end_date).toLocaleDateString('id-ID') : 'Seterusnya'}</td>
+                <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                                    <th style={{ padding: '10px' }}>Kode Produk</th>
+                                    <th style={{ padding: '10px' }}>Nama Produk</th>
+                                    <th style={{ padding: '10px' }}>Harga Jual</th>
+                                    <th style={{ padding: '10px' }}>Mulai Berlaku</th>
+                                    <th style={{ padding: '10px' }}>Selesai Berlaku</th>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            </thead>
+                            <tbody>
+                                {prices.length === 0 ? (
+                                    <tr><td colSpan="5" style={{ padding: '15px', textAlign: 'center' }}>Tidak ada data harga</td></tr>
+                                ) : (
+                                    prices.map((pr) => (
+                                        <tr key={pr.price_id} style={{ borderBottom: '1px solid #e9ecef' }}>
+                                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{pr.product_code || '-'}</td>
+                                            <td style={{ padding: '10px' }}>{pr.product_name || '-'}</td>
+                                            <td style={{ padding: '10px' }}>Rp {Number(pr.price).toLocaleString('id-ID')}</td>
+                                            <td style={{ padding: '10px' }}>{pr.start_date ? new Date(pr.start_date).toLocaleDateString('id-ID') : '-'}</td>
+                                            <td style={{ padding: '10px' }}>{pr.end_date ? new Date(pr.end_date).toLocaleDateString('id-ID') : 'Seterusnya'}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <PaginationControl
+                        pagination={{
+                            currentPage,
+                            totalPages,
+                            totalItems,
+                            limit: pageSize
+                        }}
+                        onPageChange={handlePageChange}
+                        onLimitChange={handleLimitChange}
+                    />
+                </div>
             )}
 
             {previewModal.open && (

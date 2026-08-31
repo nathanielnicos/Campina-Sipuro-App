@@ -1,5 +1,6 @@
 import React from 'react';
 import NotificationBell from './NotificationBell';
+import { ROLE_PERMISSIONS } from '../../config/navigationConfig';
 
 const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) => {
     const getButtonStyle = (tabName) => ({
@@ -14,97 +15,36 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
         transition: 'all 0.2s'
     });
 
-    const isSuperAdmin = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN';
-    const isPPIC = user?.role === 'PPIC';
-    const isCustomer = user?.role === 'CUSTOMER';
+    // Ambil daftar menu sesuai role user (fallback array kosong jika role tidak ditemukan)
+    const userMenu = ROLE_PERMISSIONS[user?.role] || [];
 
     return (
         <div style={styles.container}>
             <div style={styles.flexCenterGap12}>
-                {/* MENU CUSTOMER */}
-                {isCustomer && (
+                {userMenu.map((menu) => (
                     <button
+                        key={menu.id}
                         type="button"
-                        onClick={() => setActiveTab('po-list')}
-                        style={getButtonStyle('po-list')}
+                        onClick={() => setActiveTab(menu.id)}
+                        style={getButtonStyle(menu.id)}
                     >
-                        Daftar PO
+                        {menu.label}
                     </button>
-                )}
-
-                {/* MENU PPIC */}
-                {isPPIC && (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('ppic-dashboard')}
-                            style={getButtonStyle('ppic-dashboard')}
-                        >
-                            Dasbor
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('po-list')}
-                            style={getButtonStyle('po-list')}
-                        >
-                            Daftar PO
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('ppic-batch')}
-                            style={getButtonStyle('ppic-batch')}
-                        >
-                            Alokasi Batch
-                        </button>
-                    </>
-                )}
-
-                {/* MENU SUPERADMIN */}
-                {isSuperAdmin && (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('sa-employees')}
-                            style={getButtonStyle('sa-employees')}
-                        >
-                            Daftar Karyawan
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('sa-customers')}
-                            style={getButtonStyle('sa-customers')}
-                        >
-                            Daftar Pelanggan
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('sa-products')}
-                            style={getButtonStyle('sa-products')}
-                        >
-                            Daftar Produk
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('sa-prices')}
-                            style={getButtonStyle('sa-prices')}
-                        >
-                            Daftar Harga Jual
-                        </button>
-                    </>
-                )}
+                ))}
             </div>
 
             <div style={styles.flexCenterGap16}>
                 <NotificationBell
                     user={user}
+                    setActiveTab={setActiveTab}
                     onNewPoDetected={() => {
                         if (setShowPoBanner) setShowPoBanner(true);
                     }}
                 />
 
                 <div style={styles.userInfo}>
-                    <strong>{user.name}</strong> ({user.role}) <br />
-                    <span style={styles.userCode}>Code/ID: {user.code}</span>
+                    <strong>{user?.name}</strong> ({user?.role}) <br />
+                    <span style={styles.userCode}>Code/ID: {user?.code}</span>
                 </div>
 
                 <button type="button" onClick={onLogout} style={styles.logoutBtn}>

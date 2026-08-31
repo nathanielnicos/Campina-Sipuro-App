@@ -14,7 +14,6 @@ const PendingSkuTable = ({
     setSearchPo,
     onResetFilters
 }) => {
-    // Handler langsung persis seperti POList
     const handleProductChange = (e) => {
         setSearchProduct(e.target.value);
         if (onPageChange) onPageChange(1);
@@ -26,6 +25,7 @@ const PendingSkuTable = ({
     };
 
     const isFilterActive = Boolean(searchProduct || searchPo);
+    const isPoFilterActive = Boolean(searchPo && searchPo.trim() !== '');
 
     return (
         <div>
@@ -93,7 +93,7 @@ const PendingSkuTable = ({
                                 <th style={{ padding: '12px 10px', width: '13%', textAlign: 'right', whiteSpace: 'nowrap' }}>Total Qty Dibutuhkan (PCS)</th>
                                 <th style={{ padding: '12px 10px', width: '9%', textAlign: 'center', whiteSpace: 'nowrap' }}>Jumlah PO</th>
                                 <th style={{ padding: '12px 10px', width: '13%', whiteSpace: 'nowrap' }}>No PO</th>
-                                <th style={{ padding: '12px 10px', width: '6%', textAlign: 'right', whiteSpace: 'nowrap' }}>Qty PO (PCS)</th>
+                                <th style={{ padding: '12px 10px', width: '10%', textAlign: 'right', whiteSpace: 'nowrap' }}>Qty PO (PCS)</th>
                                 <th style={{ padding: '12px 10px', width: '13%', textAlign: 'center', whiteSpace: 'nowrap' }}>Aksi</th>
                             </tr>
                         </thead>
@@ -140,8 +140,9 @@ const PendingSkuTable = ({
                                                 {poItems.length > 0 ? (
                                                     poItems.map((item, idx) => {
                                                         const match = item.match(/\((.*?)\)/);
-                                                        const rawQty = match ? match[1].replace(/\D/g, '') : '';
-                                                        const formattedQty = rawQty ? formatQty(rawQty) : '-';
+                                                        const rawContent = match ? match[1] : '';
+                                                        const numericPart = rawContent.split(' ')[0];
+                                                        const formattedQty = numericPart ? formatQty(numericPart) : '-';
 
                                                         return (
                                                             <div key={idx}>
@@ -157,16 +158,19 @@ const PendingSkuTable = ({
                                             <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
                                                 <button
                                                     onClick={() => onOpenModal(row)}
+                                                    disabled={isPoFilterActive}
+                                                    title={isPoFilterActive ? "Reset filter No PO untuk alokasi batch" : ""}
                                                     style={{
-                                                        backgroundColor: '#0d6efd',
+                                                        backgroundColor: isPoFilterActive ? '#6c757d' : '#0d6efd',
                                                         color: '#fff',
                                                         border: 'none',
                                                         padding: '6px 12px',
                                                         borderRadius: '4px',
-                                                        cursor: 'pointer',
+                                                        cursor: isPoFilterActive ? 'not-allowed' : 'pointer',
                                                         fontWeight: '600',
                                                         fontSize: '12px',
-                                                        whiteSpace: 'nowrap'
+                                                        whiteSpace: 'nowrap',
+                                                        opacity: isPoFilterActive ? 0.65 : 1
                                                     }}
                                                 >
                                                     + Alokasikan Batch

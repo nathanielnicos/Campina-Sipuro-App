@@ -9,7 +9,8 @@ import {
     ArcElement,
     Title,
     Tooltip,
-    Legend
+    Legend,
+    Filler
 } from 'chart.js';
 import { Line, Bar, Pie } from 'react-chartjs-2';
 import { getPPICDashboardStats } from '../../services/ppicApi';
@@ -24,7 +25,8 @@ ChartJS.register(
     ArcElement,
     Title,
     Tooltip,
-    Legend
+    Legend,
+    Filler
 );
 
 const PPICDashboard = () => {

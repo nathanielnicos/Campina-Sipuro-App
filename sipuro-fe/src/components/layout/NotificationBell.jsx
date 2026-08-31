@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getUnreadCount, getNotifications, markAsRead } from '../../services/notificationApi';
+import { ROLE_PERMISSIONS } from '../../config/navigationConfig';
 
 // Helper sederhana untuk waktu relatif
 const formatTimeAgo = (dateString) => {
@@ -14,7 +15,7 @@ const formatTimeAgo = (dateString) => {
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 };
 
-const NotificationBell = ({ onNewPoDetected, user }) => {
+const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -31,7 +32,6 @@ const NotificationBell = ({ onNewPoDetected, user }) => {
             if (document.hidden) return;
 
             try {
-                // Kirim userRole, userId, dan userDepartment ke API service
                 const countRes = await getUnreadCount(userRole, userId, userDepartment);
                 const currentCount = countRes?.count || 0;
 
@@ -88,6 +88,7 @@ const NotificationBell = ({ onNewPoDetected, user }) => {
     };
 
     const handleItemClick = async (item) => {
+        // Mark notification as read
         if (!item.is_read) {
             await markAsRead(item.id);
             setUnreadCount((prev) => Math.max(0, prev - 1));
@@ -95,9 +96,30 @@ const NotificationBell = ({ onNewPoDetected, user }) => {
                 prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n))
             );
         }
+
+        // Tentukan Target Tab
+        let targetTab = null;
+
         if (item.link) {
-            window.location.href = item.link;
+            // Hilangkan slash depan jika ada (misal "/po-list" menjadi "po-list")
+            const cleanedLink = item.link.replace(/^\//, '');
+            if (cleanedLink) targetTab = cleanedLink;
         }
+
+        // Fallback: Jika link kosong/tidak valid, arahkan ke menu utama role user
+        if (!targetTab) {
+            const roleMenus = ROLE_PERMISSIONS[userRole] || [];
+            if (roleMenus.length > 0) {
+                targetTab = roleMenus[0].id;
+            }
+        }
+
+        // Pindah tab secara SPA
+        if (targetTab && setActiveTab) {
+            setActiveTab(targetTab);
+        }
+
+        setIsOpen(false);
     };
 
     return (

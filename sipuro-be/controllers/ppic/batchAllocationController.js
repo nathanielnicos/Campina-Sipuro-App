@@ -55,12 +55,16 @@ exports.getUnassignedSummary = async (req, res) => {
                 p.product_name,
                 p.base_uom,
                 SUM(d.base_qty - IFNULL(alloc.total_allocated, 0)) AS total_qty_needed,
-                COUNT(DISTINCT h.po_header_id) AS total_po_count,
+                COUNT(DISTINCT CASE WHEN (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0 THEN h.po_header_id END) AS total_po_count,
                 GROUP_CONCAT(
-                    DISTINCT CONCAT(
-                        h.po_number, ' (', 
-                        FORMAT(d.base_qty - IFNULL(alloc.total_allocated, 0), 0), ' ', 
-                        p.base_uom, ')'
+                    DISTINCT IF(
+                        (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0,
+                        CONCAT(
+                            h.po_number, ' (', 
+                            (d.base_qty - IFNULL(alloc.total_allocated, 0)), ' ', 
+                            p.base_uom, ')'
+                        ),
+                        NULL
                     )
                     ORDER BY h.po_header_id ASC 
                     SEPARATOR '\n'

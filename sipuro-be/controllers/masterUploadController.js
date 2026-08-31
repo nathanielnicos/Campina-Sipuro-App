@@ -10,16 +10,46 @@ function findHeaderRowIndex(sheetData, requiredColumns) {
     return -1;
 }
 
-// Helper aman konversi format tanggal
+// Helper aman konversi format tanggal ke format YYYY-MM-DD / null
 function safeFormatDate(rawDate) {
-    if (!rawDate || String(rawDate).trim() === '' || String(rawDate) === 'None') return null;
+    if (
+        rawDate === null ||
+        rawDate === undefined ||
+        String(rawDate).trim() === '' ||
+        String(rawDate) === 'None' ||
+        String(rawDate).trim() === '-'
+    ) {
+        return null;
+    }
+
     try {
+        // Jika angka serial Excel
+        if (typeof rawDate === 'number' || (!isNaN(Number(rawDate)) && !String(rawDate).includes('-') && !String(rawDate).includes('/'))) {
+            const parsedDate = xlsx.SSF.parse_date_code(Number(rawDate));
+            if (parsedDate) {
+                const y = parsedDate.y;
+                const m = String(parsedDate.m).padStart(2, '0');
+                const d = String(parsedDate.d).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+        }
+
+        // Jika String atau Date object
         const parsed = new Date(rawDate);
         if (isNaN(parsed.getTime())) return null;
-        return parsed.toISOString().split('T')[0];
+
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const d = String(parsed.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     } catch {
         return null;
     }
+}
+
+function parseToFixed(val, precision = 6) {
+    if (val === null || val === undefined || val === '' || isNaN(Number(val))) return null;
+    return Number(Number(val).toFixed(precision));
 }
 
 /**
@@ -41,7 +71,7 @@ exports.previewProducts = async (req, res) => {
         const headers = rawRows[headerIdx].map(h => String(h || '').trim());
         const dataRows = rawRows.slice(headerIdx + 1);
 
-        const [existingProducts] = await db.query('SELECT product_code, product_name, base_uom, pcs_per_ctn, ctn_per_plt FROM sipuro_db.products');
+        const [existingProducts] = await db.query('SELECT product_code, product_name, base_uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs FROM sipuro_db.products');
         const dbProductMap = new Map();
         existingProducts.forEach(p => dbProductMap.set(p.product_code, p));
 
@@ -59,8 +89,10 @@ exports.previewProducts = async (req, res) => {
             if (uom === 'PAC') uom = 'PCS';
 
             const productName = String(rowObj['DESCRIPTION'] || '').trim();
-            const pcsPerCtn = Number(rowObj['PAC / CAR']) || 0;
-            const ctnPerPlt = Number(rowObj['CAR / PLT']) || 0;
+            const pcsPerCtn = parseToFixed(rowObj['PAC / CAR'], 0) || 0;
+            const ctnPerPlt = parseToFixed(rowObj['CAR / PLT'], 0) || 0;
+            const mlPerPcs = parseToFixed(rowObj['VOL (ML) / PAC'], 6);
+            const kgPerPcs = parseToFixed(rowObj['WEIGHT (KG) / PAC'], 6);
 
             const existing = dbProductMap.get(oracleId);
 
@@ -73,14 +105,31 @@ exports.previewProducts = async (req, res) => {
                     base_uom: uom,
                     pcs_per_ctn: pcsPerCtn,
                     ctn_per_plt: ctnPerPlt,
+                    ml_per_pcs: mlPerPcs,
+                    kg_per_pcs: kgPerPcs,
                     changes: []
                 });
             } else {
                 const changes = [];
-                if (existing.product_name !== productName) changes.push({ field: 'Nama Produk', oldVal: existing.product_name, newVal: productName });
-                if (existing.base_uom !== uom) changes.push({ field: 'UOM', oldVal: existing.base_uom, newVal: uom });
-                if (Number(existing.pcs_per_ctn) !== pcsPerCtn) changes.push({ field: 'Pcs/Ctn', oldVal: existing.pcs_per_ctn, newVal: pcsPerCtn });
-                if (Number(existing.ctn_per_plt) !== ctnPerPlt) changes.push({ field: 'Ctn/Plt', oldVal: existing.ctn_per_plt, newVal: ctnPerPlt });
+
+                if (existing.product_name !== productName) {
+                    changes.push({ field: 'Nama Produk', oldVal: existing.product_name, newVal: productName });
+                }
+                if (existing.base_uom !== uom) {
+                    changes.push({ field: 'UOM', oldVal: existing.base_uom, newVal: uom });
+                }
+                if (parseToFixed(existing.pcs_per_ctn, 0) !== pcsPerCtn) {
+                    changes.push({ field: 'PCS / CTN', oldVal: existing.pcs_per_ctn, newVal: pcsPerCtn });
+                }
+                if (parseToFixed(existing.ctn_per_plt, 0) !== ctnPerPlt) {
+                    changes.push({ field: 'CTN / PLT', oldVal: existing.ctn_per_plt, newVal: ctnPerPlt });
+                }
+                if (parseToFixed(existing.ml_per_pcs, 6) !== mlPerPcs) {
+                    changes.push({ field: 'ML / PCS', oldVal: existing.ml_per_pcs ?? '-', newVal: mlPerPcs ?? '-' });
+                }
+                if (parseToFixed(existing.kg_per_pcs, 6) !== kgPerPcs) {
+                    changes.push({ field: 'KG / PCS', oldVal: existing.kg_per_pcs ?? '-', newVal: kgPerPcs ?? '-' });
+                }
 
                 if (changes.length > 0) {
                     updatedCount++;
@@ -91,6 +140,8 @@ exports.previewProducts = async (req, res) => {
                         base_uom: uom,
                         pcs_per_ctn: pcsPerCtn,
                         ctn_per_plt: ctnPerPlt,
+                        ml_per_pcs: mlPerPcs,
+                        kg_per_pcs: kgPerPcs,
                         changes
                     });
                 } else {
@@ -102,6 +153,8 @@ exports.previewProducts = async (req, res) => {
                         base_uom: uom,
                         pcs_per_ctn: pcsPerCtn,
                         ctn_per_plt: ctnPerPlt,
+                        ml_per_pcs: mlPerPcs,
+                        kg_per_pcs: kgPerPcs,
                         changes: []
                     });
                 }
@@ -110,7 +163,7 @@ exports.previewProducts = async (req, res) => {
 
         res.json({
             success: true,
-            summary: { total: previewList.length, newCount, updatedCount, unchangedCount },
+            summary: { total: previewList.length, newCount, updatedCount, unchangedCount, notFoundCount: 0 },
             data: previewList
         });
     } catch (error) {
@@ -126,25 +179,31 @@ exports.commitProducts = async (req, res) => {
     const connection = await db.getConnection();
     try {
         const items = req.body.items || [];
-        if (!Array.isArray(items) || items.length === 0) {
-            return res.status(400).json({ success: false, message: 'Tidak ada data produk yang dikirim untuk disimpan.' });
+        const createdBy = req.body.createdBy || 'SYSTEM';
+        const itemsToProcess = items.filter(item => item.status === 'NEW' || item.status === 'UPDATED');
+
+        if (itemsToProcess.length === 0) {
+            return res.json({ success: true, message: 'Tidak ada perubahan data produk yang perlu disimpan.' });
         }
 
         await connection.beginTransaction();
 
         let inserted = 0, updated = 0;
 
-        for (const item of items) {
+        for (const item of itemsToProcess) {
             if (item.status === 'NEW') {
                 await connection.query(
-                    `INSERT INTO sipuro_db.products (product_code, product_name, base_uom, pcs_per_ctn, ctn_per_plt, is_active) VALUES (?, ?, ?, ?, ?, 1)`,
-                    [item.product_code, item.product_name, item.base_uom, item.pcs_per_ctn, item.ctn_per_plt]
+                    `INSERT INTO sipuro_db.products (product_code, product_name, base_uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, created_by, is_active) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                    [item.product_code, item.product_name, item.base_uom, item.pcs_per_ctn, item.ctn_per_plt, item.ml_per_pcs, item.kg_per_pcs, createdBy]
                 );
                 inserted++;
             } else if (item.status === 'UPDATED') {
                 await connection.query(
-                    `UPDATE sipuro_db.products SET product_name = ?, base_uom = ?, pcs_per_ctn = ?, ctn_per_plt = ? WHERE product_code = ?`,
-                    [item.product_name, item.base_uom, item.pcs_per_ctn, item.ctn_per_plt, item.product_code]
+                    `UPDATE sipuro_db.products 
+                     SET product_name = ?, base_uom = ?, pcs_per_ctn = ?, ctn_per_plt = ?, ml_per_pcs = ?, kg_per_pcs = ?, created_by = ? 
+                     WHERE product_code = ?`,
+                    [item.product_name, item.base_uom, item.pcs_per_ctn, item.ctn_per_plt, item.ml_per_pcs, item.kg_per_pcs, createdBy, item.product_code]
                 );
                 updated++;
             }
@@ -180,20 +239,10 @@ exports.previewPrices = async (req, res) => {
         const headers = rawRows[headerIdx].map(h => String(h || '').trim());
         const dataRows = rawRows.slice(headerIdx + 1);
 
-        const [existingPrices] = await db.query(`
-            SELECT sp.id_price, p.product_code, sp.price, sp.start_date, sp.end_date 
-            FROM sipuro_db.product_selling_prices sp
-            JOIN sipuro_db.products p ON sp.id_product = p.id_product
-        `);
-
-        const priceMap = new Map();
-        existingPrices.forEach(p => {
-            const dateStr = safeFormatDate(p.start_date) || '';
-            priceMap.set(`${p.product_code}_${dateStr}`, p);
-        });
-
-        const previewList = [];
-        let newCount = 0, updatedCount = 0, unchangedCount = 0;
+        // ------------------------------------------------------------------
+        // DEDUPLIKASI EXCEL: Ambil baris SKU dengan START DATE paling terkini
+        // ------------------------------------------------------------------
+        const excelUniqueMap = new Map();
 
         for (const row of dataRows) {
             const rowObj = {};
@@ -202,12 +251,63 @@ exports.previewPrices = async (req, res) => {
             const oracleId = String(rowObj['ORACLE'] || rowObj['ID ORACLE'] || '').trim();
             if (!oracleId.toUpperCase().startsWith('FG')) continue;
 
-            const priceExcPpn = Number(rowObj['EXC. PPN']) || 0;
+            const currentDate = safeFormatDate(rowObj['START DATE']);
+
+            if (!excelUniqueMap.has(oracleId)) {
+                excelUniqueMap.set(oracleId, rowObj);
+            } else {
+                const existingRow = excelUniqueMap.get(oracleId);
+                const existingDate = safeFormatDate(existingRow['START DATE']);
+
+                // Pilih tanggal yang lebih baru (terkini)
+                if (!existingDate || (currentDate && currentDate >= existingDate)) {
+                    excelUniqueMap.set(oracleId, rowObj);
+                }
+            }
+        }
+        // ------------------------------------------------------------------
+
+        // 1. Ambil daftar SELURUH produk terdaftar di tabel products
+        const [registeredProducts] = await db.query('SELECT id_product, product_code FROM sipuro_db.products');
+        const registeredProductCodes = new Set(registeredProducts.map(p => p.product_code));
+
+        // 2. Ambil daftar harga yang sudah ada di tabel product_selling_prices
+        const [existingPrices] = await db.query(`
+            SELECT sp.price_id, p.product_code, sp.price, sp.start_date, sp.end_date 
+            FROM sipuro_db.product_selling_prices sp
+            JOIN sipuro_db.products p ON sp.id_product = p.id_product
+        `);
+
+        const priceMap = new Map();
+        existingPrices.forEach(p => {
+            priceMap.set(p.product_code, p);
+        });
+
+        const previewList = [];
+        let newCount = 0, updatedCount = 0, unchangedCount = 0, notFoundCount = 0;
+
+        // Iterasi data Excel yang sudah dibersihkan (unique SKU)
+        for (const [oracleId, rowObj] of excelUniqueMap.entries()) {
+            const priceExcPpn = parseToFixed(rowObj['EXC. PPN'], 0) || 0;
             const startDate = safeFormatDate(rowObj['START DATE']);
             const endDate = safeFormatDate(rowObj['END DATE']);
 
-            const key = `${oracleId}_${startDate}`;
-            const existing = priceMap.get(key);
+            // JIKA SKU TIDAK TERDAFTAR DI TABEL PRODUCTS -> NOT_FOUND
+            if (!registeredProductCodes.has(oracleId)) {
+                notFoundCount++;
+                previewList.push({
+                    status: 'NOT_FOUND',
+                    product_code: oracleId,
+                    description: rowObj['DESCRIPTION'],
+                    price: priceExcPpn,
+                    start_date: startDate,
+                    end_date: endDate,
+                    changes: []
+                });
+                continue;
+            }
+
+            const existing = priceMap.get(oracleId);
 
             if (!existing) {
                 newCount++;
@@ -222,9 +322,22 @@ exports.previewPrices = async (req, res) => {
                 });
             } else {
                 const changes = [];
-                if (Number(existing.price) !== priceExcPpn) changes.push({ field: 'Harga Exc PPN', oldVal: existing.price, newVal: priceExcPpn });
+
+                if (parseToFixed(existing.price, 0) !== priceExcPpn) {
+                    changes.push({ field: 'Harga Exc PPN', oldVal: parseToFixed(existing.price, 0), newVal: priceExcPpn });
+                }
+
+                // Normalisasi tanggal DB dan Excel ke YYYY-MM-DD
+                const existingStartDate = safeFormatDate(existing.start_date);
                 const existingEndDate = safeFormatDate(existing.end_date);
-                if (existingEndDate !== endDate) changes.push({ field: 'End Date', oldVal: existingEndDate || '-', newVal: endDate || '-' });
+
+                if (existingStartDate !== startDate) {
+                    changes.push({ field: 'Start Date', oldVal: existingStartDate || '-', newVal: startDate || '-' });
+                }
+
+                if (existingEndDate !== endDate) {
+                    changes.push({ field: 'End Date', oldVal: existingEndDate || '-', newVal: endDate || '-' });
+                }
 
                 if (changes.length > 0) {
                     updatedCount++;
@@ -254,7 +367,7 @@ exports.previewPrices = async (req, res) => {
 
         res.json({
             success: true,
-            summary: { total: previewList.length, newCount, updatedCount, unchangedCount },
+            summary: { total: previewList.length, newCount, updatedCount, unchangedCount, notFoundCount },
             data: previewList
         });
     } catch (error) {
@@ -270,30 +383,42 @@ exports.commitPrices = async (req, res) => {
     const connection = await db.getConnection();
     try {
         const items = req.body.items || [];
-        if (!Array.isArray(items) || items.length === 0) {
-            return res.status(400).json({ success: false, message: 'Tidak ada data harga yang dikirim untuk disimpan.' });
+        const createdBy = req.body.createdBy || 'SYSTEM';
+        const itemsToProcess = items.filter(item => item.status === 'NEW' || item.status === 'UPDATED');
+
+        if (itemsToProcess.length === 0) {
+            return res.json({ success: true, message: 'Tidak ada perubahan data harga yang perlu disimpan.' });
         }
 
         await connection.beginTransaction();
 
+        const productCodes = [...new Set(itemsToProcess.map(i => i.product_code))];
+        const [prods] = await connection.query(
+            'SELECT id_product, product_code FROM sipuro_db.products WHERE product_code IN (?)',
+            [productCodes]
+        );
+        const productMap = new Map(prods.map(p => [p.product_code, p.id_product]));
+
         let inserted = 0, updated = 0;
 
-        for (const item of items) {
-            const [prods] = await connection.query('SELECT id_product FROM sipuro_db.products WHERE product_code = ?', [item.product_code]);
-            if (prods.length === 0) continue;
+        for (const item of itemsToProcess) {
+            const idProduct = productMap.get(item.product_code);
+            if (!idProduct) continue;
 
-            const idProduct = prods[0].id_product;
+            // Pastikan nilai tanggal berupa NULL jika tidak diisi
+            const startDateVal = item.start_date ? item.start_date : null;
+            const endDateVal = item.end_date ? item.end_date : null;
 
             if (item.status === 'NEW') {
                 await connection.query(
-                    `INSERT INTO sipuro_db.product_selling_prices (id_product, price, start_date, end_date) VALUES (?, ?, ?, ?)`,
-                    [idProduct, item.price, item.start_date, item.end_date]
+                    `INSERT INTO sipuro_db.product_selling_prices (id_product, price, start_date, end_date, created_by) VALUES (?, ?, ?, ?, ?)`,
+                    [idProduct, item.price, startDateVal, endDateVal, createdBy]
                 );
                 inserted++;
             } else if (item.status === 'UPDATED') {
                 await connection.query(
-                    `UPDATE sipuro_db.product_selling_prices SET price = ?, end_date = ? WHERE id_product = ? AND start_date = ?`,
-                    [item.price, item.end_date, idProduct, item.start_date]
+                    `UPDATE sipuro_db.product_selling_prices SET price = ?, start_date = ?, end_date = ?, created_by = ? WHERE id_product = ?`,
+                    [item.price, startDateVal, endDateVal, createdBy, idProduct]
                 );
                 updated++;
             }

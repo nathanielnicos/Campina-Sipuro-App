@@ -11,8 +11,8 @@ export const previewProductsApi = async (file) => {
     return response.data;
 };
 
-export const commitProductsApi = async (items) => {
-    const response = await axios.post(`${API_BASE_URL}/products/commit`, { items });
+export const commitProductsApi = async (items, createdBy) => {
+    const response = await axios.post(`${API_BASE_URL}/products/commit`, { items, createdBy });
     return response.data;
 };
 

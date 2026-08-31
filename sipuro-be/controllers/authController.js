@@ -1,6 +1,9 @@
 const { sipuroDb } = require('../config/db');
-const { comparePassword, getClientIp } = require('../helpers/authHelper');
+const { comparePassword, hashPassword, getClientIp } = require('../helpers/authHelper');
 
+/**
+ * Login Controller (Customer & Employee)
+ */
 exports.login = async (req, res) => {
     try {
         const { username, password, role_type } = req.body;
@@ -29,12 +32,12 @@ exports.login = async (req, res) => {
 
             const user = rows[0];
 
+            // Validasi status akun (Must active / 1)
             if (!user.is_active) {
                 await logAttempt('CUSTOMER', username, clientIp, userAgent, 'INACTIVE');
-                return res.status(401).json({ success: false, message: 'Akun Anda tidak aktif.' });
+                return res.status(401).json({ success: false, message: 'Akun Anda tidak aktif / menunggu persetujuan Superadmin.' });
             }
 
-            // Validasi Pembatasan IP (Jika allowed_ip diisi)
             if (user.allowed_ip && user.allowed_ip !== clientIp && user.allowed_ip !== '*') {
                 await logAttempt('CUSTOMER', username, clientIp, userAgent, 'IP_BLOCKED');
                 return res.status(403).json({
@@ -43,14 +46,12 @@ exports.login = async (req, res) => {
                 });
             }
 
-            // Validasi Enkripsi / Plain Password
             const isMatch = await comparePassword(password, user.password);
             if (!isMatch) {
                 await logAttempt('CUSTOMER', username, clientIp, userAgent, 'FAILED_PASSWORD');
                 return res.status(401).json({ success: false, message: 'Kode Customer atau Password salah.' });
             }
 
-            // Update IP & Log Akses Terakhir
             await sipuroDb.query(
                 'UPDATE sipuro_db.customers SET last_login_ip = ?, last_login_at = NOW() WHERE customer_id = ?',
                 [clientIp, user.customer_id]
@@ -71,25 +72,25 @@ exports.login = async (req, res) => {
 
         } else if (role_type === 'EMPLOYEE') {
             const query = `
-                SELECT employee_id, full_name, department, password, is_suspended, allowed_ip
+                SELECT id, employee_code, full_name, department, password, is_suspended, allowed_ip
                 FROM sipuro_db.employees
-                WHERE employee_id = ?
+                WHERE employee_code = ?
             `;
             const [rows] = await sipuroDb.query(query, [username]);
 
             if (rows.length === 0) {
                 await logAttempt('EMPLOYEE', username, clientIp, userAgent, 'FAILED_PASSWORD');
-                return res.status(401).json({ success: false, message: 'Employee ID atau Password salah.' });
+                return res.status(401).json({ success: false, message: 'Kode Karyawan atau Password salah.' });
             }
 
             const emp = rows[0];
 
+            // Validasi status akun (Must not suspended / 0)
             if (emp.is_suspended) {
                 await logAttempt('EMPLOYEE', username, clientIp, userAgent, 'INACTIVE');
-                return res.status(401).json({ success: false, message: 'Akun Anda sedang dinonaktifkan/ditangguhkan.' });
+                return res.status(401).json({ success: false, message: 'Akun Anda sedang ditangguhkan / belum dikonfirmasi Superadmin.' });
             }
 
-            // Validasi Pembatasan IP (Jika allowed_ip diisi)
             if (emp.allowed_ip && emp.allowed_ip !== clientIp && emp.allowed_ip !== '*') {
                 await logAttempt('EMPLOYEE', username, clientIp, userAgent, 'IP_BLOCKED');
                 return res.status(403).json({
@@ -98,21 +99,18 @@ exports.login = async (req, res) => {
                 });
             }
 
-            // Validasi Enkripsi / Plain Password
             const isMatch = await comparePassword(password, emp.password);
             if (!isMatch) {
                 await logAttempt('EMPLOYEE', username, clientIp, userAgent, 'FAILED_PASSWORD');
-                return res.status(401).json({ success: false, message: 'Employee ID atau Password salah.' });
+                return res.status(401).json({ success: false, message: 'Kode Karyawan atau Password salah.' });
             }
 
-            // Update IP & Log Akses Terakhir
             await sipuroDb.query(
-                'UPDATE sipuro_db.employees SET last_login_ip = ?, last_login_at = NOW() WHERE employee_id = ?',
-                [clientIp, emp.employee_id]
+                'UPDATE sipuro_db.employees SET last_login_ip = ?, last_login_at = NOW() WHERE id = ?',
+                [clientIp, emp.id]
             );
             await logAttempt('EMPLOYEE', username, clientIp, userAgent, 'SUCCESS');
 
-            // Deteksi Role Superadmin (Department SUPERADMIN / ADMIN)
             const deptUpper = (emp.department || '').toUpperCase();
             const assignedRole = (deptUpper === 'SUPERADMIN' || deptUpper === 'ADMIN') ? 'SUPERADMIN' : emp.department;
 
@@ -120,8 +118,8 @@ exports.login = async (req, res) => {
                 success: true,
                 message: 'Login Employee berhasil',
                 data: {
-                    id: emp.employee_id,
-                    code: emp.employee_id,
+                    id: emp.id,
+                    code: emp.employee_code,
                     name: emp.full_name,
                     department: emp.department,
                     role: assignedRole,
@@ -138,7 +136,101 @@ exports.login = async (req, res) => {
     }
 };
 
-// Internal Helper untuk Log Login
+/**
+ * Register Controller (Customer & Employee)
+ */
+exports.register = async (req, res) => {
+    try {
+        const { user_type } = req.body;
+
+        if (user_type === 'EMPLOYEE') {
+            const { employee_code, full_name, gender, birth_date, department, password, confirm_password } = req.body;
+
+            if (!employee_code || !full_name || !gender || !birth_date || !department || !password || !confirm_password) {
+                return res.status(400).json({ success: false, message: 'Semua field karyawan wajib diisi.' });
+            }
+
+            if (department === 'Pilih') {
+                return res.status(400).json({ success: false, message: 'Silakan pilih Departemen yang valid.' });
+            }
+
+            if (password !== confirm_password) {
+                return res.status(400).json({ success: false, message: 'Konfirmasi password tidak cocok.' });
+            }
+
+            // Cek Duplikasi Kode Karyawan
+            const [existCode] = await sipuroDb.query('SELECT id FROM sipuro_db.employees WHERE employee_code = ?', [employee_code]);
+            if (existCode.length > 0) {
+                return res.status(400).json({ success: false, message: 'Kode Karyawan sudah terdaftar.' });
+            }
+
+            const encryptedPassword = await hashPassword(password);
+            const today = new Date().toISOString().split('T')[0];
+
+            // Karyawan baru didaftarkan dengan is_suspended = 1 (true)
+            await sipuroDb.query(
+                `INSERT INTO sipuro_db.employees 
+                (employee_code, full_name, gender, birth_date, department, join_date, is_suspended, password) 
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+                [employee_code, full_name, gender, birth_date, department, today, encryptedPassword]
+            );
+
+            return res.status(201).json({
+                success: true,
+                message: 'Pendaftaran karyawan berhasil. Akun memerlukan konfirmasi dari Superadmin untuk aktif.'
+            });
+
+        } else if (user_type === 'CUSTOMER') {
+            const { customer_code, company_name, email, phone, address, delivery_address, password, confirm_password } = req.body;
+
+            if (!customer_code || !company_name || !email || !phone || !address || !delivery_address || !password || !confirm_password) {
+                return res.status(400).json({ success: false, message: 'Semua field customer wajib diisi.' });
+            }
+
+            const codeUpper = customer_code.toUpperCase();
+            if (!/^[A-Z0-9]{3,4}$/.test(codeUpper)) {
+                return res.status(400).json({ success: false, message: 'Kode Pelanggan harus huruf kapital dan berpanjang 3 sampai 4 karakter ALFANUMERIK.' });
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ success: false, message: 'Format email tidak valid.' });
+            }
+
+            if (password !== confirm_password) {
+                return res.status(400).json({ success: false, message: 'Konfirmasi password tidak cocok.' });
+            }
+
+            const [existCust] = await sipuroDb.query('SELECT customer_id FROM sipuro_db.customers WHERE customer_code = ?', [codeUpper]);
+            if (existCust.length > 0) {
+                return res.status(400).json({ success: false, message: 'Kode Customer sudah digunakan.' });
+            }
+
+            const encryptedPassword = await hashPassword(password);
+            const fullPhone = phone.startsWith('+62') ? phone : `+62${phone.replace(/^0+/, '')}`;
+
+            // Customer baru didaftarkan dengan is_active = 0 (false)
+            await sipuroDb.query(
+                `INSERT INTO sipuro_db.customers 
+                (customer_code, company_name, email, phone, address, delivery_address, is_active, password) 
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+                [codeUpper, company_name, email, fullPhone, address, delivery_address, encryptedPassword]
+            );
+
+            return res.status(201).json({
+                success: true,
+                message: 'Pendaftaran pelanggan berhasil. Akun Anda memerlukan konfirmasi dari Superadmin sebelum dapat digunakan.'
+            });
+
+        } else {
+            return res.status(400).json({ success: false, message: 'Tipe pendaftaran tidak valid.' });
+        }
+    } catch (error) {
+        console.error('Error during registration:', error);
+        return res.status(500).json({ success: false, message: 'Gagal melakukan pendaftaran.', error: error.message });
+    }
+};
+
 async function logAttempt(userType, identifier, ip, userAgent, status) {
     try {
         await sipuroDb.query(

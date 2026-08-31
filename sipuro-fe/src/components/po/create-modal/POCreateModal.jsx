@@ -56,7 +56,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
             }}>
                 <h2>
                     {/* Menggunakan kode PO alih-alih poId */}
-                    {poId ? `Detail Purchase Order ${poCode}` : 'Buat Purchase Order (PO) Baru'}
+                    {poId ? `Detail Purchase Order: ${poCode}` : 'Buat Purchase Order (PO) Baru'}
                     {poId && poStatus && (
                         <span style={{
                             padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold',

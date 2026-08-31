@@ -11,6 +11,7 @@ import PriceListPage from './components/superadmin/PriceListPage';
 
 import Login from './components/auth/Login';
 import Navbar from './components/layout/Navbar';
+import { ROLE_PERMISSIONS } from './config/navigationConfig';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -19,10 +20,10 @@ function App() {
   const [selectedPoId, setSelectedPoId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Ambil tab pertama dari konfigurasi berdasarkan role user
   const getDefaultTab = (role) => {
-    if (role === 'PPIC') return 'ppic-dashboard';
-    if (role === 'SUPERADMIN' || role === 'ADMIN') return 'sa-employees';
-    return 'po-list';
+    const userMenus = ROLE_PERMISSIONS[role] || [];
+    return userMenus.length > 0 ? userMenus[0].id : 'po-list';
   };
 
   useEffect(() => {
@@ -109,7 +110,7 @@ function App() {
       {showCreateModal && (
         <POCreateModal
           poId={selectedPoId}
-          customerId={user.id}
+          customerId={user.role === 'CUSTOMER' ? (user.customer_id || user.id) : null}
           userRole={user.role}
           onClose={handleCloseModal}
           onSuccess={handlePOSuccess}

@@ -26,9 +26,9 @@ app.get('/', (req, res) => {
 
 // Register API Routes
 app.use('/api', authRoutes);
-app.use('/api/master', masterRoutes);                       // Katalog/Order Customer (/api/master/products, dll)
-app.use('/api/upload/master', masterUploadRoutes);         // Upload Master Produk & Harga (/api/upload/master/products/preview, dll)
-app.use('/api/superadmin', superadminRoutes);               // View Tabel Master Superadmin (/api/superadmin/products, dll)
+app.use('/api', masterRoutes);
+app.use('/api/upload/master', masterUploadRoutes);
+app.use('/api/superadmin', superadminRoutes);
 app.use('/api/po', poRoutes);
 app.use('/api/ppic', ppicRoutes);
 app.use('/api/batches', batchRoutes);

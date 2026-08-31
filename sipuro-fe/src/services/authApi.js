@@ -12,3 +12,12 @@ export const loginApi = async (username, password, roleType) => {
     });
     return await res.json();
 };
+
+export const registerApi = async (payload) => {
+    const res = await fetch(`${BASE_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    return await res.json();
+};
