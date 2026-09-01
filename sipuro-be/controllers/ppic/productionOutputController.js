@@ -17,12 +17,16 @@ exports.previewProduction = async (req, res) => {
         const batchOutputMap = {};
 
         sheetData.forEach((row, idx) => {
-            if (idx > 4 && row[1]) {
-                const batchNum = String(row[1]).trim();
-                const itemCode = String(row[3] || '').trim(); // Kolom D: Item Code SKU
-                const qtyCar = parseFloat(row[12] || row[13]) || 0;
+            // Membaca data mulai baris ke-6 (index 5)
+            if (idx >= 5 && row[1]) {
+                const batchNum = String(row[1] || '').trim();
+                const itemCode = String(row[4] || row[3] || '').trim(); // Kolom E (index 4) atau D (index 3) untuk SKU Code
 
-                if (batchNum && itemCode && qtyCar > 0) {
+                // Ambil nilai Qty dari Kolom M (index 12) atau N (index 13)
+                const rawQty = row[12] !== undefined && row[12] !== '' ? row[12] : row[13];
+                const qtyCar = parseFloat(rawQty) || 0;
+
+                if (batchNum && itemCode) {
                     const key = `${batchNum}||${itemCode}`;
                     batchOutputMap[key] = (batchOutputMap[key] || 0) + qtyCar;
                 }
@@ -32,10 +36,13 @@ exports.previewProduction = async (req, res) => {
         const previewResults = [];
         const unallocatedStocks = [];
 
+        // HANYA iterasi pasangan Batch + SKU yang terdeteksi dari Excel
         for (const [compositeKey, actualOutput] of Object.entries(batchOutputMap)) {
+            if (actualOutput <= 0) continue; // Abaikan jika total qty <= 0
+
             const [batchNum, itemCode] = compositeKey.split('||');
 
-            // Query disaring ketat berdasarkan BATCH NUMBER dan PRODUCT CODE (SKU) yang ada di Excel
+            // Query KETAT: Hanya ambil alokasi PO untuk Batch dan Product Code yang PERSIS ada di Excel
             const [allocations] = await sipuroDb.query(`
                 SELECT 
                     b.id AS id_batch,
@@ -62,13 +69,24 @@ exports.previewProduction = async (req, res) => {
             `, [batchNum, itemCode]);
 
             if (allocations.length > 0) {
-                const targetQty = allocations.reduce((acc, curr) => acc + Number(curr.allocated_qty), 0);
-                const ratio = targetQty > 0 ? actualOutput / targetQty : 0;
+                let remainingOutput = actualOutput;
 
                 allocations.forEach(alloc => {
-                    const calculatedFulfilled = Math.round(alloc.allocated_qty * ratio);
+                    const neededQty = alloc.allocated_qty - (alloc.current_fulfilled || 0);
+                    let fulfilledInThisSession = 0;
 
-                    // Format properti disesuaikan dengan prop UI Front-end (camelCase)
+                    if (remainingOutput > 0) {
+                        if (remainingOutput >= neededQty) {
+                            fulfilledInThisSession = alloc.allocated_qty;
+                            remainingOutput -= neededQty;
+                        } else {
+                            fulfilledInThisSession = (alloc.current_fulfilled || 0) + remainingOutput;
+                            remainingOutput = 0;
+                        }
+                    } else {
+                        fulfilledInThisSession = alloc.current_fulfilled || 0;
+                    }
+
                     previewResults.push({
                         allocation_id: alloc.allocation_id,
                         po_detail_id: alloc.po_detail_id,
@@ -81,26 +99,27 @@ exports.previewProduction = async (req, res) => {
                         planDate: alloc.plan_date || null,
                         actDate: new Date().toISOString().split('T')[0],
                         allocatedQty: alloc.allocated_qty,
-                        fulfilledQty: calculatedFulfilled,
-                        rowStatus: calculatedFulfilled >= alloc.allocated_qty ? 'Close' : 'Open'
+                        fulfilledQty: fulfilledInThisSession,
+                        rowStatus: fulfilledInThisSession >= alloc.allocated_qty ? 'Close' : 'Open'
                     });
                 });
 
-                if (actualOutput > targetQty) {
+                // Jika hasil produksi dari Excel melebihi target alokasi PO di DB
+                if (remainingOutput > 0) {
                     unallocatedStocks.push({
                         id_batch: allocations[0].id_batch,
                         batchNumber: batchNum,
                         id_product: allocations[0].id_product,
                         productCode: allocations[0].product_code,
                         productName: allocations[0].product_name,
-                        qtyAvailable: actualOutput - targetQty,
-                        surplusQty: actualOutput - targetQty
+                        qtyAvailable: remainingOutput,
+                        surplusQty: remainingOutput
                     });
                 }
             }
         }
 
-        if (previewResults.length === 0) {
+        if (previewResults.length === 0 && unallocatedStocks.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Tidak ada batch aktif di DB yang cocok dengan nomor batch dan kode SKU di file Excel ini.'
@@ -145,7 +164,7 @@ exports.confirmProduction = async (req, res) => {
             const addQty = Number(item.fulfilledQty) || 0;
 
             await connection.query(
-                `UPDATE sipuro_db.po_batch_allocations SET fulfilled_qty = fulfilled_qty + ?, status = ? WHERE id = ?`,
+                `UPDATE sipuro_db.po_batch_allocations SET fulfilled_qty = ?, status = ? WHERE id = ?`,
                 [addQty, item.rowStatus, item.allocation_id]
             );
 
