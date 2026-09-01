@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     fetchUnassignedSummary,
     assignBatchBulk,
@@ -18,6 +18,9 @@ import ProductionPreviewModal from './ProductionPreviewModal';
 import BatchAllocationModal from './BatchAllocationModal';
 
 const PPICBatchAllocationPage = ({ currentUser }) => {
+    // Ref untuk Element File Input
+    const fileInputRef = useRef(null);
+
     const [activeTab, setActiveTab] = useState('summary');
     const [summaryList, setSummaryList] = useState([]);
     const [mappingList, setMappingList] = useState([]);
@@ -29,7 +32,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     const [searchProduct1, setSearchProduct1] = useState('');
     const [searchPo1, setSearchPo1] = useState('');
 
-    // State Filter Tab 2 (Dengan rentang tanggal fromDate & toDate)
+    // State Filter Tab 2
     const [searchQuery2, setSearchQuery2] = useState('');
     const [fromDate2, setFromDate2] = useState('');
     const [toDate2, setToDate2] = useState('');
@@ -203,19 +206,25 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
 
         if (res && res.success) {
             alert(res.message || 'Berhasil disimpan!');
-            setIsPreviewOpen(false);
-            setPreviewData(null);
-            setUploadFile(null);
+            handleResetUploadState();
             loadData();
         } else {
             alert('Gagal menyimpan: ' + (res?.message || 'Terjadi kesalahan.'));
         }
     };
 
-    const handleRejectPreview = () => {
+    // Helper Fungsi untuk Reset Modal & File Input
+    const handleResetUploadState = () => {
         setIsPreviewOpen(false);
         setPreviewData(null);
         setUploadFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ''; // Bersihkan input DOM file
+        }
+    };
+
+    const handleRejectPreview = () => {
+        handleResetUploadState();
     };
 
     const handleOpenModal = async (sku) => {
@@ -337,9 +346,10 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
 
                 <form onSubmit={handleUploadSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '6px 10px', borderRadius: '6px', border: '1px solid #dee2e6', marginBottom: '6px' }}>
                     <input
+                        ref={fileInputRef}
                         type="file"
                         accept=".xlsx, .xls"
-                        onChange={(e) => setUploadFile(e.target.files[0])}
+                        onChange={(e) => setUploadFile(e.target.files[0] || null)}
                         style={{ fontSize: '12px' }}
                     />
                     <button

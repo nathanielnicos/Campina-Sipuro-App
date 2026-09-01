@@ -13,7 +13,7 @@ exports.previewProduction = async (req, res) => {
         const sheetName = workbook.SheetNames[0];
         const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
 
-        // Map untuk menampung agregasi Excel: { compositeKey: { qty: totalQty, actDate: latestDate } }
+        // Map untuk menampung akumulasi Excel: { compositeKey: { qty: totalQty, actDate: latestDate } }
         const batchOutputMap = {};
 
         sheetData.forEach((row, idx) => {
@@ -164,25 +164,38 @@ exports.confirmProduction = async (req, res) => {
         await connection.beginTransaction();
 
         const affectedHeaders = new Set();
+        const affectedDetails = new Set();
         const affectedBatches = new Set();
 
         for (const item of allocations) {
             const addQty = Number(item.fulfilledQty) || 0;
 
+            // 1. Update status & qty di alokasi batch
             await connection.query(
                 `UPDATE sipuro_db.po_batch_allocations SET fulfilled_qty = ?, status = ? WHERE id = ?`,
                 [addQty, item.rowStatus, item.allocation_id]
             );
 
-            await connection.query(
-                `UPDATE sipuro_db.po_details SET fulfilled_qty = fulfilled_qty + ? WHERE po_detail_id = ?`,
-                [addQty, item.po_detail_id]
-            );
-
+            affectedDetails.add(item.po_detail_id);
             affectedHeaders.add(item.po_header_id);
             affectedBatches.add(item.id_batch);
         }
 
+        // 2. Recalculate total fulfilled_qty di po_details dari SUM alokasi batch (mencegah akumulasi ganda)
+        for (const poDetailId of affectedDetails) {
+            await connection.query(
+                `UPDATE sipuro_db.po_details d
+                 SET d.fulfilled_qty = (
+                     SELECT COALESCE(SUM(pba.fulfilled_qty), 0)
+                     FROM sipuro_db.po_batch_allocations pba
+                     WHERE pba.po_detail_id = d.po_detail_id
+                 )
+                 WHERE d.po_detail_id = ?`,
+                [poDetailId]
+            );
+        }
+
+        // 3. Simpan kelebihan stok jika ada
         if (unallocatedStocks && Array.isArray(unallocatedStocks) && unallocatedStocks.length > 0) {
             for (const stock of unallocatedStocks) {
                 const qtyToAdd = Number(stock.qtyAvailable || stock.surplusQty || 0);
@@ -195,6 +208,7 @@ exports.confirmProduction = async (req, res) => {
             }
         }
 
+        // 4. Update status Batch jika seluruh alokasinya sudah Close
         for (const batchId of affectedBatches) {
             const [openAlloc] = await connection.query(
                 `SELECT id FROM sipuro_db.po_batch_allocations WHERE id_batch = ? AND status = 'Open'`,
@@ -209,6 +223,7 @@ exports.confirmProduction = async (req, res) => {
             }
         }
 
+        // 5. Refresh status Header PO
         for (const poHeaderId of affectedHeaders) {
             await refreshPOStatus(connection, poHeaderId);
         }
