@@ -1,4 +1,6 @@
-const BASE_URL = 'http://localhost:5000/api/notifications';
+import { API_BASE_URL } from './config';
+
+const BASE_URL = `${API_BASE_URL}/notifications`;
 
 export const getUnreadCount = async (role, userId, department) => {
     const params = new URLSearchParams();

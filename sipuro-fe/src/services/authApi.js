@@ -1,7 +1,7 @@
-const BASE_URL = 'http://localhost:5000/api';
+import { API_BASE_URL } from './config';
 
 export const loginApi = async (username, password, roleType) => {
-    const res = await fetch(`${BASE_URL}/login`, {
+    const res = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -14,7 +14,7 @@ export const loginApi = async (username, password, roleType) => {
 };
 
 export const registerApi = async (payload) => {
-    const res = await fetch(`${BASE_URL}/register`, {
+    const res = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

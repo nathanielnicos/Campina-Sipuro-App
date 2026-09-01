@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:5000/api';
+import { API_BASE_URL } from './config';
 
 export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters = {}) => {
     const { search = '', startDate = '', endDate = '', status = '' } = filters;
@@ -12,32 +12,32 @@ export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters =
         status
     });
 
-    const res = await fetch(`${BASE_URL}/po?${params.toString()}`);
+    const res = await fetch(`${API_BASE_URL}/po?${params.toString()}`);
     return await res.json();
 };
 
 export const fetchProducts = async () => {
-    const res = await fetch(`${BASE_URL}/products`);
+    const res = await fetch(`${API_BASE_URL}/products`);
     return await res.json();
 };
 
 export const fetchCustomerDetail = async (customerId) => {
-    const res = await fetch(`${BASE_URL}/customers/${customerId}`);
+    const res = await fetch(`${API_BASE_URL}/customers/${customerId}`);
     return await res.json();
 };
 
 export const fetchCompanyProfile = async () => {
-    const res = await fetch(`${BASE_URL}/company-profile`);
+    const res = await fetch(`${API_BASE_URL}/company-profile`);
     return await res.json();
 };
 
 export const fetchPODetail = async (poId) => {
-    const res = await fetch(`${BASE_URL}/po/${poId}`);
+    const res = await fetch(`${API_BASE_URL}/po/${poId}`);
     return await res.json();
 };
 
 export const savePO = async (poId, payload) => {
-    const url = poId ? `${BASE_URL}/po/${poId}` : `${BASE_URL}/po`;
+    const url = poId ? `${API_BASE_URL}/po/${poId}` : `${API_BASE_URL}/po`;
     const method = poId ? 'PUT' : 'POST';
     const res = await fetch(url, {
         method,
@@ -48,7 +48,7 @@ export const savePO = async (poId, payload) => {
 };
 
 export const cancelPOApi = async (poId, canceledBy) => {
-    const res = await fetch(`${BASE_URL}/po/${poId}/cancel`, {
+    const res = await fetch(`${API_BASE_URL}/po/${poId}/cancel`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ canceled_by: canceledBy })
@@ -57,7 +57,7 @@ export const cancelPOApi = async (poId, canceledBy) => {
 };
 
 export const updatePOStatusApi = async (poId, status, notes, updatedBy) => {
-    const res = await fetch(`${BASE_URL}/po/${poId}/status`, {
+    const res = await fetch(`${API_BASE_URL}/po/${poId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, notes, updated_by: updatedBy })
@@ -76,7 +76,7 @@ export const exportPoExcelApi = async (customerId, filters = {}) => {
             status
         });
 
-        const res = await fetch(`${BASE_URL}/po/export-excel?${params.toString()}`);
+        const res = await fetch(`${API_BASE_URL}/po/export-excel?${params.toString()}`);
         if (!res.ok) throw new Error('Gagal mengunduh file Excel');
 
         const blob = await res.blob();

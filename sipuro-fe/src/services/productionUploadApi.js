@@ -1,10 +1,11 @@
 import axios from 'axios';
+import { API_BASE_URL } from './config';
 
-const API_BASE_URL = 'http://localhost:5000/api/upload/production';
+const BASE_URL = `${API_BASE_URL}/upload/production`;
 
 export const previewProductionApi = async (formData) => {
     try {
-        const response = await axios.post(`${API_BASE_URL}/preview`, formData, {
+        const response = await axios.post(`${BASE_URL}/preview`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;
@@ -16,7 +17,7 @@ export const previewProductionApi = async (formData) => {
 
 export const confirmProductionApi = async (payload) => {
     try {
-        const response = await axios.post(`${API_BASE_URL}/commit`, payload);
+        const response = await axios.post(`${BASE_URL}/commit`, payload);
         return response.data;
     } catch (error) {
         console.error('Error confirming production:', error);
