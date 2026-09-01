@@ -177,18 +177,6 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
         }
     };
 
-    const handleFulfilledChange = (idx, newVal) => {
-        const updated = [...previewData.previewResults];
-        const parsedQty = Number(newVal) || 0;
-        updated[idx].fulfilledQty = parsedQty;
-        updated[idx].rowStatus = parsedQty >= updated[idx].allocatedQty ? 'Close' : 'Open';
-
-        setPreviewData({
-            ...previewData,
-            previewResults: updated
-        });
-    };
-
     const handleConfirmSave = async () => {
         if (!window.confirm('Simpan hasil realisasi produksi ke database?')) return;
 
@@ -197,8 +185,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
             processTimestamp: previewData.processTimestamp,
             fileName: previewData.fileName,
             userId: currentUser?.id || 1,
-            allocations: previewData.previewResults,
-            unallocatedStocks: previewData.unallocatedStocks
+            allocations: previewData.previewResults
         };
 
         const res = await confirmProductionApi(payload);
@@ -441,7 +428,6 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                 isOpen={isPreviewOpen}
                 previewData={previewData}
                 saving={saving}
-                onFulfilledChange={handleFulfilledChange}
                 onConfirmSave={handleConfirmSave}
                 onRejectPreview={handleRejectPreview}
             />
