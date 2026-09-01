@@ -13,13 +13,18 @@ exports.previewProduction = async (req, res) => {
         const sheetName = workbook.SheetNames[0];
         const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
 
+        // Map untuk menyimpan akumulasi output berdasarkan gabungan (batchNum + '||' + itemCode)
         const batchOutputMap = {};
+
         sheetData.forEach((row, idx) => {
             if (idx > 4 && row[1]) {
                 const batchNum = String(row[1]).trim();
+                const itemCode = String(row[3] || '').trim(); // Kolom D: Item Code SKU
                 const qtyCar = parseFloat(row[12] || row[13]) || 0;
-                if (batchNum && qtyCar > 0) {
-                    batchOutputMap[batchNum] = (batchOutputMap[batchNum] || 0) + qtyCar;
+
+                if (batchNum && itemCode && qtyCar > 0) {
+                    const key = `${batchNum}||${itemCode}`;
+                    batchOutputMap[key] = (batchOutputMap[key] || 0) + qtyCar;
                 }
             }
         });
@@ -27,7 +32,10 @@ exports.previewProduction = async (req, res) => {
         const previewResults = [];
         const unallocatedStocks = [];
 
-        for (const [batchNum, actualOutput] of Object.entries(batchOutputMap)) {
+        for (const [compositeKey, actualOutput] of Object.entries(batchOutputMap)) {
+            const [batchNum, itemCode] = compositeKey.split('||');
+
+            // Query disaring berdasarkan BATCH NUMBER dan PRODUCT CODE (SKU)
             const [allocations] = await sipuroDb.query(`
                 SELECT 
                     b.id AS id_batch,
@@ -46,8 +54,11 @@ exports.previewProduction = async (req, res) => {
                 JOIN sipuro_db.po_batch_allocations pba ON b.id = pba.id_batch
                 JOIN sipuro_db.po_details d ON pba.po_detail_id = d.po_detail_id
                 JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
-                WHERE b.batch_number = ? AND b.status = 'Open' AND pba.status = 'Open'
-            `, [batchNum]);
+                WHERE b.batch_number = ? 
+                  AND p.product_code = ?
+                  AND b.status = 'Open' 
+                  AND pba.status = 'Open'
+            `, [batchNum, itemCode]);
 
             if (allocations.length > 0) {
                 const targetQty = allocations.reduce((acc, curr) => acc + Number(curr.allocated_qty), 0);
@@ -86,7 +97,7 @@ exports.previewProduction = async (req, res) => {
         if (previewResults.length === 0) {
             return res.status(404).json({
                 success: false,
-                message: 'Tidak ada batch aktif di DB yang cocok dengan nomor batch di file Excel ini.'
+                message: 'Tidak ada batch aktif di DB yang cocok dengan nomor batch dan kode SKU di file Excel ini.'
             });
         }
 

@@ -89,12 +89,12 @@ const PendingSkuTable = ({
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
                                 <th style={{ padding: '12px 10px', width: '13%', whiteSpace: 'nowrap' }}>Kode Produk</th>
-                                <th style={{ padding: '12px 10px', width: '33%' }}>Nama Produk</th>
-                                <th style={{ padding: '12px 10px', width: '13%', textAlign: 'right', whiteSpace: 'nowrap' }}>Total Qty Dibutuhkan (PCS)</th>
-                                <th style={{ padding: '12px 10px', width: '9%', textAlign: 'center', whiteSpace: 'nowrap' }}>Jumlah PO</th>
+                                <th style={{ padding: '12px 10px', width: '31%' }}>Nama Produk</th>
+                                <th style={{ padding: '12px 10px', width: '15%', textAlign: 'right', wordBreak: 'break-word' }}>Total Qty Dibutuhkan (PCS)</th>
+                                <th style={{ padding: '12px 10px', width: '8%', textAlign: 'center', whiteSpace: 'nowrap' }}>Jumlah PO</th>
                                 <th style={{ padding: '12px 10px', width: '13%', whiteSpace: 'nowrap' }}>No PO</th>
                                 <th style={{ padding: '12px 10px', width: '10%', textAlign: 'right', whiteSpace: 'nowrap' }}>Qty PO (PCS)</th>
-                                <th style={{ padding: '12px 10px', width: '13%', textAlign: 'center', whiteSpace: 'nowrap' }}>Aksi</th>
+                                <th style={{ padding: '12px 10px', width: '10%', textAlign: 'center', whiteSpace: 'nowrap' }}>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
