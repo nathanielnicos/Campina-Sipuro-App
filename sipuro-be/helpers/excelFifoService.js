@@ -104,14 +104,20 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
         const hasProductInDb = !!matchedProduct;
         const isRegistered = hasBatchInDb && hasProductInDb;
 
-        let productName = matchedProduct ? matchedProduct.product_name : '';
-        if (!productName && hasBatchInDb && matchedAllocations[0].product_name) {
-            productName = matchedAllocations[0].product_name;
+        // BUGFIX 1: Jika TIDAK TERDAFTAR, jangan ambil nama produk dari DB/alokasi lain
+        let productName = '';
+        if (isRegistered) {
+            productName = matchedProduct ? matchedProduct.product_name : (matchedAllocations[0]?.product_name || '');
         }
 
         // Kalkulasi akumulasi Qty
-        const totalPlannedQty = matchedAllocations.reduce((sum, row) => sum + (Number(row.allocated_qty) || 0), 0);
-        const previousFulfilledQty = matchedAllocations.reduce((sum, row) => sum + (Number(row.fulfilled_qty) || 0), 0);
+        const totalPlannedQty = isRegistered
+            ? matchedAllocations.reduce((sum, row) => sum + (Number(row.allocated_qty) || 0), 0)
+            : 0;
+
+        const previousFulfilledQty = isRegistered
+            ? matchedAllocations.reduce((sum, row) => sum + (Number(row.fulfilled_qty) || 0), 0)
+            : 0;
 
         const newAdditionQty = isRegistered ? excelItem.totalQtyOutput : 0;
         const totalAccumulatedQty = previousFulfilledQty + newAdditionQty;
@@ -154,6 +160,12 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
             };
         });
 
+        // BUGFIX 2: Qty Hasil Produksi yang tampil di tabel utama dibatasi maksimal sebesar kebutuhan alokasi
+        const neededForAllocation = Math.max(0, totalPlannedQty - previousFulfilledQty);
+        const displayFulfilledQty = isRegistered
+            ? Math.min(newAdditionQty, neededForAllocation)
+            : 0;
+
         previewResults.push({
             batchNumber: excelItem.batchNumber,
             productCode: excelItem.itemCode,
@@ -161,7 +173,7 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
             actDate: excelItem.actStartDate,
             totalQtyOutput: excelItem.totalQtyOutput,
             previousFulfilledQty: previousFulfilledQty,
-            fulfilledQty: newAdditionQty,
+            fulfilledQty: displayFulfilledQty, // Terkunci sesuai sisa alokasi
             accumulatedQty: totalAccumulatedQty,
             totalPlannedQty: totalPlannedQty,
             isRegistered: isRegistered,
