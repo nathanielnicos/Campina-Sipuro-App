@@ -25,7 +25,7 @@ const parseExcelDate = (excelValue) => {
 };
 
 /**
- * Membaca buffer file Excel dan mengekstrak metadata & baris data aktual
+ * Membaca buffer file Excel dan mengekstrak metadata & baris data
  */
 const parseProductionExcel = (fileBuffer) => {
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
@@ -60,6 +60,7 @@ const parseProductionExcel = (fileBuffer) => {
         }
     }
 
+    // Agregasi per baris unik di Excel (Batch + ItemCode)
     const aggregatedExcel = {};
     productionItems.forEach((item) => {
         const key = `${item.batchNumber}_${item.itemCode}`;
@@ -81,125 +82,87 @@ const parseProductionExcel = (fileBuffer) => {
 };
 
 /**
- * Algoritma FIFO + Pro-rata Toleransi 90%
+ * Pengecekan Ketersediaan Batch & SKU di Database + Akumulasi Alokasi FIFO (Toleransi 90%)
  */
-const calculateFifoAllocation = (excelDataMap, openAllocations, allProducts = []) => {
+const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts = []) => {
     const previewResults = [];
     const unallocatedStocks = [];
 
-    const excelStockMap = { ...excelDataMap };
+    Object.values(excelDataMap).forEach((excelItem) => {
+        // Cari alokasi batch yang sesuai di DB
+        const matchedAllocations = openAllocations.filter(
+            a => a.batch_number === excelItem.batchNumber
+        );
 
-    // 1. Kelompokkan alokasi DB berdasarkan batch_number
-    const batchGroup = {};
-    openAllocations.forEach((alloc) => {
-        if (!batchGroup[alloc.batch_number]) {
-            batchGroup[alloc.batch_number] = {
-                id_batch: alloc.id_batch,
-                batch_number: alloc.batch_number,
-                id_product: alloc.id_product,
-                plan_production_date: alloc.plan_production_date,
-                totalPlannedQty: 0,
-                rows: []
+        // Cari master produk di DB
+        const matchedProduct = allProducts.find(
+            p => p.product_code === excelItem.itemCode
+        );
+
+        const hasBatchInDb = matchedAllocations.length > 0;
+        const hasProductInDb = !!matchedProduct;
+        const isRegistered = hasBatchInDb && hasProductInDb;
+
+        let productName = matchedProduct ? matchedProduct.product_name : '';
+        if (!productName && hasBatchInDb && matchedAllocations[0].product_name) {
+            productName = matchedAllocations[0].product_name;
+        }
+
+        // Kalkulasi akumulasi Qty
+        const totalPlannedQty = matchedAllocations.reduce((sum, row) => sum + (Number(row.allocated_qty) || 0), 0);
+        const previousFulfilledQty = matchedAllocations.reduce((sum, row) => sum + (Number(row.actual_qty || row.fulfilled_qty) || 0), 0);
+
+        const newAdditionQty = isRegistered ? excelItem.totalQtyOutput : 0;
+        const totalAccumulatedQty = previousFulfilledQty + newAdditionQty;
+
+        // Distribusi FIFO & Evaluasi Toleransi 90% per alokasi
+        let remainingExcelQty = newAdditionQty;
+        const processedAllocations = matchedAllocations.map(alloc => {
+            const planQty = Number(alloc.allocated_qty) || 0;
+            const currentActual = Number(alloc.actual_qty || alloc.fulfilled_qty) || 0;
+            const neededQty = Math.max(0, planQty - currentActual);
+
+            const qtyToAdd = Math.min(remainingExcelQty, neededQty);
+            remainingExcelQty -= qtyToAdd;
+
+            const updatedActual = currentActual + qtyToAdd;
+            const fulfillmentRatio = planQty > 0 ? (updatedActual / planQty) : 0;
+            const isClosed = fulfillmentRatio >= 0.90; // Toleransi 90%
+
+            return {
+                ...alloc,
+                previous_actual_qty: currentActual,
+                added_qty: qtyToAdd,
+                new_actual_qty: updatedActual,
+                status: isClosed ? 'CLOSE' : 'OPEN'
             };
-        }
-        batchGroup[alloc.batch_number].totalPlannedQty += alloc.allocated_qty;
-        batchGroup[alloc.batch_number].rows.push(alloc);
-    });
-
-    // 2. Evaluasi Setiap Batch yang ada di Aplikasi
-    Object.values(batchGroup).forEach((batch) => {
-        const matchedExcelKey = Object.keys(excelStockMap).find(k => k.startsWith(`${batch.batch_number}_`));
-        const excelMatch = matchedExcelKey ? excelStockMap[matchedExcelKey] : null;
-
-        const actualOutput = excelMatch ? excelMatch.totalQtyOutput : 0;
-        const actStartDate = excelMatch ? excelMatch.actStartDate : null;
-        const plannedQty = batch.totalPlannedQty;
-
-        const realizationRatio = plannedQty > 0 ? (actualOutput / plannedQty) : 0;
-        const isBatchClose = realizationRatio >= 0.90; // Toleransi >= 90%
-
-        let remainingExcelQty = actualOutput;
-
-        batch.rows.forEach((row, idx) => {
-            let fulfilledQty = 0;
-
-            if (isBatchClose && realizationRatio <= 1.0) {
-                if (idx === batch.rows.length - 1) {
-                    fulfilledQty = remainingExcelQty;
-                } else {
-                    fulfilledQty = Math.round(row.allocated_qty * realizationRatio);
-                }
-            } else {
-                fulfilledQty = Math.min(row.allocated_qty, remainingExcelQty);
-            }
-
-            remainingExcelQty -= fulfilledQty;
-
-            const isRowClosed = fulfilledQty >= row.allocated_qty || (isBatchClose && fulfilledQty > 0);
-
-            previewResults.push({
-                allocationId: row.id_allocation,
-                poDetailId: row.po_detail_id,
-                poNumber: row.po_number,
-                batchId: batch.id_batch,
-                batchNumber: batch.batch_number,
-                productCode: row.product_code,
-                productName: row.product_name,
-                allocatedQty: row.allocated_qty,
-                fulfilledQty: fulfilledQty,
-                rowStatus: isRowClosed ? 'Close' : 'Open',
-                planDate: batch.plan_production_date,
-                actDate: actStartDate,
-                isRatioTolerated: realizationRatio >= 0.90 && realizationRatio < 1.0
-            });
         });
 
-        if (remainingExcelQty > 0 && excelMatch) {
-            const firstRow = batch.rows[0] || {};
+        previewResults.push({
+            batchNumber: excelItem.batchNumber,
+            productCode: excelItem.itemCode,
+            productName: productName,
+            actDate: excelItem.actStartDate,
+            totalQtyOutput: excelItem.totalQtyOutput, // Qty Excel tambahan
+            previousFulfilledQty: previousFulfilledQty, // Qty aktual yang sudah ada sebelumnya
+            fulfilledQty: newAdditionQty, // Qty dari Excel ini
+            accumulatedQty: totalAccumulatedQty, // Total akumulasi setelah upload ini
+            totalPlannedQty: totalPlannedQty,
+            isRegistered: isRegistered,
+            allocations: processedAllocations
+        });
 
-            // Perbaikan Fallback Nama Produk
-            const matchedMasterProduct = allProducts.find(p => p.product_code === (firstRow.product_code || excelMatch.itemCode));
-            const productNameDisplay = firstRow.product_name || (matchedMasterProduct ? matchedMasterProduct.product_name : '');
-
+        // Hitung stok lebihan jika total akumulasi melebihi total rencana
+        if (isRegistered && totalPlannedQty > 0 && totalAccumulatedQty > totalPlannedQty) {
+            const excessQty = totalAccumulatedQty - totalPlannedQty;
             unallocatedStocks.push({
-                batchNumber: batch.batch_number,
-                idProduct: batch.id_product,
-                productCode: firstRow.product_code || excelMatch.itemCode || '',
-                productName: productNameDisplay,
-                qtyAvailable: remainingExcelQty,
-                productionDate: actStartDate
+                batchNumber: excelItem.batchNumber,
+                productCode: excelItem.itemCode,
+                productName: productName,
+                qtyAvailable: excessQty,
+                productionDate: excelItem.actStartDate
             });
         }
-
-        if (matchedExcelKey) {
-            delete excelStockMap[matchedExcelKey];
-        }
-    });
-
-    // 3. Tangani Batch Baru dari Excel yang tidak terdaftar di PO manapun
-    Object.values(excelStockMap).forEach((unmatched) => {
-        const matchedAllocation = openAllocations.find(a => a.product_code === unmatched.itemCode);
-        const matchedMasterProduct = allProducts.find(p => p.product_code === unmatched.itemCode);
-
-        const productCodeDisplay = unmatched.itemCode || 'SKU Tidak Diketahui';
-
-        // Perbaikan pencarian nama produk
-        let productNameDisplay = '';
-        if (matchedAllocation && matchedAllocation.product_name) {
-            productNameDisplay = matchedAllocation.product_name;
-        } else if (matchedMasterProduct && matchedMasterProduct.product_name) {
-            productNameDisplay = matchedMasterProduct.product_name;
-        }
-
-        unallocatedStocks.push({
-            batchNumber: unmatched.batchNumber,
-            itemCode: unmatched.itemCode,
-            productCode: productCodeDisplay,
-            productName: productNameDisplay,
-            qtyAvailable: unmatched.totalQtyOutput,
-            productionDate: unmatched.actStartDate,
-            isNewUnregisteredBatch: true
-        });
     });
 
     return {

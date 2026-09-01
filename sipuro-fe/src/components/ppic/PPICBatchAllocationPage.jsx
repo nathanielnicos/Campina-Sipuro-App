@@ -176,6 +176,23 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
         }
     };
 
+    const handleFulfilledChange = (index, rawValue) => {
+        if (!previewData || !previewData.previewResults) return;
+
+        const updatedResults = [...previewData.previewResults];
+        const numericValue = rawValue === '' ? 0 : Number(rawValue);
+
+        updatedResults[index] = {
+            ...updatedResults[index],
+            fulfilledQty: numericValue
+        };
+
+        setPreviewData({
+            ...previewData,
+            previewResults: updatedResults
+        });
+    };
+
     const handleConfirmSave = async () => {
         const confirmMsg = previewData?.isReupload
             ? `${previewData.warningMessage}\nApakah Anda tetap ingin menyimpan ulang hasil alokasi produksi ini?`
@@ -431,6 +448,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                 isOpen={isPreviewOpen}
                 previewData={previewData}
                 saving={saving}
+                onFulfilledChange={handleFulfilledChange}
                 onConfirmSave={handleConfirmSave}
                 onRejectPreview={handleRejectPreview}
             />
