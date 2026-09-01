@@ -13,6 +13,7 @@ exports.exportPoExcel = async (req, res) => {
                 ph.status,
                 ph.delivery_address,
                 ph.description,
+                ph.ppn_percent,
                 p.product_name,
                 pd.base_price,
                 pd.total_price,
@@ -68,13 +69,18 @@ exports.exportPoExcel = async (req, res) => {
             ]
         ];
 
-        rows.forEach((item, index) => {
-            const rowIndex = index + 2;
-            const baseQty = Number(item.base_qty) || 1;
-            const totalPrice = Number(item.total_price) || (Number(item.base_price) * baseQty);
+        rows.forEach((item) => {
+            const baseQty = Number(item.base_qty) || 0;
+            const basePrice = Number(item.base_price) || 0;
+            const ppnPercent = Number(item.ppn_percent) || 0; // Ambil nilai PPN dinamis dari database
 
-            // Perhitungan harga per 1 satuan dasar (PCS)
-            const baseUnitPrice = totalPrice / baseQty;
+            // Hitung subtotal per item
+            const totalExclPpn = Number(item.total_price) || (basePrice * baseQty);
+            const ppnAmount = totalExclPpn * (ppnPercent / 100);
+            const totalInclPpn = totalExclPpn + ppnAmount;
+
+            // Perhitungan harga per 1 satuan dasar
+            const baseUnitPrice = baseQty > 0 ? totalExclPpn / baseQty : basePrice;
 
             excelData.push([
                 item.po_number,
@@ -86,9 +92,9 @@ exports.exportPoExcel = async (req, res) => {
                 item.product_name,
                 baseUnitPrice,
                 baseQty,
-                { f: `H${rowIndex}*I${rowIndex}` },
-                { f: `J${rowIndex}*11%` },
-                { f: `J${rowIndex}+K${rowIndex}` }
+                totalExclPpn,
+                ppnAmount,
+                totalInclPpn
             ]);
         });
 
