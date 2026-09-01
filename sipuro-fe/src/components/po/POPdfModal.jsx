@@ -39,6 +39,9 @@ const POPdfModal = ({ poId, onClose }) => {
 
     if (!poId) return null;
 
+    // Parsing PPN percent ke number untuk menghilangkan angka desimal nol otomatis
+    const ppnPercentNum = poData?.header?.ppn_percent ? Number(poData.header.ppn_percent) : 0;
+
     return (
         <div style={{
             position: 'fixed',
@@ -161,8 +164,8 @@ const POPdfModal = ({ poId, onClose }) => {
                                         <span>{formatCurrency(poData.header.subtotal)}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-                                        <span>PPN ({poData.header.ppn_percent}%):</span>
-                                        <span>{formatCurrency((poData.header.subtotal * poData.header.ppn_percent) / 100)}</span>
+                                        <span>PPN ({ppnPercentNum}%):</span>
+                                        <span>{formatCurrency((poData.header.subtotal * ppnPercentNum) / 100)}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: 'bold', borderTop: '1px solid #333', marginTop: '4px' }}>
                                         <span>Total Amount:</span>
