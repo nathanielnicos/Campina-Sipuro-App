@@ -39,3 +39,5 @@ app.use('/api/notifications', notificationRoutes);
 app.listen(PORT, () => {
     console.log(`Server Express berjalan di port ${PORT}`);
 });
+
+module.exports = app;
