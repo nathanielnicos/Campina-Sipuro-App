@@ -14,9 +14,6 @@ router.post('/assign-batch-bulk', ppicController.assignBatchBulk);
 // Endpoint Monitoring Batch
 router.get('/batch-mapping', ppicController.getAllocatedBatchMapping);
 
-// Konfirmasi Simpan Hasil Produksi ke DB
-router.post('/upload/commit', ppicController.confirmProduction);
-
 // Endpoint Export Excel
 router.get('/export-batch-excel', ppicController.exportBatchMappingExcel);
 
