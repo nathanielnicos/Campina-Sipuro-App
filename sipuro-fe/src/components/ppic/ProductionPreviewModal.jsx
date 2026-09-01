@@ -8,22 +8,24 @@ const ProductionPreviewModal = ({
     onConfirmSave,
     onRejectPreview
 }) => {
-    const [activeTab, setActiveTab] = useState('ALL');
+    const [activeTab, setActiveTab] = useState('ALLOCATED');
 
     if (!isOpen || !previewData) return null;
 
-    const { summary, previewResults = [], fileName, processTimestamp } = previewData;
-    const { total = 0, registeredCount = 0, unregisteredCount = 0 } = summary || {};
+    const {
+        previewResults = [],
+        unallocatedStocks = [],
+        fileName,
+        processTimestamp,
+        isReupload,
+        warningMessage
+    } = previewData;
 
-    // Syarat Tombol Simpan: HANYA tampil jika registeredCount > 0
-    const canSave = registeredCount > 0;
+    const allocatedCount = previewResults.length;
+    const unallocatedCount = unallocatedStocks.length;
 
-    // Filter List berdasarkan Tab Aktif
-    const filteredResults = previewResults.filter(item => {
-        if (activeTab === 'REGISTERED') return item.status === 'TERDAFTAR';
-        if (activeTab === 'UNREGISTERED') return item.status === 'TIDAK_TERDAFTAR';
-        return true;
-    });
+    // Tombol simpan aktif jika ada alokasi PO atau stok lebihan yang siap disimpan
+    const canSave = allocatedCount > 0 || unallocatedCount > 0;
 
     const renderStatusBadge = (status) => {
         const badgeStyle = {
@@ -35,10 +37,10 @@ const ProductionPreviewModal = ({
             textAlign: 'center'
         };
 
-        if (status === 'TERDAFTAR') {
-            return <span style={{ ...badgeStyle, backgroundColor: '#d1e7dd', color: '#0f5132' }}>Terdaftar</span>;
+        if (status === 'Close') {
+            return <span style={{ ...badgeStyle, backgroundColor: '#d1e7dd', color: '#0f5132' }}>Full / Close</span>;
         }
-        return <span style={{ ...badgeStyle, backgroundColor: '#f8d7da', color: '#842029' }}>Tidak Terdaftar</span>;
+        return <span style={{ ...badgeStyle, backgroundColor: '#fff3cd', color: '#664d03' }}>Partial / Open</span>;
     };
 
     return (
@@ -55,11 +57,16 @@ const ProductionPreviewModal = ({
                 {/* Header */}
                 <div style={{ padding: '16px 20px', borderBottom: '1px solid #dee2e6' }}>
                     <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
-                        Preview Hasil Produksi (Belum Disimpan)
+                        Preview Alokasi FIFO Produksi (Belum Disimpan)
                     </h3>
                     <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
-                        File: <strong>{fileName}</strong> | Waktu Proses: {processTimestamp}
+                        File: <strong>{fileName}</strong> | Waktu Waktu: {processTimestamp}
                     </div>
+                    {isReupload && (
+                        <div style={{ marginTop: '8px', padding: '6px 12px', backgroundColor: '#fff3cd', color: '#664d03', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                            ⚠️ {warningMessage}
+                        </div>
+                    )}
                 </div>
 
                 {/* Filter Tabs Header */}
@@ -68,87 +75,104 @@ const ProductionPreviewModal = ({
                     alignItems: 'center', backgroundColor: '#f8f9fa', borderBottom: '1px solid #e9ecef'
                 }}>
                     <button
-                        onClick={() => setActiveTab('ALL')}
+                        onClick={() => setActiveTab('ALLOCATED')}
                         style={{
                             padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer',
                             fontWeight: 'bold', fontSize: '12px',
-                            backgroundColor: activeTab === 'ALL' ? '#0d6efd' : '#e9ecef',
-                            color: activeTab === 'ALL' ? '#fff' : '#495057'
+                            backgroundColor: activeTab === 'ALLOCATED' ? '#0d6efd' : '#e9ecef',
+                            color: activeTab === 'ALLOCATED' ? '#fff' : '#495057'
                         }}
                     >
-                        Semua ({total})
+                        Alokasi PO ({allocatedCount})
                     </button>
                     <button
-                        onClick={() => setActiveTab('REGISTERED')}
+                        onClick={() => setActiveTab('UNALLOCATED')}
                         style={{
                             padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer',
                             fontWeight: 'bold', fontSize: '12px',
-                            backgroundColor: activeTab === 'REGISTERED' ? '#198754' : '#d1e7dd',
-                            color: activeTab === 'REGISTERED' ? '#fff' : '#0f5132'
+                            backgroundColor: activeTab === 'UNALLOCATED' ? '#fd7e14' : '#ffe8cc',
+                            color: activeTab === 'UNALLOCATED' ? '#fff' : '#853b00'
                         }}
                     >
-                        Terdaftar ({registeredCount})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('UNREGISTERED')}
-                        style={{
-                            padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer',
-                            fontWeight: 'bold', fontSize: '12px',
-                            backgroundColor: activeTab === 'UNREGISTERED' ? '#dc3545' : '#f8d7da',
-                            color: activeTab === 'UNREGISTERED' ? '#fff' : '#842029'
-                        }}
-                    >
-                        Tidak Terdaftar ({unregisteredCount})
+                        Stok Lebihan ({unallocatedCount})
                     </button>
                 </div>
 
                 {/* Table Body */}
                 <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                        <thead>
-                            <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
-                                <th style={{ padding: '8px', textAlign: 'center', width: '120px' }}>Status</th>
-                                <th style={{ padding: '8px', width: '130px' }}>No PO</th>
-                                <th style={{ padding: '8px' }}>Produk</th>
-                                <th style={{ padding: '8px', width: '120px' }}>No Batch</th>
-                                <th style={{ padding: '8px', textAlign: 'center', width: '100px' }}>Tgl Aktual</th>
-                                <th style={{ padding: '8px', textAlign: 'right', width: '110px' }}>Qty (PCS)</th>
-                                <th style={{ padding: '8px', width: '220px' }}>Keterangan</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredResults.length === 0 ? (
-                                <tr>
-                                    <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>
-                                        Tidak ada data pada kategori ini.
-                                    </td>
+                    {activeTab === 'ALLOCATED' ? (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
+                                    <th style={{ padding: '8px', width: '120px' }}>No PO</th>
+                                    <th style={{ padding: '8px' }}>Produk</th>
+                                    <th style={{ padding: '8px', width: '120px' }}>No Batch</th>
+                                    <th style={{ padding: '8px', textAlign: 'center', width: '100px' }}>Tgl Aktual</th>
+                                    <th style={{ padding: '8px', textAlign: 'right', width: '110px' }}>Qty Terpenuhi</th>
+                                    <th style={{ padding: '8px', textAlign: 'center', width: '110px' }}>Status Baris</th>
                                 </tr>
-                            ) : (
-                                filteredResults.map((item, idx) => (
-                                    <tr key={idx} style={{
-                                        borderBottom: '1px solid #e9ecef',
-                                        backgroundColor: item.status === 'TIDAK_TERDAFTAR' ? '#fff5f5' : 'inherit'
-                                    }}>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>
-                                            {renderStatusBadge(item.status)}
-                                        </td>
-                                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{item.poNumber}</td>
-                                        <td style={{ padding: '8px' }}>
-                                            {item.productName !== '-' ? `${item.productCode} - ${item.productName}` : item.productCode}
-                                        </td>
-                                        <td style={{ padding: '8px' }}>{item.batchNumber}</td>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>{item.actDate || '-'}</td>
-                                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>
-                                            {formatQty(item.fulfilledQty)}
-                                        </td>
-                                        <td style={{ padding: '8px', color: item.status === 'TIDAK_TERDAFTAR' ? '#dc3545' : '#6c757d', fontSize: '12px' }}>
-                                            {item.notes}
+                            </thead>
+                            <tbody>
+                                {previewResults.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>
+                                            Tidak ada alokasi PO yang cocok dengan produksi ini.
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ) : (
+                                    previewResults.map((item, idx) => (
+                                        <tr key={idx} style={{ borderBottom: '1px solid #e9ecef' }}>
+                                            <td style={{ padding: '8px', fontWeight: 'bold' }}>{item.poNumber}</td>
+                                            <td style={{ padding: '8px' }}>{item.productCode} - {item.productName}</td>
+                                            <td style={{ padding: '8px' }}>{item.batchNumber}</td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>{item.actDate || '-'}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: '#198754' }}>
+                                                {formatQty(item.fulfilledQty)}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                {renderStatusBadge(item.rowStatus)}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
+                                    <th style={{ padding: '8px', width: '140px' }}>No Batch</th>
+                                    <th style={{ padding: '8px' }}>Kode / Nama Produk</th>
+                                    <th style={{ padding: '8px', textAlign: 'center', width: '120px' }}>Tgl Produksi</th>
+                                    <th style={{ padding: '8px', textAlign: 'right', width: '120px' }}>Qty Lebihan</th>
+                                    <th style={{ padding: '8px', width: '200px' }}>Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {unallocatedStocks.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>
+                                            Tidak ada stok lebihan.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    unallocatedStocks.map((stock, idx) => (
+                                        <tr key={idx} style={{ borderBottom: '1px solid #e9ecef', backgroundColor: '#fff9db' }}>
+                                            <td style={{ padding: '8px', fontWeight: 'bold' }}>{stock.batchNumber}</td>
+                                            <td style={{ padding: '8px' }}>{stock.productCode || '-'} - {stock.productName || '-'}</td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>{stock.productionDate || '-'}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: '#d9480f' }}>
+                                                {formatQty(stock.qtyAvailable)}
+                                            </td>
+                                            <td style={{ padding: '8px', fontSize: '12px', color: '#853b00' }}>
+                                                {stock.isNewUnregisteredBatch ? 'Batch/SKU Tidak Terdaftar di DB' : 'Kelebihan Hasil Produksi'}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
 
                 {/* Footer Buttons */}

@@ -18,7 +18,6 @@ import ProductionPreviewModal from './ProductionPreviewModal';
 import BatchAllocationModal from './BatchAllocationModal';
 
 const PPICBatchAllocationPage = ({ currentUser }) => {
-    // Ref untuk Element File Input
     const fileInputRef = useRef(null);
 
     const [activeTab, setActiveTab] = useState('summary');
@@ -178,14 +177,19 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     };
 
     const handleConfirmSave = async () => {
-        if (!window.confirm('Simpan hasil realisasi produksi ke database?')) return;
+        const confirmMsg = previewData?.isReupload
+            ? `${previewData.warningMessage}\nApakah Anda tetap ingin menyimpan ulang hasil alokasi produksi ini?`
+            : 'Simpan hasil realisasi produksi ke database?';
+
+        if (!window.confirm(confirmMsg)) return;
 
         setSaving(true);
         const payload = {
             processTimestamp: previewData.processTimestamp,
             fileName: previewData.fileName,
             userId: currentUser?.id || 1,
-            allocations: previewData.previewResults
+            allocations: previewData.previewResults || [],
+            unallocatedStocks: previewData.unallocatedStocks || []
         };
 
         const res = await confirmProductionApi(payload);
@@ -200,13 +204,12 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
         }
     };
 
-    // Helper Fungsi untuk Reset Modal & File Input
     const handleResetUploadState = () => {
         setIsPreviewOpen(false);
         setPreviewData(null);
         setUploadFile(null);
         if (fileInputRef.current) {
-            fileInputRef.current.value = ''; // Bersihkan input DOM file
+            fileInputRef.current.value = '';
         }
     };
 

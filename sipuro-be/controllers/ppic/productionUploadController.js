@@ -25,6 +25,7 @@ exports.previewExcelUpload = async (req, res) => {
                 pba.po_detail_id,
                 pba.id_batch,
                 pba.allocated_qty,
+                pba.fulfilled_qty,
                 pb.batch_number,
                 pb.id_product,
                 pb.plan_production_date,
@@ -56,7 +57,7 @@ exports.previewExcelUpload = async (req, res) => {
                 processTimestamp,
                 fileName: req.file.originalname,
                 isReupload: isAlreadyUploaded,
-                warningMessage: isAlreadyUploaded ? 'File ini pernah diunggah sebelumnya.' : null,
+                warningMessage: isAlreadyUploaded ? 'File dengan timestamp ini pernah diunggah sebelumnya.' : null,
                 previewResults,
                 unallocatedStocks
             }
@@ -74,7 +75,6 @@ exports.previewExcelUpload = async (req, res) => {
 exports.commitExcelAllocation = async (req, res) => {
     const { processTimestamp, fileName, userId, allocations = [], unallocatedStocks = [] } = req.body;
 
-    // Protection Check: Mencegah commit jika payload kosong
     if (!processTimestamp || (allocations.length === 0 && unallocatedStocks.length === 0)) {
         return res.status(400).json({ success: false, message: 'Data alokasi tidak boleh kosong.' });
     }
@@ -128,6 +128,17 @@ exports.commitExcelAllocation = async (req, res) => {
         const poHeaderIds = new Set();
 
         for (const pdId of poDetailIds) {
+            await connection.query(
+                `UPDATE po_details d
+                 SET d.fulfilled_qty = (
+                     SELECT COALESCE(SUM(pba.fulfilled_qty), 0)
+                     FROM po_batch_allocations pba
+                     WHERE pba.po_detail_id = d.po_detail_id
+                 )
+                 WHERE d.po_detail_id = ?`,
+                [pdId]
+            );
+
             const [[pd]] = await connection.query('SELECT po_header_id FROM po_details WHERE po_detail_id = ?', [pdId]);
             if (pd && pd.po_header_id) {
                 poHeaderIds.add(pd.po_header_id);
