@@ -87,6 +87,7 @@ const parseProductionExcel = (fileBuffer) => {
 const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts = []) => {
     const previewResults = [];
     const unallocatedStocks = [];
+    const detailedAllocations = [];
 
     Object.values(excelDataMap).forEach((excelItem) => {
         // Cari alokasi batch yang sesuai di DB
@@ -110,7 +111,7 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
 
         // Kalkulasi akumulasi Qty
         const totalPlannedQty = matchedAllocations.reduce((sum, row) => sum + (Number(row.allocated_qty) || 0), 0);
-        const previousFulfilledQty = matchedAllocations.reduce((sum, row) => sum + (Number(row.actual_qty || row.fulfilled_qty) || 0), 0);
+        const previousFulfilledQty = matchedAllocations.reduce((sum, row) => sum + (Number(row.fulfilled_qty) || 0), 0);
 
         const newAdditionQty = isRegistered ? excelItem.totalQtyOutput : 0;
         const totalAccumulatedQty = previousFulfilledQty + newAdditionQty;
@@ -119,22 +120,37 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
         let remainingExcelQty = newAdditionQty;
         const processedAllocations = matchedAllocations.map(alloc => {
             const planQty = Number(alloc.allocated_qty) || 0;
-            const currentActual = Number(alloc.actual_qty || alloc.fulfilled_qty) || 0;
-            const neededQty = Math.max(0, planQty - currentActual);
+            const currentFulfilled = Number(alloc.fulfilled_qty) || 0;
+            const neededQty = Math.max(0, planQty - currentFulfilled);
 
             const qtyToAdd = Math.min(remainingExcelQty, neededQty);
             remainingExcelQty -= qtyToAdd;
 
-            const updatedActual = currentActual + qtyToAdd;
-            const fulfillmentRatio = planQty > 0 ? (updatedActual / planQty) : 0;
+            const updatedFulfilled = currentFulfilled + qtyToAdd;
+            const fulfillmentRatio = planQty > 0 ? (updatedFulfilled / planQty) : 0;
             const isClosed = fulfillmentRatio >= 0.90; // Toleransi 90%
+            const rowStatus = isClosed ? 'Close' : 'Open';
+
+            const detailItem = {
+                allocationId: alloc.id_allocation,
+                poDetailId: alloc.po_detail_id,
+                batchId: alloc.id_batch,
+                fulfilledQty: updatedFulfilled,
+                addedQty: qtyToAdd,
+                rowStatus: rowStatus,
+                actDate: excelItem.actStartDate
+            };
+
+            if (isRegistered) {
+                detailedAllocations.push(detailItem);
+            }
 
             return {
                 ...alloc,
-                previous_actual_qty: currentActual,
+                previous_fulfilled_qty: currentFulfilled,
                 added_qty: qtyToAdd,
-                new_actual_qty: updatedActual,
-                status: isClosed ? 'CLOSE' : 'OPEN'
+                new_fulfilled_qty: updatedFulfilled,
+                status: rowStatus
             };
         });
 
@@ -143,10 +159,10 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
             productCode: excelItem.itemCode,
             productName: productName,
             actDate: excelItem.actStartDate,
-            totalQtyOutput: excelItem.totalQtyOutput, // Qty Excel tambahan
-            previousFulfilledQty: previousFulfilledQty, // Qty aktual yang sudah ada sebelumnya
-            fulfilledQty: newAdditionQty, // Qty dari Excel ini
-            accumulatedQty: totalAccumulatedQty, // Total akumulasi setelah upload ini
+            totalQtyOutput: excelItem.totalQtyOutput,
+            previousFulfilledQty: previousFulfilledQty,
+            fulfilledQty: newAdditionQty,
+            accumulatedQty: totalAccumulatedQty,
             totalPlannedQty: totalPlannedQty,
             isRegistered: isRegistered,
             allocations: processedAllocations
@@ -158,6 +174,7 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
             unallocatedStocks.push({
                 batchNumber: excelItem.batchNumber,
                 productCode: excelItem.itemCode,
+                idProduct: matchedProduct ? matchedProduct.id_product : (matchedAllocations[0] ? matchedAllocations[0].id_product : null),
                 productName: productName,
                 qtyAvailable: excessQty,
                 productionDate: excelItem.actStartDate
@@ -167,7 +184,8 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
 
     return {
         previewResults,
-        unallocatedStocks
+        unallocatedStocks,
+        detailedAllocations
     };
 };
 

@@ -6,15 +6,14 @@ const ProductionPreviewModal = ({
     isOpen,
     previewData,
     saving,
-    onFulfilledChange,
     onConfirmSave,
     onRejectPreview
 }) => {
-    // Pagination untuk Tabel Utama (Data Excel)
+    // Pagination Tabel Utama
     const [mainCurrentPage, setMainCurrentPage] = useState(1);
     const [mainPageSize, setMainPageSize] = useState(10);
 
-    // Pagination untuk Tabel Kelebihan Stok
+    // Pagination Tabel Kelebihan Stok
     const [unallocCurrentPage, setUnallocCurrentPage] = useState(1);
     const [unallocPageSize, setUnallocPageSize] = useState(10);
 
@@ -23,11 +22,10 @@ const ProductionPreviewModal = ({
     const previewResults = previewData.previewResults || [];
     const unallocatedStocks = previewData.unallocatedStocks || [];
 
-    // Hitung berapa baris yang "Terdaftar"
     const registeredCount = previewResults.filter(item => item.isRegistered).length;
     const canSave = registeredCount > 0 && !previewData.isReupload;
 
-    // Kalkulasi Pagination Tabel Utama
+    // Pagination Tabel Utama
     const mainTotalItems = previewResults.length;
     const mainTotalPages = Math.ceil(mainTotalItems / mainPageSize) || 1;
     const paginatedResults = previewResults.slice(
@@ -35,7 +33,7 @@ const ProductionPreviewModal = ({
         mainCurrentPage * mainPageSize
     );
 
-    // Kalkulasi Pagination Tabel Kelebihan Stok
+    // Pagination Tabel Kelebihan Stok
     const unallocTotalItems = unallocatedStocks.length;
     const unallocTotalPages = Math.ceil(unallocTotalItems / unallocPageSize) || 1;
     const paginatedUnallocated = unallocatedStocks.slice(
@@ -43,15 +41,8 @@ const ProductionPreviewModal = ({
         unallocCurrentPage * unallocPageSize
     );
 
-    const handleQtyInputChange = (actualIndex, e) => {
-        const rawValue = e.target.value.replace(/\D/g, '');
-        if (onFulfilledChange) {
-            onFulfilledChange(actualIndex, rawValue);
-        }
-    };
-
     const renderStatusBadge = (isRegistered) => {
-        const badgeBaseStyle = {
+        const badgeStyle = {
             display: 'block',
             width: '100%',
             padding: '4px 0',
@@ -59,58 +50,36 @@ const ProductionPreviewModal = ({
             fontSize: '11px',
             fontWeight: 'bold',
             textAlign: 'center',
-            boxSizing: 'border-box',
-            whiteSpace: 'nowrap'
+            boxSizing: 'border-box'
         };
 
-        if (isRegistered) {
-            return <span style={{ ...badgeBaseStyle, backgroundColor: '#198754', color: '#fff' }}>TERDAFTAR</span>;
-        }
-        return <span style={{ ...badgeBaseStyle, backgroundColor: '#dc3545', color: '#fff' }}>TIDAK TERDAFTAR</span>;
+        return isRegistered ? (
+            <span style={{ ...badgeStyle, backgroundColor: '#198754', color: '#fff' }}>TERDAFTAR</span>
+        ) : (
+            <span style={{ ...badgeStyle, backgroundColor: '#dc3545', color: '#fff' }}>TIDAK TERDAFTAR</span>
+        );
     };
 
     return (
         <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
             <div style={{
-                backgroundColor: '#fff',
-                padding: '24px',
-                borderRadius: '8px',
-                width: '90%',
-                maxWidth: '1100px',
-                maxHeight: '85vh',
-                display: 'flex',
-                flexDirection: 'column',
-                boxSizing: 'border-box',
-                margin: 'auto'
+                backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '95%', maxWidth: '1200px',
+                maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box'
             }}>
                 <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '18px', fontWeight: 'bold' }}>
                     Preview Hasil Produksi (Belum Disimpan)
                 </h3>
 
                 {previewData.isReupload && (
-                    <div style={{
-                        padding: '10px 12px', backgroundColor: '#fff3cd', color: '#856404',
-                        borderRadius: '4px', marginBottom: '12px', fontSize: '13px'
-                    }}>
+                    <div style={{ padding: '10px 12px', backgroundColor: '#fff3cd', color: '#856404', borderRadius: '4px', marginBottom: '12px', fontSize: '13px' }}>
                         ⚠️ <strong>Peringatan Unggah Ulang:</strong> {previewData.warningMessage}
                     </div>
                 )}
 
-                <div style={{
-                    fontSize: '13px', backgroundColor: '#e9ecef', padding: '10px 12px',
-                    borderRadius: '4px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between'
-                }}>
+                <div style={{ fontSize: '13px', backgroundColor: '#e9ecef', padding: '10px 12px', borderRadius: '4px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }}>
                     <div>
                         <strong>Nama File:</strong> {previewData.fileName} | <strong>Waktu Proses:</strong> {previewData.processTimestamp}
                     </div>
@@ -119,25 +88,23 @@ const ProductionPreviewModal = ({
                     </div>
                 </div>
 
-                {/* Area Scrollable Table */}
+                {/* Area Table */}
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', marginBottom: '16px' }}>
 
-                    {/* Tabel Utama: Data Excel */}
+                    {/* Tabel Utama */}
                     <div style={{ border: '1px solid #dee2e6', borderRadius: '4px', marginBottom: '20px' }}>
                         <div style={{ overflowX: 'auto' }}>
-                            <table border="1" cellPadding="6" cellSpacing="0" style={{
-                                width: '100%', borderCollapse: 'collapse', fontSize: '12px'
-                            }}>
+                            <table border="1" cellPadding="6" cellSpacing="0" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                                 <thead>
                                     <tr style={{ backgroundColor: '#f1f3f5' }}>
-                                        <th style={{ textAlign: 'center', width: '120px' }}>Status</th>
-                                        <th>No Batch</th>
-                                        <th>Produk</th>
-                                        <th style={{ textAlign: 'center', width: '100px' }}>Tgl Produksi</th>
-                                        <th style={{ textAlign: 'right', width: '90px' }}>Qty Lalu</th>
-                                        <th style={{ textAlign: 'right', width: '90px' }}>Qty Excel</th>
-                                        <th style={{ textAlign: 'center', width: '120px' }}>Input Tambahan</th>
-                                        <th style={{ textAlign: 'right', width: '100px' }}>Total Akumulasi</th>
+                                        <th style={{ textAlign: 'center', width: '110px' }}>Status</th>
+                                        <th style={{ textAlign: 'left', width: '110px' }}>Kode Batch</th>
+                                        <th style={{ textAlign: 'left' }}>Produk</th>
+                                        <th style={{ textAlign: 'center', width: '110px' }}>Tgl Rencana (DB)</th>
+                                        <th style={{ textAlign: 'center', width: '110px' }}>Tgl Aktual (Excel)</th>
+                                        <th style={{ textAlign: 'right', width: '100px' }}>Qty Alokasi</th>
+                                        <th style={{ textAlign: 'right', width: '100px' }}>Qty Terpenuhi</th>
+                                        <th style={{ textAlign: 'center', width: '130px' }}>Qty Hasil Produksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -150,50 +117,64 @@ const ProductionPreviewModal = ({
                                     ) : (
                                         paginatedResults.map((item, localIdx) => {
                                             const actualIndex = (mainCurrentPage - 1) * mainPageSize + localIdx;
-                                            const formattedActDate = item.actDate ? item.actDate.split('T')[0] : '-';
+
+                                            // Handling Tanggal
+                                            const matchedAlloc = item.allocations && item.allocations[0];
+                                            const planDate = matchedAlloc?.plan_production_date
+                                                ? matchedAlloc.plan_production_date.split('T')[0]
+                                                : '-';
+                                            const actDate = item.actDate ? item.actDate.split('T')[0] : '-';
+
+                                            // Pengecekan Perbedaan Tanggal (Merah jika beda)
+                                            const isDateDifferent = item.isRegistered && planDate !== '-' && actDate !== '-' && planDate !== actDate;
 
                                             const productTitle = item.productName
                                                 ? `${item.productCode} - ${item.productName}`
                                                 : item.productCode || '-';
 
-                                            const currentInputQty = Number(item.fulfilledQty) || 0;
-                                            const previousQty = Number(item.previousFulfilledQty) || 0;
-                                            const totalAccumulated = previousQty + currentInputQty;
-
                                             return (
-                                                <tr key={actualIndex} style={{
-                                                    backgroundColor: item.isRegistered ? '#ffffff' : '#ffebee'
-                                                }}>
+                                                <tr key={actualIndex} style={{ backgroundColor: item.isRegistered ? '#ffffff' : '#ffebee' }}>
                                                     <td style={{ textAlign: 'center', padding: '6px' }}>
                                                         {renderStatusBadge(item.isRegistered)}
                                                     </td>
                                                     <td style={{ fontWeight: 'bold' }}>{item.batchNumber}</td>
                                                     <td>{productTitle}</td>
-                                                    <td style={{ textAlign: 'center' }}>{formattedActDate}</td>
-                                                    <td style={{ textAlign: 'right', color: '#6c757d' }}>
-                                                        {formatQty(previousQty)}
+                                                    <td style={{ textAlign: 'center' }}>{planDate}</td>
+
+                                                    {/* Tanggal Aktual: Merah jika beda dengan rencana */}
+                                                    <td style={{
+                                                        textAlign: 'center',
+                                                        fontWeight: isDateDifferent ? 'bold' : 'normal',
+                                                        color: isDateDifferent ? '#dc3545' : 'inherit'
+                                                    }}>
+                                                        {actDate}
                                                     </td>
+
                                                     <td style={{ textAlign: 'right', fontWeight: 'bold' }}>
-                                                        {formatQty(item.totalQtyOutput)}
+                                                        {formatQty(item.totalPlannedQty || 0)}
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', color: '#6c757d' }}>
+                                                        {formatQty(item.previousFulfilledQty || 0)}
                                                     </td>
                                                     <td style={{ textAlign: 'center' }}>
+                                                        {/* Lock / Disabled Input */}
                                                         <input
                                                             type="text"
                                                             value={item.fulfilledQty !== undefined ? formatQty(item.fulfilledQty) : ''}
-                                                            onChange={(e) => handleQtyInputChange(actualIndex, e)}
-                                                            disabled={!item.isRegistered}
+                                                            disabled={true}
+                                                            readOnly={true}
                                                             style={{
-                                                                width: '90px',
+                                                                width: '100px',
                                                                 padding: '4px',
                                                                 textAlign: 'right',
                                                                 fontWeight: 'bold',
-                                                                backgroundColor: !item.isRegistered ? '#e9ecef' : '#fff'
+                                                                backgroundColor: '#e9ecef',
+                                                                color: '#495057',
+                                                                border: '1px solid #ced4da',
+                                                                borderRadius: '4px',
+                                                                cursor: 'not-allowed'
                                                             }}
-                                                            placeholder="0"
                                                         />
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#0d6efd' }}>
-                                                        {formatQty(totalAccumulated)}
                                                     </td>
                                                 </tr>
                                             );
@@ -221,9 +202,7 @@ const ProductionPreviewModal = ({
                             <h4 style={{ marginBottom: '8px', color: '#856404' }}>Kelebihan Produksi</h4>
                             <div style={{ border: '1px solid #ffeeba', borderRadius: '4px', backgroundColor: '#fff3cd' }}>
                                 <div style={{ overflowX: 'auto' }}>
-                                    <table border="1" cellPadding="6" cellSpacing="0" style={{
-                                        width: '100%', borderCollapse: 'collapse', fontSize: '13px'
-                                    }}>
+                                    <table border="1" cellPadding="6" cellSpacing="0" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                                         <thead>
                                             <tr>
                                                 <th>No Batch</th>
@@ -235,13 +214,7 @@ const ProductionPreviewModal = ({
                                             {paginatedUnallocated.map((stk, sIdx) => {
                                                 const code = stk.productCode || stk.itemCode || '';
                                                 const name = stk.productName || '';
-
-                                                let productDisplay = code;
-                                                if (code && name) {
-                                                    productDisplay = `${code} - ${name}`;
-                                                } else if (name) {
-                                                    productDisplay = name;
-                                                }
+                                                const productDisplay = code && name ? `${code} - ${name}` : (code || name || '-');
 
                                                 return (
                                                     <tr key={sIdx}>

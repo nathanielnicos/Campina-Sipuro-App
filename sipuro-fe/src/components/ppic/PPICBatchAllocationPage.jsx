@@ -205,7 +205,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
             processTimestamp: previewData.processTimestamp,
             fileName: previewData.fileName,
             userId: currentUser?.id || 1,
-            allocations: previewData.previewResults || [],
+            allocations: previewData.detailedAllocations || [],
             unallocatedStocks: previewData.unallocatedStocks || []
         };
 

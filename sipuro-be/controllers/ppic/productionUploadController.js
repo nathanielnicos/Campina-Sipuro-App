@@ -45,7 +45,7 @@ exports.previewExcelUpload = async (req, res) => {
 
         const [allProducts] = await db.query('SELECT id_product, product_code, product_name FROM sipuro_db.products');
 
-        const { previewResults, unallocatedStocks } = calculateFifoAllocation(
+        const { previewResults, unallocatedStocks, detailedAllocations } = calculateFifoAllocation(
             excelDataMap,
             openAllocations || [],
             allProducts || []
@@ -59,7 +59,8 @@ exports.previewExcelUpload = async (req, res) => {
                 isReupload: isAlreadyUploaded,
                 warningMessage: isAlreadyUploaded ? 'File dengan timestamp ini pernah diunggah sebelumnya.' : null,
                 previewResults,
-                unallocatedStocks
+                unallocatedStocks,
+                detailedAllocations
             }
         });
 
