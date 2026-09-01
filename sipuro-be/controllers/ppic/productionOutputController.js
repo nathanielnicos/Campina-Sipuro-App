@@ -13,22 +13,28 @@ exports.previewProduction = async (req, res) => {
         const sheetName = workbook.SheetNames[0];
         const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
 
-        // Map untuk menyimpan akumulasi output berdasarkan gabungan (batchNum + '||' + itemCode)
+        // Map untuk menampung agregasi Excel: { compositeKey: { qty: totalQty, actDate: latestDate } }
         const batchOutputMap = {};
 
         sheetData.forEach((row, idx) => {
-            // Membaca data mulai baris ke-6 (index 5)
-            if (idx >= 5 && row[1]) {
-                const batchNum = String(row[1] || '').trim();
-                const itemCode = String(row[4] || row[3] || '').trim(); // Kolom E (index 4) atau D (index 3) untuk SKU Code
+            // Membaca data mulai baris ke-7 (index 6, di bawah header tabel Excel)
+            if (idx >= 6 && row[1]) {
+                const batchNum = String(row[1] || '').trim();  // Kolom B (index 1)
+                const itemCode = String(row[5] || '').trim();  // Kolom F (index 5)
+                const qtyVal = parseFloat(row[12]) || 0;       // Kolom M (index 12)
+                const rawDate = row[14] ? String(row[14]).trim() : ''; // Kolom O (index 14)
 
-                // Ambil nilai Qty dari Kolom M (index 12) atau N (index 13)
-                const rawQty = row[12] !== undefined && row[12] !== '' ? row[12] : row[13];
-                const qtyCar = parseFloat(rawQty) || 0;
-
-                if (batchNum && itemCode) {
+                if (batchNum && itemCode && qtyVal !== 0) {
                     const key = `${batchNum}||${itemCode}`;
-                    batchOutputMap[key] = (batchOutputMap[key] || 0) + qtyCar;
+
+                    if (!batchOutputMap[key]) {
+                        batchOutputMap[key] = { qty: 0, actDate: null };
+                    }
+
+                    batchOutputMap[key].qty += qtyVal;
+                    if (rawDate) {
+                        batchOutputMap[key].actDate = rawDate;
+                    }
                 }
             }
         });
@@ -36,13 +42,14 @@ exports.previewProduction = async (req, res) => {
         const previewResults = [];
         const unallocatedStocks = [];
 
-        // HANYA iterasi pasangan Batch + SKU yang terdeteksi dari Excel
-        for (const [compositeKey, actualOutput] of Object.entries(batchOutputMap)) {
-            if (actualOutput <= 0) continue; // Abaikan jika total qty <= 0
+        // HANYA memproses pasangan Batch + SKU yang valid dari Excel
+        for (const [compositeKey, data] of Object.entries(batchOutputMap)) {
+            const actualOutput = data.qty;
+            if (actualOutput <= 0) continue;
 
             const [batchNum, itemCode] = compositeKey.split('||');
 
-            // Query KETAT: Hanya ambil alokasi PO untuk Batch dan Product Code yang PERSIS ada di Excel
+            // Query KETAT: Hanya alokasi PO yang cocok dengan Batch DAN SKU di Excel
             const [allocations] = await sipuroDb.query(`
                 SELECT 
                     b.id AS id_batch,
@@ -97,14 +104,13 @@ exports.previewProduction = async (req, res) => {
                         productCode: alloc.product_code,
                         productName: alloc.product_name,
                         planDate: alloc.plan_date || null,
-                        actDate: new Date().toISOString().split('T')[0],
+                        actDate: data.actDate || new Date().toISOString().split('T')[0],
                         allocatedQty: alloc.allocated_qty,
                         fulfilledQty: fulfilledInThisSession,
                         rowStatus: fulfilledInThisSession >= alloc.allocated_qty ? 'Close' : 'Open'
                     });
                 });
 
-                // Jika hasil produksi dari Excel melebihi target alokasi PO di DB
                 if (remainingOutput > 0) {
                     unallocatedStocks.push({
                         id_batch: allocations[0].id_batch,
@@ -126,7 +132,7 @@ exports.previewProduction = async (req, res) => {
             });
         }
 
-        res.json({
+        return res.json({
             success: true,
             message: 'Preview hasil alokasi berhasil diproses.',
             data: {
@@ -141,7 +147,7 @@ exports.previewProduction = async (req, res) => {
 
     } catch (error) {
         console.error('Error previewing production:', error);
-        res.status(500).json({ success: false, message: 'Gagal membaca file Excel', error: error.message });
+        return res.status(500).json({ success: false, message: 'Gagal membaca file Excel', error: error.message });
     }
 };
 
@@ -208,12 +214,12 @@ exports.confirmProduction = async (req, res) => {
         }
 
         await connection.commit();
-        res.json({ success: true, message: 'Hasil realisasi produksi berhasil disimpan ke database!' });
+        return res.json({ success: true, message: 'Hasil realisasi produksi berhasil disimpan ke database!' });
 
     } catch (error) {
         await connection.rollback();
         console.error('Error confirming production:', error);
-        res.status(500).json({ success: false, message: 'Gagal menyimpan hasil produksi', error: error.message });
+        return res.status(500).json({ success: false, message: 'Gagal menyimpan hasil produksi', error: error.message });
     } finally {
         connection.release();
     }
