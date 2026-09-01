@@ -60,9 +60,9 @@ const ProductionPreviewModal = ({
                 backgroundColor: '#fff',
                 padding: '24px',
                 borderRadius: '8px',
-                width: '90%',
-                maxWidth: '950px',
-                maxHeight: '85vh',
+                width: '95%',
+                maxWidth: '1100px',
+                maxHeight: '90vh',
                 display: 'flex',
                 flexDirection: 'column',
                 boxSizing: 'border-box',
@@ -97,9 +97,9 @@ const ProductionPreviewModal = ({
                             }}>
                                 <thead>
                                     <tr style={{ backgroundColor: '#f1f3f5' }}>
-                                        <th>No PO</th>
-                                        <th>Produk</th>
-                                        <th>No Batch</th>
+                                        <th style={{ minWidth: '130px' }}>No PO</th>
+                                        <th style={{ minWidth: '200px' }}>Produk</th>
+                                        <th style={{ minWidth: '120px' }}>No Batch</th>
                                         <th style={{ textAlign: 'center', width: '100px' }}>Tgl Rencana</th>
                                         <th style={{ textAlign: 'center', width: '100px' }}>Tgl Aktual</th>
                                         <th style={{ textAlign: 'center' }}>Kuantitas Target (PCS)</th>
@@ -241,7 +241,6 @@ const ProductionPreviewModal = ({
                         Tutup
                     </button>
 
-                    {/* Sembunyikan tombol simpan jika file terdeteksi merupakan unggahan ulang / sama */}
                     {!previewData.isReupload && (
                         <button
                             onClick={onConfirmSave}

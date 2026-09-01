@@ -35,7 +35,7 @@ exports.previewProduction = async (req, res) => {
         for (const [compositeKey, actualOutput] of Object.entries(batchOutputMap)) {
             const [batchNum, itemCode] = compositeKey.split('||');
 
-            // Query disaring berdasarkan BATCH NUMBER dan PRODUCT CODE (SKU)
+            // Query disaring ketat berdasarkan BATCH NUMBER dan PRODUCT CODE (SKU) yang ada di Excel
             const [allocations] = await sipuroDb.query(`
                 SELECT 
                     b.id AS id_batch,
@@ -47,6 +47,7 @@ exports.previewProduction = async (req, res) => {
                     pba.po_detail_id,
                     pba.allocated_qty,
                     pba.fulfilled_qty AS current_fulfilled,
+                    pba.plan_date,
                     h.po_number,
                     h.po_header_id
                 FROM sipuro_db.batches b
@@ -66,15 +67,19 @@ exports.previewProduction = async (req, res) => {
 
                 allocations.forEach(alloc => {
                     const calculatedFulfilled = Math.round(alloc.allocated_qty * ratio);
+
+                    // Format properti disesuaikan dengan prop UI Front-end (camelCase)
                     previewResults.push({
                         allocation_id: alloc.allocation_id,
                         po_detail_id: alloc.po_detail_id,
                         po_header_id: alloc.po_header_id,
                         id_batch: alloc.id_batch,
-                        batch_number: batchNum,
-                        po_number: alloc.po_number,
-                        product_code: alloc.product_code,
-                        product_name: alloc.product_name,
+                        batchNumber: batchNum,
+                        poNumber: alloc.po_number,
+                        productCode: alloc.product_code,
+                        productName: alloc.product_name,
+                        planDate: alloc.plan_date || null,
+                        actDate: new Date().toISOString().split('T')[0],
                         allocatedQty: alloc.allocated_qty,
                         fulfilledQty: calculatedFulfilled,
                         rowStatus: calculatedFulfilled >= alloc.allocated_qty ? 'Close' : 'Open'
@@ -84,10 +89,11 @@ exports.previewProduction = async (req, res) => {
                 if (actualOutput > targetQty) {
                     unallocatedStocks.push({
                         id_batch: allocations[0].id_batch,
-                        batch_number: batchNum,
+                        batchNumber: batchNum,
                         id_product: allocations[0].id_product,
-                        product_code: allocations[0].product_code,
-                        product_name: allocations[0].product_name,
+                        productCode: allocations[0].product_code,
+                        productName: allocations[0].product_name,
+                        qtyAvailable: actualOutput - targetQty,
                         surplusQty: actualOutput - targetQty
                     });
                 }
@@ -105,8 +111,10 @@ exports.previewProduction = async (req, res) => {
             success: true,
             message: 'Preview hasil alokasi berhasil diproses.',
             data: {
-                processTimestamp: new Date().toISOString(),
+                processTimestamp: new Date().toLocaleString('id-ID'),
                 fileName: req.file.originalname,
+                isReupload: false,
+                warningMessage: null,
                 previewResults,
                 unallocatedStocks
             }
@@ -152,11 +160,12 @@ exports.confirmProduction = async (req, res) => {
 
         if (unallocatedStocks && Array.isArray(unallocatedStocks) && unallocatedStocks.length > 0) {
             for (const stock of unallocatedStocks) {
+                const qtyToAdd = Number(stock.qtyAvailable || stock.surplusQty || 0);
                 await connection.query(
                     `INSERT INTO sipuro_db.unallocated_stocks (id_batch, id_product, qty_available, production_date)
                      VALUES (?, ?, ?, CURDATE())
                      ON DUPLICATE KEY UPDATE qty_available = qty_available + VALUES(qty_available)`,
-                    [stock.id_batch, stock.id_product, stock.surplusQty]
+                    [stock.id_batch, stock.id_product, qtyToAdd]
                 );
             }
         }
