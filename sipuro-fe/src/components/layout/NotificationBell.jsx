@@ -2,17 +2,28 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getUnreadCount, getNotifications, markAsRead } from '../../services/notificationApi';
 import { ROLE_PERMISSIONS } from '../../config/navigationConfig';
 
-// Helper sederhana untuk waktu relatif
-const formatTimeAgo = (dateString) => {
+// Helper untuk format tanggal dan jam lengkap (DD-Mmm-YY HH:mm:ss)
+const formatDateTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
+    if (isNaN(date.getTime())) return '';
 
-    if (diffInSeconds < 60) return 'Baru saja';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m lalu`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}j lalu`;
-    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    // Ambil tanggal, bulan, tahun
+    const day = String(date.getDate()).padStart(2, '0');
+
+    // Nama bulan singkat (Jan, Feb, Mar, dll)
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const month = months[date.getMonth()];
+
+    // Ambil 2 digit terakhir tahun
+    const year = String(date.getFullYear()).slice(-2);
+
+    // Ambil jam, menit, detik
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
 };
 
 const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
@@ -168,7 +179,7 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
                     position: 'absolute',
                     right: 0,
                     top: '42px',
-                    width: '320px',
+                    width: '360px', // Melebarkan sedikit popover agar format waktu baru muat dengan rapi
                     backgroundColor: '#ffffff',
                     borderRadius: '8px',
                     boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
@@ -247,8 +258,8 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
                                                 }}>
                                                     {item.title}
                                                 </span>
-                                                <span style={{ fontSize: '10px', color: '#94a3b8' }}>
-                                                    {formatTimeAgo(item.created_at)}
+                                                <span style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                                                    {formatDateTime(item.created_at)}
                                                 </span>
                                             </div>
 

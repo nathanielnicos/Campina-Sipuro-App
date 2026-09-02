@@ -3,57 +3,72 @@ const { sipuroDb } = require('../../config/db');
 // Statistik Dashboard PPIC
 exports.getDashboardStats = async (req, res) => {
     try {
-        const { mode = 'YTD', startDate, endDate } = req.query;
+        const { mode = 'YTD', startDate, endDate, selectedYear, selectedMonth } = req.query;
+
+        const currentYear = selectedYear || new Date().getFullYear();
+        const currentMonth = selectedMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
         let trendQuery = '';
+        let trendParams = [];
 
         if (mode === 'MTD') {
+            const firstDayOfMonth = `${currentMonth}-01`;
             trendQuery = `
                 WITH RECURSIVE dates AS (
-                    SELECT DATE_FORMAT(NOW(), '%Y-%m-01') AS date_val
+                    SELECT CAST(? AS DATE) AS date_val
                     UNION ALL
                     SELECT date_val + INTERVAL 1 DAY
                     FROM dates
-                    WHERE date_val + INTERVAL 1 DAY <= CURRENT_DATE()
+                    WHERE date_val + INTERVAL 1 DAY <= LAST_DAY(?)
                 )
                 SELECT 
                     DATE_FORMAT(d.date_val, '%Y-%m-%d') AS label_key,
                     DATE_FORMAT(d.date_val, '%d %b') AS month_label,
-                    COALESCE(SUM(pod.base_qty), 0) AS total_volume
+                    COALESCE(SUM(pod.base_qty), 0) AS total_volume,
+                    COALESCE(SUM(pba.fulfilled_qty), 0) AS total_fulfilled
                 FROM dates d
                 LEFT JOIN sipuro_db.po_headers poh 
                     ON DATE(poh.created_at) = d.date_val
                    AND poh.status NOT IN ('Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id AND pod.deleted_at IS NULL
+                LEFT JOIN sipuro_db.po_batch_allocations pba
+                    ON pod.po_detail_id = pba.po_detail_id
                 GROUP BY d.date_val, label_key, month_label
                 ORDER BY d.date_val ASC;
             `;
+            trendParams = [firstDayOfMonth, firstDayOfMonth];
         } else {
+            const firstDayOfYear = `${currentYear}-01-01`;
+            const lastDayOfYear = `${currentYear}-12-01`;
             trendQuery = `
                 WITH RECURSIVE months AS (
-                    SELECT DATE_FORMAT(NOW(), '%Y-01-01') AS month_val
+                    SELECT CAST(? AS DATE) AS month_val
                     UNION ALL
                     SELECT month_val + INTERVAL 1 MONTH
                     FROM months
-                    WHERE month_val + INTERVAL 1 MONTH <= DATE_FORMAT(NOW(), '%Y-%m-01')
+                    WHERE month_val + INTERVAL 1 MONTH <= CAST(? AS DATE)
                 )
                 SELECT 
                     DATE_FORMAT(m.month_val, '%Y-%m') AS label_key,
                     DATE_FORMAT(m.month_val, '%b %Y') AS month_label,
-                    COALESCE(SUM(pod.base_qty), 0) AS total_volume
+                    COALESCE(SUM(pod.base_qty), 0) AS total_volume,
+                    COALESCE(SUM(pba.fulfilled_qty), 0) AS total_fulfilled
                 FROM months m
                 LEFT JOIN sipuro_db.po_headers poh 
                     ON DATE_FORMAT(poh.created_at, '%Y-%m') = DATE_FORMAT(m.month_val, '%Y-%m')
                    AND poh.status NOT IN ('Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id AND pod.deleted_at IS NULL
+                LEFT JOIN sipuro_db.po_batch_allocations pba
+                    ON pod.po_detail_id = pba.po_detail_id
                 GROUP BY m.month_val, label_key, month_label
                 ORDER BY m.month_val ASC;
             `;
+            trendParams = [firstDayOfYear, lastDayOfYear];
         }
 
-        const [monthlyStats] = await sipuroDb.query(trendQuery);
+        const [monthlyStats] = await sipuroDb.query(trendQuery, trendParams);
 
         let statusWhere = [];
         let topProductsWhere = [`d.deleted_at IS NULL`, `h.status NOT IN ('Rejected', 'Canceled')`];

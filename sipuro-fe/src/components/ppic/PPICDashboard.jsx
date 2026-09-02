@@ -34,18 +34,24 @@ const PPICDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [trendMode, setTrendMode] = useState('YTD');
 
+    // State untuk Picker Grafik Baris 1
+    const currentYear = new Date().getFullYear();
+    const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const [selectedYear, setSelectedYear] = useState(currentYear);
+    const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+
     // State untuk Filter Tanggal Baris 2 (Berdasarkan Tanggal Dibuat PO)
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
     useEffect(() => {
-        fetchStats(trendMode, startDate, endDate);
-    }, [trendMode, startDate, endDate]);
+        fetchStats(trendMode, startDate, endDate, selectedYear, selectedMonth);
+    }, [trendMode, startDate, endDate, selectedYear, selectedMonth]);
 
-    const fetchStats = async (mode, from, to) => {
+    const fetchStats = async (mode, from, to, year, month) => {
         setLoading(true);
         try {
-            const res = await getPPICDashboardStats(mode, from, to);
+            const res = await getPPICDashboardStats(mode, from, to, year, month);
             if (res.success) {
                 setStats(res.data);
             }
@@ -64,19 +70,29 @@ const PPICDashboard = () => {
     if (loading && !stats) return <div style={{ padding: '20px' }}>Memuat data dasbor...</div>;
     if (!stats) return <div style={{ padding: '20px' }}>Data statistik tidak tersedia.</div>;
 
-    // 1. Data Chart Tren Pesanan (Hanya Total Qty dalam Base UOM)
+    // 1. Data Chart Tren Pesanan vs Realisasi Fulfilled
     const monthlyData = {
         labels: stats.monthlyStats.map(item => item.month_label || item.label_key),
         datasets: [
             {
-                label: 'Total Qty (Base UOM)',
+                label: 'Total Kuantitas PO',
                 data: stats.monthlyStats.map(item => Number(item.total_volume) || 0),
                 borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 fill: true,
                 tension: 0.3,
-                pointRadius: 4,
+                pointRadius: 3,
                 pointBackgroundColor: '#3b82f6'
+            },
+            {
+                label: 'Total Kuantitas Terpenuhi',
+                data: stats.monthlyStats.map(item => Number(item.total_fulfilled) || 0),
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: '#10b981'
             }
         ]
     };
@@ -117,41 +133,66 @@ const PPICDashboard = () => {
         maintainAspectRatio: false
     };
 
+    // Pilihan tahun (5 tahun terakhir sampai tahun depan)
+    const yearOptions = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
+
     return (
         <div style={styles.container}>
             <h2 style={styles.title}>Dasbor Perencanaan & Monitoring PPIC</h2>
 
-            {/* BARIS 1: Grafik Tren Pesanan (Penuh 1 Baris) */}
+            {/* BARIS 1: Grafik Tren Pesanan vs Realisasi Fulfilled */}
             <div style={{ ...styles.card, marginBottom: '20px' }}>
                 <div style={styles.cardHeader}>
                     <h3 style={styles.cardTitle}>
-                        Tren Pesanan {trendMode === 'YTD' ? 'Year to Date (Januari - Bulan Ini)' : 'Month to Date (Tgl 1 - Hari Ini)'}
+                        Monitoring Pesanan vs Realisasi {trendMode === 'YTD' ? `Tahun ${selectedYear} (Jan - Des)` : `Bulan ${selectedMonth}`}
                     </h3>
 
-                    {/* Switch Filter YTD vs MTD */}
-                    <div style={styles.switchContainer}>
-                        <button
-                            type="button"
-                            onClick={() => setTrendMode('YTD')}
-                            style={{
-                                ...styles.switchBtn,
-                                backgroundColor: trendMode === 'YTD' ? '#3b82f6' : '#e2e8f0',
-                                color: trendMode === 'YTD' ? '#ffffff' : '#475569'
-                            }}
-                        >
-                            YTD (Per Bulan)
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setTrendMode('MTD')}
-                            style={{
-                                ...styles.switchBtn,
-                                backgroundColor: trendMode === 'MTD' ? '#3b82f6' : '#e2e8f0',
-                                color: trendMode === 'MTD' ? '#ffffff' : '#475569'
-                            }}
-                        >
-                            MTD (Per Hari)
-                        </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {/* Picker Dinamis Berdasarkan Mode */}
+                        {trendMode === 'YTD' ? (
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                style={styles.selectPicker}
+                            >
+                                {yearOptions.map(y => (
+                                    <option key={y} value={y}>Tahun {y}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input
+                                type="month"
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                style={styles.monthPicker}
+                            />
+                        )}
+
+                        {/* Switch Filter YTD vs MTD */}
+                        <div style={styles.switchContainer}>
+                            <button
+                                type="button"
+                                onClick={() => setTrendMode('YTD')}
+                                style={{
+                                    ...styles.switchBtn,
+                                    backgroundColor: trendMode === 'YTD' ? '#3b82f6' : '#e2e8f0',
+                                    color: trendMode === 'YTD' ? '#ffffff' : '#475569'
+                                }}
+                            >
+                                YTD (Per Bulan)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTrendMode('MTD')}
+                                style={{
+                                    ...styles.switchBtn,
+                                    backgroundColor: trendMode === 'MTD' ? '#3b82f6' : '#e2e8f0',
+                                    color: trendMode === 'MTD' ? '#ffffff' : '#475569'
+                                }}
+                            >
+                                MTD (Per Hari)
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -161,9 +202,20 @@ const PPICDashboard = () => {
                         options={{
                             ...commonOptions,
                             plugins: {
-                                legend: { position: 'top' }
+                                legend: { position: 'top' },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (context) => `${context.dataset.label}: ${context.parsed.y.toLocaleString('id-ID')} Pcs`
+                                    }
+                                }
                             },
                             scales: {
+                                x: {
+                                    ticks: {
+                                        autoSkip: true,
+                                        maxTicksLimit: trendMode === 'MTD' ? 16 : 12
+                                    }
+                                },
                                 y: {
                                     type: 'linear',
                                     display: true,
@@ -226,7 +278,15 @@ const PPICDashboard = () => {
                                 plugins: {
                                     legend: {
                                         position: 'right',
-                                        labels: { boxWidth: 15, padding: 12 }
+                                        labels: {
+                                            boxWidth: 15,
+                                            padding: 12,
+                                            color: '#334155', // Warna abu-abu gelap yang lebih kontras tapi tetap halus
+                                            font: {
+                                                size: 13,
+                                                weight: 'normal' // Menggunakan font weight normal
+                                            }
+                                        }
                                     }
                                 }
                             }}
@@ -286,7 +346,9 @@ const styles = {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '12px'
+        marginBottom: '12px',
+        flexWrap: 'wrap',
+        gap: '10px'
     },
     switchContainer: {
         display: 'flex',
@@ -303,6 +365,25 @@ const styles = {
         fontWeight: '600',
         cursor: 'pointer',
         transition: 'all 0.2s'
+    },
+    selectPicker: {
+        padding: '5px 10px',
+        borderRadius: '6px',
+        border: '1px solid #cbd5e1',
+        fontSize: '12px',
+        color: '#1e293b',
+        backgroundColor: '#ffffff',
+        outline: 'none',
+        cursor: 'pointer'
+    },
+    monthPicker: {
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #cbd5e1',
+        fontSize: '12px',
+        color: '#1e293b',
+        backgroundColor: '#ffffff',
+        outline: 'none'
     },
     filterBar: {
         display: 'flex',
