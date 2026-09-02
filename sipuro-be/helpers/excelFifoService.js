@@ -1,6 +1,11 @@
 const xlsx = require('xlsx');
 
 /**
+ * AMBANG BATAS TOLERANSI PERSENTASE KEPETUHAN UNTUK AUTO-CLOSE ALOKASI (90%)
+ */
+const AUTO_CLOSE_THRESHOLD_PERCENT = 90;
+
+/**
  * Helper untuk memformat tanggal dari Excel secara aman
  */
 const parseExcelDate = (excelValue) => {
@@ -48,7 +53,7 @@ const parseProductionExcel = (fileBuffer) => {
         const batchNumber = row[1];
         const itemCode = row[5];
         const qtyPac = parseInt(row[12], 10) || 0;
-        const actStartDate = parseExcelDate(row[14]);
+        const actStartDate = parseExcelDate(row[14]); // Kolom O (index 14) untuk actual_production_date
 
         if (batchNumber && itemCode && batchNumber !== 'Batch Num.' && batchNumber !== 'SubTot') {
             productionItems.push({
@@ -82,35 +87,41 @@ const parseProductionExcel = (fileBuffer) => {
 };
 
 /**
- * Pengecekan Ketersediaan Batch & SKU di Database + Akumulasi Alokasi FIFO (Toleransi 90%)
+ * Simulation & Calculation Service Alokasi Produksi Excel (Murni FIFO)
  */
-const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts = []) => {
+const calculateFifoAllocation = (
+    excelDataMap,
+    openAllocations = [],
+    allProducts = []
+) => {
     const previewResults = [];
     const unallocatedStocks = [];
     const detailedAllocations = [];
 
     Object.values(excelDataMap).forEach((excelItem) => {
-        // Cari alokasi batch yang sesuai di DB
-        const matchedAllocations = openAllocations.filter(
-            a => a.batch_number === excelItem.batchNumber
-        );
-
-        // Cari master produk di DB
+        // Cari master produk di DB berdasarkan product_code
         const matchedProduct = allProducts.find(
             p => p.product_code === excelItem.itemCode
         );
 
-        const hasBatchInDb = matchedAllocations.length > 0;
-        const hasProductInDb = !!matchedProduct;
-        const isRegistered = hasBatchInDb && hasProductInDb;
+        // Cari alokasi batch yang sesuai di DB (WAJIB COCOK KODE BATCH DAN KODE PRODUK)
+        const matchedAllocations = openAllocations.filter(
+            a => a.batch_number === excelItem.batchNumber && a.product_code === excelItem.itemCode
+        );
 
-        // BUGFIX 1: Jika TIDAK TERDAFTAR, jangan ambil nama produk dari DB/alokasi lain
+        const hasProductInDb = !!matchedProduct;
+        const hasBatchInDb = matchedAllocations.length > 0;
+
+        // Syarat Terdaftar: Produk ada di DB DAN Batch terdaftar dengan produk yang sama
+        const isRegistered = hasProductInDb && hasBatchInDb;
+
         let productName = '';
-        if (isRegistered) {
-            productName = matchedProduct ? matchedProduct.product_name : (matchedAllocations[0]?.product_name || '');
+        if (hasProductInDb) {
+            productName = matchedProduct.product_name;
+        } else if (matchedAllocations.length > 0) {
+            productName = matchedAllocations[0].product_name || '';
         }
 
-        // Kalkulasi akumulasi Qty
         const totalPlannedQty = isRegistered
             ? matchedAllocations.reduce((sum, row) => sum + (Number(row.allocated_qty) || 0), 0)
             : 0;
@@ -119,70 +130,83 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
             ? matchedAllocations.reduce((sum, row) => sum + (Number(row.fulfilled_qty) || 0), 0)
             : 0;
 
-        const newAdditionQty = isRegistered ? excelItem.totalQtyOutput : 0;
-        const totalAccumulatedQty = previousFulfilledQty + newAdditionQty;
+        const excelQty = excelItem.totalQtyOutput;
 
-        // Distribusi FIFO & Evaluasi Toleransi 90% per alokasi
-        let remainingExcelQty = newAdditionQty;
-        const processedAllocations = matchedAllocations.map(alloc => {
-            const planQty = Number(alloc.allocated_qty) || 0;
-            const currentFulfilled = Number(alloc.fulfilled_qty) || 0;
-            const neededQty = Math.max(0, planQty - currentFulfilled);
+        let processedAllocations = [];
 
-            const qtyToAdd = Math.min(remainingExcelQty, neededQty);
-            remainingExcelQty -= qtyToAdd;
+        // HANYA OLAH ALOKASI JIKA BARIS BENAR-BENAR TERDAFTAR
+        if (isRegistered && matchedAllocations.length > 0) {
+            let remainingExcelQty = excelQty;
 
-            const updatedFulfilled = currentFulfilled + qtyToAdd;
-            const fulfillmentRatio = planQty > 0 ? (updatedFulfilled / planQty) : 0;
-            const isClosed = fulfillmentRatio >= 0.90; // Toleransi 90%
-            const rowStatus = isClosed ? 'Close' : 'Open';
+            // Alokasi Murni FIFO (Berurutan berdasarkan prioritas PO)
+            processedAllocations = matchedAllocations.map(alloc => {
+                const planQty = Number(alloc.allocated_qty) || 0;
+                const currentFulfilled = Number(alloc.fulfilled_qty) || 0;
+                const neededQty = Math.max(0, planQty - currentFulfilled);
 
-            const detailItem = {
-                allocationId: alloc.id_allocation,
-                poDetailId: alloc.po_detail_id,
-                batchId: alloc.id_batch,
-                fulfilledQty: updatedFulfilled,
-                addedQty: qtyToAdd,
-                rowStatus: rowStatus,
-                actDate: excelItem.actStartDate
-            };
+                let qtyToAdd = 0;
+                if (remainingExcelQty > 0) {
+                    qtyToAdd = neededQty > 0 ? Math.min(remainingExcelQty, neededQty) : 0;
+                    remainingExcelQty = Math.max(0, remainingExcelQty - qtyToAdd);
+                }
 
-            if (isRegistered) {
-                detailedAllocations.push(detailItem);
-            }
+                const updatedFulfilled = currentFulfilled + qtyToAdd;
+                const fulfillmentRatio = planQty > 0 ? (updatedFulfilled / planQty) * 100 : 0;
+                const isClosed = fulfillmentRatio >= AUTO_CLOSE_THRESHOLD_PERCENT;
+                const rowStatus = isClosed ? 'Close' : 'Open';
 
-            return {
-                ...alloc,
-                previous_fulfilled_qty: currentFulfilled,
-                added_qty: qtyToAdd,
-                new_fulfilled_qty: updatedFulfilled,
-                status: rowStatus
-            };
-        });
+                detailedAllocations.push({
+                    allocationId: alloc.id_allocation,
+                    poDetailId: alloc.po_detail_id,
+                    batchId: alloc.id_batch,
+                    fulfilledQty: updatedFulfilled,
+                    addedQty: qtyToAdd,
+                    rowStatus: rowStatus,
+                    actDate: excelItem.actStartDate
+                });
 
-        // BUGFIX 2: Qty Hasil Produksi yang tampil di tabel utama dibatasi maksimal sebesar kebutuhan alokasi
-        const neededForAllocation = Math.max(0, totalPlannedQty - previousFulfilledQty);
-        const displayFulfilledQty = isRegistered
-            ? Math.min(newAdditionQty, neededForAllocation)
-            : 0;
+                return {
+                    allocationId: alloc.id_allocation,
+                    poNumber: alloc.po_number,
+                    planQty: planQty,
+                    previousFulfilledQty: currentFulfilled,
+                    rawExcelQty: excelQty,
+                    addedAllocatedQty: qtyToAdd,
+                    newFulfilledQty: updatedFulfilled,
+                    fulfillmentPercentage: fulfillmentRatio.toFixed(1),
+                    status: rowStatus,
+                    plan_production_date: alloc.plan_production_date
+                };
+            });
+        }
 
+        // Hitung total hasil excel pada upload ini yang berhasil dialokasikan ke PO-PO
+        const totalAddedInThisUpload = processedAllocations.reduce(
+            (sum, a) => sum + (a.addedAllocatedQty || 0),
+            0
+        );
+
+        // Output preview hasil produksi
         previewResults.push({
             batchNumber: excelItem.batchNumber,
             productCode: excelItem.itemCode,
             productName: productName,
             actDate: excelItem.actStartDate,
-            totalQtyOutput: excelItem.totalQtyOutput,
+            totalQtyOutput: excelQty,
+            qtyProduced: excelQty,
             previousFulfilledQty: previousFulfilledQty,
-            fulfilledQty: displayFulfilledQty, // Terkunci sesuai sisa alokasi
-            accumulatedQty: totalAccumulatedQty,
+            fulfilledQty: isRegistered ? totalAddedInThisUpload : 0,
+            addedQty: excelQty,
+            accumulatedQty: previousFulfilledQty + excelQty,
             totalPlannedQty: totalPlannedQty,
             isRegistered: isRegistered,
-            allocations: processedAllocations
+            allocations: isRegistered ? processedAllocations : []
         });
 
-        // Hitung stok lebihan jika total akumulasi melebihi total rencana
-        if (isRegistered && totalPlannedQty > 0 && totalAccumulatedQty > totalPlannedQty) {
-            const excessQty = totalAccumulatedQty - totalPlannedQty;
+        // Sisa lebihan ke unallocated stocks (murni qty excel ini minus yang masuk PO)
+        const excessQty = excelQty - totalAddedInThisUpload;
+
+        if (isRegistered && excessQty > 0) {
             unallocatedStocks.push({
                 batchNumber: excelItem.batchNumber,
                 productCode: excelItem.itemCode,
@@ -203,5 +227,6 @@ const calculateFifoAllocation = (excelDataMap, openAllocations = [], allProducts
 
 module.exports = {
     parseProductionExcel,
-    calculateFifoAllocation
+    calculateFifoAllocation,
+    AUTO_CLOSE_THRESHOLD_PERCENT
 };

@@ -54,9 +54,11 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     const [unallocatedLimit, setUnallocatedLimit] = useState(10);
     const [unallocatedPagination, setUnallocatedPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
-    // Modals
+    // Modals & Upload State
     const [uploadFile, setUploadFile] = useState(null);
     const [uploading, setUploading] = useState(false);
+
+    // State previewData menyimpan data kalkulasi tunggal dari backend
     const [previewData, setPreviewData] = useState(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -157,44 +159,42 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
         setUnallocatedPage(1);
     };
 
-    const handleUploadSubmit = async (e) => {
-        e.preventDefault();
-        if (!uploadFile) return alert('Silakan pilih file Excel terlebih dahulu!');
+    // Proses Upload Excel (Single API Hit)
+    const processExcelUpload = async (fileToUpload) => {
+        const actualFile = fileToUpload || (fileInputRef.current && fileInputRef.current.files[0]);
+
+        if (!actualFile) return alert('Silakan pilih file Excel terlebih dahulu!');
 
         const formData = new FormData();
-        formData.append('file', uploadFile);
+        formData.append('file', actualFile);
 
         setUploading(true);
-        const res = await previewProductionApi(formData);
-        setUploading(false);
 
-        if (res && res.success) {
-            setPreviewData(res.data);
-            setIsPreviewOpen(true);
-        } else {
-            alert('Upload Gagal: ' + (res?.message || 'Gagal memproses file.'));
+        try {
+            const res = await previewProductionApi(formData);
+            setUploading(false);
+
+            if (res && res.success) {
+                setPreviewData(res.data);
+                setIsPreviewOpen(true);
+            } else {
+                alert('Upload Gagal: ' + (res?.message || 'Gagal memproses file.'));
+            }
+        } catch (err) {
+            setUploading(false);
+            alert('Terjadi kesalahan saat mengunggah file.');
         }
     };
 
-    const handleFulfilledChange = (index, rawValue) => {
-        if (!previewData || !previewData.previewResults) return;
-
-        const updatedResults = [...previewData.previewResults];
-        const numericValue = rawValue === '' ? 0 : Number(rawValue);
-
-        updatedResults[index] = {
-            ...updatedResults[index],
-            fulfilledQty: numericValue
-        };
-
-        setPreviewData({
-            ...previewData,
-            previewResults: updatedResults
-        });
+    const handleUploadSubmit = async (e) => {
+        e.preventDefault();
+        await processExcelUpload(uploadFile);
     };
 
     const handleConfirmSave = async () => {
-        const confirmMsg = previewData?.isReupload
+        if (!previewData) return;
+
+        const confirmMsg = previewData.isReupload
             ? `${previewData.warningMessage}\nApakah Anda tetap ingin menyimpan ulang hasil alokasi produksi ini?`
             : 'Simpan hasil realisasi produksi ke database?';
 
@@ -293,7 +293,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
             plan_production_date: productionDate,
             expired_date: expiredDate || null,
             allocated_qty: inputQty,
-            created_by: currentUser?.username || 'PPIC User'
+            created_by: currentUser?.id || 1
         };
 
         setSubmitting(true);
@@ -364,7 +364,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                         disabled={uploading}
                         style={{ padding: '6px 12px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
                     >
-                        {uploading ? 'Membaca Excel...' : 'Upload Produksi'}
+                        {uploading ? 'Memproses Excel...' : 'Upload Produksi'}
                     </button>
                 </form>
             </div>
@@ -448,7 +448,6 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                 isOpen={isPreviewOpen}
                 previewData={previewData}
                 saving={saving}
-                onFulfilledChange={handleFulfilledChange}
                 onConfirmSave={handleConfirmSave}
                 onRejectPreview={handleRejectPreview}
             />
