@@ -7,7 +7,8 @@ import POSummary from './POSummary';
 import POActions from './POActions';
 import PaginationControl from '../../common/PaginationControl';
 
-const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
+const POCreateModal = ({ poId, currentUser, onClose, onSuccess }) => {
+    const userRole = currentUser?.role;
     const {
         poCode,
         poStatus,
@@ -44,7 +45,7 @@ const POCreateModal = ({ poId, customerId, userRole, onClose, onSuccess }) => {
         handleSubmit,
         handleCancelPO,
         handleUpdateStatus
-    } = usePOModal({ poId, customerId, userRole, onSuccess });
+    } = usePOModal({ poId, currentUser, onSuccess });
 
     return (
         <div style={{

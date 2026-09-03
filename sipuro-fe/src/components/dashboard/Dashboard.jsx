@@ -13,7 +13,7 @@ import {
     Filler
 } from 'chart.js';
 import { Line, Bar, Pie } from 'react-chartjs-2';
-import { getPPICDashboardStats } from '../../services/ppicApi';
+import { getDashboardStats } from '../../services/dashboardApi';
 import { getStatusStyle } from '../../utils/statusHelper';
 
 ChartJS.register(
@@ -29,7 +29,21 @@ ChartJS.register(
     Filler
 );
 
-const PPICDashboard = () => {
+const formatMonthLabel = (monthStr) => {
+    if (!monthStr) return '';
+    const [year, month] = monthStr.split('-');
+    if (!year || !month) return monthStr;
+
+    const months = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+
+    const monthIndex = parseInt(month, 10) - 1;
+    return `${months[monthIndex] || month} ${year}`;
+};
+
+const Dashboard = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [trendMode, setTrendMode] = useState('YTD');
@@ -51,7 +65,7 @@ const PPICDashboard = () => {
     const fetchStats = async (mode, from, to, year, month) => {
         setLoading(true);
         try {
-            const res = await getPPICDashboardStats(mode, from, to, year, month);
+            const res = await getDashboardStats(mode, from, to, year, month);
             if (res.success) {
                 setStats(res.data);
             }
@@ -144,7 +158,7 @@ const PPICDashboard = () => {
             <div style={{ ...styles.card, marginBottom: '20px' }}>
                 <div style={styles.cardHeader}>
                     <h3 style={styles.cardTitle}>
-                        Monitoring Pesanan vs Realisasi {trendMode === 'YTD' ? `Tahun ${selectedYear} (Jan - Des)` : `Bulan ${selectedMonth}`}
+                        Monitoring Pesanan vs Realisasi {trendMode === 'YTD' ? `Tahun ${selectedYear} (Jan - Des)` : `Bulan ${formatMonthLabel(selectedMonth)}`}
                     </h3>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -482,4 +496,4 @@ const styles = {
     }
 };
 
-export default PPICDashboard;
+export default Dashboard;

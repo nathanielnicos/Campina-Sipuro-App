@@ -1,26 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from './config';
 
-// --- ENDPOINT DASHBOARD PPIC ---
-
-export const getPPICDashboardStats = async (
-    mode = 'YTD',
-    startDate = null,
-    endDate = null,
-    selectedYear = null,
-    selectedMonth = null
-) => {
-    try {
-        const response = await axios.get(`${API_BASE_URL}/ppic/dashboard-stats`, {
-            params: { mode, startDate, endDate, selectedYear, selectedMonth }
-        });
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching PPIC dashboard stats:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal memuat statistik dasbor.' };
-    }
-};
-
 // --- ENDPOINT REKAP & ALOKASI BATCH ---
 
 export const fetchUnassignedSummary = async (page = 1, limit = 10, filters = {}) => {

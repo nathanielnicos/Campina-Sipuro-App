@@ -19,16 +19,19 @@ exports.getExistingBatchesByProduct = async (req, res) => {
 };
 
 /**
- * 2. Simpan Pembuatan / Alokasi Batch Baru oleh PPIC
+ * 2. Simpan Pembuatan / Alokasi Batch Baru oleh PPIC (Manual Single)
  */
 exports.createBatchAllocation = async (req, res) => {
     const connection = await db.getConnection();
     try {
-        const { poDetailId, productId, batchNumber, planProductionDate, allocatedQty, isNewBatch } = req.body;
+        // Tangkap userId dari req.body
+        const { poDetailId, productId, batchNumber, planProductionDate, allocatedQty, isNewBatch, userId } = req.body;
 
         if (!poDetailId || !productId || !batchNumber || !allocatedQty) {
             return res.status(400).json({ success: false, message: 'Data alokasi batch tidak lengkap.' });
         }
+
+        const currentUserId = userId || null;
 
         await connection.beginTransaction();
 
@@ -41,9 +44,10 @@ exports.createBatchAllocation = async (req, res) => {
                 return res.status(400).json({ success: false, message: 'Kode Batch sudah terdaftar di sistem.' });
             }
 
+            // Tambahkan created_by di tabel batches
             const [batchResult] = await connection.query(
-                'INSERT INTO batches (batch_number, id_product, plan_production_date, status) VALUES (?, ?, ?, "Open")',
-                [batchNumber, productId, planProductionDate]
+                'INSERT INTO batches (batch_number, id_product, plan_production_date, status, created_by) VALUES (?, ?, ?, "Open", ?)',
+                [batchNumber, productId, planProductionDate, currentUserId]
             );
             batchId = batchResult.insertId;
         } else {
@@ -55,9 +59,10 @@ exports.createBatchAllocation = async (req, res) => {
             batchId = existingBatch[0].id;
         }
 
+        // Tambahkan created_by di tabel po_batch_allocations
         await connection.query(
-            'INSERT INTO po_batch_allocations (po_detail_id, id_batch, allocated_qty, fulfilled_qty, status) VALUES (?, ?, ?, 0, "Open")',
-            [poDetailId, batchId, allocatedQty]
+            'INSERT INTO po_batch_allocations (po_detail_id, id_batch, allocated_qty, fulfilled_qty, status, created_by) VALUES (?, ?, ?, 0, "Open", ?)',
+            [poDetailId, batchId, allocatedQty, currentUserId]
         );
 
         // EVALUASI STATUS PO HEADER SETELAH BUAT BATCH
@@ -191,12 +196,14 @@ exports.getOpenAllocationsByProduct = async (req, res) => {
 exports.reallocateUnallocatedStock = async (req, res) => {
     const connection = await db.getConnection();
     try {
-        const { unallocatedId, targetAllocationId, allocateQty } = req.body;
+        const { unallocatedId, targetAllocationId, allocateQty, userId } = req.body;
 
         const qtyToAlloc = parseInt(allocateQty, 10);
         if (!unallocatedId || !targetAllocationId || !qtyToAlloc || qtyToAlloc <= 0) {
             return res.status(400).json({ success: false, message: 'Data alokasi stok tidak valid.' });
         }
+
+        const currentUserId = userId || null;
 
         await connection.beginTransaction();
 
@@ -231,15 +238,15 @@ exports.reallocateUnallocatedStock = async (req, res) => {
         const newAllocStatus = poRatio >= 0.90 ? 'Close' : 'Open';
 
         await connection.query(
-            'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ? WHERE id = ?',
-            [newFulfilledQty, newAllocStatus, targetAllocationId]
+            'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ?, updated_by = ? WHERE id = ?',
+            [newFulfilledQty, newAllocStatus, currentUserId, targetAllocationId]
         );
 
-        // D. Potong Qty Available Lebihan Stok
+        // D. Potong Qty Available Lebihan Stok dan isi updated_by
         const newUnallocatedQty = unallocated.qty_available - qtyToAlloc;
         await connection.query(
-            'UPDATE unallocated_stocks SET qty_available = ? WHERE id = ?',
-            [newUnallocatedQty, unallocatedId]
+            'UPDATE unallocated_stocks SET qty_available = ?, updated_by = ? WHERE id = ?',
+            [newUnallocatedQty, currentUserId, unallocatedId]
         );
 
         // E. TINGKAT 2: Cek Keseluruhan PO Allocation dalam Batch
@@ -252,8 +259,8 @@ exports.reallocateUnallocatedStock = async (req, res) => {
         const newBatchStatus = openCount === 0 ? 'Close' : 'Open';
 
         await connection.query(
-            'UPDATE batches SET status = ? WHERE id = ?',
-            [newBatchStatus, batchId]
+            'UPDATE batches SET status = ?, updated_by = ? WHERE id = ?',
+            [newBatchStatus, currentUserId, batchId]
         );
 
         // F. TINGKAT 3: Evaluasi Presisi Status PO Header (po_headers) via Helper

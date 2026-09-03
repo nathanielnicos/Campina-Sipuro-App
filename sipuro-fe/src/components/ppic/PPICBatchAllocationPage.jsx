@@ -18,6 +18,7 @@ import ProductionPreviewModal from './ProductionPreviewModal';
 import BatchAllocationModal from './BatchAllocationModal';
 
 const PPICBatchAllocationPage = ({ currentUser }) => {
+    const currentUserId = currentUser?.employee_id || currentUser?.id;
     const fileInputRef = useRef(null);
 
     const [activeTab, setActiveTab] = useState('summary');
@@ -204,7 +205,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
         const payload = {
             processTimestamp: previewData.processTimestamp,
             fileName: previewData.fileName,
-            userId: currentUser?.id || 1,
+            userId: currentUserId,
             allocations: previewData.detailedAllocations || [],
             unallocatedStocks: previewData.unallocatedStocks || []
         };
@@ -293,7 +294,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
             plan_production_date: productionDate,
             expired_date: expiredDate || null,
             allocated_qty: inputQty,
-            created_by: currentUser?.id || 1
+            created_by: currentUserId
         };
 
         setSubmitting(true);
@@ -427,6 +428,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
 
                 {activeTab === 'unallocated' && (
                     <UnallocatedStockTable
+                        currentUser={currentUser}
                         unallocatedList={unallocatedList}
                         pagination={unallocatedPagination}
                         onPageChange={(newPage) => setUnallocatedPage(newPage)}

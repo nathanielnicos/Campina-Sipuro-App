@@ -3,6 +3,7 @@ const cors = require('cors');
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const masterRoutes = require('./routes/masterRoutes');
 const masterUploadRoutes = require('./routes/masterUploadRoutes'); // Tambahan: Route Upload Master Produk & Harga
 const superadminRoutes = require('./routes/superadminRoutes');     // Rute khusus Superadmin
@@ -26,6 +27,7 @@ app.get('/', (req, res) => {
 
 // Register API Routes
 app.use('/api', authRoutes);
+app.use('/api', dashboardRoutes);
 app.use('/api', masterRoutes);
 app.use('/api/upload/master', masterUploadRoutes);
 app.use('/api/superadmin', superadminRoutes);

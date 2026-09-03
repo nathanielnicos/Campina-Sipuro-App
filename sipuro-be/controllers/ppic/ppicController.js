@@ -1,5 +1,4 @@
 const batchAllocation = require('./batchAllocationController');
-const ppicDashboard = require('./ppicDashboardController');
 const ppicExport = require('./ppicExportController');
 
 module.exports = {
@@ -8,9 +7,6 @@ module.exports = {
     getAllocatedBatchMapping: batchAllocation.getAllocatedBatchMapping,
     getBatchesBySku: batchAllocation.getBatchesBySku,
     assignBatchBulk: batchAllocation.assignBatchBulk,
-
-    // Dashboard
-    getDashboardStats: ppicDashboard.getDashboardStats,
 
     // Export
     exportBatchMappingExcel: ppicExport.exportBatchMappingExcel

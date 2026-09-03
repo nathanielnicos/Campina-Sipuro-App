@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import POList from './components/po/POList';
 import POCreateModal from './components/po/create-modal/POCreateModal';
 import PPICBatchAllocationPage from './components/ppic/PPICBatchAllocationPage';
-import PPICDashboard from './components/ppic/PPICDashboard';
+import Dashboard from './components/dashboard/Dashboard';
 
 import EmployeeListPage from './components/superadmin/EmployeeListPage';
 import CustomerListPage from './components/superadmin/CustomerListPage';
@@ -93,7 +93,7 @@ function App() {
       {isSuperAdmin && activeTab === 'sa-prices' && <PriceListPage />}
 
       {/* RENDER PPIC */}
-      {activeTab === 'ppic-dashboard' && user.role === 'PPIC' && <PPICDashboard />}
+      {activeTab === 'ppic-dashboard' && user.role === 'PPIC' && <Dashboard />}
       {activeTab === 'ppic-batch' && user.role === 'PPIC' && <PPICBatchAllocationPage currentUser={user} />}
 
       {/* RENDER PO */}
@@ -110,8 +110,7 @@ function App() {
       {showCreateModal && (
         <POCreateModal
           poId={selectedPoId}
-          customerId={user.role === 'CUSTOMER' ? (user.customer_id || user.id) : null}
-          userRole={user.role}
+          currentUser={user}
           onClose={handleCloseModal}
           onSuccess={handlePOSuccess}
         />

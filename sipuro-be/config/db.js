@@ -9,7 +9,8 @@ const sipuroDb = mysql.createPool({
   ssl: process.env.DB_HOST ? { rejectUnauthorized: false } : false,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  timezone: '+07:00'
 });
 
 module.exports = {

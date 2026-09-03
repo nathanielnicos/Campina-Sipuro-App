@@ -24,7 +24,11 @@ const initialItemState = {
     total_price: 0
 };
 
-export const usePOModal = ({ poId, customerId, userRole, onSuccess }) => {
+export const usePOModal = ({ poId, currentUser, onSuccess }) => {
+    const userRole = currentUser?.role;
+    const customerId = userRole === 'CUSTOMER' ? (currentUser?.customer_id || currentUser?.id) : null;
+    const currentUserId = currentUser?.employee_id || currentUser?.id || currentUser?.customer_id;
+    
     const [poCode, setPoCode] = useState('');
     const [poStatus, setPoStatus] = useState('');
     const [products, setProducts] = useState([]);
@@ -347,7 +351,8 @@ export const usePOModal = ({ poId, customerId, userRole, onSuccess }) => {
 
         try {
             setLoading(true);
-            const result = await updatePOStatusApi(poId, newStatus, notes, customerId);
+            const result = await updatePOStatusApi(poId, newStatus, notes, currentUserId);
+            
             if (result.success) {
                 if (newStatus === 'Rejected') alert('PO berhasil ditolak!');
                 else if (newStatus === 'Waiting Batch Assignment') alert('PO berhasil disetujui!');

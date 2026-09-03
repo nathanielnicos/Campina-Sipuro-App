@@ -232,7 +232,8 @@ exports.assignBatchBulk = async (req, res) => {
             batch_number,
             plan_production_date,
             expired_date,
-            allocated_qty
+            allocated_qty,
+            created_by
         } = req.body;
 
         const reqQty = Number(allocated_qty);
@@ -303,9 +304,9 @@ exports.assignBatchBulk = async (req, res) => {
             }
 
             const [newBatch] = await connection.query(
-                `INSERT INTO sipuro_db.batches (batch_number, id_product, plan_production_date, expired_date, status) 
-                 VALUES (?, ?, ?, ?, 'Open')`,
-                [batch_number, id_product, plan_production_date, expired_date || null]
+                `INSERT INTO sipuro_db.batches (batch_number, id_product, plan_production_date, expired_date, status, created_by)
+                 VALUES (?, ?, ?, ?, 'Open', ?)`,
+                [batch_number, id_product, plan_production_date, expired_date || null, created_by || null]
             );
             targetId = newBatch.insertId;
         }
@@ -319,10 +320,10 @@ exports.assignBatchBulk = async (req, res) => {
             const allocForThisItem = Math.min(item.remaining_qty, remainingToDistribute);
 
             await connection.query(
-                `INSERT INTO sipuro_db.po_batch_allocations (po_detail_id, id_batch, allocated_qty, fulfilled_qty, status) 
-                 VALUES (?, ?, ?, 0, 'Open')
+                `INSERT INTO sipuro_db.po_batch_allocations (po_detail_id, id_batch, allocated_qty, fulfilled_qty, status, created_by) 
+                 VALUES (?, ?, ?, 0, 'Open', ?)
                  ON DUPLICATE KEY UPDATE allocated_qty = allocated_qty + VALUES(allocated_qty)`,
-                [item.po_detail_id, targetId, allocForThisItem]
+                [item.po_detail_id, targetId, allocForThisItem, created_by || null]
             );
 
             remainingToDistribute -= allocForThisItem;

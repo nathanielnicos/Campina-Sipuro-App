@@ -4,6 +4,7 @@ import { fetchOpenAllocationsByProduct, reallocateStockApi } from '../../service
 import { formatDate, formatQty } from '../../utils/formatters';
 
 const UnallocatedStockTable = ({
+    currentUser,
     unallocatedList = [],
     pagination = {},
     onPageChange,
@@ -58,7 +59,7 @@ const UnallocatedStockTable = ({
 
     const handleSubmitReallocate = async (e) => {
         e.preventDefault();
-        if (!targetAllocId) return alert('Pilih target PO / Batch yang akan disuplay!');
+        if (!targetAllocId) return alert('Pilih target PO / Batch yang akan disuplai!');
         const inputQty = Number(qtyToAllocate);
         if (!inputQty || inputQty <= 0) return alert('Qty alokasi harus lebih dari 0');
         if (inputQty > selectedStock.qty_available) return alert('Qty alokasi melebihi stok lebihan yang tersedia!');
@@ -68,10 +69,13 @@ const UnallocatedStockTable = ({
             return;
         }
 
+        const currentUserId = currentUser?.employee_id || currentUser?.id;
+
         const payload = {
             unallocatedId: selectedStock.id,
             targetAllocationId: targetAllocId,
-            allocateQty: inputQty
+            allocateQty: inputQty,
+            userId: currentUserId
         };
 
         setSubmitting(true);

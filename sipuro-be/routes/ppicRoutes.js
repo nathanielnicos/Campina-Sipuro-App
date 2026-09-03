@@ -3,9 +3,6 @@ const router = express.Router();
 const multer = require('multer');
 const ppicController = require('../controllers/ppic/ppicController');
 
-// Endpoint Statistik Dasbor PPIC
-router.get('/dashboard-stats', ppicController.getDashboardStats);
-
 // Endpoints Rekap & Alokasi Batch
 router.get('/unassigned-summary', ppicController.getUnassignedSummary);
 router.get('/batches-by-sku/:id_product', ppicController.getBatchesBySku);

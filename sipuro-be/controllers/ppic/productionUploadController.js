@@ -91,23 +91,25 @@ exports.commitExcelAllocation = async (req, res) => {
     try {
         await connection.beginTransaction();
 
+        const currentUserId = userId || null;
+
         // Log upload file produksi
         await connection.query(
             'INSERT INTO production_upload_logs (file_name, process_timestamp, uploaded_by) VALUES (?, ?, ?)',
-            [fileName, processTimestamp, userId || null]
+            [fileName, processTimestamp, currentUserId]
         );
 
-        // 1. Update status & qty fulfilled per baris alokasi PO
+        // 1. Update status, qty fulfilled, & updated_by per baris alokasi PO
         for (const item of allocations) {
             await connection.query(
-                'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ? WHERE id = ?',
-                [item.fulfilledQty, item.rowStatus, item.allocationId]
+                'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ?, updated_by = ? WHERE id = ?',
+                [item.fulfilledQty, item.rowStatus, currentUserId, item.allocationId]
             );
 
             if (item.actDate && item.batchId) {
                 await connection.query(
-                    'UPDATE batches SET actual_production_date = ? WHERE id = ?',
-                    [item.actDate, item.batchId]
+                    'UPDATE batches SET actual_production_date = ?, updated_by = ? WHERE id = ?',
+                    [item.actDate, currentUserId, item.batchId]
                 );
             }
         }
@@ -115,23 +117,25 @@ exports.commitExcelAllocation = async (req, res) => {
         // 2. Evaluasi status Batch: Close batch jika SELURUH alokasi PO di dalamnya sudah Close
         const batchIds = [...new Set(allocations.map(a => a.batchId).filter(Boolean))];
         for (const bId of batchIds) {
-            // PERBAIKAN: Mengganti "Open" (double quote) menjadi 'Open' (single quote)
             const [openRows] = await connection.query(
                 'SELECT id FROM po_batch_allocations WHERE id_batch = ? AND status = \'Open\'',
                 [bId]
             );
             if (openRows.length === 0) {
-                await connection.query("UPDATE batches SET status = 'Close' WHERE id = ?", [bId]);
+                await connection.query(
+                    "UPDATE batches SET status = 'Close', updated_by = ? WHERE id = ?", 
+                    [currentUserId, bId]
+                );
             }
         }
 
-        // 3. Simpan stok lebihan ke tabel unallocated_stocks
+        // 3. Simpan stok lebihan ke tabel unallocated_stocks (dengan created_by)
         if (unallocatedStocks && unallocatedStocks.length > 0) {
             for (const stock of unallocatedStocks) {
                 if (stock.idProduct && stock.qtyAvailable > 0) {
                     await connection.query(
-                        'INSERT INTO unallocated_stocks (batch_number, id_product, qty_available, production_date) VALUES (?, ?, ?, ?)',
-                        [stock.batchNumber, stock.idProduct, stock.qtyAvailable, stock.productionDate]
+                        'INSERT INTO unallocated_stocks (batch_number, id_product, qty_available, production_date, created_by) VALUES (?, ?, ?, ?, ?)',
+                        [stock.batchNumber, stock.idProduct, stock.qtyAvailable, stock.productionDate, currentUserId]
                     );
                 }
             }
