@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const productionUploadController = require('../controllers/ppic/productionUploadController');
+const productionUploadController = require('../controllers/batch/productionUploadController');
 
 const upload = multer({ storage: multer.memoryStorage() });
 

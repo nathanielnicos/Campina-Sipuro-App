@@ -66,7 +66,7 @@ export const fetchUnallocatedStocks = async (page = 1, limit = 10, searchStock =
             if (prodDate) params.prodDate = prodDate;
         }
 
-        const response = await axios.get(`${API_BASE_URL}/batches/unallocated`, { params });
+        const response = await axios.get(`${API_BASE_URL}/ppic/unallocated`, { params });
         return response.data;
     } catch (error) {
         console.error('Error fetching unallocated stocks:', error);

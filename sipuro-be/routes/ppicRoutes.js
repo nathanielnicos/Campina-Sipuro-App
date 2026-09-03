@@ -1,17 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const ppicController = require('../controllers/ppic/ppicController');
+const ppicController = require('../controllers/batch/ppicController');
 
-// Endpoints Rekap & Alokasi Batch
+router.get('/export-batch-excel', ppicController.exportBatchMappingExcel);
 router.get('/unassigned-summary', ppicController.getUnassignedSummary);
 router.get('/batches-by-sku/:id_product', ppicController.getBatchesBySku);
 router.post('/assign-batch-bulk', ppicController.assignBatchBulk);
-
-// Endpoint Monitoring Batch
 router.get('/batch-mapping', ppicController.getAllocatedBatchMapping);
-
-// Endpoint Export Excel
-router.get('/export-batch-excel', ppicController.exportBatchMappingExcel);
+router.get('/unallocated', ppicController.getUnallocatedStocks);
 
 module.exports = router;
