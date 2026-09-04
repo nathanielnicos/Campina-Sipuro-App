@@ -86,7 +86,7 @@ export const fetchOpenAllocationsByProduct = async (productId) => {
 
 export const reallocateStockApi = async (payload) => {
     try {
-        const response = await axios.post(`${API_BASE_URL}/batches/reallocate`, payload);
+        const response = await axios.post(`${API_BASE_URL}/ppic/reallocate`, payload);
         return response.data;
     } catch (error) {
         console.error('Error reallocating stock:', error);

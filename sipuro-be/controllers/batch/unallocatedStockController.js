@@ -1,4 +1,5 @@
 const { sipuroDb: db } = require('../../config/db');
+const { refreshPOStatus } = require('../../helpers/ppicHelper');
 
 // Mengambil daftar stok kelebihan produksi
 exports.getUnallocatedStocks = async (req, res) => {
@@ -70,5 +71,94 @@ exports.getUnallocatedStocks = async (req, res) => {
     } catch (error) {
         console.error('Get Unallocated Stocks Error:', error);
         return res.status(500).json({ success: false, message: 'Gagal mengambil data stok lebihan.' });
+    }
+};
+
+// Mengalokasikan kelebihan produksi ke ke po-batch yang kurang
+exports.reallocateUnallocatedStock = async (req, res) => {
+    const connection = await db.getConnection();
+    try {
+        const { unallocatedId, targetAllocationId, allocateQty, userId } = req.body;
+
+        const qtyToAlloc = parseInt(allocateQty, 10);
+        if (!unallocatedId || !targetAllocationId || !qtyToAlloc || qtyToAlloc <= 0) {
+            return res.status(400).json({ success: false, message: 'Data alokasi stok tidak valid.' });
+        }
+
+        const currentUserId = userId || null;
+
+        await connection.beginTransaction();
+
+        // A. Validasi Stok Lebihan Eksisting
+        const [[unallocated]] = await connection.query(
+            'SELECT id, qty_available FROM unallocated_stocks WHERE id = ? FOR UPDATE',
+            [unallocatedId]
+        );
+
+        if (!unallocated || unallocated.qty_available < qtyToAlloc) {
+            await connection.rollback();
+            return res.status(400).json({ success: false, message: 'Sisa stok lebihan tidak mencukupi.' });
+        }
+
+        // B. Validasi Target Allocation (Ambil id_batch & po_detail_id)
+        const [[targetAlloc]] = await connection.query(
+            'SELECT id, id_batch, po_detail_id, allocated_qty, fulfilled_qty FROM po_batch_allocations WHERE id = ? FOR UPDATE',
+            [targetAllocationId]
+        );
+
+        if (!targetAlloc) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: 'Target alokasi tidak ditemukan.' });
+        }
+
+        const batchId = targetAlloc.id_batch;
+        const poDetailId = targetAlloc.po_detail_id;
+        const newFulfilledQty = targetAlloc.fulfilled_qty + qtyToAlloc;
+
+        // C. TINGKAT 1: Cek Toleransi 90% untuk Status PO Allocation
+        const poRatio = targetAlloc.allocated_qty > 0 ? (newFulfilledQty / targetAlloc.allocated_qty) : 0;
+        const newAllocStatus = poRatio >= 0.90 ? 'Close' : 'Open';
+
+        await connection.query(
+            'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ?, updated_by = ? WHERE id = ?',
+            [newFulfilledQty, newAllocStatus, currentUserId, targetAllocationId]
+        );
+
+        // D. Potong Qty Available Lebihan Stok dan isi updated_by
+        const newUnallocatedQty = unallocated.qty_available - qtyToAlloc;
+        await connection.query(
+            'UPDATE unallocated_stocks SET qty_available = ?, updated_by = ? WHERE id = ?',
+            [newUnallocatedQty, currentUserId, unallocatedId]
+        );
+
+        // E. TINGKAT 2: Cek Keseluruhan PO Allocation dalam Batch
+        const [remainingOpenAllocations] = await connection.query(
+            'SELECT COUNT(*) as openCount FROM po_batch_allocations WHERE id_batch = ? AND status = "Open"',
+            [batchId]
+        );
+
+        const openCount = remainingOpenAllocations[0]?.openCount || 0;
+        const newBatchStatus = openCount === 0 ? 'Close' : 'Open';
+
+        await connection.query(
+            'UPDATE batches SET status = ?, updated_by = ? WHERE id = ?',
+            [newBatchStatus, currentUserId, batchId]
+        );
+
+        // F. TINGKAT 3: Evaluasi Presisi Status PO Header (po_headers) via Helper
+        const [[pd]] = await connection.query('SELECT po_header_id FROM po_details WHERE po_detail_id = ?', [poDetailId]);
+        if (pd && pd.po_header_id) {
+            await refreshPOStatus(connection, pd.po_header_id);
+        }
+
+        await connection.commit();
+        return res.json({ success: true, message: 'Stok lebihan berhasil dialokasikan.' });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Reallocate Stock Error:', error);
+        return res.status(500).json({ success: false, message: 'Gagal mengalokasikan stok: ' + error.message });
+    } finally {
+        connection.release();
     }
 };
