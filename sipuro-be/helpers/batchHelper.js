@@ -62,9 +62,9 @@ async function refreshPOStatus(connection, poHeaderId) {
 
     let targetStatus = null;
 
-    // C. Jika pembuatan batch belum memenuhi total base_qty PO -> "Waiting Batch Assignment"
+    // C. Jika pembuatan batch belum memenuhi total base_qty PO -> "Waiting for Batch Assignment"
     if (!isFullyAssigned) {
-        targetStatus = 'Waiting Batch Assignment';
+        targetStatus = 'Waiting for Batch Assignment';
     } else {
         // D. Jika Pembuatan Batch SUDAH LENGKAP (100%), Cek Status Pemenuhan Aktual (Open vs Close)
         const [openAllocations] = await connection.query(`
@@ -75,7 +75,7 @@ async function refreshPOStatus(connection, poHeaderId) {
         `, [poHeaderId]);
 
         const isAllClosed = openAllocations.length === 0;
-        targetStatus = isAllClosed ? 'Completed' : 'On Process';
+        targetStatus = isAllClosed ? 'Completed' : 'In Progress';
     }
 
     // E. Eksekusi UPDATE & LOG hanya jika status benar-benar BERUBAH

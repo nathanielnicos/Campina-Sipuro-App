@@ -162,9 +162,9 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                         <option value="">Semua Status</option>
                         <option value="Waiting for Confirmation">Waiting for Confirmation</option>
                         <option value="Canceled">Canceled</option>
-                        <option value="Waiting Batch Assignment">Waiting Batch Assignment</option>
+                        <option value="Waiting for Batch Assignment">Waiting for Batch Assignment</option>
                         <option value="Rejected">Rejected</option>
-                        <option value="On Process">On Process</option>
+                        <option value="In Progress">In Progress</option>
                         <option value="Completed">Completed</option>
                     </select>
                 </div>

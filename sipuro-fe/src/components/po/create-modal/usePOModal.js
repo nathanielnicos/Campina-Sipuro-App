@@ -342,7 +342,7 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
 
             // Konfirmasi penolakan
             if (!window.confirm('Apakah Anda yakin ingin MENOLAK PO ini?')) return;
-        } else if (newStatus === 'Waiting Batch Assignment') {
+        } else if (newStatus === 'Waiting for Batch Assignment') {
             // Konfirmasi persetujuan
             if (!window.confirm('Apakah Anda yakin ingin MENYETUJUI PO ini?')) return;
         } else {
@@ -355,7 +355,7 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
             
             if (result.success) {
                 if (newStatus === 'Rejected') alert('PO berhasil ditolak!');
-                else if (newStatus === 'Waiting Batch Assignment') alert('PO berhasil disetujui!');
+                else if (newStatus === 'Waiting for Batch Assignment') alert('PO berhasil disetujui!');
                 else alert(`Status PO berhasil diperbarui menjadi ${newStatus}!`);
 
                 if (onSuccess) onSuccess();

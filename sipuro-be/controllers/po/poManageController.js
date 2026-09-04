@@ -390,7 +390,7 @@ exports.updatePOStatus = async (req, res) => {
         if (poRows.length === 0) return res.status(404).json({ success: false, message: 'Data PO tidak ditemukan.' });
 
         const targetPo = poRows[0];
-        const actionType = status === 'Rejected' ? 'REJECT' : (status === 'Waiting Batch Assignment' ? 'APPROVE' : 'STATUS_AUTO_CHANGE');
+        const actionType = status === 'Rejected' ? 'REJECT' : (status === 'Waiting for Batch Assignment' ? 'APPROVE' : 'STATUS_AUTO_CHANGE');
 
         await connection.beginTransaction();
 
@@ -413,7 +413,7 @@ exports.updatePOStatus = async (req, res) => {
 
         await connection.commit();
 
-        const isApproved = status === 'Waiting Batch Assignment';
+        const isApproved = status === 'Waiting for Batch Assignment';
         const notifTitle = isApproved ? 'PO Diterima' : 'PO Ditolak';
         const actionText = isApproved ? 'diterima' : 'ditolak';
 

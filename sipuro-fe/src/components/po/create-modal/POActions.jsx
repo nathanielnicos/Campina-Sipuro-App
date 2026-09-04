@@ -35,7 +35,7 @@ const POActions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpd
                         <button
                             type="button"
                             disabled={loading}
-                            onClick={() => onUpdateStatus('Waiting Batch Assignment')}
+                            onClick={() => onUpdateStatus('Waiting for Batch Assignment')}
                             style={{ padding: '8px 16px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                         >
                             Approve PO
