@@ -125,3 +125,17 @@ export const exportBatchExcelApi = async (params) => {
         return { success: false, message: 'Gagal mengunduh berkas Excel.' };
     }
 };
+
+// Update Allocation Status
+export const updateAllocationStatusApi = async (allocationId, payload) => {
+    try {
+        const response = await axios.patch(`${API_BASE_URL}/batch/allocation/${allocationId}/status`, payload);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating allocation status:', error);
+        return { 
+            success: false, 
+            message: error.response?.data?.message || 'Gagal mengubah status alokasi.' 
+        };
+    }
+};

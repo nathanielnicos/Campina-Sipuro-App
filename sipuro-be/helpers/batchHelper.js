@@ -2,10 +2,7 @@ const { sipuroDb: db } = require('../config/db');
 const { logPOHeader } = require('./poLogHelper');
 
 /**
- * Mengambil nilai toleransi PO (persentase / desimal) pasti dari database company_profile.
- * Jika data tidak ditemukan, akan meng-throw Error agar transaksi dibatalkan (rollbacked).
- * @param {Object} [dbOrConn] - Opsional, koneksi database/transaction.
- * @returns {Promise<number>} - Menghasilkan angka rasio toleransi (misal 90.00% -> 0.90)
+ * Mengambil nilai toleransi PO
  */
 async function getPOTolerance(dbOrConn) {
     const client = dbOrConn || db;
@@ -24,7 +21,6 @@ async function getPOTolerance(dbOrConn) {
  * Helper untuk menghitung & memperbarui status po_headers secara presisi
  */
 async function refreshPOStatus(connection, poHeaderId) {
-    // 0. Ambil status PO saat ini sebagai acuan (old_status)
     const [[currentPO]] = await connection.query(
         `SELECT status FROM sipuro_db.po_headers WHERE po_header_id = ?`,
         [poHeaderId]
@@ -33,12 +29,12 @@ async function refreshPOStatus(connection, poHeaderId) {
     if (!currentPO) return;
     const oldStatus = currentPO.status;
 
-    // A. Cek Pemenuhan Pembuatan Batch per SKU di PO
+    // A. Cek Pemenuhan Pembuatan Batch per SKU di PO (Abaikan alokasi Canceled)
     const [qtyCheck] = await connection.query(`
         SELECT 
             pd.po_detail_id,
             pd.base_qty,
-            COALESCE(SUM(pba.allocated_qty), 0) AS total_allocated_qty
+            COALESCE(SUM(CASE WHEN pba.status != 'Canceled' THEN pba.allocated_qty ELSE 0 END), 0) AS total_allocated_qty
         FROM sipuro_db.po_details pd
         LEFT JOIN sipuro_db.po_batch_allocations pba ON pd.po_detail_id = pba.po_detail_id
         WHERE pd.po_header_id = ? AND pd.deleted_at IS NULL
@@ -47,14 +43,9 @@ async function refreshPOStatus(connection, poHeaderId) {
 
     if (!qtyCheck || qtyCheck.length === 0) return;
 
-    // B. Evaluasi apakah SELURUH detail SKU pada PO sudah dibuatkan batch sesuai target base_qty
     let isFullyAssigned = true;
-
     for (const item of qtyCheck) {
-        const targetQty = Number(item.base_qty);
-        const allocatedQty = Number(item.total_allocated_qty);
-
-        if (allocatedQty < targetQty) {
+        if (Number(item.total_allocated_qty) < Number(item.base_qty)) {
             isFullyAssigned = false;
             break;
         }
@@ -62,11 +53,10 @@ async function refreshPOStatus(connection, poHeaderId) {
 
     let targetStatus = null;
 
-    // C. Jika pembuatan batch belum memenuhi total base_qty PO -> "Waiting for Batch Assignment"
     if (!isFullyAssigned) {
         targetStatus = 'Waiting for Batch Assignment';
     } else {
-        // D. Jika Pembuatan Batch SUDAH LENGKAP (100%), Cek Status Pemenuhan Aktual (Open vs Closed)
+        // Cek alokasi yang masih bernilai 'Open'
         const [openAllocations] = await connection.query(`
             SELECT pba.id
             FROM sipuro_db.po_batch_allocations pba
@@ -74,30 +64,75 @@ async function refreshPOStatus(connection, poHeaderId) {
             WHERE pd.po_header_id = ? AND pba.status = 'Open'
         `, [poHeaderId]);
 
-        const isAllClosed = openAllocations.length === 0;
-        targetStatus = isAllClosed ? 'Completed' : 'In Progress';
+        // PO Selesai jika tidak ada lagi alokasi berstatus 'Open'
+        targetStatus = openAllocations.length === 0 ? 'Completed' : 'In Progress';
     }
 
-    // E. Eksekusi UPDATE & LOG hanya jika status benar-benar BERUBAH
     if (targetStatus && targetStatus !== oldStatus) {
         await connection.query(
             `UPDATE sipuro_db.po_headers SET status = ? WHERE po_header_id = ?`,
             [targetStatus, poHeaderId]
         );
 
-        // Catat Log Otomatis Sistem
         await logPOHeader(connection, {
             poHeaderId,
             actionType: 'STATUS_AUTO_CHANGE',
-            oldStatus: oldStatus,
+            oldStatus,
             newStatus: targetStatus,
-            actionBy: null, // null karena dipicu otomatis oleh sistem
+            actionBy: null,
             reason: `Sistem mengubah status dari '${oldStatus}' ke '${targetStatus}'`
         });
     }
 }
 
+/**
+ * Helper baru untuk menyegarkan status Induk Batch berdasarkan status alokasi di dalamnya
+ */
+async function refreshBatchStatus(connection, batchId) {
+    const [[currentBatch]] = await connection.query(
+        `SELECT status FROM sipuro_db.batches WHERE id = ?`,
+        [batchId]
+    );
+
+    if (!currentBatch) return;
+
+    const [allocations] = await connection.query(
+        `SELECT status FROM sipuro_db.po_batch_allocations WHERE id_batch = ?`,
+        [batchId]
+    );
+
+    if (allocations.length === 0) return;
+
+    const statuses = allocations.map(a => a.status);
+    let targetStatus = currentBatch.status;
+
+    // 1. Jika SEMUA alokasi 'Canceled' -> Batch Canceled
+    if (statuses.every(s => s === 'Canceled')) {
+        targetStatus = 'Canceled';
+    }
+    // 2. Jika MASIH ADA alokasi yang 'Open' -> Batch tetap Open
+    else if (statuses.includes('Open')) {
+        targetStatus = 'Open';
+    }
+    // 3. Jika TIDAK ADA 'Open', tapi ADA minimal 1 'Force Closed' -> Batch Force Closed
+    else if (statuses.includes('Force Closed')) {
+        targetStatus = 'Force Closed';
+    }
+    // 4. Jika SEMUA alokasi selain Canceled sudah 'Closed' -> Batch Closed
+    else {
+        targetStatus = 'Closed';
+    }
+
+    if (targetStatus !== currentBatch.status) {
+        await connection.query(
+            `UPDATE sipuro_db.batches SET status = ? WHERE id = ?`,
+            [targetStatus, batchId]
+        );
+    }
+}
+
 module.exports = {
     getPOTolerance,
-    refreshPOStatus
+    refreshPOStatus,
+    refreshBatchStatus
 };

@@ -4,6 +4,53 @@ import { formatDate, formatQty } from '../../utils/formatters';
 import PaginationControl from '../common/PaginationControl';
 import { exportBatchExcelApi } from '../../services/ppicApi';
 
+const renderActionButton = (po, onUpdateStatus) => {
+    // Tombol hanya aktif jika status alokasi masih Open
+    if (po.status !== 'Open' || !po.allocation_id) return '-';
+
+    const fulfilled = Number(po.fulfilled_qty) || 0;
+
+    if (fulfilled === 0) {
+        return (
+            <button
+                type="button"
+                onClick={() => onUpdateStatus(po.allocation_id, 'CANCEL')}
+                style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#dc3545',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                }}
+            >
+                Batalkan
+            </button>
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={() => onUpdateStatus(po.allocation_id, 'FORCE_CLOSE')}
+            style={{
+                padding: '4px 8px',
+                backgroundColor: '#fd7e14',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+            }}
+        >
+            Paksa Tutup
+        </button>
+    );
+};
+
 const BatchMappingTable = ({
     mappingList = [],
     poTolerance,
@@ -18,7 +65,8 @@ const BatchMappingTable = ({
     setToDate,
     batchStatus,
     setBatchStatus,
-    onResetFilters
+    onResetFilters,
+    onUpdateStatus
 }) => {
     const [viewMode, setViewMode] = useState('BATCH');
     const [exporting, setExporting] = useState(false);
@@ -89,6 +137,7 @@ const BatchMappingTable = ({
                 }
 
                 poMap[poNum].skus[productCode].batches.push({
+                    allocation_id: po.allocation_id,
                     batch_number: row.batch_number,
                     plan_production_date: row.plan_production_date,
                     batch_status: row.batch_status,
@@ -106,7 +155,7 @@ const BatchMappingTable = ({
         if (poList.length === 0) {
             return (
                 <tr>
-                    <td colSpan="9" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                    <td colSpan="10" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                         Belum ada data mapping PO.
                     </td>
                 </tr>
@@ -170,7 +219,12 @@ const BatchMappingTable = ({
                             <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                                 <span style={{
                                     ...getStatusStyle(batch.batch_status),
-                                    padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px'
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    fontWeight: 'bold',
+                                    fontSize: '11px',
+                                    whiteSpace: 'nowrap',
+                                    display: 'inline-block'
                                 }}>
                                     {batch.batch_status}
                                 </span>
@@ -195,6 +249,9 @@ const BatchMappingTable = ({
                                         {batch.status}
                                     </span>
                                 ) : '-'}
+                            </td>
+                            <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                                {renderActionButton(batch, onUpdateStatus)}
                             </td>
                         </tr>
                     );
@@ -240,7 +297,12 @@ const BatchMappingTable = ({
                                 <td rowSpan={allocations.length} style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'top', backgroundColor: '#fff' }}>
                                     <span style={{
                                         ...getStatusStyle(row.batch_status),
-                                        padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px'
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        fontWeight: 'bold',
+                                        fontSize: '11px',
+                                        whiteSpace: 'nowrap',
+                                        display: 'inline-block'
                                     }}>
                                         {row.batch_status}
                                     </span>
@@ -266,11 +328,19 @@ const BatchMappingTable = ({
                             {po.status !== '-' ? (
                                 <span style={{
                                     ...getStatusStyle(po.status),
-                                    padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold'
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold',
+                                    whiteSpace: 'nowrap',
+                                    display: 'inline-block'
                                 }}>
                                     {po.status}
                                 </span>
                             ) : '-'}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                            {renderActionButton(po, onUpdateStatus)}
                         </td>
                     </tr>
                 );
@@ -330,6 +400,8 @@ const BatchMappingTable = ({
                         <option value="">Semua Status</option>
                         <option value="Open">Open</option>
                         <option value="Closed">Closed</option>
+                        <option value="Force Closed">Force Closed</option>
+                        <option value="Canceled">Canceled</option>
                     </select>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -448,6 +520,7 @@ const BatchMappingTable = ({
                                 <th style={{ padding: '12px 14px', textAlign: 'right' }}>Terpenuhi (PCS)</th>
                                 <th style={{ padding: '12px 14px', textAlign: 'center' }}>Persentase</th>
                                 <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Alokasi</th>
+                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>

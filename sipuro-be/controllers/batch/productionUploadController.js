@@ -148,7 +148,7 @@ exports.commitExcelAllocation = async (req, res) => {
             }
         }
 
-        // 3. Evaluasi status Batch: Close batch jika SELURUH alokasi PO di dalamnya sudah Close
+        // 3. Evaluasi status Batch: Close batch jika SELURUH alokasi PO di dalamnya sudah Closed
         const batchIds = [...new Set(allocations.map(a => a.batchId).filter(Boolean))];
         for (const bId of batchIds) {
             const [openRows] = await connection.query(

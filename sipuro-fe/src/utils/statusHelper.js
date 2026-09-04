@@ -6,7 +6,8 @@ const STATUS_MAP = {
     'Rejected': { backgroundColor: '#f8d7da', color: '#721c24' },
     'Canceled': { backgroundColor: '#e2e3e5', color: '#383d41' },
     'Open': { backgroundColor: '#fff3cd', color: '#664d03' },
-    'Closed': { backgroundColor: '#d1e7dd', color: '#0f5132' }
+    'Closed': { backgroundColor: '#d1e7dd', color: '#0f5132' },
+    'Force Closed': { backgroundColor: '#f8d7da', color: '#842029' } // <-- Tambahkan status ini
 };
 
 export const getStatusStyle = (status) =>

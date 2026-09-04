@@ -4,7 +4,8 @@ import {
     assignBatchBulk,
     fetchBatchMapping,
     fetchBatchesBySku,
-    fetchUnallocatedStocks
+    fetchUnallocatedStocks,
+    updateAllocationStatusApi
 } from '../../services/ppicApi';
 import {
     previewProductionApi,
@@ -24,7 +25,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     const [activeTab, setActiveTab] = useState('summary');
     const [summaryList, setSummaryList] = useState([]);
     const [mappingList, setMappingList] = useState([]);
-    const [poTolerance, setPoTolerance] = useState(null); 
+    const [poTolerance, setPoTolerance] = useState(null);
     const [unallocatedList, setUnallocatedList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -312,6 +313,31 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
         }
     };
 
+    const handleUpdateStatus = async (allocationId, action) => {
+        const actionText = action === 'CANCEL' ? 'membatalkan' : 'memaksa tutup';
+
+        // Konfirmasi dan input alasan dari user
+        const reason = window.prompt(`Apakah Anda yakin ingin ${actionText} alokasi batch ini?\nMasukkan alasan (opsional):`);
+
+        // Jika user menekan Cancel pada window.prompt
+        if (reason === null) return;
+
+        setLoading(true);
+        try {
+            const res = await updateAllocationStatusApi(allocationId, { action, reason });
+            if (res && res.success) {
+                alert(res.message || 'Status alokasi berhasil diperbarui.');
+                loadData(); // Re-fetch data agar tabel langsung terbarui
+            } else {
+                alert('Gagal: ' + (res?.message || 'Gagal mengubah status alokasi.'));
+            }
+        } catch (err) {
+            alert('Terjadi kesalahan sistem saat memperbarui status.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
             <div style={{
@@ -426,6 +452,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                         batchStatus={batchStatus2}
                         setBatchStatus={(val) => { setBatchStatus2(val); setMappingPage(1); }}
                         onResetFilters={handleResetTab2}
+                        onUpdateStatus={handleUpdateStatus}
                     />
                 )}
 

@@ -38,6 +38,7 @@ exports.getUnassignedSummary = async (req, res) => {
                 LEFT JOIN (
                     SELECT po_detail_id, SUM(allocated_qty) AS total_allocated
                     FROM sipuro_db.po_batch_allocations
+                    WHERE status != 'Canceled'
                     GROUP BY po_detail_id
                 ) alloc ON d.po_detail_id = alloc.po_detail_id
                 WHERE ${whereSql}
@@ -75,6 +76,7 @@ exports.getUnassignedSummary = async (req, res) => {
             LEFT JOIN (
                 SELECT po_detail_id, SUM(allocated_qty) AS total_allocated
                 FROM sipuro_db.po_batch_allocations
+                WHERE status != 'Canceled'
                 GROUP BY po_detail_id
             ) alloc ON d.po_detail_id = alloc.po_detail_id
             WHERE ${whereSql}
@@ -149,6 +151,7 @@ exports.assignBatchBulk = async (req, res) => {
             LEFT JOIN (
                 SELECT po_detail_id, SUM(allocated_qty) AS total_allocated
                 FROM sipuro_db.po_batch_allocations
+                WHERE status != 'Canceled'
                 GROUP BY po_detail_id
             ) alloc ON d.po_detail_id = alloc.po_detail_id
             WHERE d.id_product = ? 
