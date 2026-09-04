@@ -1,6 +1,6 @@
 const { sipuroDb: db } = require('../../config/db');
 const { parseProductionExcel, calculateFifoAllocation } = require('../../helpers/excelFifoService');
-const { refreshPOStatus } = require('../../helpers/ppicHelper');
+const { refreshPOStatus, getPOTolerance } = require('../../helpers/batchHelper');
 
 /**
  * Preview Upload Excel Produksi (PPIC)
@@ -50,11 +50,15 @@ exports.previewExcelUpload = async (req, res) => {
         // Ambil data referensi produk
         const [allProducts] = await db.query('SELECT id_product, product_code, product_name FROM sipuro_db.products');
 
-        // Kalkulasi alokasi FIFO
+        // Ambil nilai toleransi PO pasti dari database company_profile
+        const poTolerance = await getPOTolerance(db);
+
+        // Kalkulasi alokasi FIFO dengan toleransi dinamis
         const { previewResults, unallocatedStocks, detailedAllocations } = calculateFifoAllocation(
             excelDataMap,
             openAllocations || [],
-            allProducts || []
+            allProducts || [],
+            poTolerance
         );
 
         return res.json({
@@ -93,14 +97,44 @@ exports.commitExcelAllocation = async (req, res) => {
 
         const currentUserId = userId || null;
 
-        // Log upload file produksi
-        await connection.query(
+        // 1. Log upload file produksi & ambil insertId-nya
+        const [uploadLogResult] = await connection.query(
             'INSERT INTO production_upload_logs (file_name, process_timestamp, uploaded_by) VALUES (?, ?, ?)',
             [fileName, processTimestamp, currentUserId]
         );
+        const uploadLogId = uploadLogResult.insertId;
 
-        // 1. Update status, qty fulfilled, & updated_by per baris alokasi PO
+        // 2. Update status & qty fulfilled, serta CATAT LOG DETAIL per baris alokasi PO
         for (const item of allocations) {
+            // Fetch data alokasi lama (before) untuk pembanding
+            const [[oldData]] = await connection.query(
+                'SELECT fulfilled_qty, status FROM po_batch_allocations WHERE id = ?',
+                [item.allocationId]
+            );
+
+            // Simpan log ke tabel po_batch_allocation_logs
+            if (oldData) {
+                await connection.query(
+                    `INSERT INTO po_batch_allocation_logs (
+                        upload_log_id, allocation_id, po_detail_id, id_batch,
+                        action_type, old_fulfilled_qty, new_fulfilled_qty,
+                        old_status, new_status, created_by
+                    ) VALUES (?, ?, ?, ?, 'UPDATE', ?, ?, ?, ?, ?)`,
+                    [
+                        uploadLogId,
+                        item.allocationId,
+                        item.poDetailId,
+                        item.batchId,
+                        oldData.fulfilled_qty || 0,
+                        item.fulfilledQty,
+                        oldData.status,
+                        item.rowStatus,
+                        currentUserId
+                    ]
+                );
+            }
+
+            // Update tabel po_batch_allocations
             await connection.query(
                 'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ?, updated_by = ? WHERE id = ?',
                 [item.fulfilledQty, item.rowStatus, currentUserId, item.allocationId]
@@ -114,7 +148,7 @@ exports.commitExcelAllocation = async (req, res) => {
             }
         }
 
-        // 2. Evaluasi status Batch: Close batch jika SELURUH alokasi PO di dalamnya sudah Close
+        // 3. Evaluasi status Batch: Close batch jika SELURUH alokasi PO di dalamnya sudah Close
         const batchIds = [...new Set(allocations.map(a => a.batchId).filter(Boolean))];
         for (const bId of batchIds) {
             const [openRows] = await connection.query(
@@ -123,13 +157,13 @@ exports.commitExcelAllocation = async (req, res) => {
             );
             if (openRows.length === 0) {
                 await connection.query(
-                    "UPDATE batches SET status = 'Close', updated_by = ? WHERE id = ?", 
+                    "UPDATE batches SET status = 'Close', updated_by = ? WHERE id = ?",
                     [currentUserId, bId]
                 );
             }
         }
 
-        // 3. Simpan stok lebihan ke tabel unallocated_stocks (dengan created_by)
+        // 4. Simpan stok lebihan ke tabel unallocated_stocks
         if (unallocatedStocks && unallocatedStocks.length > 0) {
             for (const stock of unallocatedStocks) {
                 if (stock.idProduct && stock.qtyAvailable > 0) {
@@ -141,7 +175,7 @@ exports.commitExcelAllocation = async (req, res) => {
             }
         }
 
-        // 4. Update fulfilled_qty di po_details dan Evaluasi Status PO Header
+        // 5. Update fulfilled_qty di po_details dan Evaluasi Status PO Header
         const poDetailIds = [...new Set(allocations.map(a => a.poDetailId).filter(Boolean))];
         const poHeaderIds = new Set();
 
@@ -163,7 +197,7 @@ exports.commitExcelAllocation = async (req, res) => {
             }
         }
 
-        // 5. Evaluasi perubahan status po_headers
+        // 6. Evaluasi perubahan status po_headers
         for (const poHeaderId of poHeaderIds) {
             await refreshPOStatus(connection, poHeaderId);
         }

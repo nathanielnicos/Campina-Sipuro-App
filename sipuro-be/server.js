@@ -8,7 +8,6 @@ const masterRoutes = require('./routes/masterRoutes');
 const masterUploadRoutes = require('./routes/masterUploadRoutes'); // Tambahan: Route Upload Master Produk & Harga
 const superadminRoutes = require('./routes/superadminRoutes');     // Rute khusus Superadmin
 const poRoutes = require('./routes/poRoutes');
-const ppicRoutes = require('./routes/ppicRoutes');
 const batchRoutes = require('./routes/batchRoutes');
 const productionUploadRoutes = require('./routes/productionUploadRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
@@ -32,8 +31,7 @@ app.use('/api', masterRoutes);
 app.use('/api/upload/master', masterUploadRoutes);
 app.use('/api/superadmin', superadminRoutes);
 app.use('/api/po', poRoutes);
-app.use('/api/ppic', ppicRoutes);
-app.use('/api/batches', batchRoutes);
+app.use('/api/batch', batchRoutes);
 app.use('/api/upload/production', productionUploadRoutes);
 app.use('/api/notifications', notificationRoutes);
 

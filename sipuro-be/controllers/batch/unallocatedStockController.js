@@ -1,5 +1,5 @@
 const { sipuroDb: db } = require('../../config/db');
-const { refreshPOStatus } = require('../../helpers/ppicHelper');
+const { refreshPOStatus, getPOTolerance } = require('../../helpers/batchHelper');
 
 // Mengambil daftar stok kelebihan produksi
 exports.getUnallocatedStocks = async (req, res) => {
@@ -74,7 +74,36 @@ exports.getUnallocatedStocks = async (req, res) => {
     }
 };
 
-// Mengalokasikan kelebihan produksi ke ke po-batch yang kurang
+// Mengambil daftar po-batch-allocations yang masih "Open" berdasarkan SKU
+exports.getOpenAllocationsByProduct = async (req, res) => {
+    try {
+        const { productId } = req.params;
+
+        const [rows] = await db.query(`
+            SELECT 
+                pba.id AS allocation_id,
+                pba.allocated_qty,
+                pba.fulfilled_qty,
+                (pba.allocated_qty - pba.fulfilled_qty) AS remaining_qty,
+                pb.batch_number,
+                ph.po_number,
+                ph.requested_delivery_date
+            FROM po_batch_allocations pba
+            JOIN batches pb ON pba.id_batch = pb.id
+            JOIN po_details pd ON pba.po_detail_id = pd.po_detail_id
+            JOIN po_headers ph ON pd.po_header_id = ph.po_header_id
+            WHERE pb.id_product = ? AND pba.status = 'Open' AND pb.status = 'Open'
+            ORDER BY ph.requested_delivery_date ASC
+        `, [productId]);
+
+        return res.json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Get Open Allocations Error:', error);
+        return res.status(500).json({ success: false, message: 'Gagal mengambil alokasi open.' });
+    }
+};
+
+// Mengalokasikan kelebihan produksi ke po-batch yang kurang
 exports.reallocateUnallocatedStock = async (req, res) => {
     const connection = await db.getConnection();
     try {
@@ -115,9 +144,10 @@ exports.reallocateUnallocatedStock = async (req, res) => {
         const poDetailId = targetAlloc.po_detail_id;
         const newFulfilledQty = targetAlloc.fulfilled_qty + qtyToAlloc;
 
-        // C. TINGKAT 1: Cek Toleransi 90% untuk Status PO Allocation
+        // C. TINGKAT 1: Cek Toleransi PO Dinamis dari Database company_profile
+        const poTolerance = await getPOTolerance(connection);
         const poRatio = targetAlloc.allocated_qty > 0 ? (newFulfilledQty / targetAlloc.allocated_qty) : 0;
-        const newAllocStatus = poRatio >= 0.90 ? 'Close' : 'Open';
+        const newAllocStatus = poRatio >= poTolerance ? 'Close' : 'Open';
 
         await connection.query(
             'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ?, updated_by = ? WHERE id = ?',
@@ -125,11 +155,27 @@ exports.reallocateUnallocatedStock = async (req, res) => {
         );
 
         // D. Potong Qty Available Lebihan Stok dan isi updated_by
-        const newUnallocatedQty = unallocated.qty_available - qtyToAlloc;
+        const qtyBefore = unallocated.qty_available;
+        const newUnallocatedQty = qtyBefore - qtyToAlloc;
+
         await connection.query(
             'UPDATE unallocated_stocks SET qty_available = ?, updated_by = ? WHERE id = ?',
             [newUnallocatedQty, currentUserId, unallocatedId]
         );
+
+        // --- TAMBAHAN LOG AUDIT MUTASI STOK ---
+        await connection.query(`
+            INSERT INTO unallocated_stock_logs 
+                (unallocated_stock_id, target_allocation_id, qty_reallocated, qty_before, qty_after, created_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+            unallocatedId,
+            targetAllocationId,
+            qtyToAlloc,
+            qtyBefore,
+            newUnallocatedQty,
+            currentUserId
+        ]);
 
         // E. TINGKAT 2: Cek Keseluruhan PO Allocation dalam Batch
         const [remainingOpenAllocations] = await connection.query(
@@ -152,7 +198,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
         }
 
         await connection.commit();
-        return res.json({ success: true, message: 'Stok lebihan berhasil dialokasikan.' });
+        return res.json({ success: true, message: 'Stok lebihan berhasil dialokasikan dan dicatat ke log.' });
 
     } catch (error) {
         await connection.rollback();

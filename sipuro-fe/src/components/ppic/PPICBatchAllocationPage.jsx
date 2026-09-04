@@ -24,6 +24,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
     const [activeTab, setActiveTab] = useState('summary');
     const [summaryList, setSummaryList] = useState([]);
     const [mappingList, setMappingList] = useState([]);
+    const [poTolerance, setPoTolerance] = useState(null); 
     const [unallocatedList, setUnallocatedList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -100,6 +101,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
             const res = await fetchBatchMapping(mappingPage, mappingLimit, filters);
             if (res && res.success) {
                 setMappingList(res.data || []);
+                setPoTolerance(res.poTolerance ?? null);
                 if (res.pagination) {
                     setMappingPagination({
                         currentPage: Number(res.pagination.currentPage) || 1,
@@ -408,6 +410,7 @@ const PPICBatchAllocationPage = ({ currentUser }) => {
                 {activeTab === 'mapping' && (
                     <BatchMappingTable
                         mappingList={mappingList}
+                        poTolerance={poTolerance}
                         pagination={mappingPagination}
                         onPageChange={(newPage) => setMappingPage(newPage)}
                         onLimitChange={(newLimit) => {

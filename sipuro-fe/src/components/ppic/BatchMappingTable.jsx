@@ -6,6 +6,7 @@ import { exportBatchExcelApi } from '../../services/ppicApi';
 
 const BatchMappingTable = ({
     mappingList = [],
+    poTolerance,
     pagination = { currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 },
     onPageChange,
     onLimitChange,
@@ -181,7 +182,7 @@ const BatchMappingTable = ({
                                 {formatQty(fulfilled)}
                             </td>
                             <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 'bold' }}>
-                                <span style={{ color: percent >= 90 ? '#198754' : percent > 0 ? '#fd7e14' : '#6c757d' }}>
+                                <span style={{ color: percent >= poTolerance ? '#198754' : percent > 0 ? '#fd7e14' : '#6c757d' }}>
                                     {percent}%
                                 </span>
                             </td>
@@ -257,7 +258,7 @@ const BatchMappingTable = ({
                             {formatQty(fulfilled)}
                         </td>
                         <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 'bold' }}>
-                            <span style={{ color: percent >= 90 ? '#198754' : percent > 0 ? '#fd7e14' : '#6c757d' }}>
+                            <span style={{ color: percent >= poTolerance ? '#198754' : percent > 0 ? '#fd7e14' : '#6c757d' }}>
                                 {percent}%
                             </span>
                         </td>

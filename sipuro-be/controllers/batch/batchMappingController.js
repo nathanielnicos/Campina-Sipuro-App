@@ -1,4 +1,5 @@
 const { sipuroDb } = require('../../config/db');
+const { getPOTolerance } = require('../../helpers/batchHelper');
 
 // Mapping Batch ke PO
 exports.getAllocatedBatchMapping = async (req, res) => {
@@ -96,9 +97,13 @@ exports.getAllocatedBatchMapping = async (req, res) => {
             return { ...row, po_allocations: allocations };
         });
 
+        const poToleranceRatio = await getPOTolerance(sipuroDb);
+        const poTolerancePercent = poToleranceRatio ? poToleranceRatio * 100 : null;
+
         res.json({
             success: true,
             data: formattedRows,
+            poTolerance: poTolerancePercent,
             pagination: { totalItems, totalPages, currentPage: pageNum, limit: limitNum }
         });
     } catch (error) {

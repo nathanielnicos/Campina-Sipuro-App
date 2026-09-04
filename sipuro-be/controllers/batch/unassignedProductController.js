@@ -1,5 +1,5 @@
 const { sipuroDb } = require('../../config/db');
-const { refreshPOStatus } = require('../../helpers/ppicHelper');
+const { refreshPOStatus } = require('../../helpers/batchHelper');
 
 // Mengambil daftar produk yang belum dialokasikan ke batch
 exports.getUnassignedSummary = async (req, res) => {

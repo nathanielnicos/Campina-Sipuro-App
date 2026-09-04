@@ -3,7 +3,16 @@ const poManageController = require('./poManageController');
 const poExportController = require('./poExportController');
 
 module.exports = {
-    ...poGetController,
-    ...poManageController,
-    ...poExportController
+    // PO Get
+    getPOList: poGetController.getPOList,
+    getPODetail: poGetController.getPODetail,
+
+    // PO Manage
+    createPO: poManageController.createPO,
+    updatePO: poManageController.updatePO,
+    cancelPO: poManageController.cancelPO,
+    updatePOStatus: poManageController.updatePOStatus,
+
+    // Export Controller
+    exportPoExcel: poExportController.exportPoExcel,
 };

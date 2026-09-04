@@ -1,11 +1,6 @@
 const xlsx = require('xlsx');
 
 /**
- * AMBANG BATAS TOLERANSI PERSENTASE KEPETUHAN UNTUK AUTO-CLOSE ALOKASI (90%)
- */
-const AUTO_CLOSE_THRESHOLD_PERCENT = 90;
-
-/**
  * Helper untuk memformat tanggal dari Excel secara aman
  */
 const parseExcelDate = (excelValue) => {
@@ -88,12 +83,21 @@ const parseProductionExcel = (fileBuffer) => {
 
 /**
  * Simulation & Calculation Service Alokasi Produksi Excel (Murni FIFO)
+ * @param {Object} excelDataMap - Data hasil parse Excel
+ * @param {Array} openAllocations - Daftar alokasi open dari DB
+ * @param {Array} allProducts - Master produk dari DB
+ * @param {number} poTolerance - Toleransi rasio PO dari DB (misal 0.90)
  */
 const calculateFifoAllocation = (
     excelDataMap,
     openAllocations = [],
-    allProducts = []
+    allProducts = [],
+    poTolerance
 ) => {
+    if (poTolerance === undefined || poTolerance === null) {
+        throw new Error('Nilai poTolerance wajib diberikan dari database company_profile.');
+    }
+
     const previewResults = [];
     const unallocatedStocks = [];
     const detailedAllocations = [];
@@ -151,8 +155,8 @@ const calculateFifoAllocation = (
                 }
 
                 const updatedFulfilled = currentFulfilled + qtyToAdd;
-                const fulfillmentRatio = planQty > 0 ? (updatedFulfilled / planQty) * 100 : 0;
-                const isClosed = fulfillmentRatio >= AUTO_CLOSE_THRESHOLD_PERCENT;
+                const poRatio = planQty > 0 ? (updatedFulfilled / planQty) : 0;
+                const isClosed = poRatio >= poTolerance;
                 const rowStatus = isClosed ? 'Close' : 'Open';
 
                 detailedAllocations.push({
@@ -173,7 +177,7 @@ const calculateFifoAllocation = (
                     rawExcelQty: excelQty,
                     addedAllocatedQty: qtyToAdd,
                     newFulfilledQty: updatedFulfilled,
-                    fulfillmentPercentage: fulfillmentRatio.toFixed(1),
+                    fulfillmentPercentage: (poRatio * 100).toFixed(1),
                     status: rowStatus,
                     plan_production_date: alloc.plan_production_date
                 };
@@ -227,6 +231,5 @@ const calculateFifoAllocation = (
 
 module.exports = {
     parseProductionExcel,
-    calculateFifoAllocation,
-    AUTO_CLOSE_THRESHOLD_PERCENT
+    calculateFifoAllocation
 };

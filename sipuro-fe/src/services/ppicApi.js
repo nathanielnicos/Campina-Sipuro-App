@@ -5,7 +5,7 @@ import { API_BASE_URL } from './config';
 
 export const fetchUnassignedSummary = async (page = 1, limit = 10, filters = {}) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/ppic/unassigned-summary`, {
+        const response = await axios.get(`${API_BASE_URL}/batch/unassigned-summary`, {
             params: { page, limit, ...filters }
         });
         return response.data;
@@ -17,7 +17,7 @@ export const fetchUnassignedSummary = async (page = 1, limit = 10, filters = {})
 
 export const fetchBatchesBySku = async (id_product) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/ppic/batches-by-sku/${id_product}`);
+        const response = await axios.get(`${API_BASE_URL}/batch/batches-by-sku/${id_product}`);
         return response.data;
     } catch (error) {
         console.error('Error fetching batches by SKU:', error);
@@ -27,7 +27,7 @@ export const fetchBatchesBySku = async (id_product) => {
 
 export const assignBatchBulk = async (payload) => {
     try {
-        const response = await axios.post(`${API_BASE_URL}/ppic/assign-batch-bulk`, payload);
+        const response = await axios.post(`${API_BASE_URL}/batch/assign-batch-bulk`, payload);
         return response.data;
     } catch (error) {
         console.error('Error assigning batch bulk:', error);
@@ -37,7 +37,7 @@ export const assignBatchBulk = async (payload) => {
 
 export const fetchBatchMapping = async (page = 1, limit = 10, filters = {}) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/ppic/batch-mapping`, {
+        const response = await axios.get(`${API_BASE_URL}/batch/batch-mapping`, {
             params: { page, limit, ...filters }
         });
         return response.data;
@@ -66,7 +66,7 @@ export const fetchUnallocatedStocks = async (page = 1, limit = 10, searchStock =
             if (prodDate) params.prodDate = prodDate;
         }
 
-        const response = await axios.get(`${API_BASE_URL}/ppic/unallocated`, { params });
+        const response = await axios.get(`${API_BASE_URL}/batch/unallocated`, { params });
         return response.data;
     } catch (error) {
         console.error('Error fetching unallocated stocks:', error);
@@ -76,7 +76,7 @@ export const fetchUnallocatedStocks = async (page = 1, limit = 10, searchStock =
 
 export const fetchOpenAllocationsByProduct = async (productId) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/batches/open-allocations/${productId}`);
+        const response = await axios.get(`${API_BASE_URL}/batch/open-allocations/${productId}`);
         return response.data;
     } catch (error) {
         console.error('Error fetching open allocations:', error);
@@ -86,7 +86,7 @@ export const fetchOpenAllocationsByProduct = async (productId) => {
 
 export const reallocateStockApi = async (payload) => {
     try {
-        const response = await axios.post(`${API_BASE_URL}/ppic/reallocate`, payload);
+        const response = await axios.post(`${API_BASE_URL}/batch/reallocate`, payload);
         return response.data;
     } catch (error) {
         console.error('Error reallocating stock:', error);
@@ -98,7 +98,7 @@ export const reallocateStockApi = async (payload) => {
 
 export const exportBatchExcelApi = async (params) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/ppic/export-batch-excel`, {
+        const response = await axios.get(`${API_BASE_URL}/batch/export-batch-excel`, {
             params,
             responseType: 'blob'
         });

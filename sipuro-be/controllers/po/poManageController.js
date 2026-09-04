@@ -1,5 +1,6 @@
 const { sipuroDb } = require('../../config/db');
 const { createNotification } = require('../../helpers/notificationHelper');
+const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
 
 const calculateBaseQty = (qty, uom, product) => {
     const uppercaseUom = (uom || '').toUpperCase();
@@ -14,6 +15,9 @@ const calculateBaseQty = (qty, uom, product) => {
     return qty;
 };
 
+/**
+ * 1. CREATE PO
+ */
 exports.createPO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
@@ -54,15 +58,11 @@ exports.createPO = async (req, res) => {
         );
 
         let nextSeq = 1;
-
         if (lastPoRows.length > 0 && lastPoRows[0].po_number) {
             const lastPoNumber = lastPoRows[0].po_number;
             const parts = lastPoNumber.split('/');
             const lastSeq = parseInt(parts[0], 10);
-
-            if (!isNaN(lastSeq)) {
-                nextSeq = lastSeq + 1;
-            }
+            if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
         }
 
         const formattedSeq = String(nextSeq).padStart(3, '0');
@@ -77,28 +77,51 @@ exports.createPO = async (req, res) => {
 
         await connection.beginTransaction();
 
+        // Insert Header
         const [headerResult] = await connection.query(
             `INSERT INTO sipuro_db.po_headers (po_number, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address, description, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Waiting for Confirmation')`,
             [poNumber, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription]
         );
 
         const poHeaderId = headerResult.insertId;
-        const detailValues = items.map(item => {
+        const insertedDetails = [];
+
+        // Insert Details & Simpan ID untuk Log
+        for (const item of items) {
             const unitPrice = parseFloat(item.unit_price !== undefined ? item.unit_price : item.base_price) || 0;
             const qty = parseInt(item.qty) || 0;
             const totalPrice = item.total_price !== undefined ? parseFloat(item.total_price) : (unitPrice * qty);
             const selectedUom = item.selected_uom || item.uom || item.base_uom || 'PCS';
-
             const product = productMap.get(item.id_product);
             const baseQty = calculateBaseQty(qty, selectedUom, product);
 
-            return [poHeaderId, item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null];
+            const [detailRes] = await connection.query(
+                `INSERT INTO sipuro_db.po_details (po_header_id, id_product, qty, base_qty, uom, base_price, total_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [poHeaderId, item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null]
+            );
+
+            insertedDetails.push({
+                po_detail_id: detailRes.insertId,
+                id_product: item.id_product,
+                old_qty: 0,
+                new_qty: qty,
+                old_base_qty: 0,
+                new_base_qty: baseQty,
+                old_total_price: 0,
+                new_total_price: totalPrice
+            });
+        }
+
+        // Catat Audit Trail LOG CREATE
+        const poHeaderLogId = await logPOHeader(connection, {
+            poHeaderId,
+            actionType: 'CREATE',
+            oldStatus: null,
+            newStatus: 'Waiting for Confirmation',
+            actionBy: customer_id
         });
 
-        await connection.query(
-            `INSERT INTO sipuro_db.po_details (po_header_id, id_product, qty, base_qty, uom, base_price, total_price, notes) VALUES ?`,
-            [detailValues]
-        );
+        await logPODetails(connection, poHeaderLogId, insertedDetails);
 
         await connection.commit();
 
@@ -122,6 +145,9 @@ exports.createPO = async (req, res) => {
     }
 };
 
+/**
+ * 2. UPDATE PO (REVISI QTY ITEM)
+ */
 exports.updatePO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
@@ -143,6 +169,13 @@ exports.updatePO = async (req, res) => {
         if (poData.status !== 'Waiting for Confirmation') {
             return res.status(400).json({ success: false, message: 'PO tidak dapat diubah karena status bukan "Waiting for Confirmation".' });
         }
+
+        // Fetch Data Eksisting untuk Pembanding Log
+        const [existingDetails] = await connection.query(
+            `SELECT po_detail_id, id_product, qty, base_qty, total_price FROM sipuro_db.po_details WHERE po_header_id = ? AND deleted_at IS NULL`,
+            [id]
+        );
+        const existingMap = new Map(existingDetails.map(row => [row.po_detail_id, row]));
 
         const [profileRows] = await sipuroDb.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
         const ppn_percent = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
@@ -169,13 +202,28 @@ exports.updatePO = async (req, res) => {
             [subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription, id]
         );
 
-        const [existingDetails] = await connection.query(`SELECT po_detail_id FROM sipuro_db.po_details WHERE po_header_id = ? AND deleted_at IS NULL`, [id]);
         const existingIds = existingDetails.map(row => row.po_detail_id);
         const payloadDetailIds = items.map(item => item.po_detail_id).filter(Boolean);
 
+        // Soft Delete Item yang Dihapus & Catat Log
+        const detailLogsToSave = [];
         const idsToDelete = existingIds.filter(detailId => !payloadDetailIds.includes(detailId));
+
         if (idsToDelete.length > 0) {
             await connection.query(`UPDATE sipuro_db.po_details SET deleted_at = NOW() WHERE po_detail_id IN (?)`, [idsToDelete]);
+            for (const delId of idsToDelete) {
+                const oldItem = existingMap.get(delId);
+                detailLogsToSave.push({
+                    po_detail_id: delId,
+                    id_product: oldItem.id_product,
+                    old_qty: oldItem.qty,
+                    new_qty: 0,
+                    old_base_qty: oldItem.base_qty,
+                    new_base_qty: 0,
+                    old_total_price: oldItem.total_price,
+                    new_total_price: 0
+                });
+            }
         }
 
         for (const item of items) {
@@ -183,22 +231,59 @@ exports.updatePO = async (req, res) => {
             const qty = parseInt(item.qty) || 0;
             const totalPrice = item.total_price !== undefined ? parseFloat(item.total_price) : (unitPrice * qty);
             const selectedUom = item.selected_uom || item.uom || item.base_uom || 'PCS';
-
             const product = productMap.get(item.id_product);
             const baseQty = calculateBaseQty(qty, selectedUom, product);
 
-            if (item.po_detail_id && existingIds.includes(item.po_detail_id)) {
+            if (item.po_detail_id && existingMap.has(item.po_detail_id)) {
+                const oldItem = existingMap.get(item.po_detail_id);
+
+                // Catat Log jika ada Perubahan Nilai
+                if (oldItem.qty !== qty || oldItem.total_price !== totalPrice) {
+                    detailLogsToSave.push({
+                        po_detail_id: item.po_detail_id,
+                        id_product: item.id_product,
+                        old_qty: oldItem.qty,
+                        new_qty: qty,
+                        old_base_qty: oldItem.base_qty,
+                        new_base_qty: baseQty,
+                        old_total_price: oldItem.total_price,
+                        new_total_price: totalPrice
+                    });
+                }
+
                 await connection.query(
                     `UPDATE sipuro_db.po_details SET id_product = ?, qty = ?, base_qty = ?, uom = ?, base_price = ?, total_price = ?, notes = ? WHERE po_detail_id = ?`,
                     [item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null, item.po_detail_id]
                 );
             } else {
-                await connection.query(
+                const [newDet] = await connection.query(
                     `INSERT INTO sipuro_db.po_details (po_header_id, id_product, qty, base_qty, uom, base_price, total_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                     [id, item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null]
                 );
+
+                detailLogsToSave.push({
+                    po_detail_id: newDet.insertId,
+                    id_product: item.id_product,
+                    old_qty: 0,
+                    new_qty: qty,
+                    old_base_qty: 0,
+                    new_base_qty: baseQty,
+                    old_total_price: 0,
+                    new_total_price: totalPrice
+                });
             }
         }
+
+        // Catat Audit Trail UPDATE_QTY
+        const poHeaderLogId = await logPOHeader(connection, {
+            poHeaderId: id,
+            actionType: 'UPDATE_QTY',
+            oldStatus: poData.status,
+            newStatus: poData.status,
+            actionBy: updated_by || poData.customer_id
+        });
+
+        await logPODetails(connection, poHeaderLogId, detailLogsToSave);
 
         await connection.commit();
 
@@ -222,12 +307,16 @@ exports.updatePO = async (req, res) => {
     }
 };
 
+/**
+ * 3. CANCEL PO
+ */
 exports.cancelPO = async (req, res) => {
+    const connection = await sipuroDb.getConnection();
     try {
         const { id } = req.params;
-        const { canceled_by } = req.body;
+        const { canceled_by, reason } = req.body;
 
-        const [checkRows] = await sipuroDb.query(
+        const [checkRows] = await connection.query(
             `SELECT h.po_number, h.status, h.customer_id, c.company_name 
              FROM sipuro_db.po_headers h
              LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id 
@@ -241,7 +330,21 @@ exports.cancelPO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'PO tidak dapat dibatalkan karena status bukan "Waiting for Confirmation".' });
         }
 
-        await sipuroDb.query(`UPDATE sipuro_db.po_headers SET status = 'Canceled' WHERE po_header_id = ?`, [id]);
+        await connection.beginTransaction();
+
+        await connection.query(`UPDATE sipuro_db.po_headers SET status = 'Canceled' WHERE po_header_id = ?`, [id]);
+
+        // Catat Audit Trail CANCEL
+        await logPOHeader(connection, {
+            poHeaderId: id,
+            actionType: 'CANCEL',
+            oldStatus: poData.status,
+            newStatus: 'Canceled',
+            actionBy: canceled_by || poData.customer_id,
+            reason: reason || null
+        });
+
+        await connection.commit();
 
         await createNotification({
             title: 'PO Dibatalkan',
@@ -255,12 +358,19 @@ exports.cancelPO = async (req, res) => {
 
         res.json({ success: true, message: 'Purchase Order berhasil dibatalkan.' });
     } catch (error) {
+        await connection.rollback();
         console.error('Error cancelling PO:', error);
         res.status(500).json({ success: false, message: 'Gagal membatalkan Purchase Order', error: error.message });
+    } finally {
+        connection.release();
     }
 };
 
+/**
+ * 4. APPROVE / REJECT PO (UPDATE STATUS)
+ */
 exports.updatePOStatus = async (req, res) => {
+    const connection = await sipuroDb.getConnection();
     try {
         const { id } = req.params;
         const { status, notes, updated_by } = req.body;
@@ -272,21 +382,36 @@ exports.updatePOStatus = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Alasan penolakan wajib diisi (maksimal 50 karakter).' });
         }
 
-        const [poRows] = await sipuroDb.query(
-            `SELECT po_number, customer_id FROM sipuro_db.po_headers WHERE po_header_id = ?`,
+        const [poRows] = await connection.query(
+            `SELECT po_number, customer_id, status FROM sipuro_db.po_headers WHERE po_header_id = ?`,
             [id]
         );
 
         if (poRows.length === 0) return res.status(404).json({ success: false, message: 'Data PO tidak ditemukan.' });
 
         const targetPo = poRows[0];
+        const actionType = status === 'Rejected' ? 'REJECT' : (status === 'Waiting Batch Assignment' ? 'APPROVE' : 'STATUS_AUTO_CHANGE');
 
-        const query = `
-            UPDATE sipuro_db.po_headers 
-            SET status = ?, rejection_reason = ?, confirmed_by = ?, confirmed_at = NOW() 
-            WHERE po_header_id = ?
-        `;
-        await sipuroDb.query(query, [status, safeNotes, updated_by || null, id]);
+        await connection.beginTransaction();
+
+        await connection.query(
+            `UPDATE sipuro_db.po_headers 
+             SET status = ?, rejection_reason = ?, confirmed_by = ?, confirmed_at = NOW() 
+             WHERE po_header_id = ?`,
+            [status, safeNotes, updated_by || null, id]
+        );
+
+        // Catat Audit Trail APPROVE/REJECT
+        await logPOHeader(connection, {
+            poHeaderId: id,
+            actionType,
+            oldStatus: targetPo.status,
+            newStatus: status,
+            actionBy: updated_by || null,
+            reason: safeNotes
+        });
+
+        await connection.commit();
 
         const isApproved = status === 'Waiting Batch Assignment';
         const notifTitle = isApproved ? 'PO Diterima' : 'PO Ditolak';
@@ -304,7 +429,10 @@ exports.updatePOStatus = async (req, res) => {
 
         res.json({ success: true, message: `Status PO berhasil diperbarui menjadi ${status}.` });
     } catch (error) {
+        await connection.rollback();
         console.error('Error updating PO status:', error);
         res.status(500).json({ success: false, message: 'Gagal memperbarui status PO.', error: error.message });
+    } finally {
+        connection.release();
     }
 };
