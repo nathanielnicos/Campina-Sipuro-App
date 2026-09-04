@@ -180,7 +180,7 @@ exports.assignBatchBulk = async (req, res) => {
             );
             if (existingBatch.length === 0 || existingBatch[0].status !== 'Open') {
                 await connection.rollback();
-                return res.status(400).json({ success: false, message: 'Batch eksisting tidak ditemukan atau sudah Close.' });
+                return res.status(400).json({ success: false, message: 'Batch eksisting tidak ditemukan atau sudah Closed.' });
             }
             targetId = existingBatch[0].id;
             finalBatchNumber = existingBatch[0].batch_number;

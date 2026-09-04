@@ -68,7 +68,7 @@ const ProductionPreviewModal = ({
     };
 
     const renderAllocationStatusBadge = (status) => {
-        const isClosed = String(status).toLowerCase() === 'close' || String(status).toLowerCase() === 'closed';
+        const isClosed = String(status).toLowerCase() === 'closed';
         return (
             <span style={{
                 padding: '2px 8px',

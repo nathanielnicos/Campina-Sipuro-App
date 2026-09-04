@@ -329,7 +329,7 @@ const BatchMappingTable = ({
                     >
                         <option value="">Semua Status</option>
                         <option value="Open">Open</option>
-                        <option value="Close">Close</option>
+                        <option value="Closed">Closed</option>
                     </select>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>

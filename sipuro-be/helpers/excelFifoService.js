@@ -157,7 +157,7 @@ const calculateFifoAllocation = (
                 const updatedFulfilled = currentFulfilled + qtyToAdd;
                 const poRatio = planQty > 0 ? (updatedFulfilled / planQty) : 0;
                 const isClosed = poRatio >= poTolerance;
-                const rowStatus = isClosed ? 'Close' : 'Open';
+                const rowStatus = isClosed ? 'Closed' : 'Open';
 
                 detailedAllocations.push({
                     allocationId: alloc.id_allocation,

@@ -147,7 +147,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
         // C. TINGKAT 1: Cek Toleransi PO Dinamis dari Database company_profile
         const poTolerance = await getPOTolerance(connection);
         const poRatio = targetAlloc.allocated_qty > 0 ? (newFulfilledQty / targetAlloc.allocated_qty) : 0;
-        const newAllocStatus = poRatio >= poTolerance ? 'Close' : 'Open';
+        const newAllocStatus = poRatio >= poTolerance ? 'Closed' : 'Open';
 
         await connection.query(
             'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ?, updated_by = ? WHERE id = ?',
@@ -184,7 +184,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
         );
 
         const openCount = remainingOpenAllocations[0]?.openCount || 0;
-        const newBatchStatus = openCount === 0 ? 'Close' : 'Open';
+        const newBatchStatus = openCount === 0 ? 'Closed' : 'Open';
 
         await connection.query(
             'UPDATE batches SET status = ?, updated_by = ? WHERE id = ?',

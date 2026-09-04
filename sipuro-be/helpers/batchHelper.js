@@ -66,7 +66,7 @@ async function refreshPOStatus(connection, poHeaderId) {
     if (!isFullyAssigned) {
         targetStatus = 'Waiting for Batch Assignment';
     } else {
-        // D. Jika Pembuatan Batch SUDAH LENGKAP (100%), Cek Status Pemenuhan Aktual (Open vs Close)
+        // D. Jika Pembuatan Batch SUDAH LENGKAP (100%), Cek Status Pemenuhan Aktual (Open vs Closed)
         const [openAllocations] = await connection.query(`
             SELECT pba.id
             FROM sipuro_db.po_batch_allocations pba

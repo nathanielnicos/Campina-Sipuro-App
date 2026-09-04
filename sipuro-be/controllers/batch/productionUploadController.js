@@ -157,7 +157,7 @@ exports.commitExcelAllocation = async (req, res) => {
             );
             if (openRows.length === 0) {
                 await connection.query(
-                    "UPDATE batches SET status = 'Close', updated_by = ? WHERE id = ?",
+                    "UPDATE batches SET status = 'Closed', updated_by = ? WHERE id = ?",
                     [currentUserId, bId]
                 );
             }
