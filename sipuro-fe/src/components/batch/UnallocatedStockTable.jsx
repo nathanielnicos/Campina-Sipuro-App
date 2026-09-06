@@ -1,21 +1,24 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PaginationControl from '../common/PaginationControl';
-import { fetchOpenAllocationsByProduct, reallocateStockApi } from '../../services/ppicApi';
+import { fetchUnallocatedStocks, fetchOpenAllocationsByProduct, reallocateStockApi } from '../../services/batchApi';
 import { formatDate, formatQty } from '../../utils/formatters';
 
-const UnallocatedStockTable = ({
-    currentUser,
-    unallocatedList = [],
-    pagination = {},
-    onPageChange,
-    onLimitChange,
-    onRefresh,
-    searchStock,
-    setSearchStock,
-    prodDate,
-    setProdDate,
-    onResetFilters
-}) => {
+const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
+    // State Data, Loading, Error
+    const [unallocatedList, setUnallocatedList] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    // State Filter
+    const [searchStock, setSearchStock] = useState('');
+    const [prodDate, setProdDate] = useState('');
+
+    // State Pagination
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
+
+    // State Modal Alokasi
     const [selectedStock, setSelectedStock] = useState(null);
     const [openAllocations, setOpenAllocations] = useState([]);
     const [targetAllocId, setTargetAllocId] = useState('');
@@ -23,18 +26,55 @@ const UnallocatedStockTable = ({
     const [loadingAlloc, setLoadingAlloc] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
+    // Fetch Data API Lebihan Stok
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const filters = { search: searchStock, prodDate };
+            const res = await fetchUnallocatedStocks(page, limit, filters);
+            if (res && res.success) {
+                setUnallocatedList(res.data || []);
+                if (res.pagination) {
+                    setPagination({
+                        currentPage: Number(res.pagination.currentPage) || 1,
+                        totalPages: Number(res.pagination.totalPages) || 1,
+                        totalItems: Number(res.pagination.totalItems) || 0,
+                        limit: Number(res.pagination.limit) || 10
+                    });
+                }
+            } else {
+                setError(res?.message || 'Gagal mengambil data stok lebihan.');
+            }
+        } catch (err) {
+            setError('Terjadi kesalahan saat memuat data.');
+        } finally {
+            setLoading(false);
+        }
+    }, [page, limit, searchStock, prodDate]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData, reloadTrigger]);
+
+    // Handlers Filter
     const handleStockSearchChange = (e) => {
         setSearchStock(e.target.value);
-        if (onPageChange) onPageChange(1);
+        setPage(1);
     };
 
     const handleProdDateChange = (e) => {
         setProdDate(e.target.value);
-        if (onPageChange) onPageChange(1);
+        setPage(1);
     };
 
-    const isFilterActive = Boolean(searchStock || prodDate);
+    const handleResetFilters = () => {
+        setSearchStock('');
+        setProdDate('');
+        setPage(1);
+    };
 
+    // Handlers Modal & Reallocate
     const handleOpenModal = async (stock) => {
         setSelectedStock(stock);
         setQtyToAllocate(stock.qty_available);
@@ -64,7 +104,6 @@ const UnallocatedStockTable = ({
         if (!inputQty || inputQty <= 0) return alert('Qty alokasi harus lebih dari 0');
         if (inputQty > selectedStock.qty_available) return alert('Qty alokasi melebihi stok lebihan yang tersedia!');
 
-        // Konfirmasi konfirmasi sebelum menyimpan alokasi stok lebihan
         if (!window.confirm('Apakah Anda yakin ingin memindahkan stok lebihan ini ke batch/PO target yang dipilih?')) {
             return;
         }
@@ -85,14 +124,33 @@ const UnallocatedStockTable = ({
         if (res && res.success) {
             alert(res.message);
             handleCloseModal();
-            onRefresh();
+            loadData(); // Reload data lokal tab 3
+            if (onRefreshAll) onRefreshAll(); // Trigger reload ke tab lain jika diperlukan
         } else {
             alert('Gagal Alokasi: ' + (res?.message || 'Terjadi kesalahan.'));
         }
     };
 
+    const isFilterActive = Boolean(searchStock || prodDate);
+
     return (
-        <div>
+        <div style={{ position: 'relative', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+            {loading && (
+                <div style={{
+                    position: 'absolute',
+                    top: -25,
+                    right: 10,
+                    fontSize: '12px',
+                    color: '#0d6efd',
+                    fontWeight: 'bold',
+                    zIndex: 10
+                }}>
+                    Memuat data...
+                </div>
+            )}
+
+            {error && <div style={{ color: 'red', marginBottom: '16px' }}>{error}</div>}
+
             {/* Filter Bar Tab 3 */}
             <div style={{
                 backgroundColor: '#fff',
@@ -110,7 +168,7 @@ const UnallocatedStockTable = ({
                     <input
                         type="text"
                         placeholder="Contoh: BAT260824003"
-                        value={searchStock || ''}
+                        value={searchStock}
                         onChange={handleStockSearchChange}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
                     />
@@ -119,14 +177,14 @@ const UnallocatedStockTable = ({
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Tgl Produksi</label>
                     <input
                         type="date"
-                        value={prodDate || ''}
+                        value={prodDate}
                         onChange={handleProdDateChange}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
                     />
                 </div>
                 <div>
                     <button
-                        onClick={onResetFilters}
+                        onClick={handleResetFilters}
                         disabled={!isFilterActive}
                         style={{
                             width: '100%',
@@ -195,8 +253,11 @@ const UnallocatedStockTable = ({
 
                 <PaginationControl
                     pagination={pagination}
-                    onPageChange={onPageChange}
-                    onLimitChange={onLimitChange}
+                    onPageChange={(newPage) => setPage(newPage)}
+                    onLimitChange={(newLimit) => {
+                        setLimit(newLimit);
+                        setPage(1);
+                    }}
                 />
 
                 {/* Modal Alokasi Stok */}

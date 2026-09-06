@@ -1,4 +1,3 @@
-import React from 'react';
 import NotificationBell from './NotificationBell';
 import { ROLE_PERMISSIONS } from '../../config/navigationConfig';
 

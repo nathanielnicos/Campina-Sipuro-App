@@ -1,5 +1,3 @@
-import React from 'react';
-
 const PaginationControl = ({
     pagination = { currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 },
     onPageChange,

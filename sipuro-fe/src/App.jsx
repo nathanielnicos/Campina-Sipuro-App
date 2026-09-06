@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import POList from './components/po/POList';
 import POCreateModal from './components/po/create-modal/POCreateModal';
-import PPICBatchAllocationPage from './components/ppic/PPICBatchAllocationPage';
+import BatchPage from './components/batch/BatchPage';
 import Dashboard from './components/dashboard/Dashboard';
 
 import EmployeeListPage from './components/superadmin/EmployeeListPage';
@@ -94,7 +94,7 @@ function App() {
 
       {/* RENDER PPIC */}
       {activeTab === 'ppic-dashboard' && user.role === 'PPIC' && <Dashboard />}
-      {activeTab === 'ppic-batch' && user.role === 'PPIC' && <PPICBatchAllocationPage currentUser={user} />}
+      {activeTab === 'ppic-batch' && user.role === 'PPIC' && <BatchPage currentUser={user} />}
 
       {/* RENDER PO */}
       {activeTab === 'po-list' && (

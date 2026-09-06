@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getUnreadCount, getNotifications, markAsRead } from '../../services/notificationApi';
 import { ROLE_PERMISSIONS } from '../../config/navigationConfig';
 

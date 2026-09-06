@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
     const [activeTab, setActiveTab] = useState('ALL');

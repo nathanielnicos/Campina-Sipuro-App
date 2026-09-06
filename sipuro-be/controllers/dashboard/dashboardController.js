@@ -1,6 +1,6 @@
 const { sipuroDb } = require('../../config/db');
 
-// Statistik Dashboard PPIC
+// Statistik Dashboard
 exports.getDashboardStats = async (req, res) => {
     try {
         const { mode = 'YTD', startDate, endDate, selectedYear, selectedMonth } = req.query;
@@ -118,7 +118,7 @@ exports.getDashboardStats = async (req, res) => {
             data: { monthlyStats, statusStats, topProducts }
         });
     } catch (error) {
-        console.error('Error fetching PPIC dashboard stats:', error);
+        console.error('Error fetching dashboard stats:', error);
         res.status(500).json({ success: false, message: 'Gagal mengambil data statistik dasbor.', error: error.message });
     }
 };

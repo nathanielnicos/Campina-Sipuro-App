@@ -1,4 +1,3 @@
-import React from 'react';
 import { getStatusStyle } from '../../utils/statusHelper';
 import { formatCurrency, formatDate, formatQty } from '../../utils/formatters';
 

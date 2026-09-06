@@ -1,4 +1,3 @@
-import React from 'react';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import { usePOModal } from './usePOModal';
 import POFormHeader from './POFormHeader';

@@ -1,34 +1,189 @@
-import React from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import {
+    fetchUnassignedSummary,
+    fetchBatchesBySku,
+    assignBatchBulk
+} from '../../services/batchApi';
 import { formatQty } from '../../utils/formatters';
 import PaginationControl from '../common/PaginationControl';
+import BatchAllocationModal from './BatchAllocationModal';
 
-const PendingSkuTable = ({
-    summaryList = [],
-    onOpenModal,
-    pagination = {},
-    onPageChange,
-    onLimitChange,
-    searchProduct,
-    setSearchProduct,
-    searchPo,
-    setSearchPo,
-    onResetFilters
-}) => {
+const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
+    const currentUserId = currentUser?.employee_id || currentUser?.id;
+
+    // State internal untuk Data, Loading, & Error
+    const [summaryList, setSummaryList] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    // State internal Filter
+    const [searchProduct, setSearchProduct] = useState('');
+    const [searchPo, setSearchPo] = useState('');
+
+    // State internal Pagination
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
+
+    // State internal Modal Alokasi Batch
+    const [selectedSku, setSelectedSku] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [allocationMode, setAllocationMode] = useState('');
+    const [existingBatches, setExistingBatches] = useState([]);
+    const [selectedBatchId, setSelectedBatchId] = useState('');
+    const [allocatedQty, setAllocatedQty] = useState('');
+    const [batchCode, setBatchCode] = useState('');
+    const [productionDate, setProductionDate] = useState('');
+    const [expiredDate, setExpiredDate] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    // Fungsi Fetch Data API
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const filters = { searchProduct, searchPo };
+            const res = await fetchUnassignedSummary(page, limit, filters);
+            if (res && res.success) {
+                setSummaryList(res.data || []);
+                if (res.pagination) {
+                    setPagination({
+                        currentPage: Number(res.pagination.currentPage) || 1,
+                        totalPages: Number(res.pagination.totalPages) || 1,
+                        totalItems: Number(res.pagination.totalItems) || 0,
+                        limit: Number(res.pagination.limit) || 10
+                    });
+                }
+            } else {
+                setError(res?.message || 'Gagal mengambil data rekap kebutuhan batch.');
+            }
+        } catch (err) {
+            setError('Terjadi kesalahan saat memuat data.');
+        } finally {
+            setLoading(false);
+        }
+    }, [page, limit, searchProduct, searchPo]);
+
+    // Re-fetch saat filter, page, limit, atau reloadTrigger berubah
+    useEffect(() => {
+        loadData();
+    }, [loadData, reloadTrigger]);
+
+    // Handler Filter
     const handleProductChange = (e) => {
         setSearchProduct(e.target.value);
-        if (onPageChange) onPageChange(1);
+        setPage(1);
     };
 
     const handlePoChange = (e) => {
         setSearchPo(e.target.value);
-        if (onPageChange) onPageChange(1);
+        setPage(1);
+    };
+
+    const handleResetFilters = () => {
+        setSearchProduct('');
+        setSearchPo('');
+        setPage(1);
+    };
+
+    // Handler Modal Alokasi Batch
+    const handleOpenModal = async (sku) => {
+        setSelectedSku(sku);
+        setAllocatedQty(sku.total_qty_needed);
+        setAllocationMode('');
+        setSelectedBatchId('');
+        setBatchCode('');
+        setProductionDate(new Date().toISOString().split('T')[0]);
+        setExpiredDate('');
+
+        const res = await fetchBatchesBySku(sku.id_product);
+        if (res && res.success) {
+            setExistingBatches(res.data || []);
+        } else {
+            setExistingBatches([]);
+        }
+
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setSelectedSku(null);
+    };
+
+    const handleSelectBatchExisting = (e) => {
+        const batchId = e.target.value;
+        setSelectedBatchId(batchId);
+        const found = existingBatches.find(b => String(b.id_batch) === String(batchId));
+        if (found) {
+            setBatchCode(found.batch_number);
+            setProductionDate(found.plan_production_date ? found.plan_production_date.split('T')[0] : '');
+            setExpiredDate(found.expired_date ? found.expired_date.split('T')[0] : '');
+        } else {
+            setBatchCode('');
+            setProductionDate('');
+            setExpiredDate('');
+        }
+    };
+
+    const handleSubmitBatch = async (e) => {
+        e.preventDefault();
+
+        if (!allocationMode) return alert('Silakan pilih opsi alokasi!');
+
+        const inputQty = Number(allocatedQty);
+        if (!inputQty || inputQty <= 0) return alert('Qty alokasi harus lebih besar dari 0!');
+        if (inputQty > selectedSku.total_qty_needed) return alert(`Qty input (${inputQty}) melebihi total sisa kebutuhan (${selectedSku.total_qty_needed})!`);
+
+        if (allocationMode === 'NEW' && (!batchCode || !productionDate)) return alert('Nomor Batch dan Tanggal Produksi wajib diisi!');
+        if (allocationMode === 'EXISTING' && !selectedBatchId) return alert('Silakan pilih batch eksisting!');
+
+        const payload = {
+            id_product: selectedSku.id_product,
+            allocation_mode: allocationMode,
+            selected_batch_id: selectedBatchId || null,
+            batch_number: batchCode,
+            plan_production_date: productionDate,
+            expired_date: expiredDate || null,
+            allocated_qty: inputQty,
+            created_by: currentUserId
+        };
+
+        setSubmitting(true);
+        const res = await assignBatchBulk(payload);
+        setSubmitting(false);
+
+        if (res && res.success) {
+            alert(res.message);
+            handleCloseModal();
+            loadData();
+            if (onRefreshAll) onRefreshAll(); // Beri tahu parent untuk trigger reload tab lain jika perlu
+        } else {
+            alert('Gagal: ' + (res?.message || 'Terjadi kesalahan saat mengalokasikan batch.'));
+        }
     };
 
     const isFilterActive = Boolean(searchProduct || searchPo);
     const isPoFilterActive = Boolean(searchPo && searchPo.trim() !== '');
 
     return (
-        <div>
+        <div style={{ position: 'relative', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+            {loading && (
+                <div style={{
+                    position: 'absolute',
+                    top: -25,
+                    right: 10,
+                    fontSize: '12px',
+                    color: '#0d6efd',
+                    fontWeight: 'bold',
+                    zIndex: 10
+                }}>
+                    Memuat data...
+                </div>
+            )}
+
+            {error && <div style={{ color: 'red', marginBottom: '16px' }}>{error}</div>}
+
             {/* Filter Bar Tab 1 */}
             <div style={{
                 backgroundColor: '#fff',
@@ -63,7 +218,7 @@ const PendingSkuTable = ({
                 </div>
                 <div>
                     <button
-                        onClick={onResetFilters}
+                        onClick={handleResetFilters}
                         disabled={!isFilterActive}
                         style={{
                             width: '100%',
@@ -157,7 +312,7 @@ const PendingSkuTable = ({
 
                                             <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
                                                 <button
-                                                    onClick={() => onOpenModal(row)}
+                                                    onClick={() => handleOpenModal(row)}
                                                     disabled={isPoFilterActive}
                                                     title={isPoFilterActive ? "Reset filter No PO untuk alokasi batch" : ""}
                                                     style={{
@@ -187,10 +342,35 @@ const PendingSkuTable = ({
 
                 <PaginationControl
                     pagination={pagination}
-                    onPageChange={onPageChange}
-                    onLimitChange={onLimitChange}
+                    onPageChange={(newPage) => setPage(newPage)}
+                    onLimitChange={(newLimit) => {
+                        setLimit(newLimit);
+                        setPage(1);
+                    }}
                 />
             </div>
+
+            {/* Modal Alokasi Batch */}
+            <BatchAllocationModal
+                isOpen={isModalOpen}
+                selectedSku={selectedSku}
+                allocatedQty={allocatedQty}
+                setAllocatedQty={setAllocatedQty}
+                allocationMode={allocationMode}
+                setAllocationMode={setAllocationMode}
+                existingBatches={existingBatches}
+                selectedBatchId={selectedBatchId}
+                batchCode={batchCode}
+                setBatchCode={setBatchCode}
+                productionDate={productionDate}
+                setProductionDate={setProductionDate}
+                expiredDate={expiredDate}
+                setExpiredDate={setExpiredDate}
+                submitting={submitting}
+                onSelectBatchExisting={handleSelectBatchExisting}
+                onSubmit={handleSubmitBatch}
+                onClose={handleCloseModal}
+            />
         </div>
     );
 };

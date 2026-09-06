@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getCustomers, toggleCustomerStatus } from '../../services/superadminApi';
 import PaginationControl from '../common/PaginationControl';
 

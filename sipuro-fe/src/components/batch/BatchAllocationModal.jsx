@@ -1,4 +1,3 @@
-import React from 'react';
 import { formatQty } from '../../utils/formatters';
 
 const BatchAllocationModal = ({

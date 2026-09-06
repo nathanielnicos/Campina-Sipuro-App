@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { loginApi, registerApi } from '../../services/authApi';
 
 function Login({ onLoginSuccess }) {

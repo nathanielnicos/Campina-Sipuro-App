@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getProducts } from '../../services/superadminApi';
 import { previewProductsApi, commitProductsApi } from '../../services/masterUploadApi';
 import UploadPreviewModal from './UploadPreviewModal';

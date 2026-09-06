@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -152,7 +152,7 @@ const Dashboard = () => {
 
     return (
         <div style={styles.container}>
-            <h2 style={styles.title}>Dasbor Perencanaan & Monitoring PPIC</h2>
+            <h2 style={styles.title}>Dasbor Perencanaan & Monitoring</h2>
 
             {/* BARIS 1: Grafik Tren Pesanan vs Realisasi Fulfilled */}
             <div style={{ ...styles.card, marginBottom: '20px' }}>

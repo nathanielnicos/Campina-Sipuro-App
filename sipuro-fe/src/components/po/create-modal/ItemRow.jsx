@@ -1,4 +1,3 @@
-import React from 'react';
 import { formatCurrency, formatQty } from '../../../utils/formatters';
 
 const ItemRow = ({

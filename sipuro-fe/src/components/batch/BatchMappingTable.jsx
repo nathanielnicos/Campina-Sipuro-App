@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { fetchBatchMapping, exportBatchExcelApi } from '../../services/batchApi';
 import { getStatusStyle } from '../../utils/statusHelper';
 import { formatDate, formatQty } from '../../utils/formatters';
 import PaginationControl from '../common/PaginationControl';
-import { exportBatchExcelApi } from '../../services/ppicApi';
 
 const renderActionButton = (po, onUpdateStatus) => {
-    // Tombol hanya aktif jika status alokasi masih Open
     if (po.status !== 'Open' || !po.allocation_id) return '-';
 
     const fulfilled = Number(po.fulfilled_qty) || 0;
@@ -51,46 +50,87 @@ const renderActionButton = (po, onUpdateStatus) => {
     );
 };
 
-const BatchMappingTable = ({
-    mappingList = [],
-    poTolerance,
-    pagination = { currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 },
-    onPageChange,
-    onLimitChange,
-    searchQuery,
-    setSearchQuery,
-    fromDate,
-    setFromDate,
-    toDate,
-    setToDate,
-    batchStatus,
-    setBatchStatus,
-    onResetFilters,
-    onUpdateStatus
-}) => {
+const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
+    // State internal Data, Loading, & Error
+    const [mappingList, setMappingList] = useState([]);
+    const [poTolerance, setPoTolerance] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    // State internal Filter
+    const [searchQuery, setSearchQuery] = useState('');
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
+    const [batchStatus, setBatchStatus] = useState('');
+
+    // State internal Pagination
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
+
+    // View Mode & Export State
     const [viewMode, setViewMode] = useState('BATCH');
     const [exporting, setExporting] = useState(false);
 
+    // Fetch Data API
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const filters = { search: searchQuery, fromDate, toDate, batchStatus };
+            const res = await fetchBatchMapping(page, limit, filters);
+            if (res && res.success) {
+                setMappingList(res.data || []);
+                setPoTolerance(res.poTolerance ?? null);
+                if (res.pagination) {
+                    setPagination({
+                        currentPage: Number(res.pagination.currentPage) || 1,
+                        totalPages: Number(res.pagination.totalPages) || 1,
+                        totalItems: Number(res.pagination.totalItems) || 0,
+                        limit: Number(res.pagination.limit) || 10
+                    });
+                }
+            } else {
+                setError(res?.message || 'Gagal mengambil riwayat mapping batch.');
+            }
+        } catch (err) {
+            setError('Terjadi kesalahan saat memuat data.');
+        } finally {
+            setLoading(false);
+        }
+    }, [page, limit, searchQuery, fromDate, toDate, batchStatus]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData, reloadTrigger]);
+
+    // Handlers
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value);
-        if (onPageChange) onPageChange(1);
+        setPage(1);
     };
-
-    const isFilterActive = Boolean(searchQuery || fromDate || toDate || batchStatus);
 
     const handleFromDateChange = (e) => {
         setFromDate(e.target.value);
-        if (onPageChange) onPageChange(1);
+        setPage(1);
     };
 
     const handleToDateChange = (e) => {
         setToDate(e.target.value);
-        if (onPageChange) onPageChange(1);
+        setPage(1);
     };
 
     const handleStatusChange = (e) => {
         setBatchStatus(e.target.value);
-        if (onPageChange) onPageChange(1);
+        setPage(1);
+    };
+
+    const handleResetFilters = () => {
+        setSearchQuery('');
+        setFromDate('');
+        setToDate('');
+        setBatchStatus('');
+        setPage(1);
     };
 
     const handleExportExcel = async () => {
@@ -107,6 +147,8 @@ const BatchMappingTable = ({
             alert(res.message);
         }
     };
+
+    const isFilterActive = Boolean(searchQuery || fromDate || toDate || batchStatus);
 
     const renderPoView = () => {
         const poMap = {};
@@ -244,7 +286,12 @@ const BatchMappingTable = ({
                                 {batch.status !== '-' ? (
                                     <span style={{
                                         ...getStatusStyle(batch.status),
-                                        padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold'
+                                        padding: '3px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        fontWeight: 'bold',
+                                        whiteSpace: 'nowrap',
+                                        display: 'inline-block'
                                     }}>
                                         {batch.status}
                                     </span>
@@ -349,7 +396,23 @@ const BatchMappingTable = ({
     };
 
     return (
-        <div>
+        <div style={{ position: 'relative', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+            {loading && (
+                <div style={{
+                    position: 'absolute',
+                    top: -25,
+                    right: 10,
+                    fontSize: '12px',
+                    color: '#0d6efd',
+                    fontWeight: 'bold',
+                    zIndex: 10
+                }}>
+                    Memuat data...
+                </div>
+            )}
+
+            {error && <div style={{ color: 'red', marginBottom: '16px' }}>{error}</div>}
+
             {/* Filter Bar Tab 2 */}
             <div style={{
                 backgroundColor: '#fff',
@@ -406,7 +469,7 @@ const BatchMappingTable = ({
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <button
-                        onClick={onResetFilters}
+                        onClick={handleResetFilters}
                         disabled={!isFilterActive}
                         style={{
                             flex: 1,
@@ -531,8 +594,11 @@ const BatchMappingTable = ({
 
                 <PaginationControl
                     pagination={pagination}
-                    onPageChange={onPageChange}
-                    onLimitChange={onLimitChange}
+                    onPageChange={(newPage) => setPage(newPage)}
+                    onLimitChange={(newLimit) => {
+                        setLimit(newLimit);
+                        setPage(1);
+                    }}
                 />
             </div>
         </div>

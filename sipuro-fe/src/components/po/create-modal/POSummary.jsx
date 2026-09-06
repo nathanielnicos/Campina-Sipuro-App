@@ -1,4 +1,3 @@
-import React from 'react';
 import { formatCurrency } from '../../../utils/formatters';
 
 const POSummary = ({ subtotal, ppnPercent, taxAmount, grandTotal, userRole }) => {

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from './config';
 
-// --- ENDPOINT DASHBOARD PPIC ---
+// --- ENDPOINT DASHBOARD ---
 
 export const getDashboardStats = async (
     mode = 'YTD',
@@ -16,7 +16,7 @@ export const getDashboardStats = async (
         });
         return response.data;
     } catch (error) {
-        console.error('Error fetching PPIC dashboard stats:', error);
+        console.error('Error fetching dashboard stats:', error);
         return { success: false, message: error.response?.data?.message || 'Gagal memuat statistik dasbor.' };
     }
 };

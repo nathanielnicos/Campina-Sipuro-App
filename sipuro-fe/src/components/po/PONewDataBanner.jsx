@@ -1,5 +1,3 @@
-import React from 'react';
-
 const PONewDataBanner = ({ show, onRefresh }) => {
     if (!show) return null;
 
