@@ -12,7 +12,7 @@ const ItemRow = ({
     onFocusDropdown,
     onSelectProduct,
     onQtyChange,
-    onUomChange,
+    // onUomChange,
     onRemoveItem,
     isMultipleItems
 }) => {
@@ -63,7 +63,7 @@ const ItemRow = ({
             <td style={{ padding: '12px 16px', position: 'relative' }}>
                 <input
                     type="text"
-                    placeholder={isCustomer ? "Cari Nama Produk..." : "Cari Kode / Nama..."}
+                    placeholder={isCustomer ? "Search product name..." : "Search product code/name..."}
                     value={searchTerm !== undefined ? searchTerm : ''}
                     onFocus={() => onFocusDropdown(index)}
                     onClick={() => onFocusDropdown(index)}
@@ -88,7 +88,7 @@ const ItemRow = ({
                     }}>
                         {filteredProducts.length === 0 ? (
                             <div style={{ padding: '8px 12px', color: '#6c757d', fontSize: '13px' }}>
-                                Produk tidak ditemukan
+                                No products found.
                             </div>
                         ) : (
                             filteredProducts.map(p => (
@@ -135,8 +135,8 @@ const ItemRow = ({
                 ) : (
                     <select
                         value={item.selected_uom}
-                        onChange={(e) => onUomChange(index, e.target.value)}
-                        disabled={isReadOnly}
+                        // onChange={(e) => onUomChange(index, e.target.value)}
+                        disabled
                         style={inputStyle}
                     >
                         {item.base_uom && <option value={item.base_uom}>{item.base_uom}</option>}

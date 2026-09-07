@@ -38,7 +38,7 @@ const BatchPage = ({ currentUser }) => {
     const processExcelUpload = async (fileToUpload) => {
         const actualFile = fileToUpload || (fileInputRef.current && fileInputRef.current.files[0]);
 
-        if (!actualFile) return alert('Silakan pilih file Excel terlebih dahulu!');
+        if (!actualFile) return alert('Please select an Excel file first!');
 
         const formData = new FormData();
         formData.append('file', actualFile);
@@ -53,11 +53,11 @@ const BatchPage = ({ currentUser }) => {
                 setPreviewData(res.data);
                 setIsPreviewOpen(true);
             } else {
-                alert('Upload Gagal: ' + (res?.message || 'Gagal memproses file.'));
+                alert('Upload failed: ' + (res?.message || 'Failed to process file.'));
             }
         } catch (err) {
             setUploading(false);
-            alert('Terjadi kesalahan saat mengunggah file.');
+            alert('An error occurred while uploading the file.');
         }
     };
 
@@ -70,8 +70,8 @@ const BatchPage = ({ currentUser }) => {
         if (!previewData) return;
 
         const confirmMsg = previewData.isReupload
-            ? `${previewData.warningMessage}\nApakah Anda tetap ingin menyimpan ulang hasil alokasi produksi ini?`
-            : 'Simpan hasil realisasi produksi ke database?';
+            ? `${previewData.warningMessage}\nAre you sure you want to resave this production allocation?`
+            : 'Save production results to the database?';
 
         if (!window.confirm(confirmMsg)) return;
 
@@ -92,7 +92,7 @@ const BatchPage = ({ currentUser }) => {
             handleResetUploadState();
             handleTriggerReload(); // Trigger reload data ke komponen anak
         } else {
-            alert('Gagal menyimpan: ' + (res?.message || 'Terjadi kesalahan.'));
+            alert('Save failed: ' + (res?.message || 'An error occurred.'));
         }
     };
 
@@ -110,9 +110,9 @@ const BatchPage = ({ currentUser }) => {
     };
 
     const handleUpdateStatus = async (allocationId, action) => {
-        const actionText = action === 'CANCEL' ? 'membatalkan' : 'memaksa tutup';
+        const actionText = action === 'CANCEL' ? 'cancel' : 'force close';
 
-        const reason = window.prompt(`Apakah Anda yakin ingin ${actionText} alokasi batch ini?\nMasukkan alasan (opsional):`);
+        const reason = window.prompt(`Are you sure you want to ${actionText} this batch allocation?\nEnter reason (optional):`);
 
         if (reason === null) return;
 
@@ -120,13 +120,13 @@ const BatchPage = ({ currentUser }) => {
         try {
             const res = await updateAllocationStatusApi(allocationId, { action, reason });
             if (res && res.success) {
-                alert(res.message || 'Status alokasi berhasil diperbarui.');
+                alert(res.message || 'Allocation status updated successfully.');
                 handleTriggerReload(); // Trigger reload data ke komponen anak
             } else {
-                alert('Gagal: ' + (res?.message || 'Gagal mengubah status alokasi.'));
+                alert('Failed: ' + (res?.message || 'Failed to update allocation status.'));
             }
         } catch (err) {
-            alert('Terjadi kesalahan sistem saat memperbarui status.');
+            alert('A system error occurred while updating the status.');
         } finally {
             setLoading(false);
         }
@@ -150,7 +150,7 @@ const BatchPage = ({ currentUser }) => {
                             color: activeTab === 'summary' ? '#0d6efd' : '#6c757d'
                         }}
                     >
-                        Belum Ada Batch
+                        Unbatched
                     </button>
                     <button
                         onClick={() => setActiveTab('mapping')}
@@ -160,7 +160,7 @@ const BatchPage = ({ currentUser }) => {
                             color: activeTab === 'mapping' ? '#0d6efd' : '#6c757d'
                         }}
                     >
-                        Daftar Batch
+                        Batch List
                     </button>
                     <button
                         onClick={() => setActiveTab('unallocated')}
@@ -170,7 +170,7 @@ const BatchPage = ({ currentUser }) => {
                             color: activeTab === 'unallocated' ? '#0d6efd' : '#6c757d'
                         }}
                     >
-                        Kelebihan Produksi
+                        Overproduction
                     </button>
                 </div>
 
@@ -187,7 +187,7 @@ const BatchPage = ({ currentUser }) => {
                         disabled={uploading}
                         style={{ padding: '6px 12px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
                     >
-                        {uploading ? 'Memproses Excel...' : 'Upload Produksi'}
+                        {uploading ? 'Processing Excel...' : 'Upload Production'}
                     </button>
                 </form>
             </div>
@@ -203,7 +203,7 @@ const BatchPage = ({ currentUser }) => {
                         fontWeight: 'bold',
                         zIndex: 10
                     }}>
-                        Memuat data...
+                        Loading data...
                     </div>
                 )}
 

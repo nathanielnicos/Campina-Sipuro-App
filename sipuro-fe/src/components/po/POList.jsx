@@ -42,11 +42,11 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                     setTotalItems(result.pagination.totalItems);
                 }
             } else {
-                setError(result.message || 'Gagal mengambil data PO.');
+                setError(result.message || 'Failed to fetch PO data.');
             }
         } catch (err) {
             console.error('Error fetching PO:', err);
-            setError('Terjadi kesalahan jaringan atau server mati.');
+            setError('A network error occurred or the server is down.');
         } finally {
             setLoading(false);
         }
@@ -119,10 +119,10 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
             }}>
                 {/* Cari PO Number */}
                 <div style={{ flex: '1 1 180px', minWidth: '150px' }}>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Cari PO Number</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search PO Number</label>
                     <input
                         type="text"
-                        placeholder="Contoh: 001/PO/..."
+                        placeholder="Example: 001/PO/..."
                         value={search}
                         onChange={handleSearchChange}
                         style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '13px' }}
@@ -131,7 +131,7 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
 
                 {/* Dari Tanggal */}
                 <div style={{ flex: '0 0 135px' }}>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Dari Tanggal</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>From Date</label>
                     <input
                         type="date"
                         value={startDate}
@@ -142,7 +142,7 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
 
                 {/* Sampai Tanggal */}
                 <div style={{ flex: '0 0 135px' }}>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Sampai Tanggal</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>To Date</label>
                     <input
                         type="date"
                         value={endDate}
@@ -153,13 +153,13 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
 
                 {/* Status PO */}
                 <div style={{ flex: '0 0 160px' }}>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Status PO</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>PO Status</label>
                     <select
                         value={status}
                         onChange={handleStatusChange}
                         style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '12px' }}
                     >
-                        <option value="">Semua Status</option>
+                        <option value="">All Status</option>
                         <option value="Waiting for Confirmation">Waiting for Confirmation</option>
                         <option value="Canceled">Canceled</option>
                         <option value="Waiting for Batch Assignment">Waiting for Batch Assignment</option>
@@ -187,7 +187,7 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                             transition: 'all 0.2s ease'
                         }}
                     >
-                        Reset Filter
+                        Reset Filters
                     </button>
 
                     {/* Sembunyikan Tombol Export Excel untuk Role PPIC */}
@@ -233,7 +233,7 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                 </div>
             </div>
 
-            {loading && <p>Memuat data PO...</p>}
+            {loading && <p>Loading PO data...</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}
 
             {!loading && !error && (
@@ -242,22 +242,22 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                                    <th style={{ padding: '12px 16px' }}>Kode PO</th>
-                                    <th style={{ padding: '12px 16px' }}>Tanggal Dibuat</th>
-                                    <th style={{ padding: '12px 16px' }}>Tanggal Kirim Diminta</th>
+                                    <th style={{ padding: '12px 16px' }}>PO Number</th>
+                                    <th style={{ padding: '12px 16px' }}>Created Date</th>
+                                    <th style={{ padding: '12px 16px' }}>Requested Delivery Date</th>
                                     <th style={{ padding: '12px 16px' }}>Total Item</th>
                                     {user?.role !== 'PPIC' && (
-                                        <th style={{ padding: '12px 16px' }}>Total Harga (Inc. PPN)</th>
+                                        <th style={{ padding: '12px 16px' }}>Total Price (Inc. PPN)</th>
                                     )}
                                     <th style={{ padding: '12px 16px' }}>Status</th>
-                                    <th style={{ padding: '12px 16px' }}>Aksi</th>
+                                    <th style={{ padding: '12px 16px' }}>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {poList.length === 0 ? (
                                     <tr>
                                         <td colSpan={user?.role === 'PPIC' ? "6" : "7"} style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
-                                            Belum ada Purchase Order yang dibuat.
+                                            No Purchase Orders created yet.
                                         </td>
                                     </tr>
                                 ) : (

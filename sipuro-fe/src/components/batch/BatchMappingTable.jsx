@@ -25,7 +25,7 @@ const renderActionButton = (po, onUpdateStatus) => {
                     cursor: 'pointer'
                 }}
             >
-                Batalkan
+                Cancel
             </button>
         );
     }
@@ -45,7 +45,7 @@ const renderActionButton = (po, onUpdateStatus) => {
                 cursor: 'pointer'
             }}
         >
-            Paksa Tutup
+            Force Close
         </button>
     );
 };
@@ -91,10 +91,10 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                     });
                 }
             } else {
-                setError(res?.message || 'Gagal mengambil riwayat mapping batch.');
+                setError(res?.message || 'Failed to fetch batch mapping history.');
             }
         } catch (err) {
-            setError('Terjadi kesalahan saat memuat data.');
+            setError('An error occurred while loading data.');
         } finally {
             setLoading(false);
         }
@@ -198,7 +198,7 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
             return (
                 <tr>
                     <td colSpan="10" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
-                        Belum ada data mapping PO.
+                        No PO mapping data available.
                     </td>
                 </tr>
             );
@@ -312,7 +312,7 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
             return (
                 <tr>
                     <td colSpan="9" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
-                        Belum ada data mapping batch.
+                        No batch mapping data available.
                     </td>
                 </tr>
             );
@@ -407,7 +407,7 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                     fontWeight: 'bold',
                     zIndex: 10
                 }}>
-                    Memuat data...
+                    Loading data...
                 </div>
             )}
 
@@ -426,17 +426,17 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                 alignItems: 'end'
             }}>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Pencarian Data</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search Data</label>
                     <input
                         type="text"
-                        placeholder="Cari Batch / Produk / PO..."
+                        placeholder="Search Batch / Product / PO..."
                         value={searchQuery}
                         onChange={handleSearchChange}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
                     />
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Dari Tanggal</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>From Date</label>
                     <input
                         type="date"
                         value={fromDate}
@@ -445,7 +445,7 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                     />
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Sampai Tanggal</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>To Date</label>
                     <input
                         type="date"
                         value={toDate}
@@ -454,13 +454,13 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                     />
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Status Batch</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Batch Status</label>
                     <select
                         value={batchStatus}
                         onChange={handleStatusChange}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
                     >
-                        <option value="">Semua Status</option>
+                        <option value="">All Status</option>
                         <option value="Open">Open</option>
                         <option value="Closed">Closed</option>
                         <option value="Force Closed">Force Closed</option>
@@ -501,7 +501,7 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                             transition: 'all 0.2s ease'
                         }}
                     >
-                        {exporting ? 'Mengunduh...' : 'Export Excel'}
+                        {exporting ? 'Downloading...' : 'Export Excel'}
                     </button>
                 </div>
             </div>
@@ -517,7 +517,7 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                     backgroundColor: '#f8f9fa'
                 }}>
                     <span style={{ fontSize: '13px', fontWeight: '600', color: '#495057' }}>
-                        Tampilkan Data Berdasarkan:
+                        Display Data By:
                     </span>
 
                     <div style={{ display: 'flex', backgroundColor: '#e9ecef', borderRadius: '6px', padding: '3px' }}>
@@ -536,7 +536,7 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                                 transition: 'all 0.2s'
                             }}
                         >
-                            Nomor Batch
+                            Batch Number
                         </button>
                         <button
                             type="button"
@@ -553,7 +553,7 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                                 transition: 'all 0.2s'
                             }}
                         >
-                            Nomor PO
+                            PO Number
                         </button>
                     </div>
                 </div>
@@ -564,26 +564,26 @@ const BatchMappingTable = ({ onUpdateStatus, reloadTrigger }) => {
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
                                 {viewMode === 'BATCH' ? (
                                     <>
-                                        <th style={{ padding: '12px 14px' }}>Nomor Batch</th>
-                                        <th style={{ padding: '12px 14px' }}>Produk</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Rencana Produksi</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Batch</th>
-                                        <th style={{ padding: '12px 14px' }}>PO</th>
+                                        <th style={{ padding: '12px 14px' }}>Batch Number</th>
+                                        <th style={{ padding: '12px 14px' }}>Product</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Planned Production Date</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Batch Status</th>
+                                        <th style={{ padding: '12px 14px' }}>PO Number</th>
                                     </>
                                 ) : (
                                     <>
-                                        <th style={{ padding: '12px 14px' }}>Nomor PO</th>
-                                        <th style={{ padding: '12px 14px' }}>Produk</th>
-                                        <th style={{ padding: '12px 14px' }}>Nomor Batch</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Rencana Produksi</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Batch</th>
+                                        <th style={{ padding: '12px 14px' }}>PO Number</th>
+                                        <th style={{ padding: '12px 14px' }}>Product</th>
+                                        <th style={{ padding: '12px 14px' }}>Batch Number</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Planned Production Date</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Batch Status</th>
                                     </>
                                 )}
-                                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Target Alokasi (PCS)</th>
-                                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Terpenuhi (PCS)</th>
-                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Persentase</th>
-                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status Alokasi</th>
-                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Aksi</th>
+                                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocation Qty (Pcs)</th>
+                                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled Qty (Pcs)</th>
+                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Percentage</th>
+                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Allocation Status</th>
+                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>

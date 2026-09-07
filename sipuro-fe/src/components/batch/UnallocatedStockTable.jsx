@@ -44,10 +44,10 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                     });
                 }
             } else {
-                setError(res?.message || 'Gagal mengambil data stok lebihan.');
+                setError(res?.message || 'Failed to fetch overproduction data.');
             }
         } catch (err) {
-            setError('Terjadi kesalahan saat memuat data.');
+            setError('An error occurred while loading data.');
         } finally {
             setLoading(false);
         }
@@ -99,12 +99,12 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
 
     const handleSubmitReallocate = async (e) => {
         e.preventDefault();
-        if (!targetAllocId) return alert('Pilih target PO / Batch yang akan disuplai!');
+        if (!targetAllocId) return alert('Select the target PO / Batch to supply.');
         const inputQty = Number(qtyToAllocate);
-        if (!inputQty || inputQty <= 0) return alert('Qty alokasi harus lebih dari 0');
-        if (inputQty > selectedStock.qty_available) return alert('Qty alokasi melebihi stok lebihan yang tersedia!');
+        if (!inputQty || inputQty <= 0) return alert('Allocated quantity must be greater than 0.');
+        if (inputQty > selectedStock.qty_available) return alert('Allocated quantity exceeds available overproduction stock.');
 
-        if (!window.confirm('Apakah Anda yakin ingin memindahkan stok lebihan ini ke batch/PO target yang dipilih?')) {
+        if (!window.confirm('Are you sure you want to move this overproduction stock to the selected target batch/PO?')) {
             return;
         }
 
@@ -127,7 +127,7 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
             loadData(); // Reload data lokal tab 3
             if (onRefreshAll) onRefreshAll(); // Trigger reload ke tab lain jika diperlukan
         } else {
-            alert('Gagal Alokasi: ' + (res?.message || 'Terjadi kesalahan.'));
+            alert('Allocation Failed: ' + (res?.message || 'An error occurred.'));
         }
     };
 
@@ -145,7 +145,7 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                     fontWeight: 'bold',
                     zIndex: 10
                 }}>
-                    Memuat data...
+                    Loading data...
                 </div>
             )}
 
@@ -164,17 +164,17 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                 alignItems: 'end'
             }}>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Cari Batch Asal / Produk</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search Source Batch / Product</label>
                     <input
                         type="text"
-                        placeholder="Contoh: BAT260824003"
+                        placeholder="Example: BAT260824003"
                         value={searchStock}
                         onChange={handleStockSearchChange}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
                     />
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Tgl Produksi</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Production Date</label>
                     <input
                         type="date"
                         value={prodDate}
@@ -198,7 +198,7 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                             transition: 'all 0.2s ease'
                         }}
                     >
-                        Reset Filter
+                        Reset Filters
                     </button>
                 </div>
             </div>
@@ -209,19 +209,19 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                <th style={{ padding: '12px 16px' }}>No. Batch Asal</th>
-                                <th style={{ padding: '12px 16px' }}>Kode Produk</th>
-                                <th style={{ padding: '12px 16px' }}>Nama Produk</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'center' }}>Tgl Produksi</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'right' }}>Kuantitas (PCS)</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'center' }}>Aksi</th>
+                                <th style={{ padding: '12px 16px' }}>Source Batch Number</th>
+                                <th style={{ padding: '12px 16px' }}>Product Code</th>
+                                <th style={{ padding: '12px 16px' }}>Product Name</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'center' }}>Production Date</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'right' }}>Qty (Pcs)</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'center' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {unallocatedList.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
-                                        Tidak ada stok lebihan produksi.
+                                        No overproduction stock available.
                                     </td>
                                 </tr>
                             ) : (
@@ -241,7 +241,7 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                                                 onClick={() => handleOpenModal(item)}
                                                 style={{ backgroundColor: '#0d6efd', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
                                             >
-                                                Alokasikan
+                                                Allocate
                                             </button>
                                         </td>
                                     </tr>
@@ -264,16 +264,16 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                 {selectedStock && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
                         <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '500px', maxWidth: '90%' }}>
-                            <h3>Alokasikan Lebihan Stok</h3>
+                            <h3>Allocate Overproduction Stock</h3>
                             <p style={{ fontSize: '13px', color: '#555' }}>
-                                Sumber Batch: <strong>{selectedStock.batch_number}</strong> | Tersedia: <strong>{formatQty(selectedStock.qty_available)} Pcs</strong>
+                                Source Batch: <strong>{selectedStock.batch_number}</strong> | Available: <strong>{formatQty(selectedStock.qty_available)} Pcs</strong>
                             </p>
 
                             <form onSubmit={handleSubmitReallocate}>
                                 <div style={{ marginBottom: '12px' }}>
-                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Pilih Target Batch / PO (Kurang):</label>
+                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Select Target Batch / PO (Shortage):</label>
                                     {loadingAlloc ? (
-                                        <p>Mencari alokasi target...</p>
+                                        <p>Searching for target allocation...</p>
                                     ) : (
                                         <select
                                             value={targetAllocId}
@@ -281,10 +281,10 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da' }}
                                             required
                                         >
-                                            <option value="">-- Pilih Batch / PO Target --</option>
+                                            <option value="">-- Select Target Batch / PO --</option>
                                             {openAllocations.map((alloc) => (
                                                 <option key={alloc.allocation_id} value={alloc.allocation_id}>
-                                                    PO: {alloc.po_number} | Batch Target: {alloc.batch_number} (Kurang: {formatQty(alloc.remaining_qty)} Pcs)
+                                                    PO: {alloc.po_number} | Batch: {alloc.batch_number} (Shortage: {formatQty(alloc.remaining_qty)} Pcs)
                                                 </option>
                                             ))}
                                         </select>
@@ -292,7 +292,7 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                                 </div>
 
                                 <div style={{ marginBottom: '16px' }}>
-                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Qty Dipindahkan:</label>
+                                    <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Transferred Quantity:</label>
                                     <input
                                         type="number"
                                         value={qtyToAllocate}
@@ -306,7 +306,7 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                     <button type="button" onClick={handleCloseModal} style={{ padding: '8px 16px', border: '1px solid #ccc', background: '#fff', borderRadius: '4px', cursor: 'pointer' }}>Batal</button>
                                     <button type="submit" disabled={submitting} style={{ padding: '8px 16px', background: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                        {submitting ? 'Proses...' : 'Simpan Alokasi'}
+                                        {submitting ? 'Processing...' : 'Save Allocation'}
                                     </button>
                                 </div>
                             </form>

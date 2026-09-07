@@ -18,14 +18,14 @@ const PaginationControl = ({
         }}>
             {/* Sisi Kiri: Teks Informasi */}
             <div style={{ fontSize: '14px', color: '#6c757d', whiteSpace: 'nowrap' }}>
-                Menampilkan <strong>{totalItems === 0 ? 0 : Math.min((currentPage - 1) * limit + 1, totalItems)}</strong>–
-                <strong>{Math.min(currentPage * limit, totalItems)}</strong> dari total <strong>{totalItems}</strong> data
+                Showing <strong>{totalItems === 0 ? 0 : Math.min((currentPage - 1) * limit + 1, totalItems)}</strong>–
+                <strong>{Math.min(currentPage * limit, totalItems)}</strong> of <strong>{totalItems}</strong> entries
             </div>
 
             {/* Sisi Kanan: Dropdown Tampilkan, Tombol Prev/Next */}
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginLeft: 'auto' }}>
                 <div style={{ fontSize: '14px', color: '#6c757d', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-                    <span>Tampilkan:</span>
+                    <span>Show:</span>
                     <select
                         value={limit}
                         onChange={(e) => onLimitChange && onLimitChange(Number(e.target.value))}
@@ -54,7 +54,7 @@ const PaginationControl = ({
                     </button>
 
                     <span style={{ fontSize: '14px', color: '#495057', margin: '0 4px', whiteSpace: 'nowrap' }}>
-                        Halaman <strong>{currentPage}</strong> dari <strong>{totalPages || 1}</strong>
+                        Page <strong>{currentPage}</strong> of <strong>{totalPages || 1}</strong>
                     </span>
 
                     <button

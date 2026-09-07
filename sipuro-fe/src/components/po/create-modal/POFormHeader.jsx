@@ -5,7 +5,7 @@ const POFormHeader = ({
     requestedDeliveryDate,
     setRequestedDeliveryDate,
     deliveryAddress,
-    setDeliveryAddress,
+    // setDeliveryAddress,
     description,
     setDescription
 }) => {
@@ -22,9 +22,9 @@ const POFormHeader = ({
                     borderRadius: '6px',
                     marginBottom: '16px'
                 }}>
-                    <strong style={{ display: 'block', marginBottom: '4px' }}>Alasan Penolakan:</strong>
+                    <strong style={{ display: 'block', marginBottom: '4px' }}>Rejection Reason:</strong>
                     <p style={{ margin: 0, fontSize: '14px', whiteSpace: 'pre-line' }}>
-                        {rejectionReason || 'Tidak ada alasan penolakan yang dicantumkan.'}
+                        {rejectionReason || 'No rejection reason provided.'}
                     </p>
                 </div>
             )}
@@ -32,7 +32,7 @@ const POFormHeader = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
                     <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                        Tanggal Pengiriman Diminta *
+                        Requested Delivery Date *
                     </label>
                     <input
                         type="date"
@@ -45,24 +45,24 @@ const POFormHeader = ({
                 </div>
                 <div>
                     <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                        Alamat Pengiriman
+                        Shipping Address
                     </label>
                     <input
                         type="text"
-                        placeholder="Alamat pengiriman..."
+                        placeholder="Shipping address..."
                         value={deliveryAddress}
-                        onChange={(e) => setDeliveryAddress(e.target.value)}
-                        disabled={isPPIC}
+                        // onChange={(e) => setDeliveryAddress(e.target.value)}
+                        disabled
                         style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                     />
                 </div>
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Catatan</label>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Notes</label>
                 <textarea
                     rows="2"
-                    placeholder="Catatan tambahan untuk pesanan..."
+                    placeholder="Additional notes for the order..."
                     value={description}
                     maxLength={50}
                     onChange={(e) => setDescription(e.target.value)}
@@ -70,7 +70,7 @@ const POFormHeader = ({
                     style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                 />
                 <small style={{ color: '#6c757d', fontSize: '11px', display: 'block', marginTop: '2px' }}>
-                    {description.length}/50 karakter
+                    {description.length}/50 characters
                 </small>
             </div>
         </>

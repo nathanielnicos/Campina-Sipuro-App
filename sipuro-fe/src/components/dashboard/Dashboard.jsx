@@ -35,8 +35,8 @@ const formatMonthLabel = (monthStr) => {
     if (!year || !month) return monthStr;
 
     const months = [
-        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
     const monthIndex = parseInt(month, 10) - 1;
@@ -70,7 +70,7 @@ const Dashboard = () => {
                 setStats(res.data);
             }
         } catch (err) {
-            console.error('Gagal memuat statistik dasbor:', err);
+            console.error('Failed to load dashboard statistics:', err);
         } finally {
             setLoading(false);
         }
@@ -81,15 +81,15 @@ const Dashboard = () => {
         setEndDate('');
     };
 
-    if (loading && !stats) return <div style={{ padding: '20px' }}>Memuat data dasbor...</div>;
-    if (!stats) return <div style={{ padding: '20px' }}>Data statistik tidak tersedia.</div>;
+    if (loading && !stats) return <div style={{ padding: '20px' }}>Loading dashboard data...</div>;
+    if (!stats) return <div style={{ padding: '20px' }}>Statistical data is not available.</div>;
 
     // 1. Data Chart Tren Pesanan vs Realisasi Fulfilled
     const monthlyData = {
         labels: stats.monthlyStats.map(item => item.month_label || item.label_key),
         datasets: [
             {
-                label: 'Total Kuantitas PO',
+                label: 'PO Qty (Pcs)',
                 data: stats.monthlyStats.map(item => Number(item.total_volume) || 0),
                 borderColor: '#3b82f6',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -99,7 +99,7 @@ const Dashboard = () => {
                 pointBackgroundColor: '#3b82f6'
             },
             {
-                label: 'Total Kuantitas Terpenuhi',
+                label: 'Production Output (Pcs)',
                 data: stats.monthlyStats.map(item => Number(item.total_fulfilled) || 0),
                 borderColor: '#10b981',
                 backgroundColor: 'rgba(16, 185, 129, 0.2)',
@@ -133,7 +133,7 @@ const Dashboard = () => {
         labels: stats.topProducts.map(item => item.product_code),
         datasets: [
             {
-                label: 'Total Qty PO',
+                label: 'Total PO Qty',
                 data: stats.topProducts.map(item => Number(item.total_qty) || 0),
                 backgroundColor: 'rgba(59, 130, 246, 0.7)',
                 borderColor: '#3b82f6',
@@ -151,14 +151,12 @@ const Dashboard = () => {
     const yearOptions = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
 
     return (
-        <div style={styles.container}>
-            <h2 style={styles.title}>Dasbor Perencanaan & Monitoring</h2>
-
+        <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
             {/* BARIS 1: Grafik Tren Pesanan vs Realisasi Fulfilled */}
             <div style={{ ...styles.card, marginBottom: '20px' }}>
                 <div style={styles.cardHeader}>
                     <h3 style={styles.cardTitle}>
-                        Monitoring Pesanan vs Realisasi {trendMode === 'YTD' ? `Tahun ${selectedYear} (Jan - Des)` : `Bulan ${formatMonthLabel(selectedMonth)}`}
+                        PO Quantity vs Production Output {trendMode === 'YTD' ? `(${selectedYear})` : `(${formatMonthLabel(selectedMonth)})`}
                     </h3>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -170,7 +168,7 @@ const Dashboard = () => {
                                 style={styles.selectPicker}
                             >
                                 {yearOptions.map(y => (
-                                    <option key={y} value={y}>Tahun {y}</option>
+                                    <option key={y} value={y}>{y}</option>
                                 ))}
                             </select>
                         ) : (
@@ -193,7 +191,7 @@ const Dashboard = () => {
                                     color: trendMode === 'YTD' ? '#ffffff' : '#475569'
                                 }}
                             >
-                                YTD (Per Bulan)
+                                YTD
                             </button>
                             <button
                                 type="button"
@@ -204,7 +202,7 @@ const Dashboard = () => {
                                     color: trendMode === 'MTD' ? '#ffffff' : '#475569'
                                 }}
                             >
-                                MTD (Per Hari)
+                                MTD
                             </button>
                         </div>
                     </div>
@@ -233,7 +231,7 @@ const Dashboard = () => {
                                 y: {
                                     type: 'linear',
                                     display: true,
-                                    title: { display: true, text: 'Total Qty (Base UOM)' },
+                                    title: { display: true, text: 'Total Qty (Pcs)' },
                                     beginAtZero: true
                                 }
                             }
@@ -245,12 +243,12 @@ const Dashboard = () => {
             {/* BARIS 2 FILTER HEADER: Filter Rentang Tanggal Dibuat PO */}
             <div style={styles.filterBar}>
                 <div style={styles.filterTitleGroup}>
-                    <span style={styles.filterLabelHeader}>Filter Tanggal Dibuat PO</span>
-                    <small style={styles.filterSubLabel}>(Berlaku untuk grafik Status PO & Top 5 Produk)</small>
+                    <span style={styles.filterLabelHeader}>PO Created Date Filter</span>
+                    <small style={styles.filterSubLabel}>(Applies to PO Status & Top 5 Products charts)</small>
                 </div>
                 <div style={styles.dateInputsContainer}>
                     <div style={styles.inputGroup}>
-                        <label style={styles.inputLabel}>Dari Tanggal:</label>
+                        <label style={styles.inputLabel}>From Date:</label>
                         <input
                             type="date"
                             value={startDate}
@@ -259,7 +257,7 @@ const Dashboard = () => {
                         />
                     </div>
                     <div style={styles.inputGroup}>
-                        <label style={styles.inputLabel}>Sampai Tanggal:</label>
+                        <label style={styles.inputLabel}>To Date:</label>
                         <input
                             type="date"
                             value={endDate}
@@ -273,7 +271,7 @@ const Dashboard = () => {
                             onClick={handleResetDateFilter}
                             style={styles.resetBtn}
                         >
-                            Reset Filter
+                            Reset Filters
                         </button>
                     )}
                 </div>
@@ -283,7 +281,7 @@ const Dashboard = () => {
             <div style={styles.gridTwo}>
                 {/* Status PO */}
                 <div style={styles.card}>
-                    <h3 style={styles.cardTitle}>Status PO</h3>
+                    <h3 style={styles.cardTitle}>PO Status</h3>
                     <div style={styles.chartWrapperPie}>
                         <Pie
                             data={statusData}
@@ -310,7 +308,7 @@ const Dashboard = () => {
 
                 {/* Top 5 Produk */}
                 <div style={styles.card}>
-                    <h3 style={styles.cardTitle}>Top 5 Produk Kebutuhan Tertinggi</h3>
+                    <h3 style={styles.cardTitle}>Top 5 High-Demand Products</h3>
                     <div style={styles.chartWrapper}>
                         <Bar
                             data={topProductsData}
@@ -324,7 +322,7 @@ const Dashboard = () => {
                                                 const idx = tooltipItems[0].dataIndex;
                                                 return stats.topProducts[idx]?.product_name || tooltipItems[0].label;
                                             },
-                                            label: (context) => `Total Qty PO: ${context.parsed.y}`
+                                            label: (context) => `Total PO Qty: ${context.parsed.y.toLocaleString('id-ID')} Pcs`
                                         }
                                     }
                                 },

@@ -15,7 +15,7 @@ const POCreateModal = ({ poId, currentUser, onClose, onSuccess }) => {
         requestedDeliveryDate,
         setRequestedDeliveryDate,
         deliveryAddress,
-        setDeliveryAddress,
+        // setDeliveryAddress,
         description,
         setDescription,
         rejectionReason,
@@ -38,7 +38,7 @@ const POCreateModal = ({ poId, currentUser, onClose, onSuccess }) => {
         grandTotal,
         handleSelectProduct,
         handleQtyChange,
-        handleUomChange,
+        // handleUomChange,
         handleAddItem,
         handleRemoveItem,
         handleSubmit,
@@ -56,7 +56,7 @@ const POCreateModal = ({ poId, currentUser, onClose, onSuccess }) => {
             }}>
                 <h2>
                     {/* Menggunakan kode PO alih-alih poId */}
-                    {poId ? `Detail Purchase Order: ${poCode}` : 'Buat Purchase Order (PO) Baru'}
+                    {poId ? `Detail Purchase Order: ${poCode}` : 'Create New Purchase Order (PO)'}
                     {poId && poStatus && (
                         <span style={{
                             padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold',
@@ -76,29 +76,29 @@ const POCreateModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         requestedDeliveryDate={requestedDeliveryDate}
                         setRequestedDeliveryDate={setRequestedDeliveryDate}
                         deliveryAddress={deliveryAddress}
-                        setDeliveryAddress={setDeliveryAddress}
+                        // setDeliveryAddress={setDeliveryAddress}
                         description={description}
                         setDescription={setDescription}
                     />
 
                     <hr style={{ margin: '20px 0', border: 'none', borderTop: '1px solid #dee2e6' }} />
 
-                    <h3 style={{ marginBottom: '12px' }}>Daftar Produk</h3>
+                    <h3 style={{ marginBottom: '12px' }}>Product List</h3>
 
                     <div style={{ borderRadius: '8px', border: '1px solid #dee2e6', marginBottom: '16px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '50%' : '35%' }}>Produk</th>
+                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '50%' : '35%' }}>Product</th>
                                     {userRole !== 'PPIC' && (
-                                        <th style={{ padding: '12px 16px', width: '15%', textAlign: 'right' }}>Harga Satuan</th>
+                                        <th style={{ padding: '12px 16px', width: '15%', textAlign: 'right' }}>Unit Price</th>
                                     )}
                                     <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '20%' : '12%', textAlign: 'center' }}>Qty</th>
-                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '20%' : '12%' }}>UOM</th>
+                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '20%' : '12%' }}>Unit</th>
                                     {userRole !== 'PPIC' && (
-                                        <th style={{ padding: '12px 16px', width: '18%', textAlign: 'right' }}>Total Harga</th>
+                                        <th style={{ padding: '12px 16px', width: '18%', textAlign: 'right' }}>Total Price</th>
                                     )}
-                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '10%' : '8%', textAlign: 'center' }}>Aksi</th>
+                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '10%' : '8%', textAlign: 'center' }}>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -121,7 +121,7 @@ const POCreateModal = ({ poId, currentUser, onClose, onSuccess }) => {
                                             onFocusDropdown={(i) => setOpenDropdown(i)}
                                             onSelectProduct={handleSelectProduct}
                                             onQtyChange={handleQtyChange}
-                                            onUomChange={handleUomChange}
+                                            // onUomChange={handleUomChange}
                                             onRemoveItem={handleRemoveItem}
                                             isMultipleItems={items.length > 1}
                                         />
@@ -148,7 +148,7 @@ const POCreateModal = ({ poId, currentUser, onClose, onSuccess }) => {
                             onClick={handleAddItem}
                             style={{ marginBottom: '20px', padding: '8px 16px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                         >
-                            + Tambah Baris Produk
+                            + Add Product Row
                         </button>
                     )}
 

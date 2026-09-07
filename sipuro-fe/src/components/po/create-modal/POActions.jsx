@@ -9,14 +9,14 @@ const POActions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpd
                         disabled={loading}
                         style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                     >
-                        Batalkan PO
+                        Cancel PO
                     </button>
                 )}
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="button" onClick={onClose} style={{ padding: '8px 16px' }}>
-                    Tutup
+                    Close
                 </button>
 
                 {/* Approve & Reject hanya muncul untuk non-CUSTOMER dan saat status "Waiting for Confirmation" */}
@@ -47,7 +47,7 @@ const POActions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpd
                         disabled={loading}
                         style={{ padding: '8px 16px', backgroundColor: '#0d6efd', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                     >
-                        {poId ? 'Simpan Perubahan' : 'Simpan PO'}
+                        {poId ? 'Save Changes' : 'Save PO'}
                     </button>
                 )}
             </div>

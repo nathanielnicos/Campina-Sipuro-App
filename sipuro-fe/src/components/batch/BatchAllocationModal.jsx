@@ -13,8 +13,8 @@ const BatchAllocationModal = ({
     setBatchCode,
     productionDate,
     setProductionDate,
-    expiredDate,
-    setExpiredDate,
+    // expiredDate,
+    // setExpiredDate,
     submitting,
     onSelectBatchExisting,
     onSubmit,
@@ -43,7 +43,7 @@ const BatchAllocationModal = ({
         e.preventDefault();
 
         // Konfirmasi Simpan Alokasi
-        if (!window.confirm('Apakah Anda yakin ingin menyimpan alokasi batch ini?')) {
+        if (!window.confirm('Are you sure you want to save this batch allocation?')) {
             return;
         }
 
@@ -58,18 +58,18 @@ const BatchAllocationModal = ({
             justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
             <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '480px' }}>
-                <h3 style={{ marginTop: 0 }}>Alokasi Batch untuk SKU:</h3>
+                <h3 style={{ marginTop: 0 }}>Batch Allocation for SKU:</h3>
                 <p style={{ margin: '4px 0 12px 0', color: '#333', fontWeight: 'bold' }}>
                     {selectedSku.product_code} - {selectedSku.product_name}
                 </p>
 
                 <div style={{ backgroundColor: '#e9ecef', padding: '10px', borderRadius: '4px', marginBottom: '16px', fontSize: '13px' }}>
-                    Sisa Kebutuhan: <strong>{formatQty(selectedSku.total_qty_needed)} {selectedSku.base_uom}</strong> ({formatQty(selectedSku.total_po_count)} PO)
+                    Remaining Qty: <strong>{formatQty(selectedSku.total_qty_needed)} {selectedSku.base_uom}</strong> ({formatQty(selectedSku.total_po_count)} PO)
                 </div>
 
                 <form onSubmit={handleFormSubmit}>
                     <div style={{ marginBottom: '14px' }}>
-                        <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Qty Alokasi Batch *</label>
+                        <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Batch Allocation Qty *</label>
                         <input
                             type="text"
                             value={allocatedQty ? formatQty(allocatedQty) : ''}
@@ -81,24 +81,24 @@ const BatchAllocationModal = ({
                     </div>
 
                     <div style={{ marginBottom: '14px' }}>
-                        <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Pilih Opsi Batch *</label>
+                        <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Choose Batch Option *</label>
                         <select
                             value={allocationMode}
                             onChange={(e) => setAllocationMode(e.target.value)}
                             required
                             style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                         >
-                            <option value="">-- Pilih --</option>
-                            <option value="NEW">Buat Batch Baru</option>
-                            <option value="EXISTING">Pilih Batch yang Sudah Ada</option>
+                            <option value="">-- Choose --</option>
+                            <option value="NEW">Create New Batch</option>
+                            <option value="EXISTING">Choose Existing Batch</option>
                         </select>
                     </div>
 
                     {allocationMode === 'EXISTING' && (
                         <div style={{ marginBottom: '14px' }}>
-                            <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Nomor Batch Eksisting *</label>
+                            <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Existing Batch Number *</label>
                             {existingBatches.length === 0 ? (
-                                <p style={{ color: 'red', fontSize: '12px', margin: 0 }}>Tidak ada batch 'Open' untuk SKU ini.</p>
+                                <p style={{ color: 'red', fontSize: '12px', margin: 0 }}>No "Open" batch available for this SKU.</p>
                             ) : (
                                 <select
                                     value={selectedBatchId}
@@ -106,7 +106,7 @@ const BatchAllocationModal = ({
                                     required
                                     style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                                 >
-                                    <option value="">-- Pilih Batch --</option>
+                                    <option value="">-- Choose Batch --</option>
                                     {existingBatches.map(b => (
                                         <option key={b.id_batch} value={b.id_batch}>
                                             {b.batch_number} (Tgl: {b.plan_production_date ? b.plan_production_date.split('T')[0] : '-'})
@@ -120,7 +120,7 @@ const BatchAllocationModal = ({
                     {allocationMode !== '' && (
                         <>
                             <div style={{ marginBottom: '12px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Nomor Batch *</label>
+                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Batch Number *</label>
                                 <input
                                     type="text"
                                     value={batchCode}
@@ -131,7 +131,7 @@ const BatchAllocationModal = ({
                                 />
                             </div>
                             <div style={{ marginBottom: '12px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Tanggal Rencana Produksi *</label>
+                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Planned Production Date *</label>
                                 <input
                                     type="date"
                                     value={productionDate}
@@ -141,8 +141,8 @@ const BatchAllocationModal = ({
                                     style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                                 />
                             </div>
-                            <div style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Tanggal Kadaluarsa</label>
+                            {/* <div style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Expired Date</label>
                                 <input
                                     type="date"
                                     value={expiredDate}
@@ -150,20 +150,20 @@ const BatchAllocationModal = ({
                                     disabled={allocationMode === 'EXISTING'}
                                     style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                                 />
-                            </div>
+                            </div> */}
                         </>
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                         <button type="button" onClick={onClose} style={{ padding: '8px 16px', borderRadius: '4px', border: '1px solid #ccc', cursor: 'pointer' }}>
-                            Batal
+                            Close
                         </button>
                         <button
                             type="submit"
                             disabled={submitting || (allocationMode === 'EXISTING' && existingBatches.length === 0)}
                             style={{ padding: '8px 16px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                         >
-                            {submitting ? 'Menyimpan...' : 'Simpan Alokasi'}
+                            {submitting ? 'Saving...' : 'Save Allocation'}
                         </button>
                     </div>
                 </form>

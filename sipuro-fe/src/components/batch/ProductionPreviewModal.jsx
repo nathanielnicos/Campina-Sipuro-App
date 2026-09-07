@@ -95,22 +95,22 @@ const ProductionPreviewModal = ({
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
-                        Preview Hasil Produksi (Belum Disimpan)
+                        Production Output Preview (Unsaved)
                     </h3>
                 </div>
 
                 {activePreviewData.isReupload && (
                     <div style={{ padding: '10px 12px', backgroundColor: '#fff3cd', color: '#856404', borderRadius: '4px', marginBottom: '12px', fontSize: '13px' }}>
-                        ⚠️ <strong>Peringatan Unggah Ulang:</strong> {activePreviewData.warningMessage}
+                        ⚠️ <strong>Re-upload Warning:</strong> {activePreviewData.warningMessage}
                     </div>
                 )}
 
                 <div style={{ fontSize: '13px', backgroundColor: '#e9ecef', padding: '10px 12px', borderRadius: '4px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }}>
                     <div>
-                        <strong>Nama File:</strong> {activePreviewData.fileName} | <strong>Waktu Proses:</strong> {activePreviewData.processTimestamp}
+                        <strong>File Name:</strong> {activePreviewData.fileName} | <strong>Processed Time:</strong> {activePreviewData.processTimestamp}
                     </div>
                     <div>
-                        <strong>Terdaftar:</strong> <span style={{ color: '#198754', fontWeight: 'bold' }}>{registeredCount}</span> / {mainTotalItems} Baris
+                        <strong>Registered:</strong> <span style={{ color: '#198754', fontWeight: 'bold' }}>{registeredCount}</span> / {mainTotalItems} Rows
                     </div>
                 </div>
 
@@ -124,15 +124,15 @@ const ProductionPreviewModal = ({
                                 <thead>
                                     <tr style={{ backgroundColor: '#f1f3f5' }}>
                                         <th style={{ textAlign: 'center', width: '110px' }}>Status</th>
-                                        <th style={{ textAlign: 'left', width: '110px' }}>Kode Batch</th>
-                                        <th style={{ textAlign: 'left' }}>Produk</th>
-                                        <th style={{ textAlign: 'center', width: '90px' }}>Tgl Rencana</th>
-                                        <th style={{ textAlign: 'center', width: '90px' }}>Tgl Aktual</th>
-                                        <th style={{ textAlign: 'left', width: '140px' }}>Kode PO</th>
-                                        <th style={{ textAlign: 'right', width: '90px' }}>Kuantitas Alokasi</th>
-                                        <th style={{ textAlign: 'right', width: '90px' }}>Kuantitas Terpenuhi</th>
-                                        <th style={{ textAlign: 'right', width: '90px' }}>Hasil Produksi</th>
-                                        <th style={{ textAlign: 'right', width: '70px' }}>Persentase</th>
+                                        <th style={{ textAlign: 'left', width: '110px' }}>Batch Number</th>
+                                        <th style={{ textAlign: 'left' }}>Product</th>
+                                        <th style={{ textAlign: 'center', width: '90px' }}>Planned Date</th>
+                                        <th style={{ textAlign: 'center', width: '90px' }}>Actual Date</th>
+                                        <th style={{ textAlign: 'left', width: '140px' }}>PO Number</th>
+                                        <th style={{ textAlign: 'right', width: '90px' }}>Allocated Qty (Pcs)</th>
+                                        <th style={{ textAlign: 'right', width: '90px' }}>Fulfilled Qty (Pcs)</th>
+                                        <th style={{ textAlign: 'right', width: '90px' }}>Production Output (Pcs)</th>
+                                        <th style={{ textAlign: 'right', width: '70px' }}>Percentage</th>
                                         <th style={{ textAlign: 'center', width: '80px' }}>Status</th>
                                     </tr>
                                 </thead>
@@ -140,7 +140,7 @@ const ProductionPreviewModal = ({
                                     {paginatedResults.length === 0 ? (
                                         <tr>
                                             <td colSpan="11" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
-                                                Tidak ada data preview alokasi.
+                                                No allocation preview data available.
                                             </td>
                                         </tr>
                                     ) : (
@@ -172,7 +172,7 @@ const ProductionPreviewModal = ({
                                                         <td style={{ textAlign: 'center' }}>{planDate}</td>
                                                         <td style={{ textAlign: 'center' }}>{actDate}</td>
                                                         <td colSpan="6" style={{ textAlign: 'center', color: '#6c757d', fontStyle: 'italic' }}>
-                                                            Tidak ada alokasi PO aktif untuk batch ini
+                                                            No active PO allocation for this batch.
                                                         </td>
                                                     </tr>
                                                 );
@@ -257,15 +257,15 @@ const ProductionPreviewModal = ({
                     {/* Tabel Kelebihan Stok Produksi */}
                     {unallocatedStocks.length > 0 && (
                         <div>
-                            <h4 style={{ marginBottom: '8px', color: '#856404' }}>Kelebihan Produksi</h4>
+                            <h4 style={{ marginBottom: '8px', color: '#856404' }}>Overproduction</h4>
                             <div style={{ border: '1px solid #ffeeba', borderRadius: '4px', backgroundColor: '#fff3cd' }}>
                                 <div style={{ overflowX: 'auto' }}>
                                     <table border="1" cellPadding="6" cellSpacing="0" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                                         <thead>
                                             <tr>
-                                                <th>No Batch</th>
-                                                <th>Produk</th>
-                                                <th style={{ textAlign: 'right' }}>Kuantitas Sisa (PCS)</th>
+                                                <th>Batch Number</th>
+                                                <th>Product</th>
+                                                <th style={{ textAlign: 'right' }}>Remaining Qty (Pcs)</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -311,7 +311,7 @@ const ProductionPreviewModal = ({
                         disabled={saving}
                         style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                     >
-                        Tutup
+                        Close
                     </button>
 
                     {canSave && (
@@ -320,7 +320,7 @@ const ProductionPreviewModal = ({
                             disabled={saving}
                             style={{ padding: '8px 16px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                         >
-                            {saving ? 'Menyimpan...' : 'Simpan Ke Database'}
+                            {saving ? 'Saving...' : 'Save to Database'}
                         </button>
                     )}
                 </div>

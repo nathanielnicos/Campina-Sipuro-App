@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { calculateUnitPrice } from '../../../utils/priceCalculator';
 import {
     fetchProducts,
     fetchCustomerDetail,
@@ -212,24 +211,24 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
         setItems(updatedItems);
     };
 
-    const handleUomChange = (index, uomVal) => {
-        const updatedItems = [...items];
-        const item = updatedItems[index];
-        item.selected_uom = uomVal;
+    // const handleUomChange = (index, uomVal) => {
+    //     const updatedItems = [...items];
+    //     const item = updatedItems[index];
+    //     item.selected_uom = uomVal;
 
-        const newUnitPrice = calculateUnitPrice(
-            item.base_price,
-            item.base_uom,
-            uomVal,
-            item.pcs_per_ctn,
-            item.ctn_per_plt
-        );
+    //     const newUnitPrice = calculateUnitPrice(
+    //         item.base_price,
+    //         item.base_uom,
+    //         uomVal,
+    //         item.pcs_per_ctn,
+    //         item.ctn_per_plt
+    //     );
 
-        item.unit_price = newUnitPrice;
-        item.total_price = newUnitPrice * item.qty;
+    //     item.unit_price = newUnitPrice;
+    //     item.total_price = newUnitPrice * item.qty;
 
-        setItems(updatedItems);
-    };
+    //     setItems(updatedItems);
+    // };
 
     const handleAddItem = () => setItems([...items, { ...initialItemState }]);
 
@@ -377,7 +376,7 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
         requestedDeliveryDate,
         setRequestedDeliveryDate,
         deliveryAddress,
-        setDeliveryAddress,
+        // setDeliveryAddress,
         description,
         setDescription,
         rejectionReason,
@@ -400,7 +399,7 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
         grandTotal,
         handleSelectProduct,
         handleQtyChange,
-        handleUomChange,
+        // handleUomChange,
         handleAddItem,
         handleRemoveItem,
         handleSubmit,

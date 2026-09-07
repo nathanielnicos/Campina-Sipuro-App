@@ -55,10 +55,10 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                     });
                 }
             } else {
-                setError(res?.message || 'Gagal mengambil data rekap kebutuhan batch.');
+                setError(res?.message || 'Failed to fetch batch summary data.');
             }
         } catch (err) {
-            setError('Terjadi kesalahan saat memuat data.');
+            setError('An error occurred while loading data.');
         } finally {
             setLoading(false);
         }
@@ -129,14 +129,14 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
     const handleSubmitBatch = async (e) => {
         e.preventDefault();
 
-        if (!allocationMode) return alert('Silakan pilih opsi alokasi!');
+        if (!allocationMode) return alert('Please select an allocation option.');
 
         const inputQty = Number(allocatedQty);
-        if (!inputQty || inputQty <= 0) return alert('Qty alokasi harus lebih besar dari 0!');
-        if (inputQty > selectedSku.total_qty_needed) return alert(`Qty input (${inputQty}) melebihi total sisa kebutuhan (${selectedSku.total_qty_needed})!`);
+        if (!inputQty || inputQty <= 0) return alert('Allocation quantity must be greater than 0.');
+        if (inputQty > selectedSku.total_qty_needed) return alert(`Entered quantity (${inputQty}) exceeds total remaining demand (${selectedSku.total_qty_needed}).`);
 
-        if (allocationMode === 'NEW' && (!batchCode || !productionDate)) return alert('Nomor Batch dan Tanggal Produksi wajib diisi!');
-        if (allocationMode === 'EXISTING' && !selectedBatchId) return alert('Silakan pilih batch eksisting!');
+        if (allocationMode === 'NEW' && (!batchCode || !productionDate)) return alert('Batch number and production date are required.');
+        if (allocationMode === 'EXISTING' && !selectedBatchId) return alert('Please select an existing batch.');
 
         const payload = {
             id_product: selectedSku.id_product,
@@ -159,7 +159,7 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
             loadData();
             if (onRefreshAll) onRefreshAll(); // Beri tahu parent untuk trigger reload tab lain jika perlu
         } else {
-            alert('Gagal: ' + (res?.message || 'Terjadi kesalahan saat mengalokasikan batch.'));
+            alert('Gagal: ' + (res?.message || 'An error occurred while allocating the batch.'));
         }
     };
 
@@ -178,7 +178,7 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                     fontWeight: 'bold',
                     zIndex: 10
                 }}>
-                    Memuat data...
+                    Loading data...
                 </div>
             )}
 
@@ -197,20 +197,20 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 alignItems: 'end'
             }}>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Cari Produk (Kode / Nama)</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search Product Code/Name</label>
                     <input
                         type="text"
-                        placeholder="Contoh: FG-CN-00060"
+                        placeholder="Example: FG-CN-00060"
                         value={searchProduct}
                         onChange={handleProductChange}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
                     />
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Cari No PO</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search PO Number</label>
                     <input
                         type="text"
-                        placeholder="Contoh: PO-20260824-895"
+                        placeholder="Example: PO-20260824-895"
                         value={searchPo}
                         onChange={handlePoChange}
                         style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
@@ -232,7 +232,7 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                             transition: 'all 0.2s ease'
                         }}
                     >
-                        Reset Filter
+                        Reset Filters
                     </button>
                 </div>
             </div>
@@ -243,20 +243,20 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'auto' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>Kode Produk</th>
-                                <th style={{ padding: '12px 10px' }}>Nama Produk</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'right', wordBreak: 'break-word' }}>Total Qty Dibutuhkan (PCS)</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>Jumlah PO</th>
-                                <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>No PO</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>Qty PO (PCS)</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', width: '140px' }}>Aksi</th>
+                                <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>Product Code</th>
+                                <th style={{ padding: '12px 10px' }}>Product Name</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'right', wordBreak: 'break-word' }}>Total Required Qty (Pcs)</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>PO Count</th>
+                                <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>PO Number</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>PO Qty (Pcs)</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', width: '140px' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {summaryList.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
-                                        Tidak ada kebutuhan SKU yang perlu dialokasikan saat ini.
+                                        No SKUs need to be allocated at this time.
                                     </td>
                                 </tr>
                             ) : (
@@ -314,7 +314,7 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                                 <button
                                                     onClick={() => handleOpenModal(row)}
                                                     disabled={isPoFilterActive}
-                                                    title={isPoFilterActive ? "Reset filter No PO untuk alokasi batch" : ""}
+                                                    title={isPoFilterActive ? "Reset PO number filter for batch allocation" : ""}
                                                     style={{
                                                         backgroundColor: isPoFilterActive ? '#6c757d' : '#0d6efd',
                                                         color: '#fff',
@@ -329,7 +329,7 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                                         opacity: isPoFilterActive ? 0.65 : 1
                                                     }}
                                                 >
-                                                    + Alokasikan Batch
+                                                    + Allocate Batch
                                                 </button>
                                             </td>
                                         </tr>
@@ -364,8 +364,8 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 setBatchCode={setBatchCode}
                 productionDate={productionDate}
                 setProductionDate={setProductionDate}
-                expiredDate={expiredDate}
-                setExpiredDate={setExpiredDate}
+                // expiredDate={expiredDate}
+                // setExpiredDate={setExpiredDate}
                 submitting={submitting}
                 onSelectBatchExisting={handleSelectBatchExisting}
                 onSubmit={handleSubmitBatch}
