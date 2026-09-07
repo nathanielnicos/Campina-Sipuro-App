@@ -40,12 +40,12 @@ exports.exportBatchMappingExcel = async (req, res) => {
                 h.po_number AS kode_po,
                 DATE_FORMAT(h.created_at, '%d/%m/%Y') AS tgl_po_dibuat,
                 IF(h.requested_delivery_date IS NOT NULL, DATE_FORMAT(h.requested_delivery_date, '%d/%m/%Y'), '-') AS tgl_kirim_diminta,
-                COALESCE(pba.allocated_qty, d.qty, 0) AS kuantitas_po,
+                COALESCE(pba.allocated_qty, d.base_qty, 0) AS kuantitas_po,
                 COALESCE(b.batch_number, '-') AS kode_batch,
                 IF(b.plan_production_date IS NOT NULL, DATE_FORMAT(b.plan_production_date, '%d/%m/%Y'), '-') AS tgl_produksi,
                 COALESCE(pba.fulfilled_qty, 0) AS hasil_produksi,
-                (COALESCE(pba.allocated_qty, d.qty, 0) - COALESCE(pba.fulfilled_qty, 0)) AS sisa_po,
-                UPPER(COALESCE(pba.status, 'OPEN')) AS status_alokasi
+                (COALESCE(pba.allocated_qty, d.base_qty, 0) - COALESCE(pba.fulfilled_qty, 0)) AS sisa_po,
+                IF(pba.status IS NOT NULL, UPPER(pba.status), '-') AS status_alokasi
             FROM sipuro_db.po_headers h
             JOIN sipuro_db.po_details d ON h.po_header_id = d.po_header_id
             JOIN sipuro_db.products p ON d.id_product = p.id_product
@@ -87,7 +87,7 @@ exports.exportBatchMappingExcel = async (req, res) => {
                 row.tgl_produksi,
                 Number(row.hasil_produksi) || 0,
                 Number(row.sisa_po) || 0,
-                row.status_alokasi
+                row.status_alokasi || '-'
             ]);
         });
 
