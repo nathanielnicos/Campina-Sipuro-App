@@ -58,7 +58,7 @@ exports.getAllProducts = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching products:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengambil data produk dari database.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to fetch product data from the database.', error: error.message });
     }
 };
 
@@ -123,7 +123,7 @@ exports.getAllPrices = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching prices:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengambil data harga dari database.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to fetch price data from the database.', error: error.message });
     }
 };
 
@@ -182,7 +182,7 @@ exports.getAllEmployees = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching employees:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengambil data karyawan dari database.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to fetch employee data from the database.', error: error.message });
     }
 };
 
@@ -195,7 +195,7 @@ exports.toggleEmployeeStatus = async (req, res) => {
         const { is_suspended } = req.body;
 
         if (is_suspended === undefined) {
-            return res.status(400).json({ success: false, message: 'Status is_suspended wajib diisi.' });
+            return res.status(400).json({ success: false, message: 'The is_suspended status is required.' });
         }
 
         await sipuroDb.query(
@@ -205,18 +205,18 @@ exports.toggleEmployeeStatus = async (req, res) => {
 
         return res.json({
             success: true,
-            message: `Status karyawan berhasil diubah.`
+            message: 'Employee status updated successfully.'
         });
     } catch (error) {
         console.error('Error toggling employee status:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengubah status karyawan.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to update employee status.', error: error.message });
     }
 };
 
 /**
- * 4. Menarik daftar customer dari DB (Server-side Pagination & Search)
+ * 4. Menarik daftar Customer Users dari DB (Server-side Pagination & Search)
  */
-exports.getAllCustomers = async (req, res) => {
+exports.getAllCustomerUsers = async (req, res) => {
     try {
         const { page = 1, limit = 10, search } = req.query;
         const pageNum = parseInt(page, 10) || 1;
@@ -228,31 +228,40 @@ exports.getAllCustomers = async (req, res) => {
 
         if (search && search.trim() !== '') {
             const searchTerm = `%${search.trim()}%`;
-            conditions.push('(customer_code LIKE ? OR company_name LIKE ?)');
-            queryParams.push(searchTerm, searchTerm);
+            conditions.push('(cu.customer_user_code LIKE ? OR cu.full_name LIKE ? OR cu.email LIKE ? OR c.company_name LIKE ?)');
+            queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        const countQuery = `SELECT COUNT(*) AS total FROM sipuro_db.customers ${whereClause}`;
+        const countQuery = `
+            SELECT COUNT(*) AS total 
+            FROM sipuro_db.customer_users cu
+            JOIN sipuro_db.customers c ON cu.customer_id = c.customer_id
+            ${whereClause}
+        `;
         const [countRows] = await sipuroDb.query(countQuery, queryParams);
         const totalItems = countRows[0]?.total || 0;
         const totalPages = Math.ceil(totalItems / limitNum);
 
         const query = `
             SELECT 
-                customer_id,
-                customer_code,
-                company_name,
-                email,
-                phone,
-                address,
-                delivery_address,
-                is_active,
-                created_at
-            FROM sipuro_db.customers
+                cu.customer_user_id,
+                cu.customer_id,
+                cu.customer_user_code,
+                cu.full_name,
+                cu.email,
+                cu.allowed_ip,
+                cu.last_login_ip,
+                cu.last_login_at,
+                cu.is_active,
+                cu.created_at,
+                c.customer_code,
+                c.company_name
+            FROM sipuro_db.customer_users cu
+            JOIN sipuro_db.customers c ON cu.customer_id = c.customer_id
             ${whereClause}
-            ORDER BY customer_code ASC
+            ORDER BY cu.created_at DESC
             LIMIT ? OFFSET ?
         `;
 
@@ -269,34 +278,34 @@ exports.getAllCustomers = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error fetching customers:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengambil data pelanggan dari database.', error: error.message });
+        console.error('Error fetching customer users:', error);
+        return res.status(500).json({ success: false, message: 'Failed to fetch customer user data from the database.', error: error.message });
     }
 };
 
 /**
- * Toggle Status Aktif Customer
+ * Toggle Status Aktif Customer User
  */
-exports.toggleCustomerStatus = async (req, res) => {
+exports.toggleCustomerUserStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { is_active } = req.body;
 
         if (is_active === undefined) {
-            return res.status(400).json({ success: false, message: 'Status is_active wajib diisi.' });
+            return res.status(400).json({ success: false, message: 'The is_active status is required.' });
         }
 
         await sipuroDb.query(
-            'UPDATE sipuro_db.customers SET is_active = ? WHERE customer_id = ?',
+            'UPDATE sipuro_db.customer_users SET is_active = ? WHERE customer_user_id = ?',
             [is_active ? 1 : 0, id]
         );
 
         return res.json({
             success: true,
-            message: `Status pelanggan berhasil diubah.`
+            message: 'Customer user status updated successfully.'
         });
     } catch (error) {
-        console.error('Error toggling customer status:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengubah status pelanggan.', error: error.message });
+        console.error('Error toggling customer user status:', error);
+        return res.status(500).json({ success: false, message: 'Failed to update customer user status.', error: error.message });
     }
 };

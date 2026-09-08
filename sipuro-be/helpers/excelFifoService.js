@@ -1,33 +1,63 @@
 const xlsx = require('xlsx');
+const crypto = require('crypto');
 
 /**
- * Helper untuk memformat tanggal dari Excel secara aman
+ * Helper untuk memformat tanggal & jam dari Excel secara aman ke format SQL DATETIME (YYYY-MM-DD HH:mm:ss)
  */
-const parseExcelDate = (excelValue) => {
-    if (!excelValue) return null;
+const parseExcelDateTime = (excelDateVal, excelTimeVal) => {
+    if (!excelDateVal) return null;
 
-    if (typeof excelValue === 'number') {
-        const dateObj = xlsx.SSF.parse_date_code(excelValue);
+    let dateStr = null;
+
+    // Handle Date
+    if (typeof excelDateVal === 'number') {
+        const dateObj = xlsx.SSF.parse_date_code(excelDateVal);
         if (dateObj) {
             const y = dateObj.y;
             const m = String(dateObj.m).padStart(2, '0');
             const d = String(dateObj.d).padStart(2, '0');
-            return `${y}-${m}-${d}`;
+            dateStr = `${y}-${m}-${d}`;
+        }
+    } else {
+        const parsedDate = new Date(excelDateVal);
+        if (!isNaN(parsedDate.getTime())) {
+            dateStr = parsedDate.toISOString().split('T')[0];
         }
     }
 
-    const parsedDate = new Date(excelValue);
-    if (!isNaN(parsedDate.getTime())) {
-        return parsedDate.toISOString().split('T')[0];
+    if (!dateStr) return null;
+
+    // Handle Time
+    let timeStr = '00:00:00';
+    if (excelTimeVal !== undefined && excelTimeVal !== null) {
+        if (typeof excelTimeVal === 'number') {
+            const timeObj = xlsx.SSF.parse_date_code(excelTimeVal);
+            if (timeObj) {
+                const hh = String(timeObj.H).padStart(2, '0');
+                const mm = String(timeObj.M).padStart(2, '0');
+                const ss = String(timeObj.S).padStart(2, '0');
+                timeStr = `${hh}:${mm}:${ss}`;
+            }
+        } else if (typeof excelTimeVal === 'string' && excelTimeVal.trim() !== '') {
+            const parts = excelTimeVal.trim().split(':');
+            if (parts.length >= 2) {
+                const hh = String(parts[0]).padStart(2, '0');
+                const mm = String(parts[1]).padStart(2, '0');
+                const ss = parts[2] ? String(parts[2]).padStart(2, '0') : '00';
+                timeStr = `${hh}:${mm}:${ss}`;
+            }
+        }
     }
 
-    return null;
+    return `${dateStr} ${timeStr}`;
 };
 
 /**
- * Membaca buffer file Excel dan mengekstrak metadata & baris data
+ * Membaca buffer file Excel dan mengekstrak metadata, fileHash, serta baris detail data + rowHash
  */
 const parseProductionExcel = (fileBuffer) => {
+    const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
@@ -39,158 +69,183 @@ const parseProductionExcel = (fileBuffer) => {
         processTimestamp = rawHeader.replace('Proses :', '').trim();
     }
 
-    const productionItems = [];
+    const rawRows = [];
 
     for (let i = 4; i < rawData.length; i++) {
         const row = rawData[i];
         if (!row) continue;
 
-        const batchNumber = row[1];
-        const itemCode = row[5];
+        const batchNumber = row[1] ? String(row[1]).trim() : '';
+        const lotNumber = row[4] ? String(row[4]).trim() : '';
+        const itemCode = row[5] ? String(row[5]).trim() : '';
         const qtyPac = parseInt(row[12], 10) || 0;
-        const actStartDate = parseExcelDate(row[14]); // Kolom O (index 14) untuk actual_production_date
 
-        if (batchNumber && itemCode && batchNumber !== 'Batch Num.' && batchNumber !== 'SubTot') {
-            productionItems.push({
-                batchNumber: String(batchNumber).trim(),
-                itemCode: String(itemCode).trim(),
-                qtyPac: qtyPac,
-                actStartDate: actStartDate
-            });
+        if (!batchNumber || batchNumber === 'Batch Num.' || batchNumber === 'SubTot') {
+            continue;
         }
+
+        const startDatetime = parseExcelDateTime(row[14], row[15]);
+        const completedDatetime = parseExcelDateTime(row[16], row[17]);
+
+        const hashPayload = [
+            batchNumber,
+            lotNumber,
+            itemCode,
+            qtyPac,
+            startDatetime || '',
+            completedDatetime || ''
+        ].join('|');
+
+        const rowHash = crypto.createHash('sha256').update(hashPayload).digest('hex');
+
+        rawRows.push({
+            batchNumber,
+            lotNumber,
+            itemCode,
+            qtyPac,
+            actualStartDatetime: startDatetime,
+            actualCompletedDatetime: completedDatetime,
+            rowHash
+        });
     }
-
-    // Agregasi per baris unik di Excel (Batch + ItemCode)
-    const aggregatedExcel = {};
-    productionItems.forEach((item) => {
-        const key = `${item.batchNumber}_${item.itemCode}`;
-        if (!aggregatedExcel[key]) {
-            aggregatedExcel[key] = {
-                batchNumber: item.batchNumber,
-                itemCode: item.itemCode,
-                totalQtyOutput: 0,
-                actStartDate: item.actStartDate
-            };
-        }
-        aggregatedExcel[key].totalQtyOutput += item.qtyPac;
-    });
 
     return {
         processTimestamp,
-        excelDataMap: aggregatedExcel
+        fileHash,
+        rawRows
     };
 };
 
 /**
- * Simulation & Calculation Service Alokasi Produksi Excel (Murni FIFO)
- * @param {Object} excelDataMap - Data hasil parse Excel
- * @param {Array} openAllocations - Daftar alokasi open dari DB
- * @param {Array} allProducts - Master produk dari DB
- * @param {number} poTolerance - Toleransi rasio PO dari DB (misal 0.90)
+ * Calculation Service Alokasi Produksi Excel (Mendukung Positif & Negatif Koreksi)
  */
 const calculateFifoAllocation = (
-    excelDataMap,
+    rawRows = [],
+    existingHashes = [],
     openAllocations = [],
     allProducts = [],
     poTolerance
 ) => {
     if (poTolerance === undefined || poTolerance === null) {
-        throw new Error('Nilai poTolerance wajib diberikan dari database company_profile.');
+        throw new Error('The poTolerance value is required from the company_profile database.');
     }
+
+    const hashSet = new Set(existingHashes);
+
+    const categorizedDetails = {
+        newRows: [],
+        duplicateRows: [],
+        unregisteredRows: []
+    };
+
+    const newItemsAggregated = {};
+
+    rawRows.forEach((row) => {
+        const matchedProduct = allProducts.find(p => p.product_code === row.itemCode);
+        const matchedAllocations = openAllocations.filter(
+            a => a.batch_number === row.batchNumber && a.product_code === row.itemCode
+        );
+
+        const isRegistered = !!matchedProduct && matchedAllocations.length > 0;
+        const isDuplicate = hashSet.has(row.rowHash);
+
+        if (!isRegistered) {
+            row.rowStatusCategory = 'UNREGISTERED';
+            categorizedDetails.unregisteredRows.push(row);
+        } else if (isDuplicate) {
+            row.rowStatusCategory = 'DUPLICATE';
+            categorizedDetails.duplicateRows.push(row);
+        } else {
+            row.rowStatusCategory = 'NEW';
+            categorizedDetails.newRows.push(row);
+
+            const key = `${row.batchNumber}_${row.itemCode}`;
+            if (!newItemsAggregated[key]) {
+                newItemsAggregated[key] = {
+                    batchNumber: row.batchNumber,
+                    itemCode: row.itemCode,
+                    totalQtyOutput: 0,
+                    actStartDate: row.actualStartDatetime ? row.actualStartDatetime.split(' ')[0] : null
+                };
+            }
+            newItemsAggregated[key].totalQtyOutput += row.qtyPac;
+        }
+    });
 
     const previewResults = [];
     const unallocatedStocks = [];
     const detailedAllocations = [];
 
-    Object.values(excelDataMap).forEach((excelItem) => {
-        // Cari master produk di DB berdasarkan product_code
-        const matchedProduct = allProducts.find(
-            p => p.product_code === excelItem.itemCode
-        );
-
-        // Cari alokasi batch yang sesuai di DB (WAJIB COCOK KODE BATCH DAN KODE PRODUK)
+    Object.values(newItemsAggregated).forEach((excelItem) => {
+        const matchedProduct = allProducts.find(p => p.product_code === excelItem.itemCode);
         const matchedAllocations = openAllocations.filter(
             a => a.batch_number === excelItem.batchNumber && a.product_code === excelItem.itemCode
         );
 
-        const hasProductInDb = !!matchedProduct;
-        const hasBatchInDb = matchedAllocations.length > 0;
+        const productName = matchedProduct ? matchedProduct.product_name : (matchedAllocations[0]?.product_name || '');
 
-        // Syarat Terdaftar: Produk ada di DB DAN Batch terdaftar dengan produk yang sama
-        const isRegistered = hasProductInDb && hasBatchInDb;
-
-        let productName = '';
-        if (hasProductInDb) {
-            productName = matchedProduct.product_name;
-        } else if (matchedAllocations.length > 0) {
-            productName = matchedAllocations[0].product_name || '';
-        }
-
-        const totalPlannedQty = isRegistered
-            ? matchedAllocations.reduce((sum, row) => sum + (Number(row.allocated_qty) || 0), 0)
-            : 0;
-
-        const previousFulfilledQty = isRegistered
-            ? matchedAllocations.reduce((sum, row) => sum + (Number(row.fulfilled_qty) || 0), 0)
-            : 0;
-
+        const totalPlannedQty = matchedAllocations.reduce((sum, row) => sum + (Number(row.allocated_qty) || 0), 0);
+        const previousFulfilledQty = matchedAllocations.reduce((sum, row) => sum + (Number(row.fulfilled_qty) || 0), 0);
         const excelQty = excelItem.totalQtyOutput;
 
-        let processedAllocations = [];
+        let remainingExcelQty = excelQty;
 
-        // HANYA OLAH ALOKASI JIKA BARIS BENAR-BENAR TERDAFTAR
-        if (isRegistered && matchedAllocations.length > 0) {
-            let remainingExcelQty = excelQty;
+        const processedAllocations = matchedAllocations.map((alloc, idx) => {
+            const planQty = Number(alloc.allocated_qty) || 0;
+            const currentFulfilled = Number(alloc.fulfilled_qty) || 0;
 
-            // Alokasi Murni FIFO (Berurutan berdasarkan prioritas PO)
-            processedAllocations = matchedAllocations.map(alloc => {
-                const planQty = Number(alloc.allocated_qty) || 0;
-                const currentFulfilled = Number(alloc.fulfilled_qty) || 0;
-                const neededQty = Math.max(0, planQty - currentFulfilled);
+            let qtyToAdd = 0;
 
-                let qtyToAdd = 0;
-                if (remainingExcelQty > 0) {
-                    qtyToAdd = neededQty > 0 ? Math.min(remainingExcelQty, neededQty) : 0;
-                    remainingExcelQty = Math.max(0, remainingExcelQty - qtyToAdd);
+            if (remainingExcelQty < 0) {
+                // Penanganan Koreksi Negatif (Minus)
+                if (idx === matchedAllocations.length - 1) {
+                    qtyToAdd = remainingExcelQty; // Terapkan sisa minus secara penuh
+                    remainingExcelQty = 0;
+                } else {
+                    const maxDeduct = Math.min(currentFulfilled, Math.abs(remainingExcelQty));
+                    qtyToAdd = -maxDeduct;
+                    remainingExcelQty += maxDeduct;
                 }
+            } else if (remainingExcelQty > 0) {
+                // Penanganan Alokasi Positif
+                const neededQty = Math.max(0, planQty - currentFulfilled);
+                qtyToAdd = neededQty > 0 ? Math.min(remainingExcelQty, neededQty) : 0;
+                remainingExcelQty = Math.max(0, remainingExcelQty - qtyToAdd);
+            }
 
-                const updatedFulfilled = currentFulfilled + qtyToAdd;
-                const poRatio = planQty > 0 ? (updatedFulfilled / planQty) : 0;
-                const isClosed = poRatio >= poTolerance;
-                const rowStatus = isClosed ? 'Closed' : 'Open';
+            const updatedFulfilled = Math.max(0, currentFulfilled + qtyToAdd);
+            const poRatio = planQty > 0 ? (updatedFulfilled / planQty) : 0;
 
-                detailedAllocations.push({
-                    allocationId: alloc.id_allocation,
-                    poDetailId: alloc.po_detail_id,
-                    batchId: alloc.id_batch,
-                    fulfilledQty: updatedFulfilled,
-                    addedQty: qtyToAdd,
-                    rowStatus: rowStatus,
-                    actDate: excelItem.actStartDate
-                });
+            // Re-open jika di bawah toleransi, Close jika mencapai toleransi
+            const isClosed = poRatio >= poTolerance;
+            const rowStatus = isClosed ? 'Closed' : 'Open';
 
-                return {
-                    allocationId: alloc.id_allocation,
-                    poNumber: alloc.po_number,
-                    planQty: planQty,
-                    previousFulfilledQty: currentFulfilled,
-                    rawExcelQty: excelQty,
-                    addedAllocatedQty: qtyToAdd,
-                    newFulfilledQty: updatedFulfilled,
-                    fulfillmentPercentage: (poRatio * 100).toFixed(1),
-                    status: rowStatus,
-                    plan_production_date: alloc.plan_production_date
-                };
+            detailedAllocations.push({
+                allocationId: alloc.id_allocation,
+                poDetailId: alloc.po_detail_id,
+                batchId: alloc.id_batch,
+                fulfilledQty: updatedFulfilled,
+                addedQty: qtyToAdd,
+                rowStatus: rowStatus,
+                actDate: excelItem.actStartDate
             });
-        }
 
-        // Hitung total hasil excel pada upload ini yang berhasil dialokasikan ke PO-PO
-        const totalAddedInThisUpload = processedAllocations.reduce(
-            (sum, a) => sum + (a.addedAllocatedQty || 0),
-            0
-        );
+            return {
+                allocationId: alloc.id_allocation,
+                poNumber: alloc.po_number,
+                planQty: planQty,
+                previousFulfilledQty: currentFulfilled,
+                rawExcelQty: excelQty,
+                addedAllocatedQty: qtyToAdd,
+                newFulfilledQty: updatedFulfilled,
+                fulfillmentPercentage: (poRatio * 100).toFixed(1),
+                status: rowStatus,
+                plan_production_date: alloc.plan_production_date
+            };
+        });
 
-        // Output preview hasil produksi
+        const totalAddedInThisUpload = processedAllocations.reduce((sum, a) => sum + (a.addedAllocatedQty || 0), 0);
+
         previewResults.push({
             batchNumber: excelItem.batchNumber,
             productCode: excelItem.itemCode,
@@ -199,18 +254,16 @@ const calculateFifoAllocation = (
             totalQtyOutput: excelQty,
             qtyProduced: excelQty,
             previousFulfilledQty: previousFulfilledQty,
-            fulfilledQty: isRegistered ? totalAddedInThisUpload : 0,
+            fulfilledQty: totalAddedInThisUpload,
             addedQty: excelQty,
             accumulatedQty: previousFulfilledQty + excelQty,
             totalPlannedQty: totalPlannedQty,
-            isRegistered: isRegistered,
-            allocations: isRegistered ? processedAllocations : []
+            isRegistered: true,
+            allocations: processedAllocations
         });
 
-        // Sisa lebihan ke unallocated stocks (murni qty excel ini minus yang masuk PO)
         const excessQty = excelQty - totalAddedInThisUpload;
-
-        if (isRegistered && excessQty > 0) {
+        if (excessQty > 0) {
             unallocatedStocks.push({
                 batchNumber: excelItem.batchNumber,
                 productCode: excelItem.itemCode,
@@ -223,6 +276,13 @@ const calculateFifoAllocation = (
     });
 
     return {
+        categorizedDetails,
+        summary: {
+            totalRows: rawRows.length,
+            newCount: categorizedDetails.newRows.length,
+            duplicateCount: categorizedDetails.duplicateRows.length,
+            unregisteredCount: categorizedDetails.unregisteredRows.length
+        },
         previewResults,
         unallocatedStocks,
         detailedAllocations

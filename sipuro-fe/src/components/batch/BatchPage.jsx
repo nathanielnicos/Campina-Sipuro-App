@@ -66,29 +66,33 @@ const BatchPage = ({ currentUser }) => {
         await processExcelUpload(uploadFile);
     };
 
-    const handleConfirmSave = async () => {
+    const handleConfirmSave = async (modalPayload = {}) => {
         if (!previewData) return;
+
+        const newDetailsCount = modalPayload.newDetails ? modalPayload.newDetails.length : 0;
 
         const confirmMsg = previewData.isReupload
             ? `${previewData.warningMessage}\nAre you sure you want to resave this production allocation?`
-            : 'Save production results to the database?';
+            : `Save ${newDetailsCount} new row(s) to the database?`;
 
         if (!window.confirm(confirmMsg)) return;
 
         setSaving(true);
         const payload = {
             processTimestamp: previewData.processTimestamp,
+            fileHash: previewData.fileHash,
             fileName: previewData.fileName,
             userId: currentUserId,
             allocations: previewData.detailedAllocations || [],
-            unallocatedStocks: previewData.unallocatedStocks || []
+            unallocatedStocks: previewData.unallocatedStocks || [],
+            newDetails: modalPayload.newDetails || []
         };
 
         const res = await confirmProductionApi(payload);
         setSaving(false);
 
         if (res && res.success) {
-            alert(res.message || 'Berhasil disimpan!');
+            alert(res.message || 'Successfully saved!');
             handleResetUploadState();
             handleTriggerReload(); // Trigger reload data ke komponen anak
         } else {

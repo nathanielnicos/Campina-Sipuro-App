@@ -304,7 +304,7 @@ const UnallocatedStockTable = ({ currentUser, reloadTrigger, onRefreshAll }) => 
                                 </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                    <button type="button" onClick={handleCloseModal} style={{ padding: '8px 16px', border: '1px solid #ccc', background: '#fff', borderRadius: '4px', cursor: 'pointer' }}>Batal</button>
+                                    <button type="button" onClick={handleCloseModal} style={{ padding: '8px 16px', border: '1px solid #ccc', background: '#fff', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
                                     <button type="submit" disabled={submitting} style={{ padding: '8px 16px', background: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                                         {submitting ? 'Processing...' : 'Save Allocation'}
                                     </button>

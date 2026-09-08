@@ -1,35 +1,38 @@
 const { sipuroDb: db } = require('../../config/db');
 const { parseProductionExcel, calculateFifoAllocation } = require('../../helpers/excelFifoService');
-const { refreshPOStatus, getPOTolerance } = require('../../helpers/batchHelper');
+const { refreshPOStatus, refreshBatchStatus, getPOTolerance } = require('../../helpers/batchHelper');
 
 /**
  * Preview Upload Excel Produksi (PPIC)
- * Menerima form-data `file` dan memproses kalkulasi alokasi murni FIFO.
  */
 exports.previewExcelUpload = async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ success: false, message: 'File Excel wajib diunggah.' });
+            return res.status(400).json({ success: false, message: 'Excel file is required.' });
         }
 
-        // Parsing file Excel untuk mengambil timestamp dan mapping data per batch
-        const { processTimestamp, excelDataMap } = parseProductionExcel(req.file.buffer);
+        const { processTimestamp, fileHash, rawRows } = parseProductionExcel(req.file.buffer);
 
-        // Cek log apakah file dengan timestamp ini pernah diunggah sebelumnya
         const [existingLogs] = await db.query(
-            'SELECT id, uploaded_at FROM production_upload_logs WHERE process_timestamp = ?',
-            [processTimestamp]
+            'SELECT id, uploaded_at FROM production_upload_logs WHERE process_timestamp = ? OR file_hash = ?',
+            [processTimestamp, fileHash]
         );
         const isAlreadyUploaded = existingLogs && existingLogs.length > 0;
 
-        // Ambil data alokasi PO yang masih Open diurutkan berdasar plan production & delivery date (FIFO)
-        const [openAllocations] = await db.query(`
+        const [existingHashRows] = await db.query(
+            'SELECT row_hash FROM production_upload_details'
+        );
+        const existingHashes = existingHashRows.map(row => row.row_hash);
+
+        // Ambil SEMUA alokasi yang belum dibatalkan (termasuk yang 'Closed') agar baris koreksi minus bisa dicocokkan
+        const [targetAllocations] = await db.query(`
             SELECT 
                 pba.id AS id_allocation,
                 pba.po_detail_id,
                 pba.id_batch,
                 pba.allocated_qty,
                 pba.fulfilled_qty,
+                pba.status AS allocation_status,
                 pb.batch_number,
                 pb.id_product,
                 pb.plan_production_date,
@@ -43,20 +46,23 @@ exports.previewExcelUpload = async (req, res) => {
             JOIN po_details pd ON pba.po_detail_id = pd.po_detail_id
             JOIN po_headers ph ON pd.po_header_id = ph.po_header_id
             JOIN sipuro_db.products p ON pb.id_product = p.id_product
-            WHERE pba.status = 'Open' AND pb.status = 'Open'
+            WHERE pba.status != 'Canceled' AND pb.status != 'Canceled'
             ORDER BY pb.plan_production_date ASC, ph.requested_delivery_date ASC, ph.created_at ASC
         `);
 
-        // Ambil data referensi produk
         const [allProducts] = await db.query('SELECT id_product, product_code, product_name FROM sipuro_db.products');
-
-        // Ambil nilai toleransi PO pasti dari database company_profile
         const poTolerance = await getPOTolerance(db);
 
-        // Kalkulasi alokasi FIFO dengan toleransi dinamis
-        const { previewResults, unallocatedStocks, detailedAllocations } = calculateFifoAllocation(
-            excelDataMap,
-            openAllocations || [],
+        const {
+            categorizedDetails,
+            summary,
+            previewResults,
+            unallocatedStocks,
+            detailedAllocations
+        } = calculateFifoAllocation(
+            rawRows,
+            existingHashes,
+            targetAllocations || [],
             allProducts || [],
             poTolerance
         );
@@ -65,10 +71,13 @@ exports.previewExcelUpload = async (req, res) => {
             success: true,
             data: {
                 processTimestamp,
+                fileHash,
                 fileName: req.file.originalname,
                 allocationMode: 'FIFO',
                 isReupload: isAlreadyUploaded,
-                warningMessage: isAlreadyUploaded ? 'File dengan timestamp ini pernah diunggah sebelumnya.' : null,
+                warningMessage: isAlreadyUploaded ? 'This file or timestamp has been uploaded previously.' : null,
+                summary,
+                categorizedDetails,
                 previewResults,
                 unallocatedStocks,
                 detailedAllocations
@@ -77,7 +86,7 @@ exports.previewExcelUpload = async (req, res) => {
 
     } catch (error) {
         console.error('Preview Production Upload Error:', error);
-        return res.status(500).json({ success: false, message: 'Gagal memproses file Excel: ' + error.message });
+        return res.status(500).json({ success: false, message: 'Failed to process Excel file: ' + error.message });
     }
 };
 
@@ -85,10 +94,18 @@ exports.previewExcelUpload = async (req, res) => {
  * Commit / Simpan Hasil Alokasi Produksi (PPIC)
  */
 exports.commitExcelAllocation = async (req, res) => {
-    const { processTimestamp, fileName, userId, allocations = [], unallocatedStocks = [] } = req.body;
+    const {
+        processTimestamp,
+        fileHash,
+        fileName,
+        userId,
+        allocations = [],
+        unallocatedStocks = [],
+        newDetails = []
+    } = req.body;
 
-    if (!processTimestamp || (allocations.length === 0 && unallocatedStocks.length === 0)) {
-        return res.status(400).json({ success: false, message: 'Data alokasi tidak boleh kosong.' });
+    if (!processTimestamp || (allocations.length === 0 && unallocatedStocks.length === 0 && newDetails.length === 0)) {
+        return res.status(400).json({ success: false, message: 'Allocation data cannot be empty.' });
     }
 
     const connection = await db.getConnection();
@@ -97,22 +114,41 @@ exports.commitExcelAllocation = async (req, res) => {
 
         const currentUserId = userId || null;
 
-        // 1. Log upload file produksi & ambil insertId-nya
+        // 1. Log upload file produksi
         const [uploadLogResult] = await connection.query(
-            'INSERT INTO production_upload_logs (file_name, process_timestamp, uploaded_by) VALUES (?, ?, ?)',
-            [fileName, processTimestamp, currentUserId]
+            'INSERT INTO production_upload_logs (file_name, process_timestamp, file_hash, uploaded_by) VALUES (?, ?, ?, ?)',
+            [fileName, processTimestamp, fileHash || null, currentUserId]
         );
         const uploadLogId = uploadLogResult.insertId;
 
-        // 2. Update status & qty fulfilled, serta CATAT LOG DETAIL per baris alokasi PO
+        // 2. Simpan detail baris data baru ke production_upload_details (Termasuk nilai minus)
+        if (newDetails && newDetails.length > 0) {
+            const detailValues = newDetails.map(detail => [
+                uploadLogId,
+                detail.batchNumber,
+                detail.lotNumber || null,
+                detail.itemCode,
+                detail.qtyPac || 0,
+                detail.actualStartDatetime || null,
+                detail.actualCompletedDatetime || null,
+                detail.rowHash
+            ]);
+
+            await connection.query(
+                `INSERT INTO production_upload_details 
+                (upload_log_id, batch_number, lot_number, item_code, qty_pac, actual_start_datetime, actual_completed_datetime, row_hash) 
+                VALUES ?`,
+                [detailValues]
+            );
+        }
+
+        // 3. Update status & qty fulfilled, serta CATAT LOG DETAIL per baris alokasi PO
         for (const item of allocations) {
-            // Fetch data alokasi lama (before) untuk pembanding
             const [[oldData]] = await connection.query(
                 'SELECT fulfilled_qty, status FROM po_batch_allocations WHERE id = ?',
                 [item.allocationId]
             );
 
-            // Simpan log ke tabel po_batch_allocation_logs
             if (oldData) {
                 await connection.query(
                     `INSERT INTO po_batch_allocation_logs (
@@ -134,7 +170,6 @@ exports.commitExcelAllocation = async (req, res) => {
                 );
             }
 
-            // Update tabel po_batch_allocations
             await connection.query(
                 'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ?, updated_by = ? WHERE id = ?',
                 [item.fulfilledQty, item.rowStatus, currentUserId, item.allocationId]
@@ -148,22 +183,13 @@ exports.commitExcelAllocation = async (req, res) => {
             }
         }
 
-        // 3. Evaluasi status Batch: Close batch jika SELURUH alokasi PO di dalamnya sudah Closed
+        // 4. Refresh status Induk Batch (Otomatis Re-Open / Close bergantung kondisi alokasi di dalamnya)
         const batchIds = [...new Set(allocations.map(a => a.batchId).filter(Boolean))];
         for (const bId of batchIds) {
-            const [openRows] = await connection.query(
-                'SELECT id FROM po_batch_allocations WHERE id_batch = ? AND status = \'Open\'',
-                [bId]
-            );
-            if (openRows.length === 0) {
-                await connection.query(
-                    "UPDATE batches SET status = 'Closed', updated_by = ? WHERE id = ?",
-                    [currentUserId, bId]
-                );
-            }
+            await refreshBatchStatus(connection, bId);
         }
 
-        // 4. Simpan stok lebihan ke tabel unallocated_stocks
+        // 5. Simpan stok lebihan jika ada
         if (unallocatedStocks && unallocatedStocks.length > 0) {
             for (const stock of unallocatedStocks) {
                 if (stock.idProduct && stock.qtyAvailable > 0) {
@@ -175,7 +201,7 @@ exports.commitExcelAllocation = async (req, res) => {
             }
         }
 
-        // 5. Update fulfilled_qty di po_details dan Evaluasi Status PO Header
+        // 6. Update fulfilled_qty di po_details dan Evaluasi Status PO Header
         const poDetailIds = [...new Set(allocations.map(a => a.poDetailId).filter(Boolean))];
         const poHeaderIds = new Set();
 
@@ -197,18 +223,18 @@ exports.commitExcelAllocation = async (req, res) => {
             }
         }
 
-        // 6. Evaluasi perubahan status po_headers
+        // 7. Evaluasi perubahan status po_headers
         for (const poHeaderId of poHeaderIds) {
             await refreshPOStatus(connection, poHeaderId);
         }
 
         await connection.commit();
-        return res.json({ success: true, message: 'Alokasi produksi berhasil disimpan ke database.' });
+        return res.json({ success: true, message: 'Production allocation successfully saved to database.' });
 
     } catch (error) {
         await connection.rollback();
         console.error('Commit Production Allocation Error:', error);
-        return res.status(500).json({ success: false, message: 'Gagal menyimpan alokasi: ' + error.message });
+        return res.status(500).json({ success: false, message: 'Failed to save allocation: ' + error.message });
     } finally {
         connection.release();
     }

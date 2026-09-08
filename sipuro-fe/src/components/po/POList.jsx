@@ -245,7 +245,7 @@ const POList = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                                     <th style={{ padding: '12px 16px' }}>PO Number</th>
                                     <th style={{ padding: '12px 16px' }}>Created Date</th>
                                     <th style={{ padding: '12px 16px' }}>Requested Delivery Date</th>
-                                    <th style={{ padding: '12px 16px' }}>Total Item</th>
+                                    <th style={{ padding: '12px 16px' }}>Total Items</th>
                                     {user?.role !== 'PPIC' && (
                                         <th style={{ padding: '12px 16px' }}>Total Price (Inc. PPN)</th>
                                     )}

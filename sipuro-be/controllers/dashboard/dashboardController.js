@@ -119,6 +119,6 @@ exports.getDashboardStats = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil data statistik dasbor.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch dashboard statistics.', error: error.message });
     }
 };

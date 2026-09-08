@@ -14,7 +14,7 @@ router.get('/employees', superadminController.getAllEmployees);
 router.put('/employees/:id/toggle-status', superadminController.toggleEmployeeStatus);
 
 // MENU 4: Master Customer (Lihat Tabel & Toggle Status)
-router.get('/customers', superadminController.getAllCustomers);
-router.put('/customers/:id/toggle-status', superadminController.toggleCustomerStatus);
+router.get('/customer-users', superadminController.getAllCustomerUsers);
+router.put('/customer-users/:id/toggle-status', superadminController.toggleCustomerUserStatus);
 
 module.exports = router;

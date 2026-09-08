@@ -94,7 +94,7 @@ exports.getUnassignedSummary = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching unassigned summary:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil rekap kebutuhan batch.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch unassigned batch summary.', error: error.message });
     }
 };
 
@@ -112,7 +112,7 @@ exports.getBatchesBySku = async (req, res) => {
         res.json({ success: true, data: rows });
     } catch (error) {
         console.error('Error fetching batches by SKU:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil daftar batch eksisting.' });
+        res.status(500).json({ success: false, message: 'Failed to fetch existing batches.' });
     }
 };
 
@@ -134,7 +134,7 @@ exports.assignBatchBulk = async (req, res) => {
         const reqQty = Number(allocated_qty);
 
         if (!id_product || !reqQty || reqQty <= 0) {
-            return res.status(400).json({ success: false, message: 'Kuantitas alokasi harus lebih besar dari 0.' });
+            return res.status(400).json({ success: false, message: 'Allocation quantity must be greater than 0.' });
         }
 
         await connection.beginTransaction();
@@ -165,12 +165,12 @@ exports.assignBatchBulk = async (req, res) => {
 
         if (unassignedItems.length === 0 || totalNeeded === 0) {
             await connection.rollback();
-            return res.status(404).json({ success: false, message: 'Tidak ada PO menggantung yang membutuhkan alokasi untuk SKU ini.' });
+            return res.status(404).json({ success: false, message: 'No pending POs requiring allocation for this SKU.' });
         }
 
         if (reqQty > totalNeeded) {
             await connection.rollback();
-            return res.status(400).json({ success: false, message: `Qty input (${reqQty}) melebihi total sisa kebutuhan (${totalNeeded}).` });
+            return res.status(400).json({ success: false, message: `Input quantity (${reqQty}) exceeds total remaining requirement (${totalNeeded}).` });
         }
 
         let targetId;
@@ -183,20 +183,20 @@ exports.assignBatchBulk = async (req, res) => {
             );
             if (existingBatch.length === 0 || existingBatch[0].status !== 'Open') {
                 await connection.rollback();
-                return res.status(400).json({ success: false, message: 'Batch eksisting tidak ditemukan atau sudah Closed.' });
+                return res.status(400).json({ success: false, message: 'Existing batch not found or is already Closed.' });
             }
             targetId = existingBatch[0].id;
             finalBatchNumber = existingBatch[0].batch_number;
         } else {
             if (!batch_number || !plan_production_date) {
                 await connection.rollback();
-                return res.status(400).json({ success: false, message: 'Nomor batch dan tanggal produksi wajib diisi.' });
+                return res.status(400).json({ success: false, message: 'Batch number and plan production date are required.' });
             }
 
             const [checkDup] = await connection.query(`SELECT id FROM sipuro_db.batches WHERE batch_number = ?`, [batch_number]);
             if (checkDup.length > 0) {
                 await connection.rollback();
-                return res.status(400).json({ success: false, message: `Nomor batch '${batch_number}' sudah terdaftar.` });
+                return res.status(400).json({ success: false, message: `Batch number '${batch_number}' is already registered.` });
             }
 
             const [newBatch] = await connection.query(
@@ -231,11 +231,11 @@ exports.assignBatchBulk = async (req, res) => {
         }
 
         await connection.commit();
-        res.json({ success: true, message: `Berhasil mengalokasikan ${reqQty} qty ke Batch '${finalBatchNumber}'!` });
+        res.json({ success: true, message: `Successfully allocated ${reqQty} qty to Batch '${finalBatchNumber}'.` });
     } catch (error) {
         await connection.rollback();
         console.error('Error assigning batch bulk:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengalokasikan batch.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to allocate batch.', error: error.message });
     } finally {
         connection.release();
     }

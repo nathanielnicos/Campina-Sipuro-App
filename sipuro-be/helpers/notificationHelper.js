@@ -39,7 +39,7 @@ const createNotification = async ({
             link
         ]);
     } catch (error) {
-        console.error('Error inserting notification:', error);
+        console.error('Failed to create notification:', error);
     }
 };
 

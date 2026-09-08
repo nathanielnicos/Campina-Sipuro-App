@@ -13,21 +13,32 @@ exports.getProducts = async (req, res) => {
         res.json({ success: true, data: rows });
     } catch (error) {
         console.error('Error fetching products:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil data produk', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch product data.', error: error.message });
     }
 };
 
 exports.getCompanyProfile = async (req, res) => {
     try {
-        const query = `SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`;
+        const query = `SELECT company_name, address, email, phone, ppn_percent FROM sipuro_db.company_profile LIMIT 1`;
         const [rows] = await sipuroDb.query(query);
-        if (rows.length === 0 || rows[0].ppn_percent === null) {
-            return res.status(404).json({ success: false, message: 'Data PPN tidak ditemukan di company_profile.' });
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Company profile data not found.' });
         }
-        res.json({ success: true, data: { ppn_percent: parseFloat(rows[0].ppn_percent) } });
+
+        const profile = rows[0];
+        res.json({
+            success: true,
+            data: {
+                company_name: profile.company_name,
+                address: profile.address,
+                email: profile.email,
+                phone: profile.phone,
+                ppn_percent: profile.ppn_percent !== null ? parseFloat(profile.ppn_percent) : 0
+            }
+        });
     } catch (error) {
         console.error('Error fetching company profile:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil data company profile', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch company profile data.', error: error.message });
     }
 };
 
@@ -37,11 +48,11 @@ exports.getCustomerDetail = async (req, res) => {
         const query = `SELECT customer_id, company_name, delivery_address FROM sipuro_db.customers WHERE customer_id = ?`;
         const [rows] = await sipuroDb.query(query, [id]);
         if (rows.length === 0) {
-            return res.status(404).json({ success: false, message: 'Customer tidak ditemukan' });
+            return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
         res.json({ success: true, data: rows[0] });
     } catch (error) {
         console.error('Error fetching customer detail:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil data customer', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch customer details.', error: error.message });
     }
 };

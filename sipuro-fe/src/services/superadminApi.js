@@ -31,15 +31,15 @@ export const getPrices = async (page = 1, limit = 10, search = '') => {
     return response.data;
 };
 
-export const getCustomers = async (page = 1, limit = 10, search = '') => {
-    const response = await axios.get(`${BASE_URL}/customers`, {
+export const getCustomerUsers = async (page = 1, limit = 10, search = '') => {
+    const response = await axios.get(`${BASE_URL}/customer-users`, {
         params: { page, limit, search }
     });
     return response.data;
 };
 
-export const toggleCustomerStatus = async (id, isActive) => {
-    const response = await axios.put(`${BASE_URL}/customers/${id}/toggle-status`, {
+export const toggleCustomerUserStatus = async (id, isActive) => {
+    const response = await axios.put(`${BASE_URL}/customer-users/${id}/toggle-status`, {
         is_active: isActive
     });
     return response.data;

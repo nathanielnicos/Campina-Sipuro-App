@@ -109,7 +109,7 @@ exports.getAllocatedBatchMapping = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching batch mapping:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil riwayat mapping batch.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch batch mapping history.', error: error.message });
     }
 };
 
@@ -133,7 +133,7 @@ exports.updateAllocationStatus = async (req, res) => {
 
         if (!allocation) {
             await connection.rollback();
-            return res.status(404).json({ success: false, message: 'Data alokasi tidak ditemukan.' });
+            return res.status(404).json({ success: false, message: 'Allocation data not found.' });
         }
 
         let newStatus = '';
@@ -142,7 +142,7 @@ exports.updateAllocationStatus = async (req, res) => {
                 await connection.rollback();
                 return res.status(400).json({
                     success: false,
-                    message: 'Alokasi yang sudah memiliki Terpenuhi (PCS) > 0 tidak bisa dibatalkan.'
+                    message: 'Allocation with fulfilled quantity > 0 cannot be canceled.'
                 });
             }
             newStatus = 'Canceled';
@@ -151,13 +151,13 @@ exports.updateAllocationStatus = async (req, res) => {
                 await connection.rollback();
                 return res.status(400).json({
                     success: false,
-                    message: 'Alokasi sudah terpenuhi penuh, gunakan status Closed normal.'
+                    message: 'Allocation is already fully fulfilled. Use normal Closed status.'
                 });
             }
             newStatus = 'Force Closed';
         } else {
             await connection.rollback();
-            return res.status(400).json({ success: false, message: 'Aksi tidak valid.' });
+            return res.status(400).json({ success: false, message: 'Invalid action type.' });
         }
 
         // B. Update status alokasi
@@ -191,7 +191,7 @@ exports.updateAllocationStatus = async (req, res) => {
             allocation.fulfilled_qty || 0,
             allocation.status,
             newStatus,
-            reason || `Aksi ${action} manual`,
+            reason || `Manual ${action} action`,
             userId || allocation.created_by || 1
         ]);
 
@@ -202,7 +202,7 @@ exports.updateAllocationStatus = async (req, res) => {
         await connection.commit();
         return res.status(200).json({
             success: true,
-            message: `Status alokasi berhasil diubah menjadi ${newStatus}.`
+            message: `Allocation status successfully updated to ${newStatus}.`
         });
 
     } catch (error) {
@@ -210,7 +210,7 @@ exports.updateAllocationStatus = async (req, res) => {
         console.error('Error updateAllocationStatus:', error);
         return res.status(500).json({
             success: false,
-            message: 'Terjadi kesalahan server.',
+            message: 'Internal server error.',
             error: error.message
         });
     } finally {

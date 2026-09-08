@@ -21,9 +21,9 @@ const calculateBaseQty = (qty, uom, product) => {
 exports.createPO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
-        const { customer_id, requested_delivery_date, delivery_address, description, items } = req.body;
-        if (!customer_id || !requested_delivery_date || !items || items.length === 0) {
-            return res.status(400).json({ success: false, message: 'Data tidak lengkap.' });
+        const { customer_id, created_by, requested_delivery_date, delivery_address, description, items } = req.body;
+        if (!customer_id || !requested_delivery_date || !items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ success: false, message: 'Incomplete request data.' });
         }
 
         const safeDescription = description ? description.trim().slice(0, 50) : null;
@@ -77,10 +77,10 @@ exports.createPO = async (req, res) => {
 
         await connection.beginTransaction();
 
-        // Insert Header
+        // Insert Header (created_by dan updated_by diisi saat pembuatan)
         const [headerResult] = await connection.query(
-            `INSERT INTO sipuro_db.po_headers (po_number, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address, description, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Waiting for Confirmation')`,
-            [poNumber, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription]
+            `INSERT INTO sipuro_db.po_headers (po_number, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address, description, status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Waiting for Confirmation', ?, ?)`,
+            [poNumber, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription, created_by || null, created_by || null]
         );
 
         const poHeaderId = headerResult.insertId;
@@ -118,7 +118,7 @@ exports.createPO = async (req, res) => {
             actionType: 'CREATE',
             oldStatus: null,
             newStatus: 'Waiting for Confirmation',
-            actionBy: customer_id
+            actionBy: created_by || customer_id
         });
 
         await logPODetails(connection, poHeaderLogId, insertedDetails);
@@ -126,8 +126,8 @@ exports.createPO = async (req, res) => {
         await connection.commit();
 
         await createNotification({
-            title: 'PO Baru Masuk',
-            message: `${poNumber} telah dibuat oleh ${customerName}.`,
+            title: 'New PO Received',
+            message: `${poNumber} has been created by ${customerName}.`,
             recipientType: 'EMPLOYEE',
             recipientDepartment: 'PPIC',
             senderType: 'CUSTOMER',
@@ -135,11 +135,11 @@ exports.createPO = async (req, res) => {
             link: '/po-list'
         });
 
-        res.json({ success: true, message: 'Purchase Order berhasil dibuat!', data: { po_header_id: poHeaderId, po_number: poNumber } });
+        res.json({ success: true, message: 'Purchase Order created successfully!', data: { po_header_id: poHeaderId, po_number: poNumber } });
     } catch (error) {
         await connection.rollback();
         console.error('Error creating PO:', error);
-        res.status(500).json({ success: false, message: 'Gagal membuat Purchase Order', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to create Purchase Order.', error: error.message });
     } finally {
         connection.release();
     }
@@ -154,20 +154,24 @@ exports.updatePO = async (req, res) => {
         const { id } = req.params;
         const { requested_delivery_date, delivery_address, description, items, updated_by } = req.body;
 
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ success: false, message: 'Incomplete request data.' });
+        }
+
         const safeDescription = description ? description.trim().slice(0, 50) : null;
 
         const [checkRows] = await connection.query(
             `SELECT h.po_number, h.status, h.customer_id, c.company_name 
-             FROM sipuro_db.po_headers h
-             LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id 
-             WHERE h.po_header_id = ?`,
+           FROM sipuro_db.po_headers h
+           LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id 
+           WHERE h.po_header_id = ?`,
             [id]
         );
-        if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO tidak ditemukan.' });
+        if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO not found.' });
 
         const poData = checkRows[0];
         if (poData.status !== 'Waiting for Confirmation') {
-            return res.status(400).json({ success: false, message: 'PO tidak dapat diubah karena status bukan "Waiting for Confirmation".' });
+            return res.status(400).json({ success: false, message: 'PO cannot be updated because the status is not "Waiting for Confirmation".' });
         }
 
         // Fetch Data Eksisting untuk Pembanding Log
@@ -197,9 +201,10 @@ exports.updatePO = async (req, res) => {
 
         await connection.beginTransaction();
 
+        // Update Header (mengubah updated_by; updated_at otomatis terisi via ON UPDATE CURRENT_TIMESTAMP)
         await connection.query(
-            `UPDATE sipuro_db.po_headers SET subtotal = ?, ppn_percent = ?, total_amount = ?, requested_delivery_date = ?, delivery_address = ?, description = ? WHERE po_header_id = ?`,
-            [subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription, id]
+            `UPDATE sipuro_db.po_headers SET subtotal = ?, ppn_percent = ?, total_amount = ?, requested_delivery_date = ?, delivery_address = ?, description = ?, updated_by = ? WHERE po_header_id = ?`,
+            [subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription, updated_by || null, id]
         );
 
         const existingIds = existingDetails.map(row => row.po_detail_id);
@@ -288,8 +293,8 @@ exports.updatePO = async (req, res) => {
         await connection.commit();
 
         await createNotification({
-            title: 'PO Diperbarui',
-            message: `${poData.po_number} telah diperbarui oleh ${poData.company_name || 'Customer'}.`,
+            title: 'PO Updated',
+            message: `${poData.po_number} has been updated by ${poData.company_name || 'Customer'}.`,
             recipientType: 'EMPLOYEE',
             recipientDepartment: 'PPIC',
             senderType: 'CUSTOMER',
@@ -297,11 +302,11 @@ exports.updatePO = async (req, res) => {
             link: '/po-list'
         });
 
-        res.json({ success: true, message: 'Purchase Order berhasil diperbarui!' });
+        res.json({ success: true, message: 'Purchase Order updated successfully!' });
     } catch (error) {
         await connection.rollback();
         console.error('Error updating PO:', error);
-        res.status(500).json({ success: false, message: 'Gagal memperbarui Purchase Order', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to update Purchase Order.', error: error.message });
     } finally {
         connection.release();
     }
@@ -323,16 +328,16 @@ exports.cancelPO = async (req, res) => {
              WHERE h.po_header_id = ?`,
             [id]
         );
-        if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO tidak ditemukan.' });
+        if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO not found.' });
 
         const poData = checkRows[0];
         if (poData.status !== 'Waiting for Confirmation') {
-            return res.status(400).json({ success: false, message: 'PO tidak dapat dibatalkan karena status bukan "Waiting for Confirmation".' });
+            return res.status(400).json({ success: false, message: 'PO cannot be canceled because the status is not "Waiting for Confirmation".' });
         }
 
         await connection.beginTransaction();
 
-        await connection.query(`UPDATE sipuro_db.po_headers SET status = 'Canceled' WHERE po_header_id = ?`, [id]);
+        await connection.query(`UPDATE sipuro_db.po_headers SET status = 'Canceled', updated_by = ? WHERE po_header_id = ?`, [canceled_by || null, id]);
 
         // Catat Audit Trail CANCEL
         await logPOHeader(connection, {
@@ -347,8 +352,8 @@ exports.cancelPO = async (req, res) => {
         await connection.commit();
 
         await createNotification({
-            title: 'PO Dibatalkan',
-            message: `${poData.po_number} telah dibatalkan oleh ${poData.company_name || 'Customer'}.`,
+            title: 'PO Canceled',
+            message: `${poData.po_number} has been canceled by ${poData.company_name || 'Customer'}.`,
             recipientType: 'EMPLOYEE',
             recipientDepartment: 'PPIC',
             senderType: 'CUSTOMER',
@@ -356,11 +361,11 @@ exports.cancelPO = async (req, res) => {
             link: '/po-list'
         });
 
-        res.json({ success: true, message: 'Purchase Order berhasil dibatalkan.' });
+        res.json({ success: true, message: 'Purchase Order canceled successfully.' });
     } catch (error) {
         await connection.rollback();
         console.error('Error cancelling PO:', error);
-        res.status(500).json({ success: false, message: 'Gagal membatalkan Purchase Order', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to cancel Purchase Order.', error: error.message });
     } finally {
         connection.release();
     }
@@ -374,12 +379,12 @@ exports.updatePOStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { status, notes, updated_by } = req.body;
-        if (!status) return res.status(400).json({ success: false, message: 'Status wajib diisi.' });
+        if (!status) return res.status(400).json({ success: false, message: 'Status is required.' });
 
         const safeNotes = notes ? notes.trim().slice(0, 50) : null;
 
         if (status === 'Rejected' && !safeNotes) {
-            return res.status(400).json({ success: false, message: 'Alasan penolakan wajib diisi (maksimal 50 karakter).' });
+            return res.status(400).json({ success: false, message: 'Rejection reason is required (maximum 50 characters).' });
         }
 
         const [poRows] = await connection.query(
@@ -387,7 +392,7 @@ exports.updatePOStatus = async (req, res) => {
             [id]
         );
 
-        if (poRows.length === 0) return res.status(404).json({ success: false, message: 'Data PO tidak ditemukan.' });
+        if (poRows.length === 0) return res.status(404).json({ success: false, message: 'PO data not found.' });
 
         const targetPo = poRows[0];
         const actionType = status === 'Rejected' ? 'REJECT' : (status === 'Waiting for Batch Assignment' ? 'APPROVE' : 'STATUS_AUTO_CHANGE');
@@ -414,12 +419,12 @@ exports.updatePOStatus = async (req, res) => {
         await connection.commit();
 
         const isApproved = status === 'Waiting for Batch Assignment';
-        const notifTitle = isApproved ? 'PO Diterima' : 'PO Ditolak';
-        const actionText = isApproved ? 'diterima' : 'ditolak';
+        const notifTitle = isApproved ? 'PO Approved' : 'PO Rejected';
+        const actionText = isApproved ? 'approved' : 'rejected';
 
         await createNotification({
             title: notifTitle,
-            message: `${targetPo.po_number} telah ${actionText} oleh PPIC.${safeNotes ? ` Catatan: ${safeNotes}` : ''}`,
+            message: `${targetPo.po_number} has been ${actionText} by PPIC.${safeNotes ? ` Notes: ${safeNotes}` : ''}`,
             recipientType: 'CUSTOMER',
             recipientId: targetPo.customer_id,
             senderType: 'EMPLOYEE',
@@ -427,11 +432,11 @@ exports.updatePOStatus = async (req, res) => {
             link: '/po-list'
         });
 
-        res.json({ success: true, message: `Status PO berhasil diperbarui menjadi ${status}.` });
+        res.json({ success: true, message: `PO status successfully updated to ${status}.` });
     } catch (error) {
         await connection.rollback();
         console.error('Error updating PO status:', error);
-        res.status(500).json({ success: false, message: 'Gagal memperbarui status PO.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to update PO status.', error: error.message });
     } finally {
         connection.release();
     }

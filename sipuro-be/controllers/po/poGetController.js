@@ -73,7 +73,7 @@ exports.getPOList = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching PO list:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil data Purchase Order', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch Purchase Order list.', error: error.message });
     }
 };
 
@@ -81,14 +81,22 @@ exports.getPODetail = async (req, res) => {
     try {
         const { id } = req.params;
         const headerQuery = `
-            SELECT h.*, c.company_name
+            SELECT 
+                h.*, 
+                c.company_name, 
+                c.customer_code, 
+                c.address,
+                creator.full_name AS creator_name,
+                updater.full_name AS updater_name
             FROM sipuro_db.po_headers h
             LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id
+            LEFT JOIN sipuro_db.customer_users creator ON h.created_by = creator.customer_user_id
+            LEFT JOIN sipuro_db.customer_users updater ON h.updated_by = updater.customer_user_id
             WHERE h.po_header_id = ?
         `;
         const [headerRows] = await sipuroDb.query(headerQuery, [id]);
         if (headerRows.length === 0) {
-            return res.status(404).json({ success: false, message: 'Data PO tidak ditemukan.' });
+            return res.status(404).json({ success: false, message: 'PO data not found.' });
         }
 
         const detailQuery = `
@@ -102,6 +110,6 @@ exports.getPODetail = async (req, res) => {
         res.json({ success: true, data: { header: headerRows[0], items: detailRows } });
     } catch (error) {
         console.error('Error fetching PO detail:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil detail PO', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch PO details.', error: error.message });
     }
 };

@@ -5,7 +5,7 @@ import BatchPage from './components/batch/BatchPage';
 import Dashboard from './components/dashboard/Dashboard';
 
 import EmployeeListPage from './components/superadmin/EmployeeListPage';
-import CustomerListPage from './components/superadmin/CustomerListPage';
+import CustomerUserListPage from './components/superadmin/CustomerUserListPage';
 import ProductListPage from './components/superadmin/ProductListPage';
 import PriceListPage from './components/superadmin/PriceListPage';
 
@@ -48,7 +48,7 @@ function App() {
 
   const handleOpenCreate = () => {
     if (user && user.role !== 'CUSTOMER') {
-      alert('Hanya Customer yang dapat membuat PO baru.');
+      alert('Only Customers can create new Purchase Orders.');
       return;
     }
     setSelectedPoId(null);
@@ -88,7 +88,7 @@ function App() {
 
       {/* RENDER SUPERADMIN */}
       {isSuperAdmin && activeTab === 'sa-employees' && <EmployeeListPage />}
-      {isSuperAdmin && activeTab === 'sa-customers' && <CustomerListPage />}
+      {isSuperAdmin && activeTab === 'sa-customers' && <CustomerUserListPage />}
       {isSuperAdmin && activeTab === 'sa-products' && <ProductListPage />}
       {isSuperAdmin && activeTab === 'sa-prices' && <PriceListPage />}
 
@@ -100,7 +100,7 @@ function App() {
       {activeTab === 'po-list' && (
         <POList
           key={refreshKey}
-          customerId={user.role === 'CUSTOMER' ? user.id : null}
+          customerId={user.role === 'CUSTOMER' ? user.customer_id : null}
           user={user}
           onCreateNewPO={handleOpenCreate}
           onSelectPODetail={handleSelectPODetail}

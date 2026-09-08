@@ -57,7 +57,7 @@ function parseToFixed(val, precision = 6) {
  */
 exports.previewProducts = async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ success: false, message: 'File Excel wajib diunggah.' });
+        if (!req.file) return res.status(400).json({ success: false, message: 'Excel file is required.' });
 
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
@@ -65,7 +65,7 @@ exports.previewProducts = async (req, res) => {
 
         const headerIdx = findHeaderRowIndex(rawRows, ['DESCRIPTION']);
         if (headerIdx === -1) {
-            return res.status(400).json({ success: false, message: 'Format kolom template Excel Produk tidak sesuai.' });
+            return res.status(400).json({ success: false, message: 'Invalid Product Excel template column format.' });
         }
 
         const headers = rawRows[headerIdx].map(h => String(h || '').trim());
@@ -113,7 +113,7 @@ exports.previewProducts = async (req, res) => {
                 const changes = [];
 
                 if (existing.product_name !== productName) {
-                    changes.push({ field: 'Nama Produk', oldVal: existing.product_name, newVal: productName });
+                    changes.push({ field: 'Product Name', oldVal: existing.product_name, newVal: productName });
                 }
                 if (existing.base_uom !== uom) {
                     changes.push({ field: 'UOM', oldVal: existing.base_uom, newVal: uom });
@@ -168,7 +168,7 @@ exports.previewProducts = async (req, res) => {
         });
     } catch (error) {
         console.error('Error preview products:', error);
-        res.status(500).json({ success: false, message: 'Gagal memproses file Excel Produk.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to process Product Excel file.', error: error.message });
     }
 };
 
@@ -183,7 +183,7 @@ exports.commitProducts = async (req, res) => {
         const itemsToProcess = items.filter(item => item.status === 'NEW' || item.status === 'UPDATED');
 
         if (itemsToProcess.length === 0) {
-            return res.json({ success: true, message: 'Tidak ada perubahan data produk yang perlu disimpan.' });
+            return res.json({ success: true, message: 'No product data changes to save.' });
         }
 
         await connection.beginTransaction();
@@ -210,11 +210,11 @@ exports.commitProducts = async (req, res) => {
         }
 
         await connection.commit();
-        res.json({ success: true, message: `Berhasil menyimpan data produk. (${inserted} Ditambahkan, ${updated} Diperbarui)` });
+        res.json({ success: true, message: `Successfully saved product data. (${inserted} Added, ${updated} Updated)` });
     } catch (error) {
         await connection.rollback();
         console.error('Error commit products:', error);
-        res.status(500).json({ success: false, message: 'Gagal menyimpan data produk ke database.' });
+        res.status(500).json({ success: false, message: 'Failed to save product data to the database.', error: error.message });
     } finally {
         connection.release();
     }
@@ -225,7 +225,7 @@ exports.commitProducts = async (req, res) => {
  */
 exports.previewPrices = async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ success: false, message: 'File Excel wajib diunggah.' });
+        if (!req.file) return res.status(400).json({ success: false, message: 'Excel file is required.' });
 
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
@@ -233,7 +233,7 @@ exports.previewPrices = async (req, res) => {
 
         const headerIdx = findHeaderRowIndex(rawRows, ['ORACLE', 'EXC. PPN']);
         if (headerIdx === -1) {
-            return res.status(400).json({ success: false, message: 'Format kolom template Excel Harga Jual tidak sesuai.' });
+            return res.status(400).json({ success: false, message: 'Invalid Selling Price Excel template column format.' });
         }
 
         const headers = rawRows[headerIdx].map(h => String(h || '').trim());
@@ -324,7 +324,7 @@ exports.previewPrices = async (req, res) => {
                 const changes = [];
 
                 if (parseToFixed(existing.price, 0) !== priceExcPpn) {
-                    changes.push({ field: 'Harga Exc PPN', oldVal: parseToFixed(existing.price, 0), newVal: priceExcPpn });
+                    changes.push({ field: 'Price Excl. VAT', oldVal: parseToFixed(existing.price, 0), newVal: priceExcPpn });
                 }
 
                 // Normalisasi tanggal DB dan Excel ke YYYY-MM-DD
@@ -372,7 +372,7 @@ exports.previewPrices = async (req, res) => {
         });
     } catch (error) {
         console.error('Error preview prices:', error);
-        res.status(500).json({ success: false, message: 'Gagal memproses file Excel Harga Jual.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to process Selling Price Excel file.', error: error.message });
     }
 };
 
@@ -387,12 +387,17 @@ exports.commitPrices = async (req, res) => {
         const itemsToProcess = items.filter(item => item.status === 'NEW' || item.status === 'UPDATED');
 
         if (itemsToProcess.length === 0) {
-            return res.json({ success: true, message: 'Tidak ada perubahan data harga yang perlu disimpan.' });
+            return res.json({ success: true, message: 'No price data changes to save.' });
         }
 
         await connection.beginTransaction();
 
-        const productCodes = [...new Set(itemsToProcess.map(i => i.product_code))];
+        const productCodes = [...new Set(itemsToProcess.map(i => i.product_code))].filter(Boolean);
+        if (productCodes.length === 0) {
+            await connection.rollback();
+            return res.status(400).json({ success: false, message: 'No valid product codes found in request.' });
+        }
+
         const [prods] = await connection.query(
             'SELECT id_product, product_code FROM sipuro_db.products WHERE product_code IN (?)',
             [productCodes]
@@ -425,11 +430,11 @@ exports.commitPrices = async (req, res) => {
         }
 
         await connection.commit();
-        res.json({ success: true, message: `Berhasil menyimpan data harga jual. (${inserted} Ditambahkan, ${updated} Diperbarui)` });
+        res.json({ success: true, message: `Successfully saved selling price data. (${inserted} Added, ${updated} Updated)` });
     } catch (error) {
         await connection.rollback();
         console.error('Error commit prices:', error);
-        res.status(500).json({ success: false, message: 'Gagal menyimpan harga jual ke database.' });
+        res.status(500).json({ success: false, message: 'Failed to save selling prices to the database.', error: error.message });
     } finally {
         connection.release();
     }

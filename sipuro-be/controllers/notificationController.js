@@ -81,7 +81,7 @@ exports.markAsRead = async (req, res) => {
     const { id } = req.params;
     try {
         await sipuroDb.query('UPDATE sipuro_db.notifications SET is_read = TRUE WHERE id = ?', [id]);
-        return res.json({ success: true, message: 'Notifikasi telah dibaca' });
+        return res.json({ success: true, message: 'Notification marked as read.' });
     } catch (error) {
         return res.status(500).json({ message: 'Server error', error: error.message });
     }

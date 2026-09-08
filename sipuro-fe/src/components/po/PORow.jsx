@@ -38,7 +38,7 @@ const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
                             fontWeight: 'bold'
                         }}
                     >
-                        Detail
+                        Details
                     </button>
 
                     {/* Sembunyikan Tombol Preview PDF untuk Role PPIC */}
@@ -55,7 +55,7 @@ const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
                                 fontSize: '12px',
                                 fontWeight: 'bold'
                             }}
-                            title="Buka Preview PDF"
+                            title="Open PDF Preview"
                         >
                             📄 PDF
                         </button>

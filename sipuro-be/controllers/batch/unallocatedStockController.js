@@ -70,7 +70,7 @@ exports.getUnallocatedStocks = async (req, res) => {
         });
     } catch (error) {
         console.error('Get Unallocated Stocks Error:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengambil data stok lebihan.' });
+        return res.status(500).json({ success: false, message: 'Failed to fetch unallocated stocks.' });
     }
 };
 
@@ -99,7 +99,7 @@ exports.getOpenAllocationsByProduct = async (req, res) => {
         return res.json({ success: true, data: rows });
     } catch (error) {
         console.error('Get Open Allocations Error:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengambil alokasi open.' });
+        return res.status(500).json({ success: false, message: 'Failed to fetch open allocations.' });
     }
 };
 
@@ -111,7 +111,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
 
         const qtyToAlloc = parseInt(allocateQty, 10);
         if (!unallocatedId || !targetAllocationId || !qtyToAlloc || qtyToAlloc <= 0) {
-            return res.status(400).json({ success: false, message: 'Data alokasi stok tidak valid.' });
+            return res.status(400).json({ success: false, message: 'Invalid stock allocation data.' });
         }
 
         const currentUserId = userId || null;
@@ -126,7 +126,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
 
         if (!unallocated || unallocated.qty_available < qtyToAlloc) {
             await connection.rollback();
-            return res.status(400).json({ success: false, message: 'Sisa stok lebihan tidak mencukupi.' });
+            return res.status(400).json({ success: false, message: 'Insufficient unallocated stock available.' });
         }
 
         // B. Validasi Target Allocation (Ambil id_batch & po_detail_id)
@@ -137,7 +137,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
 
         if (!targetAlloc) {
             await connection.rollback();
-            return res.status(404).json({ success: false, message: 'Target alokasi tidak ditemukan.' });
+            return res.status(404).json({ success: false, message: 'Target allocation not found.' });
         }
 
         const batchId = targetAlloc.id_batch;
@@ -198,12 +198,12 @@ exports.reallocateUnallocatedStock = async (req, res) => {
         }
 
         await connection.commit();
-        return res.json({ success: true, message: 'Stok lebihan berhasil dialokasikan dan dicatat ke log.' });
+        return res.json({ success: true, message: 'Unallocated stock successfully reallocated and logged.' });
 
     } catch (error) {
         await connection.rollback();
         console.error('Reallocate Stock Error:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengalokasikan stok: ' + error.message });
+        return res.status(500).json({ success: false, message: 'Failed to reallocate stock: ' + error.message });
     } finally {
         connection.release();
     }

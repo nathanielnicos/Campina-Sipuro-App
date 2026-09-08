@@ -108,16 +108,16 @@ exports.exportBatchMappingExcel = async (req, res) => {
 
         // BARIS PERTAMA: Header Kolom
         excelData.push([
-            'ID Produk',
-            'Nama Produk',
-            'Kode PO',
-            'Tgl PO Dibuat',
-            'Tgl Kirim Diminta',
-            'Kuantitas PO (PCS)',
-            'Kode Batch',
-            'Tgl Produksi',
-            'Hasil Produksi (PCS)',
-            'Sisa PO (PCS)',
+            'Product Code',
+            'Product Name',
+            'PO Number',
+            'PO Created Date',
+            'Requested Delivery Date',
+            'PO Quantity (Pcs)',
+            'Batch Code',
+            'Production Date',
+            'Production Output (Pcs)',
+            'Remaining PO (Pcs)',
             'Status'
         ]);
 
@@ -171,7 +171,7 @@ exports.exportBatchMappingExcel = async (req, res) => {
         console.error('Export Excel Error:', error);
         res.status(500).json({
             success: false,
-            message: 'Gagal mengekspor data Excel.',
+            message: 'Failed to export Excel data.',
             error: error.message
         });
     }

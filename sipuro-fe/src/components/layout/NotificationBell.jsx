@@ -12,7 +12,7 @@ const formatDateTime = (dateString) => {
     const day = String(date.getDate()).padStart(2, '0');
 
     // Nama bulan singkat (Jan, Feb, Mar, dll)
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const month = months[date.getMonth()];
 
     // Ambil 2 digit terakhir tahun
@@ -197,10 +197,10 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
                         justifyContent: 'space-between',
                         alignItems: 'center'
                     }}>
-                        <span>Notifikasi</span>
+                        <span>Notifications</span>
                         {unreadCount > 0 && (
                             <span style={{ fontSize: '11px', backgroundColor: '#eff6ff', color: '#3b82f6', padding: '2px 8px', borderRadius: '12px' }}>
-                                {unreadCount} baru
+                                {unreadCount} new
                             </span>
                         )}
                     </div>
@@ -208,7 +208,7 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
                     <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
                         {notifications.length === 0 ? (
                             <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-                                Tidak ada notifikasi.
+                                No notifications available.
                             </div>
                         ) : (
                             notifications.map((item) => {

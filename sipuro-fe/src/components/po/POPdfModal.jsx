@@ -1,26 +1,36 @@
 import { useEffect, useState, useRef } from 'react';
 import html2pdf from 'html2pdf.js';
-import { fetchPODetail } from '../../services/poApi';
+import { fetchPODetail, fetchCompanyProfile } from '../../services/poApi';
 import { formatCurrency, formatDate, formatQty } from '../../utils/formatters';
 
 const POPdfModal = ({ poId, onClose }) => {
     const [poData, setPoData] = useState(null);
+    const [seller, setSeller] = useState(null);
     const [loading, setLoading] = useState(true);
     const pdfContentRef = useRef(null);
 
     useEffect(() => {
         const loadData = async () => {
             try {
-                const res = await fetchPODetail(poId);
-                if (res.success) {
-                    setPoData(res.data);
+                // Memanggil detail PO dan profile penjual secara bersamaan
+                const [poRes, companyRes] = await Promise.all([
+                    fetchPODetail(poId),
+                    fetchCompanyProfile()
+                ]);
+
+                if (poRes.success) {
+                    setPoData(poRes.data);
+                }
+                if (companyRes.success && companyRes.data) {
+                    setSeller(companyRes.data);
                 }
             } catch (err) {
-                console.error('Gagal mengambil data PDF:', err);
+                console.error('Failed to fetch PDF data:', err);
             } finally {
                 setLoading(false);
             }
         };
+
         if (poId) loadData();
     }, [poId]);
 
@@ -39,8 +49,21 @@ const POPdfModal = ({ poId, onClose }) => {
 
     if (!poId) return null;
 
-    // Parsing PPN percent ke number untuk menghilangkan angka desimal nol otomatis
-    const ppnPercentNum = poData?.header?.ppn_percent ? Number(poData.header.ppn_percent) : 0;
+    const ppnPercentNum = poData?.header?.ppn_percent ? Number(poData.header.ppn_percent) : (seller?.ppn_percent ? Number(seller.ppn_percent) : 0);
+    const header = poData?.header || {};
+
+    // Helper untuk format tanggal & waktu pada bagian footer metadata
+    const formatDateTime = (dateStr) => {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        return d.toLocaleString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
 
     return (
         <div style={{
@@ -58,9 +81,9 @@ const POPdfModal = ({ poId, onClose }) => {
             {/* Modal Box */}
             <div style={{
                 backgroundColor: '#ffffff',
-                width: '800px',
+                width: '850px',
                 maxWidth: '92%',
-                maxHeight: '85vh',
+                maxHeight: '88vh',
                 borderRadius: '8px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -76,7 +99,7 @@ const POPdfModal = ({ poId, onClose }) => {
                     alignItems: 'center',
                     backgroundColor: '#f8f9fa'
                 }}>
-                    <h5 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>Preview Dokumen PO</h5>
+                    <h5 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>PO Document Preview</h5>
                     <button
                         onClick={onClose}
                         style={{ border: 'none', background: 'transparent', fontSize: '20px', cursor: 'pointer', color: '#6c757d' }}
@@ -85,101 +108,146 @@ const POPdfModal = ({ poId, onClose }) => {
                     </button>
                 </div>
 
-                {/* Body Modal (Dapat Di-scroll) */}
+                {/* Body Modal (Scrollable) */}
                 <div style={{ padding: '20px', overflowY: 'auto', flex: 1, backgroundColor: '#f1f3f5' }}>
                     {loading ? (
-                        <p style={{ textAlign: 'center', padding: '20px' }}>Memuat dokumen...</p>
+                        <p style={{ textAlign: 'center', padding: '20px' }}>Loading document...</p>
                     ) : poData ? (
                         <div
                             ref={pdfContentRef}
                             style={{
                                 backgroundColor: '#ffffff',
-                                padding: '30px',
+                                padding: '40px',
                                 borderRadius: '4px',
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                                color: '#333'
+                                color: '#111',
+                                fontFamily: 'Arial, sans-serif'
                             }}
                         >
-                            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold' }}>PURCHASE ORDER</h2>
-                                <p style={{ margin: '4px 0', color: '#666', fontSize: '14px' }}>{poData.header.po_number}</p>
+                            {/* Document Header Section */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px' }}>
+                                {/* Left Side: Title & Seller Info (Company Profile) */}
+                                <div style={{ width: '45%' }}>
+                                    <h1 style={{ margin: '0 0 12px 0', fontSize: '24px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                                        PURCHASE ORDER
+                                    </h1>
+                                    <div style={{ fontSize: '12px', lineHeight: '1.5', color: '#333' }}>
+                                        <strong>{seller?.company_name || '-'}</strong>
+                                        <div style={{ whiteSpace: 'pre-line', marginTop: '2px' }}>
+                                            {seller?.address || '-'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Side: PO Meta Info & Customer Info */}
+                                <div style={{ width: '50%', display: 'flex', gap: '20px', fontSize: '12px', lineHeight: '1.4' }}>
+                                    {/* PO Dates & Numbers */}
+                                    <div style={{ width: '50%' }}>
+                                        <div style={{ marginBottom: '8px' }}>
+                                            <div style={{ fontWeight: 'bold' }}>Purchase Order Date</div>
+                                            <div>{formatDate(header.created_at)}</div>
+                                        </div>
+                                        <div style={{ marginBottom: '8px' }}>
+                                            <div style={{ fontWeight: 'bold' }}>Delivery Date</div>
+                                            <div>{formatDate(header.requested_delivery_date)}</div>
+                                        </div>
+                                        <div style={{ marginBottom: '8px' }}>
+                                            <div style={{ fontWeight: 'bold' }}>Purchase Order Number</div>
+                                            <div>{header.po_number}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Customer Company Info (Pembeli) */}
+                                    <div style={{ width: '50%' }}>
+                                        <strong>{header.company_name || '-'}</strong>
+                                        <div style={{ whiteSpace: 'pre-line', marginTop: '4px', color: '#333' }}>
+                                            {header.address || '-'}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Info Header PO */}
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: '1.2fr 0.8fr',
-                                gap: '24px',
-                                marginBottom: '24px',
-                                fontSize: '13px',
-                                lineHeight: '1.5'
-                            }}>
-                                <div>
-                                    <p style={{ margin: '3px 0' }}><strong>Customer:</strong> {poData.header.company_name || '-'}</p>
-                                    <p style={{ margin: '3px 0' }}><strong>Alamat Pengiriman:</strong> {poData.header.delivery_address || '-'}</p>
-                                    <p style={{ margin: '3px 0' }}><strong>Catatan:</strong> {poData.header.description || '-'}</p>
-                                </div>
-                                <div>
-                                    <p style={{ margin: '3px 0' }}><strong>Tanggal Buat:</strong> {formatDate(poData.header.created_at)}</p>
-                                    <p style={{ margin: '3px 0' }}><strong>Tanggal Kirim:</strong> {formatDate(poData.header.requested_delivery_date)}</p>
-                                    <p style={{ margin: '3px 0' }}><strong>Status:</strong> {poData.header.status}</p>
-                                </div>
-                            </div>
-
-                            {/* Tabel Produk */}
-                            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '13px' }}>
+                            {/* Products Table */}
+                            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '12px' }}>
                                 <thead>
-                                    <tr style={{ backgroundColor: '#e9ecef', borderBottom: '2px solid #dee2e6' }}>
-                                        <th style={{ padding: '8px', textAlign: 'left', width: '35px' }}>No</th>
-                                        <th style={{ padding: '8px', textAlign: 'left' }}>Produk</th>
-                                        <th style={{ padding: '8px', textAlign: 'right', width: '75px' }}>Qty</th>
-                                        <th style={{ padding: '8px', textAlign: 'center', width: '60px' }}>Satuan</th>
-                                        <th style={{ padding: '8px', textAlign: 'right', width: '110px' }}>Harga Satuan</th>
-                                        <th style={{ padding: '8px', textAlign: 'right', width: '110px' }}>Total Harga</th>
+                                    <tr style={{ borderBottom: '1px solid #000' }}>
+                                        <th style={{ padding: '8px 4px', textAlign: 'left' }}>Description</th>
+                                        <th style={{ padding: '8px 4px', textAlign: 'right', width: '80px' }}>Quantity</th>
+                                        <th style={{ padding: '8px 4px', textAlign: 'right', width: '100px' }}>Unit Price</th>
+                                        <th style={{ padding: '8px 4px', textAlign: 'center', width: '60px' }}>Tax</th>
+                                        <th style={{ padding: '8px 4px', textAlign: 'right', width: '120px' }}>Amount IDR</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {poData.items.map((item, index) => {
                                         const unitPrice = item.qty > 0 ? item.total_price / item.qty : 0;
-
                                         return (
-                                            <tr key={index} style={{ borderBottom: '1px solid #dee2e6' }}>
-                                                <td style={{ padding: '8px' }}>{index + 1}</td>
-                                                <td style={{ padding: '8px' }}>{item.product_name}</td>
-                                                <td style={{ padding: '8px', textAlign: 'right' }}>{formatQty(item.qty)}</td>
-                                                <td style={{ padding: '8px', textAlign: 'center' }}>{item.uom}</td>
-                                                <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(unitPrice)}</td>
-                                                <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(item.total_price)}</td>
+                                            <tr key={index} style={{ borderBottom: '1px solid #000' }}>
+                                                <td style={{ padding: '10px 4px', fontWeight: 'bold' }}>{item.product_name}</td>
+                                                <td style={{ padding: '10px 4px', textAlign: 'right' }}>{formatQty(item.qty)}</td>
+                                                <td style={{ padding: '10px 4px', textAlign: 'right' }}>{formatCurrency(unitPrice).replace('Rp', '').trim()}</td>
+                                                <td style={{ padding: '10px 4px', textAlign: 'center' }}>{ppnPercentNum}%</td>
+                                                <td style={{ padding: '10px 4px', textAlign: 'right' }}>{formatCurrency(item.total_price).replace('Rp', '').trim()}</td>
                                             </tr>
                                         );
                                     })}
                                 </tbody>
                             </table>
 
-                            {/* Ringkasan Total */}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '13px' }}>
-                                <div style={{ width: '250px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-                                        <span>Subtotal:</span>
-                                        <span>{formatCurrency(poData.header.subtotal)}</span>
+                            {/* Subtotal & Total Summary */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '12px', marginBottom: '30px' }}>
+                                <div style={{ width: '280px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontWeight: 'bold' }}>
+                                        <span>Subtotal</span>
+                                        <span>{formatCurrency(header.subtotal)}</span>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-                                        <span>PPN ({ppnPercentNum}%):</span>
-                                        <span>{formatCurrency((poData.header.subtotal * ppnPercentNum) / 100)}</span>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontWeight: 'bold' }}>
+                                        <span>TOTAL PPN TAX IN {ppnPercentNum}%</span>
+                                        <span>{formatCurrency((header.subtotal * ppnPercentNum) / 100)}</span>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: 'bold', borderTop: '1px solid #333', marginTop: '4px' }}>
-                                        <span>Total Amount:</span>
-                                        <span>{formatCurrency(poData.header.total_amount)}</span>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: 'bold', borderTop: '1px solid #000', borderBottom: '1px solid #000', marginTop: '4px' }}>
+                                        <span>TOTAL IDR</span>
+                                        <span>{formatCurrency(header.total_amount)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Audit / Action Metadata */}
+                            <div style={{ fontSize: '10px', color: '#666', marginBottom: '24px', paddingBottom: '12px', borderBottom: '1px solid #ddd', lineHeight: '1.5' }}>
+                                <div><strong>Created by:</strong> {header.creator_name || '-'}</div>
+                                <div><strong>Created at:</strong> {formatDateTime(header.created_at)}</div>
+                            </div>
+
+                            {/* Delivery Details Section */}
+                            <div>
+                                <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 12px 0', letterSpacing: '0.5px' }}>
+                                    DELIVERY DETAILS
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', fontSize: '11px', lineHeight: '1.5' }}>
+                                    {/* Alamat Pengiriman */}
+                                    <div>
+                                        <strong style={{ display: 'block', marginBottom: '4px' }}>Delivery Address</strong>
+                                        <div style={{ whiteSpace: 'pre-line', color: '#333' }}>
+                                            {header.delivery_address || '-'}
+                                        </div>
+                                    </div>
+
+                                    {/* Instruksi & Notes */}
+                                    <div>
+                                        <strong style={{ display: 'block', marginBottom: '4px' }}>Note</strong>
+                                        <div style={{ whiteSpace: 'pre-line', color: '#333' }}>
+                                            {header.description ? `${header.description}` : '-'}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <p style={{ textAlign: 'center', color: '#dc3545', padding: '20px' }}>Gagal memuat data PO.</p>
+                        <p style={{ textAlign: 'center', color: '#dc3545', padding: '20px' }}>Failed to load PO data.</p>
                     )}
                 </div>
 
-                {/* Footer Modal */}
+                {/* Footer Modal Action Buttons */}
                 <div style={{
                     padding: '12px 20px',
                     borderTop: '1px solid #dee2e6',
@@ -200,7 +268,7 @@ const POPdfModal = ({ poId, onClose }) => {
                             fontSize: '13px'
                         }}
                     >
-                        Tutup
+                        Close
                     </button>
                     <button
                         onClick={handleDownloadPdf}
@@ -217,7 +285,7 @@ const POPdfModal = ({ poId, onClose }) => {
                             fontSize: '13px'
                         }}
                     >
-                        Unduh PDF
+                        Download PDF
                     </button>
                 </div>
             </div>

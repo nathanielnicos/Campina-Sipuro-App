@@ -106,7 +106,7 @@ const POCreateModal = ({ poId, currentUser, onClose, onSuccess }) => {
                                     const actualIndex = (currentPage - 1) * pageSize + localIndex;
                                     return (
                                         <ItemRow
-                                            key={actualIndex}
+                                            key={item.po_detail_id || item.id_product || actualIndex}
                                             index={actualIndex}
                                             item={item}
                                             searchTerm={searchTerm[actualIndex]}

@@ -109,7 +109,7 @@ const BatchAllocationModal = ({
                                     <option value="">-- Choose Batch --</option>
                                     {existingBatches.map(b => (
                                         <option key={b.id_batch} value={b.id_batch}>
-                                            {b.batch_number} (Tgl: {b.plan_production_date ? b.plan_production_date.split('T')[0] : '-'})
+                                            {b.batch_number} (Date: {b.plan_production_date ? b.plan_production_date.split('T')[0] : '-'})
                                         </option>
                                     ))}
                                 </select>

@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getCustomers, toggleCustomerStatus } from '../../services/superadminApi';
+import { getCustomerUsers, toggleCustomerUserStatus } from '../../services/superadminApi';
 import PaginationControl from '../common/PaginationControl';
 
-const CustomerListPage = () => {
-    const [customers, setCustomers] = useState([]);
+const CustomerUserListPage = () => {
+    const [customerUsers, setCustomerUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [updatingId, setUpdatingId] = useState(null);
 
@@ -16,27 +16,27 @@ const CustomerListPage = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
 
-    const fetchCustomersData = useCallback(async () => {
+    const fetchCustomerUsersData = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await getCustomers(currentPage, pageSize, search);
+            const res = await getCustomerUsers(currentPage, pageSize, search);
             if (res.success) {
-                setCustomers(res.data);
+                setCustomerUsers(res.data);
                 if (res.pagination) {
                     setTotalPages(res.pagination.totalPages);
                     setTotalItems(res.pagination.totalItems);
                 }
             }
         } catch (err) {
-            console.error('Gagal mengambil data customer:', err);
+            console.error('Gagal mengambil data customer user:', err);
         } finally {
             setLoading(false);
         }
     }, [currentPage, pageSize, search]);
 
     useEffect(() => {
-        fetchCustomersData();
-    }, [fetchCustomersData]);
+        fetchCustomerUsersData();
+    }, [fetchCustomerUsersData]);
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value);
@@ -59,26 +59,26 @@ const CustomerListPage = () => {
         setCurrentPage(1);
     };
 
-    const handleToggleStatus = async (customer) => {
-        const isCurrentlyActive = customer.is_active === 1 || customer.is_active === true;
+    const handleToggleStatus = async (user) => {
+        const isCurrentlyActive = user.is_active === 1 || user.is_active === true;
         const nextStatus = !isCurrentlyActive;
         const confirmMsg = nextStatus
-            ? `Aktifkan akun pelanggan "${customer.company_name}"?`
-            : `Nonaktifkan akun pelanggan "${customer.company_name}"?`;
+            ? `Aktifkan user "${user.full_name}" (${user.customer_user_code})?`
+            : `Nonaktifkan user "${user.full_name}" (${user.customer_user_code})?`;
 
         if (!window.confirm(confirmMsg)) return;
 
         try {
-            setUpdatingId(customer.customer_id);
-            const res = await toggleCustomerStatus(customer.customer_id, nextStatus);
+            setUpdatingId(user.customer_user_id);
+            const res = await toggleCustomerUserStatus(user.customer_user_id, nextStatus);
             if (res.success) {
-                fetchCustomersData();
+                fetchCustomerUsersData();
             } else {
-                alert(res.message || 'Gagal mengubah status pelanggan.');
+                alert(res.message || 'Gagal mengubah status customer user.');
             }
         } catch (err) {
-            console.error('Error toggling customer status:', err);
-            alert('Terjadi kesalahan saat mengubah status pelanggan.');
+            console.error('Error toggling customer user status:', err);
+            alert('Terjadi kesalahan saat mengubah status customer user.');
         } finally {
             setUpdatingId(null);
         }
@@ -97,13 +97,13 @@ const CustomerListPage = () => {
                 gap: '12px',
                 alignItems: 'flex-end'
             }}>
-                <div style={{ flex: '1 1 250px', maxWidth: '300px' }}>
+                <div style={{ flex: '1 1 250px', maxWidth: '350px' }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                        Cari Kode / Nama Perusahaan
+                        Cari User / Perusahaan
                     </label>
                     <input
                         type="text"
-                        placeholder="Cari Kode Customer atau Perusahaan..."
+                        placeholder="Cari Username, Nama, Email, atau Perusahaan..."
                         value={search}
                         onChange={handleSearchChange}
                         style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '13px' }}
@@ -129,54 +129,56 @@ const CustomerListPage = () => {
             </div>
 
             {loading ? (
-                <div>Memuat data pelanggan...</div>
+                <div>Memuat data customer user...</div>
             ) : (
                 <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                                    <th style={{ padding: '10px' }}>Kode Customer</th>
-                                    <th style={{ padding: '10px' }}>Nama Perusahaan</th>
+                                    <th style={{ padding: '10px' }}>Username</th>
+                                    <th style={{ padding: '10px' }}>Nama Lengkap</th>
                                     <th style={{ padding: '10px' }}>Email</th>
-                                    <th style={{ padding: '10px' }}>Telepon</th>
+                                    <th style={{ padding: '10px' }}>Perusahaan</th>
                                     <th style={{ padding: '10px' }}>Status</th>
                                     <th style={{ padding: '10px', textAlign: 'center' }}>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {customers.length === 0 ? (
+                                {customerUsers.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" style={{ padding: '15px', textAlign: 'center' }}>Tidak ada data pelanggan</td>
+                                        <td colSpan="6" style={{ padding: '15px', textAlign: 'center' }}>Tidak ada data user customer</td>
                                     </tr>
                                 ) : (
-                                    customers.map((c) => {
-                                        const isActive = c.is_active === 1 || c.is_active === true;
+                                    customerUsers.map((u) => {
+                                        const isActive = u.is_active === 1 || u.is_active === true;
                                         return (
-                                            <tr key={c.customer_id} style={{ borderBottom: '1px solid #e9ecef' }}>
-                                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.customer_code}</td>
-                                                <td style={{ padding: '10px' }}>{c.company_name}</td>
-                                                <td style={{ padding: '10px' }}>{c.email || '-'}</td>
-                                                <td style={{ padding: '10px' }}>{c.phone || '-'}</td>
+                                            <tr key={u.customer_user_id} style={{ borderBottom: '1px solid #e9ecef' }}>
+                                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{u.customer_user_code}</td>
+                                                <td style={{ padding: '10px' }}>{u.full_name}</td>
+                                                <td style={{ padding: '10px' }}>{u.email || '-'}</td>
+                                                <td style={{ padding: '10px' }}>
+                                                    {u.company_name} <span style={{ color: '#6c757d', fontSize: '11px' }}>({u.customer_code})</span>
+                                                </td>
                                                 <td style={{ padding: '10px', color: isActive ? '#198754' : '#ef4444', fontWeight: 'bold' }}>
                                                     {isActive ? 'Aktif' : 'Nonaktif'}
                                                 </td>
                                                 <td style={{ padding: '10px', textAlign: 'center' }}>
                                                     <button
-                                                        onClick={() => handleToggleStatus(c)}
-                                                        disabled={updatingId === c.customer_id}
+                                                        onClick={() => handleToggleStatus(u)}
+                                                        disabled={updatingId === u.customer_user_id}
                                                         style={{
                                                             padding: '5px 10px',
                                                             fontSize: '12px',
                                                             fontWeight: 'bold',
                                                             borderRadius: '4px',
                                                             border: 'none',
-                                                            cursor: updatingId === c.customer_id ? 'not-allowed' : 'pointer',
+                                                            cursor: updatingId === u.customer_user_id ? 'not-allowed' : 'pointer',
                                                             backgroundColor: isActive ? '#dc3545' : '#198754',
                                                             color: '#fff'
                                                         }}
                                                     >
-                                                        {updatingId === c.customer_id
+                                                        {updatingId === u.customer_user_id
                                                             ? 'Proses...'
                                                             : isActive
                                                                 ? 'Nonaktifkan'
@@ -207,4 +209,4 @@ const CustomerListPage = () => {
     );
 };
 
-export default CustomerListPage;
+export default CustomerUserListPage;

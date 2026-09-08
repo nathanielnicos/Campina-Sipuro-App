@@ -25,9 +25,16 @@ const initialItemState = {
 
 export const usePOModal = ({ poId, currentUser, onSuccess }) => {
     const userRole = currentUser?.role;
+
+    // customerId untuk ID Perusahaan / Tenant
     const customerId = userRole === 'CUSTOMER' ? (currentUser?.customer_id || currentUser?.id) : null;
-    const currentUserId = currentUser?.employee_id || currentUser?.id || currentUser?.customer_id;
-    
+
+    // customerUserId khusus untuk ID Pengguna Customer (Customer User)
+    const customerUserId = userRole === 'CUSTOMER' ? (currentUser?.customer_user_id || currentUser?.user_id || currentUser?.id) : null;
+
+    // employeeId khusus untuk ID Karyawan PPIC / Admin
+    const employeeId = userRole !== 'CUSTOMER' ? (currentUser?.employee_id || currentUser?.user_id || currentUser?.id) : null;
+
     const [poCode, setPoCode] = useState('');
     const [poStatus, setPoStatus] = useState('');
     const [products, setProducts] = useState([]);
@@ -127,11 +134,11 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
                     setSearchTerm(initialSearch);
                 }
             } else {
-                setError(poRes.message || 'Gagal memuat detail PO.');
+                setError(poRes.message || 'Failed to load PO details.');
             }
         } catch (err) {
             console.error('Error fetching PO detail:', err);
-            setError('Gagal memuat detail PO dari server.');
+            setError('Failed to load PO details from server.');
         }
     }, [poId, isCustomer]);
 
@@ -144,7 +151,7 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
                     currentProducts = prodRes.data || [];
                     setProducts(currentProducts);
                 } else {
-                    setError('Gagal memuat katalog produk.');
+                    setError('Failed to load product catalog.');
                 }
 
                 if (customerId) {
@@ -158,7 +165,7 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
                 if (profileRes.success && profileRes.data?.ppn_percent !== undefined) {
                     setPpnPercent(profileRes.data.ppn_percent);
                 } else {
-                    setError(profileRes.message || 'Gagal memuat tarif PPN.');
+                    setError(profileRes.message || 'Failed to load VAT rate.');
                 }
 
                 if (poId) {
@@ -166,7 +173,7 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
                 }
             } catch (err) {
                 console.error('Error fetching data:', err);
-                setError('Gagal terhubung ke server.');
+                setError('Failed to connect to the server.');
             }
         };
 
@@ -211,25 +218,6 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
         setItems(updatedItems);
     };
 
-    // const handleUomChange = (index, uomVal) => {
-    //     const updatedItems = [...items];
-    //     const item = updatedItems[index];
-    //     item.selected_uom = uomVal;
-
-    //     const newUnitPrice = calculateUnitPrice(
-    //         item.base_price,
-    //         item.base_uom,
-    //         uomVal,
-    //         item.pcs_per_ctn,
-    //         item.ctn_per_plt
-    //     );
-
-    //     item.unit_price = newUnitPrice;
-    //     item.total_price = newUnitPrice * item.qty;
-
-    //     setItems(updatedItems);
-    // };
-
     const handleAddItem = () => setItems([...items, { ...initialItemState }]);
 
     const handleRemoveItem = (index) => {
@@ -252,23 +240,22 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
         e.preventDefault();
 
         if (!requestedDeliveryDate) {
-            alert('Tanggal pengiriman wajib diisi!');
+            alert('Delivery date is required!');
             return;
         }
 
         const invalidItem = items.find((i) => !i.id_product || i.qty <= 0);
         if (invalidItem) {
-            alert('Harap pilih produk dan pastikan Qty lebih dari 0 pada seluruh baris.');
+            alert('Please select a product and ensure Quantity is greater than 0 for all rows.');
             return;
         }
 
-        // Konfirmasi sebelum Simpan
-        const confirmMsg = poId ? 'Apakah Anda yakin ingin menyimpan perubahan pada PO ini?' : 'Apakah Anda yakin ingin membuat PO baru ini?';
+        const confirmMsg = poId ? 'Are you sure you want to save changes to this PO?' : 'Are you sure you want to create this new PO?';
         if (!window.confirm(confirmMsg)) return;
 
         const payload = {
             customer_id: customerId,
-            updated_by: customerId,
+            ...(poId ? { updated_by: customerUserId } : { created_by: customerUserId }),
             requested_delivery_date: requestedDeliveryDate,
             delivery_address: deliveryAddress,
             description,
@@ -289,34 +276,34 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
             setLoading(true);
             const result = await savePO(poId, payload);
             if (result.success) {
-                alert(poId ? 'PO Berhasil diperbarui!' : 'PO Berhasil dibuat!');
+                alert(poId ? 'PO updated successfully!' : 'PO created successfully!');
                 if (onSuccess) onSuccess();
             } else {
-                alert('Gagal menyimpan PO: ' + (result.message || 'Terjadi kesalahan.'));
+                alert('Failed to save PO: ' + (result.message || 'An error occurred.'));
             }
         } catch (err) {
             console.error('Error submitting PO:', err);
-            alert('Terjadi kesalahan koneksi saat menyimpan PO.');
+            alert('A connection error occurred while saving the PO.');
         } finally {
             setLoading(false);
         }
     };
 
     const handleCancelPO = async () => {
-        if (!window.confirm('Apakah Anda yakin ingin membatalkan PO ini?')) return;
+        if (!window.confirm('Are you sure you want to cancel this PO?')) return;
 
         try {
             setLoading(true);
-            const result = await cancelPOApi(poId, customerId);
+            const result = await cancelPOApi(poId, customerUserId);
             if (result.success) {
-                alert('PO berhasil dibatalkan!');
+                alert('PO cancelled successfully!');
                 if (onSuccess) onSuccess();
             } else {
-                alert('Gagal membatalkan PO: ' + result.message);
+                alert('Failed to cancel PO: ' + result.message);
             }
         } catch (err) {
             console.error('Error canceling PO:', err);
-            alert('Terjadi kesalahan saat membatalkan PO.');
+            alert('An error occurred while cancelling the PO.');
         } finally {
             setLoading(false);
         }
@@ -325,45 +312,43 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
     const handleUpdateStatus = async (newStatus) => {
         let notes = '';
         if (newStatus === 'Rejected') {
-            const inputNotes = prompt('Masukkan alasan penolakan PO (Maksimal 50 karakter):');
-            if (inputNotes === null) return; // Batal tekan Cancel di prompt
+            const inputNotes = prompt('Enter rejection reason (Maximum 50 characters):');
+            if (inputNotes === null) return;
 
             const trimmedNotes = inputNotes.trim();
             if (!trimmedNotes) {
-                alert('Alasan penolakan wajib diisi!');
+                alert('Rejection reason is required!');
                 return;
             }
             if (trimmedNotes.length > 50) {
-                alert(`Alasan penolakan terlalu panjang (${trimmedNotes.length} karakter). Maksimal 50 karakter!`);
+                alert(`Rejection reason is too long (${trimmedNotes.length} characters). Maximum 50 characters!`);
                 return;
             }
             notes = trimmedNotes;
 
-            // Konfirmasi penolakan
-            if (!window.confirm('Apakah Anda yakin ingin MENOLAK PO ini?')) return;
+            if (!window.confirm('Are you sure you want to REJECT this PO?')) return;
         } else if (newStatus === 'Waiting for Batch Assignment') {
-            // Konfirmasi persetujuan
-            if (!window.confirm('Apakah Anda yakin ingin MENYETUJUI PO ini?')) return;
+            if (!window.confirm('Are you sure you want to APPROVE this PO?')) return;
         } else {
-            if (!window.confirm(`Apakah Anda yakin ingin mengubah status PO menjadi ${newStatus}?`)) return;
+            if (!window.confirm(`Are you sure you want to change PO status to ${newStatus}?`)) return;
         }
 
         try {
             setLoading(true);
-            const result = await updatePOStatusApi(poId, newStatus, notes, currentUserId);
-            
+            const result = await updatePOStatusApi(poId, newStatus, notes, employeeId);
+
             if (result.success) {
-                if (newStatus === 'Rejected') alert('PO berhasil ditolak!');
-                else if (newStatus === 'Waiting for Batch Assignment') alert('PO berhasil disetujui!');
-                else alert(`Status PO berhasil diperbarui menjadi ${newStatus}!`);
+                if (newStatus === 'Rejected') alert('PO rejected successfully!');
+                else if (newStatus === 'Waiting for Batch Assignment') alert('PO approved successfully!');
+                else alert(`PO status successfully updated to ${newStatus}!`);
 
                 if (onSuccess) onSuccess();
             } else {
-                alert(result.message || 'Gagal mengubah status PO.');
+                alert(result.message || 'Failed to update PO status.');
             }
         } catch (err) {
             console.error('Error updating status:', err);
-            alert('Terjadi kesalahan koneksi server.');
+            alert('A server connection error occurred.');
         } finally {
             setLoading(false);
         }
@@ -376,7 +361,6 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
         requestedDeliveryDate,
         setRequestedDeliveryDate,
         deliveryAddress,
-        // setDeliveryAddress,
         description,
         setDescription,
         rejectionReason,
@@ -399,7 +383,6 @@ export const usePOModal = ({ poId, currentUser, onSuccess }) => {
         grandTotal,
         handleSelectProduct,
         handleQtyChange,
-        // handleUomChange,
         handleAddItem,
         handleRemoveItem,
         handleSubmit,

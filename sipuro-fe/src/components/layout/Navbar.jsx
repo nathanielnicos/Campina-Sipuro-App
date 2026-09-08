@@ -17,6 +17,15 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
     // Ambil daftar menu sesuai role user (fallback array kosong jika role tidak ditemukan)
     const userMenu = ROLE_PERMISSIONS[user?.role] || [];
 
+    // Formatting tampilan nama & kode berdasarkan role
+    const displayName = user?.role === 'CUSTOMER'
+        ? `${user?.full_name || user?.name || ''} (${user?.company_name || ''})`
+        : user?.name || user?.full_name || '';
+
+    const displayCode = user?.role === 'CUSTOMER'
+        ? user?.user_code || user?.code || ''
+        : user?.code || '';
+
     return (
         <div style={styles.container}>
             <div style={styles.flexCenterGap12}>
@@ -42,8 +51,8 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
                 />
 
                 <div style={styles.userInfo}>
-                    <strong>{user?.name}</strong> ({user?.role}) <br />
-                    <span style={styles.userCode}>Code/ID: {user?.code}</span>
+                    <strong>{displayName}</strong><br />
+                    <span style={styles.userCode}>Code: {displayCode}</span>
                 </div>
 
                 <button type="button" onClick={onLogout} style={styles.logoutBtn}>

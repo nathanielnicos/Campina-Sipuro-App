@@ -14,7 +14,7 @@ const PONewDataBanner = ({ show, onRefresh }) => {
             fontSize: '13px',
             color: '#1864ab'
         }}>
-            <span>💡 Ada PO baru yang telah dibuat oleh Customer.</span>
+            <span>💡 A new PO has been created by a customer.</span>
             <button
                 type="button"
                 onClick={onRefresh}
@@ -29,7 +29,7 @@ const PONewDataBanner = ({ show, onRefresh }) => {
                     fontSize: '12px'
                 }}
             >
-                Tampilkan Data Terbaru
+                Show Latest Data
             </button>
         </div>
     );

@@ -11,7 +11,7 @@ async function getPOTolerance(dbOrConn) {
     );
 
     if (!profile || profile.po_tolerance_percent === null || profile.po_tolerance_percent === undefined) {
-        throw new Error('Pengaturan po_tolerance_percent belum dikonfigurasi pada company_profile.');
+        throw new Error('Setting po_tolerance_percent is not configured in company_profile.');
     }
 
     return parseFloat(profile.po_tolerance_percent) / 100;
@@ -80,7 +80,7 @@ async function refreshPOStatus(connection, poHeaderId) {
             oldStatus,
             newStatus: targetStatus,
             actionBy: null,
-            reason: `Sistem mengubah status dari '${oldStatus}' ke '${targetStatus}'`
+            reason: `System automatically changed status from '${oldStatus}' to '${targetStatus}'`
         });
     }
 }

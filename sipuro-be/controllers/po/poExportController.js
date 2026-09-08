@@ -54,18 +54,18 @@ exports.exportPoExcel = async (req, res) => {
 
         const excelData = [
             [
-                'Kode PO',
-                'Tanggal Dibuat',
-                'Tanggal Kirim Diminta',
+                'PO Number',
+                'Created Date',
+                'Requested Delivery Date',
                 'Status',
-                'Alamat Pengiriman',
-                'Catatan',
-                'Nama Produk',
-                'Harga per Satuan Dasar',
-                'Kuantitas dalam Satuan Dasar',
-                'Total Tidak Termasuk PPN',
-                'PPN',
-                'Total Termasuk PPN'
+                'Delivery Address',
+                'Notes',
+                'Product Name',
+                'Base Unit Price',
+                'Base Quantity',
+                'Total Excl. VAT',
+                'VAT',
+                'Total Incl. VAT'
             ]
         ];
 
@@ -121,11 +121,11 @@ exports.exportPoExcel = async (req, res) => {
         const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=Rekap_PO_${Date.now()}.xlsx`);
+        res.setHeader('Content-Disposition', `attachment; filename=PO_Summary_${Date.now()}.xlsx`);
 
         return res.send(buffer);
     } catch (error) {
         console.error('Error exporting PO Excel:', error);
-        return res.status(500).json({ success: false, message: 'Gagal mengeksport data Excel.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to export PO data to Excel.', error: error.message });
     }
 };

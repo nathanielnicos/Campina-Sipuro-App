@@ -161,7 +161,7 @@ const ItemRow = ({
                             onClick={() => onRemoveItem(index)}
                             style={{ ...actionButtonStyle, backgroundColor: '#dc3545', color: '#fff' }}
                         >
-                            Hapus
+                            Delete
                         </button>
                     ) : (
                         <span style={{ color: '#aaa', fontSize: '14px' }}>-</span>

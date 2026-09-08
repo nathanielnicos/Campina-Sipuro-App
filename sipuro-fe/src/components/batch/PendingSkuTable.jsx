@@ -159,7 +159,7 @@ const PendingSkuTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
             loadData();
             if (onRefreshAll) onRefreshAll(); // Beri tahu parent untuk trigger reload tab lain jika perlu
         } else {
-            alert('Gagal: ' + (res?.message || 'An error occurred while allocating the batch.'));
+            alert('Allocation Failed: ' + (res?.message || 'An error occurred while allocating the batch.'));
         }
     };
 

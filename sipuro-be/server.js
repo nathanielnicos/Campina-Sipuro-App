@@ -21,7 +21,7 @@ app.use(express.json());
 
 // Root Test Route
 app.get('/', (req, res) => {
-    res.send('Server Backend SIPURO Siap!');
+    res.send('SIPURO Backend Server is ready.');
 });
 
 // Register API Routes
@@ -37,7 +37,7 @@ app.use('/api/notifications', notificationRoutes);
 
 // Run Server
 app.listen(PORT, () => {
-    console.log(`Server Express berjalan di port ${PORT}`);
+    console.log(`Express server running on port ${PORT}`);
 });
 
 module.exports = app;
