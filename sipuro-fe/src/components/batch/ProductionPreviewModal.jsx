@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatQty } from '../../utils/formatters';
+import { formatQty, formatDate, formatDateTime } from '../../utils/formatters';
 import PaginationControl from '../common/PaginationControl';
 
 const ProductionPreviewModal = ({
@@ -277,7 +277,7 @@ const ProductionPreviewModal = ({
                                                                             {productTitle}
                                                                         </td>
                                                                         <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top' }}>
-                                                                            {planDate}
+                                                                            {formatDate(planDate)}
                                                                         </td>
                                                                         <td rowSpan={rowSpan} style={{
                                                                             textAlign: 'center',
@@ -285,7 +285,7 @@ const ProductionPreviewModal = ({
                                                                             fontWeight: isDateDifferent ? 'bold' : 'normal',
                                                                             color: isDateDifferent ? '#dc3545' : 'inherit'
                                                                         }}>
-                                                                            {actDate}
+                                                                            {formatDate(actDate)}
                                                                         </td>
                                                                     </>
                                                                 )}
@@ -408,8 +408,8 @@ const ProductionPreviewModal = ({
                                                     <td>{row.lotNumber || '-'}</td>
                                                     <td>{row.itemCode}</td>
                                                     <td style={{ textAlign: 'right' }}>{formatQty(row.qtyPac)}</td>
-                                                    <td style={{ textAlign: 'center' }}>{row.actualStartDatetime || '-'}</td>
-                                                    <td style={{ textAlign: 'center' }}>{row.actualCompletedDatetime || '-'}</td>
+                                                    <td style={{ textAlign: 'center' }}>{formatDateTime(row.actualStartDatetime) || '-'}</td>
+                                                    <td style={{ textAlign: 'center' }}>{formatDateTime(row.actualCompletedDatetime) || '-'}</td>
                                                 </tr>
                                             ))
                                         )}
@@ -461,8 +461,8 @@ const ProductionPreviewModal = ({
                                                     <td>{row.lotNumber || '-'}</td>
                                                     <td>{row.itemCode}</td>
                                                     <td style={{ textAlign: 'right' }}>{formatQty(row.qtyPac)}</td>
-                                                    <td style={{ textAlign: 'center' }}>{row.actualStartDatetime || '-'}</td>
-                                                    <td style={{ textAlign: 'center' }}>{row.actualCompletedDatetime || '-'}</td>
+                                                    <td style={{ textAlign: 'center' }}>{formatDateTime(row.actualStartDatetime) || '-'}</td>
+                                                    <td style={{ textAlign: 'center' }}>{formatDateTime(row.actualCompletedDatetime) || '-'}</td>
                                                 </tr>
                                             ))
                                         )}
