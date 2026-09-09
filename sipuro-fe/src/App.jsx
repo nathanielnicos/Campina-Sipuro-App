@@ -4,16 +4,16 @@ import DetailModal from './components/po/detail-modal/DetailModal';
 import BatchPage from './components/batch/page/BatchPage';
 import Dashboard from './components/dashboard/Dashboard';
 
-import EmployeeListPage from './components/superadmin/EmployeeListPage';
-import CustomerUserListPage from './components/superadmin/CustomerUserListPage';
-import ProductListPage from './components/superadmin/ProductListPage';
-import PriceListPage from './components/superadmin/PriceListPage';
+import EmployeeListPage from './components/master/EmployeeListPage';
+import CustomerUserListPage from './components/master/CustomerUserListPage';
+import ProductListPage from './components/master/ProductListPage';
+import PriceListPage from './components/master/PriceListPage';
 
-import ProfileView from './components/profile/ProfileView';
+import ProfilePage from './components/profile/ProfilePage';
 
 import Login from './components/auth/Login';
-import Navbar from './components/layout/Navbar';
-import PONewDataBanner from './components/notification/NotificationBanner';
+import Navbar from './components/navigation/Navbar';
+import NotificationBanner from './components/navigation/NotificationBanner';
 import { markAllAsRead } from './services/notificationApi';
 import { ROLE_PERMISSIONS } from './config/navigationConfig';
 
@@ -120,7 +120,7 @@ function App() {
       />
 
       {/* Global Notification Banner */}
-      <PONewDataBanner
+      <NotificationBanner
         show={showPoBanner}
         message={bannerMessage}
         onRefresh={handleBannerRefresh}
@@ -145,7 +145,7 @@ function App() {
       )}
 
       {activeTab === 'profile' && (
-        <ProfileView
+        <ProfilePage
           currentUser={user}
           onUserUpdated={handleUserUpdated}
         />

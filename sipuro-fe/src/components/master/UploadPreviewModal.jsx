@@ -8,10 +8,8 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
     const { summary, data } = previewData;
     const { total = 0, newCount = 0, updatedCount = 0, unchangedCount = 0, notFoundCount = 0 } = summary || {};
 
-    // Tombol Simpan HANYA aktif jika ada data Baru atau Data Berubah
     const hasChangesToSave = (newCount + updatedCount) > 0;
 
-    // Filter list berdasarkan Tab aktif
     const filteredData = data.filter(item => {
         if (activeTab === 'NEW') return item.status === 'NEW';
         if (activeTab === 'UPDATED') return item.status === 'UPDATED';
@@ -92,14 +90,12 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                 overflow: 'hidden',
                 boxSizing: 'border-box'
             }}>
-                {/* Modal Header */}
                 <div style={{ padding: '16px 20px', borderBottom: '1px solid #dee2e6' }}>
                     <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#212529' }}>
                         Preview Upload: {title}
                     </h3>
                 </div>
 
-                {/* Summary Badges / Filter Tabs Header */}
                 <div style={{
                     padding: '12px 20px',
                     display: 'flex',
@@ -149,7 +145,6 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                     )}
                 </div>
 
-                {/* Table Preview Body */}
                 <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1, boxSizing: 'border-box' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', tableLayout: 'fixed' }}>
                         <thead>
@@ -201,7 +196,6 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                     </table>
                 </div>
 
-                {/* Footer Buttons */}
                 <div style={{ padding: '12px 20px', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'flex-end', gap: '8px', backgroundColor: '#fff' }}>
                     <button
                         onClick={onClose}

@@ -1,4 +1,4 @@
-const PONewDataBanner = ({ show, message, onRefresh }) => {
+const NotificationBanner = ({ show, message, onRefresh }) => {
     if (!show) return null;
 
     return (
@@ -35,4 +35,4 @@ const PONewDataBanner = ({ show, message, onRefresh }) => {
     );
 };
 
-export default PONewDataBanner;
+export default NotificationBanner;
