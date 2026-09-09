@@ -6,7 +6,7 @@ import { BatchViewRows, PoViewRows } from './TableRow';
 // Hook Custom
 import { useBatchListTable } from '../../../hooks/batch/batch-list-tab/useBatchListTable';
 
-const BatchListTable = ({ currentUser, onUpdateStatus, reloadTrigger }) => {
+const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
     const {
         mappingList,
         poTolerance,
@@ -28,8 +28,9 @@ const BatchListTable = ({ currentUser, onUpdateStatus, reloadTrigger }) => {
         handleStatusChange,
         handleResetFilters,
         handleExportExcel,
+        handleUpdateStatus,
         getPoGroupedData
-    } = useBatchListTable(currentUser, reloadTrigger);
+    } = useBatchListTable(currentUser, reloadTrigger, onRefreshAll);
 
     return (
         <div style={{ position: 'relative', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
@@ -113,14 +114,14 @@ const BatchListTable = ({ currentUser, onUpdateStatus, reloadTrigger }) => {
                                     mappingList={mappingList}
                                     currentUserRole={currentUser?.role}
                                     poTolerance={poTolerance}
-                                    onUpdateStatus={onUpdateStatus}
+                                    onUpdateStatus={handleUpdateStatus}
                                 />
                             ) : (
                                 <PoViewRows
                                     poList={getPoGroupedData()}
                                     currentUserRole={currentUser?.role}
                                     poTolerance={poTolerance}
-                                    onUpdateStatus={onUpdateStatus}
+                                    onUpdateStatus={handleUpdateStatus}
                                 />
                             )}
                         </tbody>

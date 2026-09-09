@@ -6,7 +6,6 @@ import {
 
 export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
     const fileInputRef = useRef(null);
-    const [uploadFile, setUploadFile] = useState(null);
     const [uploading, setUploading] = useState(false);
 
     const [previewData, setPreviewData] = useState(null);
@@ -16,15 +15,15 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
     const handleResetUploadState = () => {
         setIsPreviewOpen(false);
         setPreviewData(null);
-        setUploadFile(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
     };
 
-    const processExcelUpload = async (fileToUpload) => {
-        const actualFile = fileToUpload || (fileInputRef.current && fileInputRef.current.files[0]);
+    const handleUploadSubmit = async (e) => {
+        e.preventDefault();
 
+        const actualFile = fileInputRef.current && fileInputRef.current.files[0];
         if (!actualFile) return alert('Please select an Excel file first!');
 
         const formData = new FormData();
@@ -46,11 +45,6 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
             setUploading(false);
             alert('An error occurred while uploading the file.');
         }
-    };
-
-    const handleUploadSubmit = async (e) => {
-        e.preventDefault();
-        await processExcelUpload(uploadFile);
     };
 
     const handleConfirmSave = async (modalPayload = {}) => {
@@ -97,7 +91,6 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
         previewData,
         isPreviewOpen,
         saving,
-        setUploadFile,
         handleUploadSubmit,
         handleConfirmSave,
         handleRejectPreview

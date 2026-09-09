@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchBatchMapping, exportBatchExcelApi } from '../../../services/batchApi';
+import { fetchBatchMapping, exportBatchExcelApi, updateAllocationStatusApi } from '../../../services/batchApi';
 
-export const useBatchListTable = (currentUser, reloadTrigger) => {
+export const useBatchListTable = (currentUser, reloadTrigger, onRefreshAll) => {
     // State Data & API
     const [mappingList, setMappingList] = useState([]);
     const [poTolerance, setPoTolerance] = useState(null);
@@ -99,6 +99,33 @@ export const useBatchListTable = (currentUser, reloadTrigger) => {
         }
     };
 
+    const handleUpdateStatus = async (allocationId, action) => {
+        const actionText = action === 'CANCEL' ? 'cancel' : 'force close';
+
+        const reason = window.prompt(`Are you sure you want to ${actionText} this batch allocation?\nEnter reason (optional):`);
+
+        if (reason === null) return;
+
+        setLoading(true);
+        try {
+            const res = await updateAllocationStatusApi(allocationId, { action, reason });
+            if (res && res.success) {
+                alert(res.message || 'Allocation status updated successfully.');
+                if (onRefreshAll) {
+                    onRefreshAll();
+                } else {
+                    loadData();
+                }
+            } else {
+                alert('Failed: ' + (res?.message || 'Failed to update allocation status.'));
+            }
+        } catch (err) {
+            alert('A system error occurred while updating the status.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Transformasi Data khusus untuk Mode Tampilan PO
     const getPoGroupedData = useCallback(() => {
         const poMap = {};
@@ -166,6 +193,7 @@ export const useBatchListTable = (currentUser, reloadTrigger) => {
         handleStatusChange,
         handleResetFilters,
         handleExportExcel,
+        handleUpdateStatus,
         getPoGroupedData
     };
 };
