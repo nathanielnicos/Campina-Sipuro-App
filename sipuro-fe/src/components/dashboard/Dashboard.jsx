@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { Line, Bar, Pie } from 'react-chartjs-2';
 import { getDashboardStats } from '../../services/dashboardApi';
+import { fetchProducts } from '../../services/poApi';
 import { getStatusStyle } from '../../utils/statusHelper';
 
 ChartJS.register(
@@ -48,24 +49,60 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [trendMode, setTrendMode] = useState('YTD');
 
+    // State untuk Master Produk & Dropdown Pencarian
+    const [productsList, setProductsList] = useState([]);
+    const [selectedProduct, setSelectedProduct] = useState(''); // id_product atau '' untuk ALL
+    const [selectedProductLabel, setSelectedProductLabel] = useState('All Products');
+    const [searchInput, setSearchInput] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
     // State untuk Picker Grafik Baris 1
     const currentYear = new Date().getFullYear();
     const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const [selectedYear, setSelectedYear] = useState(currentYear);
     const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
-    // State untuk Filter Tanggal Baris 2 (Berdasarkan Tanggal Dibuat PO)
+    // State untuk Filter Tanggal Baris 2
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
+    // Load Daftar Produk saat komponen dibuat
     useEffect(() => {
-        fetchStats(trendMode, startDate, endDate, selectedYear, selectedMonth);
-    }, [trendMode, startDate, endDate, selectedYear, selectedMonth]);
+        const loadProducts = async () => {
+            try {
+                const res = await fetchProducts();
+                if (res.success && Array.isArray(res.data)) {
+                    setProductsList(res.data);
+                }
+            } catch (err) {
+                console.error('Failed to load product list:', err);
+            }
+        };
+        loadProducts();
+    }, []);
 
-    const fetchStats = async (mode, from, to, year, month) => {
+    // Close Dropdown saat klik di luar
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+                setSearchInput('');
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Load Data Statistik Setiap Filter Berubah
+    useEffect(() => {
+        fetchStats(trendMode, startDate, endDate, selectedYear, selectedMonth, selectedProduct);
+    }, [trendMode, startDate, endDate, selectedYear, selectedMonth, selectedProduct]);
+
+    const fetchStats = async (mode, from, to, year, month, productId) => {
         setLoading(true);
         try {
-            const res = await getDashboardStats(mode, from, to, year, month);
+            const res = await getDashboardStats(mode, from, to, year, month, productId);
             if (res.success) {
                 setStats(res.data);
             }
@@ -81,10 +118,31 @@ const Dashboard = () => {
         setEndDate('');
     };
 
+    // Filter list produk berdasarkan teks pencarian saat dropdown terbuka
+    const filteredProducts = productsList.filter(p => {
+        if (!searchInput) return true;
+        const searchLower = searchInput.toLowerCase();
+        const codeMatch = p.product_code?.toLowerCase().includes(searchLower);
+        const nameMatch = p.product_name?.toLowerCase().includes(searchLower);
+        return codeMatch || nameMatch;
+    });
+
+    const handleSelectProductItem = (prod) => {
+        if (!prod) {
+            setSelectedProduct('');
+            setSelectedProductLabel('All Products');
+        } else {
+            setSelectedProduct(prod.id_product);
+            setSelectedProductLabel(`${prod.product_code} - ${prod.product_name}`);
+        }
+        setSearchInput('');
+        setIsDropdownOpen(false);
+    };
+
     if (loading && !stats) return <div style={{ padding: '20px' }}>Loading dashboard data...</div>;
     if (!stats) return <div style={{ padding: '20px' }}>Statistical data is not available.</div>;
 
-    // 1. Data Chart Tren Pesanan vs Realisasi Fulfilled
+    // Data Chart Tren Pesanan vs Realisasi Fulfilled
     const monthlyData = {
         labels: stats.monthlyStats.map(item => item.month_label || item.label_key),
         datasets: [
@@ -111,7 +169,7 @@ const Dashboard = () => {
         ]
     };
 
-    // 2. Data Chart Status PO (Legend di kanan)
+    // Data Chart Status PO
     const statusData = {
         labels: stats.statusStats.map(item => item.status),
         datasets: [
@@ -128,7 +186,7 @@ const Dashboard = () => {
         ]
     };
 
-    // 3. Data Chart Top 5 Produk (Sumbu X: Kode Produk, Tooltip: Nama Produk)
+    // Data Chart Top 5 Produk
     const topProductsData = {
         labels: stats.topProducts.map(item => item.product_code),
         datasets: [
@@ -147,7 +205,6 @@ const Dashboard = () => {
         maintainAspectRatio: false
     };
 
-    // Pilihan tahun (5 tahun terakhir sampai tahun depan)
     const yearOptions = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
 
     return (
@@ -159,7 +216,54 @@ const Dashboard = () => {
                         PO Quantity vs Production Output {trendMode === 'YTD' ? `(${selectedYear})` : `(${formatMonthLabel(selectedMonth)})`}
                     </h3>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
+                        {/* Custom Searchable Product Dropdown */}
+                        <div style={{ position: 'relative', width: '220px' }} ref={dropdownRef}>
+                            <input
+                                type="text"
+                                value={isDropdownOpen ? searchInput : selectedProductLabel}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                onFocus={() => {
+                                    setSearchInput('');
+                                    setIsDropdownOpen(true);
+                                }}
+                                placeholder="Search product..."
+                                title={selectedProductLabel}
+                                style={styles.productSearchInput}
+                            />
+                            {isDropdownOpen && (
+                                <div style={styles.dropdownMenu}>
+                                    <div
+                                        style={{
+                                            ...styles.dropdownItem,
+                                            fontWeight: selectedProduct === '' ? 'bold' : 'normal',
+                                            backgroundColor: selectedProduct === '' ? '#f1f5f9' : 'transparent'
+                                        }}
+                                        onClick={() => handleSelectProductItem(null)}
+                                    >
+                                        All Products
+                                    </div>
+                                    {filteredProducts.length > 0 ? (
+                                        filteredProducts.map((p) => (
+                                            <div
+                                                key={p.id_product}
+                                                style={{
+                                                    ...styles.dropdownItem,
+                                                    fontWeight: String(selectedProduct) === String(p.id_product) ? 'bold' : 'normal',
+                                                    backgroundColor: String(selectedProduct) === String(p.id_product) ? '#f1f5f9' : 'transparent'
+                                                }}
+                                                onClick={() => handleSelectProductItem(p)}
+                                            >
+                                                {p.product_code} - {p.product_name}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div style={styles.dropdownNoResult}>No product found</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         {/* Picker Dinamis Berdasarkan Mode */}
                         {trendMode === 'YTD' ? (
                             <select
@@ -277,7 +381,7 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* BARIS 2: Status PO dan Top 5 Produk (2 Kolom Berdampingan) */}
+            {/* BARIS 2: Status PO dan Top 5 Produk */}
             <div style={styles.gridTwo}>
                 {/* Status PO */}
                 <div style={styles.card}>
@@ -293,10 +397,10 @@ const Dashboard = () => {
                                         labels: {
                                             boxWidth: 15,
                                             padding: 12,
-                                            color: '#334155', // Warna abu-abu gelap yang lebih kontras tapi tetap halus
+                                            color: '#334155',
                                             font: {
                                                 size: 13,
-                                                weight: 'normal' // Menggunakan font weight normal
+                                                weight: 'normal'
                                             }
                                         }
                                     }
@@ -364,13 +468,13 @@ const styles = {
     },
     switchContainer: {
         display: 'flex',
-        gap: '6px',
+        gap: '4px',
         backgroundColor: '#f1f5f9',
         padding: '3px',
         borderRadius: '6px'
     },
     switchBtn: {
-        padding: '5px 12px',
+        padding: '5px 10px',
         border: 'none',
         borderRadius: '4px',
         fontSize: '12px',
@@ -378,8 +482,49 @@ const styles = {
         cursor: 'pointer',
         transition: 'all 0.2s'
     },
+    productSearchInput: {
+        width: '100%',
+        padding: '5px 8px',
+        borderRadius: '6px',
+        border: '1px solid #cbd5e1',
+        fontSize: '12px',
+        color: '#1e293b',
+        backgroundColor: '#ffffff',
+        outline: 'none',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        boxSizing: 'border-box'
+    },
+    dropdownMenu: {
+        position: 'absolute',
+        top: '100%',
+        right: 0, // Dibuat rata kanan dari pembungkusnya agar tidak melebar ke luar layar
+        width: '280px',
+        backgroundColor: '#ffffff',
+        border: '1px solid #cbd5e1',
+        borderRadius: '6px',
+        marginTop: '4px',
+        maxHeight: '220px',
+        overflowY: 'auto',
+        zIndex: 100,
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+    },
+    dropdownItem: {
+        padding: '8px 12px',
+        fontSize: '12px',
+        color: '#1e293b',
+        cursor: 'pointer',
+        transition: 'background-color 0.15s'
+    },
+    dropdownNoResult: {
+        padding: '8px 12px',
+        fontSize: '12px',
+        color: '#94a3b8',
+        textAlign: 'center'
+    },
     selectPicker: {
-        padding: '5px 10px',
+        padding: '5px 8px',
         borderRadius: '6px',
         border: '1px solid #cbd5e1',
         fontSize: '12px',

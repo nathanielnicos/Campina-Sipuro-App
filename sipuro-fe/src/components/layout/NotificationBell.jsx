@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { getUnreadCount, getNotifications, markAsRead } from '../../services/notificationApi';
+import { getUnreadCount, getNotifications, markAllAsRead } from '../../services/notificationApi';
 import { ROLE_PERMISSIONS } from '../../config/navigationConfig';
 import { formatDateTime } from '../../utils/formatters';
 
-const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
+const NotificationBell = ({ onNewPoDetected, user, setActiveTab, setShowPoBanner }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [hoveredId, setHoveredId] = useState(null);
     const dropdownRef = useRef(null);
 
-    // Ambil identifier user
     const userRole = user?.role;
     const userId = user?.customer_id || user?.id || user?.code;
     const userDepartment = user?.department || user?.role;
@@ -24,7 +23,9 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
                 const currentCount = countRes?.count || 0;
 
                 if (currentCount > unreadCount && onNewPoDetected) {
-                    onNewPoDetected();
+                    const listRes = await getNotifications(userRole, userId, userDepartment);
+                    const latestNotif = listRes?.data?.[0];
+                    onNewPoDetected(latestNotif?.message || 'There is a new PO update available.');
                 }
 
                 setUnreadCount(currentCount);
@@ -76,25 +77,32 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
     };
 
     const handleItemClick = async (item) => {
-        // Mark notification as read
-        if (!item.is_read) {
-            await markAsRead(item.id);
-            setUnreadCount((prev) => Math.max(0, prev - 1));
-            setNotifications((prev) =>
-                prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n))
-            );
+        // 1. Hilangkan banner secara otomatis saat notifikasi diklik
+        if (setShowPoBanner) {
+            setShowPoBanner(false);
         }
 
-        // Tentukan Target Tab
+        // 2. Update status lokal UI agar instan
+        setUnreadCount(0);
+        setNotifications((prev) =>
+            prev.map((n) => ({ ...n, is_read: true }))
+        );
+
+        // 3. Panggil API markAllAsRead di backend
+        try {
+            await markAllAsRead(userRole, userId, userDepartment);
+        } catch (err) {
+            console.error('Failed to mark all as read from backend:', err);
+        }
+
+        // 4. Navigasi ke tab target
         let targetTab = null;
 
         if (item.link) {
-            // Hilangkan slash depan jika ada (misal "/po-list" menjadi "po-list")
             const cleanedLink = item.link.replace(/^\//, '');
             if (cleanedLink) targetTab = cleanedLink;
         }
 
-        // Fallback: Jika link kosong/tidak valid, arahkan ke menu utama role user
         if (!targetTab) {
             const roleMenus = ROLE_PERMISSIONS[userRole] || [];
             if (roleMenus.length > 0) {
@@ -102,7 +110,6 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
             }
         }
 
-        // Pindah tab secara SPA
         if (targetTab && setActiveTab) {
             setActiveTab(targetTab);
         }
@@ -112,7 +119,6 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
 
     return (
         <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
-            {/* Tombol Lonceng */}
             <button
                 type="button"
                 onClick={toggleDropdown}
@@ -150,13 +156,12 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab }) => {
                 )}
             </button>
 
-            {/* Dropdown Popover */}
             {isOpen && (
                 <div style={{
                     position: 'absolute',
                     right: 0,
                     top: '42px',
-                    width: '360px', // Melebarkan sedikit popover agar format waktu baru muat dengan rapi
+                    width: '360px',
                     backgroundColor: '#ffffff',
                     borderRadius: '8px',
                     boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',

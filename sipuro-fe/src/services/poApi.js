@@ -1,7 +1,16 @@
 import { API_BASE_URL } from './config';
 
 export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters = {}) => {
-    const { search = '', startDate = '', endDate = '', status = '' } = filters;
+    // Tambahkan extract sortBy dan sortOrder dari filters
+    const {
+        search = '',
+        startDate = '',
+        endDate = '',
+        status = '',
+        sortBy = 'created_at',
+        sortOrder = 'desc'
+    } = filters;
+
     const params = new URLSearchParams({
         customer_id: customerId || '',
         page,
@@ -9,7 +18,9 @@ export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters =
         search,
         startDate,
         endDate,
-        status
+        status,
+        sortBy,     // <-- Dikirim ke backend
+        sortOrder   // <-- Dikirim ke backend
     });
 
     const res = await fetch(`${API_BASE_URL}/po?${params.toString()}`);

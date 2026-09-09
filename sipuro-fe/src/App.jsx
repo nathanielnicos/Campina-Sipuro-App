@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import POList from './components/po/POList';
-import POCreateModal from './components/po/create-modal/POCreateModal';
-import BatchPage from './components/batch/BatchPage';
+import POPage from './components/po/page/POPage';
+import DetailModal from './components/po/detail-modal/DetailModal';
+import BatchPage from './components/batch/page/BatchPage';
 import Dashboard from './components/dashboard/Dashboard';
 
 import EmployeeListPage from './components/superadmin/EmployeeListPage';
@@ -9,8 +9,12 @@ import CustomerUserListPage from './components/superadmin/CustomerUserListPage';
 import ProductListPage from './components/superadmin/ProductListPage';
 import PriceListPage from './components/superadmin/PriceListPage';
 
+import ProfileView from './components/profile/ProfileView';
+
 import Login from './components/auth/Login';
 import Navbar from './components/layout/Navbar';
+import PONewDataBanner from './components/notification/NotificationBanner';
+import { markAllAsRead } from './services/notificationApi';
 import { ROLE_PERMISSIONS } from './config/navigationConfig';
 
 function App() {
@@ -20,7 +24,10 @@ function App() {
   const [selectedPoId, setSelectedPoId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Ambil tab pertama dari konfigurasi berdasarkan role user
+  // Global banner states
+  const [showPoBanner, setShowPoBanner] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState('');
+
   const getDefaultTab = (role) => {
     const userMenus = ROLE_PERMISSIONS[role] || [];
     return userMenus.length > 0 ? userMenus[0].id : 'po-list';
@@ -39,6 +46,12 @@ function App() {
     setUser(userData);
     localStorage.setItem('sipuro_user', JSON.stringify(userData));
     setActiveTab(getDefaultTab(userData.role));
+  };
+
+  const handleUserUpdated = (updatedUserData) => {
+    const newUserState = { ...user, ...updatedUserData };
+    setUser(newUserState);
+    localStorage.setItem('sipuro_user', JSON.stringify(newUserState));
   };
 
   const handleLogout = () => {
@@ -71,11 +84,27 @@ function App() {
     setSelectedPoId(null);
   };
 
+  const handleBannerRefresh = async () => {
+    setShowPoBanner(false);
+
+    // Tandai semua notifikasi milik role/user sebagai dibaca saat menekan tombol banner
+    if (user) {
+      try {
+        const userId = user?.customer_id || user?.id || user?.code;
+        const userDepartment = user?.department || user?.role;
+        await markAllAsRead(user.role, userId, userDepartment);
+      } catch (err) {
+        console.error('Failed to mark all as read from banner:', err);
+      }
+    }
+
+    setActiveTab('po-list');
+    setRefreshKey((prev) => prev + 1);
+  };
+
   if (!user) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
-
-  const isSuperAdmin = user.role === 'SUPERADMIN' || user.role === 'ADMIN';
 
   return (
     <div className="App" style={{ padding: '20px' }}>
@@ -84,21 +113,29 @@ function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogout={handleLogout}
+        setShowPoBanner={(status, message) => {
+          setShowPoBanner(status);
+          if (message) setBannerMessage(message);
+        }}
       />
 
-      {/* RENDER SUPERADMIN */}
-      {isSuperAdmin && activeTab === 'sa-employees' && <EmployeeListPage />}
-      {isSuperAdmin && activeTab === 'sa-customers' && <CustomerUserListPage />}
-      {isSuperAdmin && activeTab === 'sa-products' && <ProductListPage />}
-      {isSuperAdmin && activeTab === 'sa-prices' && <PriceListPage />}
+      {/* Global Notification Banner */}
+      <PONewDataBanner
+        show={showPoBanner}
+        message={bannerMessage}
+        onRefresh={handleBannerRefresh}
+      />
 
-      {/* RENDER PPIC */}
-      {activeTab === 'ppic-dashboard' && user.role === 'PPIC' && <Dashboard />}
-      {activeTab === 'ppic-batch' && user.role === 'PPIC' && <BatchPage currentUser={user} />}
+      {activeTab === 'sa-employees' && <EmployeeListPage />}
+      {activeTab === 'sa-customers' && <CustomerUserListPage />}
+      {activeTab === 'sa-products' && <ProductListPage />}
+      {activeTab === 'sa-prices' && <PriceListPage />}
 
-      {/* RENDER PO */}
+      {activeTab === 'ppic-dashboard' && <Dashboard />}
+      {activeTab === 'ppic-batch' && <BatchPage currentUser={user} />}
+
       {activeTab === 'po-list' && (
-        <POList
+        <POPage
           key={refreshKey}
           customerId={user.role === 'CUSTOMER' ? user.customer_id : null}
           user={user}
@@ -107,8 +144,15 @@ function App() {
         />
       )}
 
+      {activeTab === 'profile' && (
+        <ProfileView
+          currentUser={user}
+          onUserUpdated={handleUserUpdated}
+        />
+      )}
+
       {showCreateModal && (
-        <POCreateModal
+        <DetailModal
           poId={selectedPoId}
           currentUser={user}
           onClose={handleCloseModal}

@@ -6,41 +6,44 @@ export const formatQty = (val) =>
 
 export const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '';
 
-    // Ambil tanggal, bulan, tahun
-    const day = String(date.getDate()).padStart(2, '0');
+    // Pemotongan string langsung aman dari pergeseran zona waktu (WIB)
+    const cleanDate = dateStr.split('T')[0];
+    const [year, month, day] = cleanDate.split('-');
 
-    // Nama bulan singkat (Jan, Feb, Mar, dll)
+    if (!year || !month || !day) return '-';
+
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const month = months[date.getMonth()];
+    const monthName = months[parseInt(month, 10) - 1];
 
-    // Ambil 2 digit terakhir tahun
-    const year = String(date.getFullYear()).slice(-2);
-
-    return `${day} ${month} ${year}`;
+    return `${day} ${monthName} ${year}`;
 };
 
 export const formatDateTime = (dateString) => {
-    if (!dateString) return '';
+    if (!dateString) return '-';
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '';
+    if (isNaN(date.getTime())) return '-';
 
-    // Ambil tanggal, bulan, tahun
     const day = String(date.getDate()).padStart(2, '0');
-
-    // Nama bulan singkat (Jan, Feb, Mar, dll)
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const month = months[date.getMonth()];
-
-    // Ambil 2 digit terakhir tahun
     const year = String(date.getFullYear()).slice(-2);
 
-    // Ambil jam, menit, detik
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
 
     return `${day} ${month} ${year} ${hours}:${minutes}:${seconds}`;
+};
+
+export const formatGender = (gender) => {
+    if (!gender) return '-';
+
+    const g = String(gender).toUpperCase();
+
+    // Mendukung 'M' (Male) / 'L' (Laki-laki) dan 'F' (Female) / 'P' (Perempuan)
+    if (g === 'M' || g === 'L') return 'Male';
+    if (g === 'F' || g === 'P') return 'Female';
+
+    return gender;
 };

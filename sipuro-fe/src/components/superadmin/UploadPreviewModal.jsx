@@ -36,13 +36,13 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
 
         switch (status) {
             case 'NEW':
-                return <span style={{ ...badgeBaseStyle, backgroundColor: '#198754', color: '#fff' }}>BARU</span>;
+                return <span style={{ ...badgeBaseStyle, backgroundColor: '#198754', color: '#fff' }}>NEW</span>;
             case 'UPDATED':
-                return <span style={{ ...badgeBaseStyle, backgroundColor: '#fd7e14', color: '#fff' }}>BERUBAH</span>;
+                return <span style={{ ...badgeBaseStyle, backgroundColor: '#fd7e14', color: '#fff' }}>UPDATED</span>;
             case 'NOT_FOUND':
-                return <span style={{ ...badgeBaseStyle, backgroundColor: '#dc3545', color: '#fff' }}>SKU TIDAK ADA</span>;
+                return <span style={{ ...badgeBaseStyle, backgroundColor: '#dc3545', color: '#fff' }}>SKU NOT FOUND</span>;
             default:
-                return <span style={{ ...badgeBaseStyle, backgroundColor: '#6c757d', color: '#fff' }}>SAMA</span>;
+                return <span style={{ ...badgeBaseStyle, backgroundColor: '#6c757d', color: '#fff' }}>UNCHANGED</span>;
         }
     };
 
@@ -60,7 +60,7 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
     };
 
     const handleSave = () => {
-        const isConfirmed = window.confirm('Apakah Anda yakin ingin menyimpan data ini ke database?');
+        const isConfirmed = window.confirm('Are you sure you want to save this data to the database?');
         if (isConfirmed) {
             onConfirm(data);
         }
@@ -113,14 +113,14 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                         onClick={() => setActiveTab('ALL')}
                         style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'ALL' ? '#0d6efd' : '#e9ecef', color: activeTab === 'ALL' ? '#fff' : '#495057' }}
                     >
-                        Semua ({total})
+                        All ({total})
                     </button>
                     {newCount > 0 && (
                         <button
                             onClick={() => setActiveTab('NEW')}
                             style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'NEW' ? '#198754' : '#d1e7dd', color: activeTab === 'NEW' ? '#fff' : '#0f5132' }}
                         >
-                            Data Baru: {newCount}
+                            New Data: {newCount}
                         </button>
                     )}
                     {updatedCount > 0 && (
@@ -128,7 +128,7 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                             onClick={() => setActiveTab('UPDATED')}
                             style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'UPDATED' ? '#fd7e14' : '#ffe5d0', color: activeTab === 'UPDATED' ? '#fff' : '#a73a00' }}
                         >
-                            Data Berubah: {updatedCount}
+                            Updated Data: {updatedCount}
                         </button>
                     )}
                     {unchangedCount > 0 && (
@@ -136,7 +136,7 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                             onClick={() => setActiveTab('UNCHANGED')}
                             style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'UNCHANGED' ? '#6c757d' : '#e2e3e5', color: activeTab === 'UNCHANGED' ? '#fff' : '#41464b' }}
                         >
-                            Sama: {unchangedCount}
+                            Unchanged: {unchangedCount}
                         </button>
                     )}
                     {notFoundCount > 0 && (
@@ -144,7 +144,7 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                             onClick={() => setActiveTab('NOT_FOUND')}
                             style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'NOT_FOUND' ? '#dc3545' : '#f8d7da', color: activeTab === 'NOT_FOUND' ? '#fff' : '#842029' }}
                         >
-                            SKU Tidak Ada: {notFoundCount}
+                            SKU Not Found: {notFoundCount}
                         </button>
                     )}
                 </div>
@@ -155,15 +155,15 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                         <thead>
                             <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
                                 <th style={{ padding: '8px', width: '130px', textAlign: 'center' }}>Status</th>
-                                <th style={{ padding: '8px', width: '120px' }}>Kode Oracle</th>
-                                <th style={{ padding: '8px' }}>Deskripsi / Nama</th>
-                                <th style={{ padding: '8px', width: '280px' }}>Detail Perubahan</th>
+                                <th style={{ padding: '8px', width: '120px' }}>Oracle Code</th>
+                                <th style={{ padding: '8px' }}>Description / Name</th>
+                                <th style={{ padding: '8px', width: '280px' }}>Change Details</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredData.length === 0 ? (
                                 <tr>
-                                    <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>Tidak ada data pada kategori ini.</td>
+                                    <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>No data available in this category.</td>
                                 </tr>
                             ) : (
                                 filteredData.map((item, idx) => (
@@ -180,7 +180,7 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                                         <td style={{ padding: '8px', verticalAlign: 'top' }}>
                                             {item.status === 'NOT_FOUND' ? (
                                                 <span style={{ color: '#dc3545', fontStyle: 'italic' }}>
-                                                    Produk belum terdaftar di Master Produk
+                                                    Product not registered in Product Master
                                                 </span>
                                             ) : item.changes && item.changes.length > 0 ? (
                                                 <ul style={{ margin: 0, paddingLeft: '16px' }}>
@@ -207,14 +207,14 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                         onClick={onClose}
                         style={{ padding: '8px 16px', backgroundColor: '#e0e0e0', color: '#333', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                     >
-                        Batal
+                        Cancel
                     </button>
                     {hasChangesToSave && (
                         <button
                             onClick={handleSave}
                             style={{ padding: '8px 16px', backgroundColor: '#0d6efd', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                         >
-                            Simpan Ke Database
+                            Save to Database
                         </button>
                     )}
                 </div>

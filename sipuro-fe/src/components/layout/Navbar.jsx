@@ -3,21 +3,20 @@ import { ROLE_PERMISSIONS } from '../../config/navigationConfig';
 
 const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) => {
     const getButtonStyle = (tabName) => ({
-        padding: '6px 14px',
+        width: '140px',
+        textAlign: 'center',
+        padding: '8px',
         cursor: 'pointer',
         backgroundColor: activeTab === tabName ? '#3b82f6' : '#334155',
         color: activeTab === tabName ? '#ffffff' : '#94a3b8',
         border: 'none',
-        borderRadius: '6px',
+        borderRadius: '8px',
         fontWeight: 'bold',
-        fontSize: '13px',
         transition: 'all 0.2s'
     });
 
-    // Ambil daftar menu sesuai role user (fallback array kosong jika role tidak ditemukan)
     const userMenu = ROLE_PERMISSIONS[user?.role] || [];
 
-    // Formatting tampilan nama & kode berdasarkan role
     const displayName = user?.role === 'CUSTOMER'
         ? `${user?.full_name || user?.name || ''} (${user?.company_name || ''})`
         : user?.name || user?.full_name || '';
@@ -45,14 +44,21 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
                 <NotificationBell
                     user={user}
                     setActiveTab={setActiveTab}
-                    onNewPoDetected={() => {
-                        if (setShowPoBanner) setShowPoBanner(true);
+                    setShowPoBanner={setShowPoBanner}
+                    onNewPoDetected={(latestMessage) => {
+                        if (setShowPoBanner) {
+                            setShowPoBanner(true, latestMessage);
+                        }
                     }}
                 />
 
-                <div style={styles.userInfo}>
+                <div
+                    style={{ ...styles.userInfo, cursor: 'pointer' }}
+                    onClick={() => setActiveTab('profile')}
+                    title="Click to view profile"
+                >
                     <strong>{displayName}</strong><br />
-                    <span style={styles.userCode}>Code: {displayCode}</span>
+                    <span style={styles.userCode}>{displayCode}</span>
                 </div>
 
                 <button type="button" onClick={onLogout} style={styles.logoutBtn}>

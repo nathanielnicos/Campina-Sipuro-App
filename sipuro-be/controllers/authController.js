@@ -40,7 +40,7 @@ exports.login = async (req, res) => {
 
             if (rows.length === 0) {
                 await logAttempt('CUSTOMER', username, clientIp, userAgent, 'FAILED_PASSWORD');
-                return res.status(401).json({ success: false, message: 'Invalid Customer User Code or Password.' });
+                return res.status(401).json({ success: false, message: 'Invalid Customer Username or Password.' });
             }
 
             const user = rows[0];
@@ -70,7 +70,7 @@ exports.login = async (req, res) => {
             const isMatch = await comparePassword(password, user.password);
             if (!isMatch) {
                 await logAttempt('CUSTOMER', username, clientIp, userAgent, 'FAILED_PASSWORD');
-                return res.status(401).json({ success: false, message: 'Invalid Customer User Code or Password.' });
+                return res.status(401).json({ success: false, message: 'Invalid Customer Username or Password.' });
             }
 
             // Update log login pada customer_users
@@ -87,6 +87,7 @@ exports.login = async (req, res) => {
                     user_id: user.customer_user_id,
                     user_code: user.customer_user_code,
                     full_name: user.full_name,
+                    email: user.email,
                     customer_id: user.customer_id,
                     customer_code: user.customer_code,
                     company_name: user.company_name,
@@ -246,7 +247,7 @@ exports.register = async (req, res) => {
                 [customer_user_code.trim()]
             );
             if (existUserCode.length > 0) {
-                return res.status(400).json({ success: false, message: 'User Code is already taken.' });
+                return res.status(400).json({ success: false, message: 'Username is already taken.' });
             }
 
             const encryptedPassword = await hashPassword(password);
@@ -270,6 +271,159 @@ exports.register = async (req, res) => {
     } catch (error) {
         console.error('Error during registration:', error);
         return res.status(500).json({ success: false, message: 'Registration failed.', error: error.message });
+    }
+};
+
+/**
+ * Get Profile (Menerima user_id & role dari query param)
+ */
+exports.getProfile = async (req, res) => {
+    try {
+        const { user_id, role } = req.query;
+
+        if (!user_id || !role) {
+            return res.status(400).json({ success: false, message: 'User ID and Role are required.' });
+        }
+
+        if (role === 'CUSTOMER') {
+            const query = `
+                SELECT 
+                    cu.customer_user_id, 
+                    cu.customer_user_code, 
+                    cu.full_name, 
+                    cu.email, 
+                    c.customer_code, 
+                    c.company_name
+                FROM sipuro_db.customer_users cu
+                JOIN sipuro_db.customers c ON cu.customer_id = c.customer_id
+                WHERE cu.customer_user_id = ?
+            `;
+            const [rows] = await sipuroDb.query(query, [user_id]);
+            if (rows.length === 0) return res.status(404).json({ success: false, message: 'User not found.' });
+
+            return res.json({ success: true, data: rows[0] });
+        } else {
+            const query = `
+                SELECT id, employee_code, full_name, gender, birth_date, department, join_date
+                FROM sipuro_db.employees
+                WHERE id = ?
+            `;
+            const [rows] = await sipuroDb.query(query, [user_id]);
+            if (rows.length === 0) return res.status(404).json({ success: false, message: 'Employee not found.' });
+
+            return res.json({ success: true, data: rows[0] });
+        }
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        return res.status(500).json({ success: false, message: 'Failed to fetch profile.', error: error.message });
+    }
+};
+
+/**
+ * Update Profile (Menerima user_id & role dari request body)
+ */
+exports.updateProfile = async (req, res) => {
+    try {
+        const { user_id, role, full_name, email, gender, birth_date } = req.body;
+
+        if (!user_id || !role) {
+            return res.status(400).json({ success: false, message: 'User ID and Role are required.' });
+        }
+
+        if (role === 'CUSTOMER') {
+            if (!full_name || !email) {
+                return res.status(400).json({ success: false, message: 'Full name and email are required.' });
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ success: false, message: 'Invalid email format.' });
+            }
+
+            await sipuroDb.query(
+                'UPDATE sipuro_db.customer_users SET full_name = ?, email = ? WHERE customer_user_id = ?',
+                [full_name, email, user_id]
+            );
+
+            return res.json({
+                success: true,
+                message: 'Profile updated successfully.',
+                data: { full_name, email }
+            });
+        } else {
+            if (!full_name || !gender || !birth_date) {
+                return res.status(400).json({ success: false, message: 'Full name, gender, and birth date are required.' });
+            }
+
+            await sipuroDb.query(
+                'UPDATE sipuro_db.employees SET full_name = ?, gender = ?, birth_date = ? WHERE id = ?',
+                [full_name, gender, birth_date, user_id]
+            );
+
+            return res.json({
+                success: true,
+                message: 'Profile updated successfully.',
+                data: { full_name, gender, birth_date }
+            });
+        }
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        return res.status(500).json({ success: false, message: 'Failed to update profile.', error: error.message });
+    }
+};
+
+/**
+ * Change Password (Menerima user_id & role dari request body)
+ */
+exports.changePassword = async (req, res) => {
+    try {
+        const { user_id, role, currentPassword, newPassword } = req.body;
+
+        if (!user_id || !role) {
+            return res.status(400).json({ success: false, message: 'User ID and Role are required.' });
+        }
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Current password and new password are required.' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+        }
+
+        const userTable = role === 'CUSTOMER' ? 'customer_users' : 'employees';
+        const idColumn = role === 'CUSTOMER' ? 'customer_user_id' : 'id';
+
+        // 1. Ambil password lama dari database
+        const [rows] = await sipuroDb.query(
+            `SELECT password FROM sipuro_db.${userTable} WHERE ${idColumn} = ?`,
+            [user_id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        // 2. Verifikasi current password
+        const isMatch = await comparePassword(currentPassword, rows[0].password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Incorrect current password.' });
+        }
+
+        // 3. Hash password baru dan update
+        const encryptedPassword = await hashPassword(newPassword);
+        await sipuroDb.query(
+            `UPDATE sipuro_db.${userTable} SET password = ? WHERE ${idColumn} = ?`,
+            [encryptedPassword, user_id]
+        );
+
+        return res.json({
+            success: true,
+            message: 'Password changed successfully.'
+        });
+    } catch (error) {
+        console.error('Error changing password:', error);
+        return res.status(500).json({ success: false, message: 'Failed to change password.', error: error.message });
     }
 };
 

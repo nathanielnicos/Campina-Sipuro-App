@@ -9,7 +9,7 @@ const formatDecimal = (val) => {
     if (val === null || val === undefined || val === '' || val === '-') return '-';
     const num = Number(val);
     if (isNaN(num)) return '-';
-    return String(num); // Standard String conversion JavaScript otomatis membuang trailing zeros
+    return num.toLocaleString('id-ID');
 };
 
 const ProductListPage = () => {
@@ -62,15 +62,15 @@ const ProductListPage = () => {
 
     const handlePreviewProducts = async (e) => {
         e.preventDefault();
-        if (!selectedFile) return alert('Pilih file Excel terlebih dahulu.');
+        if (!selectedFile) return alert('Please select an Excel file first.');
         setUploading(true);
         try {
             const res = await previewProductsApi(selectedFile);
             if (res.success) {
-                setPreviewModal({ open: true, title: 'Daftar Produk Master SKU', data: res });
+                setPreviewModal({ open: true, title: 'Master SKU Product List', data: res });
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Gagal memproses preview Excel Produk.');
+            alert(err.response?.data?.message || 'Failed to process Excel product preview.');
         } finally {
             setUploading(false);
         }
@@ -90,7 +90,7 @@ const ProductListPage = () => {
                 fetchProductsData();
             }
         } catch (err) {
-            alert('Gagal menyimpan data ke database.');
+            alert('Failed to save data to database.');
         }
     };
 
@@ -123,11 +123,11 @@ const ProductListPage = () => {
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
                     <div style={{ minWidth: '220px' }}>
                         <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                            Cari Kode / Nama Produk
+                            Search Code / Product Name
                         </label>
                         <input
                             type="text"
-                            placeholder="Cari Kode atau Nama Produk..."
+                            placeholder="Search product code or name..."
                             value={search}
                             onChange={handleSearchChange}
                             style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '13px' }}
@@ -165,21 +165,21 @@ const ProductListPage = () => {
                         disabled={uploading}
                         style={{ padding: '6px 12px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}
                     >
-                        {uploading ? 'Memproses...' : 'Upload & Preview Produk'}
+                        {uploading ? 'Processing...' : 'Upload & Preview Products'}
                     </button>
                 </form>
             </div>
 
             {loadingData ? (
-                <div>Memuat data produk...</div>
+                <div>Loading product data...</div>
             ) : (
                 <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                                    <th style={{ padding: '10px' }}>Kode Produk</th>
-                                    <th style={{ padding: '10px' }}>Nama Produk</th>
+                                    <th style={{ padding: '10px' }}>Product Code</th>
+                                    <th style={{ padding: '10px' }}>Product Name</th>
                                     <th style={{ padding: '10px' }}>Base UOM</th>
                                     <th style={{ padding: '10px' }}>PCS / CTN</th>
                                     <th style={{ padding: '10px' }}>CTN / PLT</th>
@@ -189,7 +189,7 @@ const ProductListPage = () => {
                             </thead>
                             <tbody>
                                 {products.length === 0 ? (
-                                    <tr><td colSpan="7" style={{ padding: '15px', textAlign: 'center' }}>Tidak ada data produk</td></tr>
+                                    <tr><td colSpan="7" style={{ padding: '15px', textAlign: 'center' }}>No product data available</td></tr>
                                 ) : (
                                     products.map((p) => (
                                         <tr key={p.id_product} style={{ borderBottom: '1px solid #e9ecef' }}>

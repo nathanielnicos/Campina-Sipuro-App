@@ -3,6 +3,7 @@ import { getPrices } from '../../services/superadminApi';
 import { previewPricesApi, commitPricesApi } from '../../services/masterUploadApi';
 import UploadPreviewModal from './UploadPreviewModal';
 import PaginationControl from '../common/PaginationControl';
+import { formatDate } from '../../utils/formatters';
 
 const PriceListPage = () => {
     const [prices, setPrices] = useState([]);
@@ -54,15 +55,15 @@ const PriceListPage = () => {
 
     const handlePreviewPrices = async (e) => {
         e.preventDefault();
-        if (!selectedFile) return alert('Pilih file Excel terlebih dahulu.');
+        if (!selectedFile) return alert('Please select an Excel file first.');
         setUploading(true);
         try {
             const res = await previewPricesApi(selectedFile);
             if (res.success) {
-                setPreviewModal({ open: true, title: 'Daftar Harga Jual Produk', data: res });
+                setPreviewModal({ open: true, title: 'Product Selling Price List', data: res });
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Gagal memproses preview Excel Harga.');
+            alert(err.response?.data?.message || 'Failed to process Excel price preview.');
         } finally {
             setUploading(false);
         }
@@ -74,7 +75,7 @@ const PriceListPage = () => {
             const currentUser = savedUser ? JSON.parse(savedUser) : null;
             const createdBy = currentUser?.code || currentUser?.username || 'SYSTEM';
 
-            const res = await commitPricesApi(items, createdBy); // Tambahkan createdBy di parameter kedua
+            const res = await commitPricesApi(items, createdBy);
             if (res.success) {
                 alert(res.message);
                 setPreviewModal({ open: false, title: '', data: null });
@@ -82,7 +83,7 @@ const PriceListPage = () => {
                 fetchPricesData();
             }
         } catch (err) {
-            alert('Gagal menyimpan data ke database.');
+            alert('Failed to save data to database.');
         }
     };
 
@@ -115,11 +116,11 @@ const PriceListPage = () => {
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
                     <div style={{ minWidth: '220px' }}>
                         <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                            Cari Kode / Nama Produk
+                            Search Code / Product Name
                         </label>
                         <input
                             type="text"
-                            placeholder="Cari Kode atau Nama Produk..."
+                            placeholder="Search product code or name..."
                             value={search}
                             onChange={handleSearchChange}
                             style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '13px' }}
@@ -157,37 +158,37 @@ const PriceListPage = () => {
                         disabled={uploading}
                         style={{ padding: '6px 12px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}
                     >
-                        {uploading ? 'Memproses...' : 'Upload & Preview Harga'}
+                        {uploading ? 'Processing...' : 'Upload & Preview Prices'}
                     </button>
                 </form>
             </div>
 
             {loadingData ? (
-                <div>Memuat data harga...</div>
+                <div>Loading price data...</div>
             ) : (
                 <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                                    <th style={{ padding: '10px' }}>Kode Produk</th>
-                                    <th style={{ padding: '10px' }}>Nama Produk</th>
-                                    <th style={{ padding: '10px' }}>Harga Jual</th>
-                                    <th style={{ padding: '10px' }}>Mulai Berlaku</th>
-                                    <th style={{ padding: '10px' }}>Selesai Berlaku</th>
+                                    <th style={{ padding: '10px' }}>Product Code</th>
+                                    <th style={{ padding: '10px' }}>Product Name</th>
+                                    <th style={{ padding: '10px' }}>Selling Price</th>
+                                    <th style={{ padding: '10px' }}>Effective Date</th>
+                                    <th style={{ padding: '10px' }}>Expiry Date</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {prices.length === 0 ? (
-                                    <tr><td colSpan="5" style={{ padding: '15px', textAlign: 'center' }}>Tidak ada data harga</td></tr>
+                                    <tr><td colSpan="5" style={{ padding: '15px', textAlign: 'center' }}>No price data available</td></tr>
                                 ) : (
                                     prices.map((pr) => (
                                         <tr key={pr.price_id} style={{ borderBottom: '1px solid #e9ecef' }}>
                                             <td style={{ padding: '10px', fontWeight: 'bold' }}>{pr.product_code || '-'}</td>
                                             <td style={{ padding: '10px' }}>{pr.product_name || '-'}</td>
                                             <td style={{ padding: '10px' }}>Rp {Number(pr.price).toLocaleString('id-ID')}</td>
-                                            <td style={{ padding: '10px' }}>{pr.start_date ? new Date(pr.start_date).toLocaleDateString('id-ID') : '-'}</td>
-                                            <td style={{ padding: '10px' }}>{pr.end_date ? new Date(pr.end_date).toLocaleDateString('id-ID') : 'Seterusnya'}</td>
+                                            <td style={{ padding: '10px' }}>{formatDate(pr.start_date)}</td>
+                                            <td style={{ padding: '10px' }}>{pr.end_date ? formatDate(pr.end_date) : 'Ongoing'}</td>
                                         </tr>
                                     ))
                                 )}

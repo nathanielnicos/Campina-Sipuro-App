@@ -3,10 +3,19 @@ const { sipuroDb } = require('../../config/db');
 // Statistik Dashboard
 exports.getDashboardStats = async (req, res) => {
     try {
-        const { mode = 'YTD', startDate, endDate, selectedYear, selectedMonth } = req.query;
+        const { mode = 'YTD', startDate, endDate, selectedYear, selectedMonth, id_product } = req.query;
 
         const currentYear = selectedYear || new Date().getFullYear();
         const currentMonth = selectedMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+        // Menyusun kondisi filter produk untuk JOIN po_details pada query tren
+        let productFilterClause = '';
+        let productParams = [];
+
+        if (id_product && id_product !== 'ALL' && id_product !== '') {
+            productFilterClause = ' AND pod.id_product = ?';
+            productParams.push(id_product);
+        }
 
         let trendQuery = '';
         let trendParams = [];
@@ -25,19 +34,23 @@ exports.getDashboardStats = async (req, res) => {
                     DATE_FORMAT(d.date_val, '%Y-%m-%d') AS label_key,
                     DATE_FORMAT(d.date_val, '%d %b') AS month_label,
                     COALESCE(SUM(pod.base_qty), 0) AS total_volume,
-                    COALESCE(SUM(pba.fulfilled_qty), 0) AS total_fulfilled
+                    COALESCE(SUM(pba.total_fulfilled), 0) AS total_fulfilled
                 FROM dates d
                 LEFT JOIN sipuro_db.po_headers poh 
                     ON DATE(poh.created_at) = d.date_val
                    AND poh.status NOT IN ('Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
-                    ON poh.po_header_id = pod.po_header_id AND pod.deleted_at IS NULL
-                LEFT JOIN sipuro_db.po_batch_allocations pba
-                    ON pod.po_detail_id = pba.po_detail_id
+                    ON poh.po_header_id = pod.po_header_id 
+                   AND pod.deleted_at IS NULL${productFilterClause}
+                LEFT JOIN (
+                    SELECT po_detail_id, SUM(fulfilled_qty) AS total_fulfilled
+                    FROM sipuro_db.po_batch_allocations
+                    GROUP BY po_detail_id
+                ) pba ON pod.po_detail_id = pba.po_detail_id
                 GROUP BY d.date_val, label_key, month_label
                 ORDER BY d.date_val ASC;
             `;
-            trendParams = [firstDayOfMonth, firstDayOfMonth];
+            trendParams = [firstDayOfMonth, firstDayOfMonth, ...productParams];
         } else {
             const firstDayOfYear = `${currentYear}-01-01`;
             const lastDayOfYear = `${currentYear}-12-01`;
@@ -53,19 +66,23 @@ exports.getDashboardStats = async (req, res) => {
                     DATE_FORMAT(m.month_val, '%Y-%m') AS label_key,
                     DATE_FORMAT(m.month_val, '%b %Y') AS month_label,
                     COALESCE(SUM(pod.base_qty), 0) AS total_volume,
-                    COALESCE(SUM(pba.fulfilled_qty), 0) AS total_fulfilled
+                    COALESCE(SUM(pba.total_fulfilled), 0) AS total_fulfilled
                 FROM months m
                 LEFT JOIN sipuro_db.po_headers poh 
                     ON DATE_FORMAT(poh.created_at, '%Y-%m') = DATE_FORMAT(m.month_val, '%Y-%m')
                    AND poh.status NOT IN ('Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
-                    ON poh.po_header_id = pod.po_header_id AND pod.deleted_at IS NULL
-                LEFT JOIN sipuro_db.po_batch_allocations pba
-                    ON pod.po_detail_id = pba.po_detail_id
+                    ON poh.po_header_id = pod.po_header_id 
+                   AND pod.deleted_at IS NULL${productFilterClause}
+                LEFT JOIN (
+                    SELECT po_detail_id, SUM(fulfilled_qty) AS total_fulfilled
+                    FROM sipuro_db.po_batch_allocations
+                    GROUP BY po_detail_id
+                ) pba ON pod.po_detail_id = pba.po_detail_id
                 GROUP BY m.month_val, label_key, month_label
                 ORDER BY m.month_val ASC;
             `;
-            trendParams = [firstDayOfYear, lastDayOfYear];
+            trendParams = [firstDayOfYear, lastDayOfYear, ...productParams];
         }
 
         const [monthlyStats] = await sipuroDb.query(trendQuery, trendParams);

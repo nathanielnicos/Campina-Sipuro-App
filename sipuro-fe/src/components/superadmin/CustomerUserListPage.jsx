@@ -63,8 +63,8 @@ const CustomerUserListPage = () => {
         const isCurrentlyActive = user.is_active === 1 || user.is_active === true;
         const nextStatus = !isCurrentlyActive;
         const confirmMsg = nextStatus
-            ? `Aktifkan user "${user.full_name}" (${user.customer_user_code})?`
-            : `Nonaktifkan user "${user.full_name}" (${user.customer_user_code})?`;
+            ? `Activate user "${user.full_name}" (${user.customer_user_code})?`
+            : `Deactivate user "${user.full_name}" (${user.customer_user_code})?`;
 
         if (!window.confirm(confirmMsg)) return;
 
@@ -74,11 +74,11 @@ const CustomerUserListPage = () => {
             if (res.success) {
                 fetchCustomerUsersData();
             } else {
-                alert(res.message || 'Gagal mengubah status customer user.');
+                alert(res.message || 'Failed to update customer user status.');
             }
         } catch (err) {
             console.error('Error toggling customer user status:', err);
-            alert('Terjadi kesalahan saat mengubah status customer user.');
+            alert('An error occurred while updating customer user status.');
         } finally {
             setUpdatingId(null);
         }
@@ -99,11 +99,11 @@ const CustomerUserListPage = () => {
             }}>
                 <div style={{ flex: '1 1 250px', maxWidth: '350px' }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                        Cari User / Perusahaan
+                        Search User / Company
                     </label>
                     <input
                         type="text"
-                        placeholder="Cari Username, Nama, Email, atau Perusahaan..."
+                        placeholder="Search username, name, email, or company..."
                         value={search}
                         onChange={handleSearchChange}
                         style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '13px' }}
@@ -129,7 +129,7 @@ const CustomerUserListPage = () => {
             </div>
 
             {loading ? (
-                <div>Memuat data customer user...</div>
+                <div>Loading customer user data...</div>
             ) : (
                 <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
                     <div style={{ overflowX: 'auto' }}>
@@ -137,17 +137,17 @@ const CustomerUserListPage = () => {
                             <thead>
                                 <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
                                     <th style={{ padding: '10px' }}>Username</th>
-                                    <th style={{ padding: '10px' }}>Nama Lengkap</th>
+                                    <th style={{ padding: '10px' }}>Full Name</th>
                                     <th style={{ padding: '10px' }}>Email</th>
-                                    <th style={{ padding: '10px' }}>Perusahaan</th>
+                                    <th style={{ padding: '10px' }}>Company</th>
                                     <th style={{ padding: '10px' }}>Status</th>
-                                    <th style={{ padding: '10px', textAlign: 'center' }}>Aksi</th>
+                                    <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {customerUsers.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" style={{ padding: '15px', textAlign: 'center' }}>Tidak ada data user customer</td>
+                                        <td colSpan="6" style={{ padding: '15px', textAlign: 'center' }}>No customer user data available</td>
                                     </tr>
                                 ) : (
                                     customerUsers.map((u) => {
@@ -161,7 +161,7 @@ const CustomerUserListPage = () => {
                                                     {u.company_name} <span style={{ color: '#6c757d', fontSize: '11px' }}>({u.customer_code})</span>
                                                 </td>
                                                 <td style={{ padding: '10px', color: isActive ? '#198754' : '#ef4444', fontWeight: 'bold' }}>
-                                                    {isActive ? 'Aktif' : 'Nonaktif'}
+                                                    {isActive ? 'Active' : 'Inactive'}
                                                 </td>
                                                 <td style={{ padding: '10px', textAlign: 'center' }}>
                                                     <button
@@ -179,10 +179,10 @@ const CustomerUserListPage = () => {
                                                         }}
                                                     >
                                                         {updatingId === u.customer_user_id
-                                                            ? 'Proses...'
+                                                            ? 'Processing...'
                                                             : isActive
-                                                                ? 'Nonaktifkan'
-                                                                : 'Aktifkan'}
+                                                                ? 'Deactivate'
+                                                                : 'Activate'}
                                                     </button>
                                                 </td>
                                             </tr>

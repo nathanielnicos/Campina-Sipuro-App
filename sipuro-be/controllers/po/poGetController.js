@@ -2,7 +2,17 @@ const { sipuroDb } = require('../../config/db');
 
 exports.getPOList = async (req, res) => {
     try {
-        const { customer_id, page = 1, limit = 10, search, startDate, endDate, status } = req.query;
+        const {
+            customer_id,
+            page = 1,
+            limit = 10,
+            search,
+            startDate,
+            endDate,
+            status,
+            sortBy = 'created_at',
+            sortOrder = 'desc'
+        } = req.query;
 
         const pageNum = parseInt(page, 10) || 1;
         const limitNum = parseInt(limit, 10) || 10;
@@ -38,6 +48,19 @@ exports.getPOList = async (req, res) => {
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+        // Pemetaan kolom untuk mencegah SQL Injection
+        const validSortColumns = {
+            po_number: 'h.po_number',
+            created_at: 'h.created_at',
+            requested_delivery_date: 'h.requested_delivery_date',
+            total_items: 'total_items',
+            total_price: 'h.total_amount',
+            status: 'h.status'
+        };
+
+        const sortColumn = validSortColumns[sortBy] || 'h.created_at';
+        const sortDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
         const countQuery = `
             SELECT COUNT(DISTINCT h.po_header_id) AS total
             FROM sipuro_db.po_headers h
@@ -54,7 +77,7 @@ exports.getPOList = async (req, res) => {
             LEFT JOIN sipuro_db.po_details d ON h.po_header_id = d.po_header_id AND d.deleted_at IS NULL
             ${whereClause}
             GROUP BY h.po_header_id
-            ORDER BY h.created_at DESC
+            ORDER BY ${sortColumn} ${sortDirection}
             LIMIT ? OFFSET ?
         `;
 
