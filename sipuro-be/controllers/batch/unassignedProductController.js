@@ -8,7 +8,7 @@ exports.getUnassignedSummary = async (req, res) => {
         const limitNum = Math.max(1, parseInt(req.query.limit, 10) || 10);
         const offset = (pageNum - 1) * limitNum;
 
-        const { searchProduct, searchPo } = req.query;
+        const { searchProduct, searchPo, fromCreatedDate, toCreatedDate } = req.query;
 
         let whereClauses = [
             `h.status IN ('Waiting for Batch Assignment', 'In Progress')`,
@@ -25,6 +25,16 @@ exports.getUnassignedSummary = async (req, res) => {
         if (searchPo) {
             whereClauses.push(`h.po_number LIKE ?`);
             queryParams.push(`%${searchPo}%`);
+        }
+
+        if (fromCreatedDate) {
+            whereClauses.push(`DATE(h.created_at) >= ?`);
+            queryParams.push(fromCreatedDate);
+        }
+
+        if (toCreatedDate) {
+            whereClauses.push(`DATE(h.created_at) <= ?`);
+            queryParams.push(toCreatedDate);
         }
 
         const whereSql = whereClauses.join(' AND ');
@@ -69,7 +79,16 @@ exports.getUnassignedSummary = async (req, res) => {
                     )
                     ORDER BY h.po_header_id ASC 
                     SEPARATOR '\n'
-                ) AS po_numbers
+                ) AS po_numbers,
+                GROUP_CONCAT(
+                    DISTINCT IF(
+                        (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0,
+                        DATE_FORMAT(h.created_at, '%Y-%m-%d'),
+                        NULL
+                    )
+                    ORDER BY h.po_header_id ASC 
+                    SEPARATOR '\n'
+                ) AS created_dates
             FROM sipuro_db.po_details d
             JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
             JOIN sipuro_db.products p ON d.id_product = p.id_product

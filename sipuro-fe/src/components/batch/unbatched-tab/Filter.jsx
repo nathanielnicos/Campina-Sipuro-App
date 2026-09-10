@@ -1,11 +1,15 @@
 const Filter = ({
     searchProduct,
     searchPo,
+    fromCreatedDate,
+    toCreatedDate,
     onProductChange,
     onPoChange,
+    onFromDateChange,
+    onToDateChange,
     onResetFilters
 }) => {
-    const isFilterActive = Boolean(searchProduct || searchPo);
+    const isFilterActive = Boolean(searchProduct || searchPo || fromCreatedDate || toCreatedDate);
 
     return (
         <div style={{
@@ -15,12 +19,14 @@ const Filter = ({
             border: '1px solid #dee2e6',
             marginBottom: '20px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
             gap: '12px',
             alignItems: 'end'
         }}>
             <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search Product Code/Name</label>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                    Search Product Code/Name
+                </label>
                 <input
                     type="text"
                     placeholder="Example: FG-CN-00060"
@@ -30,12 +36,36 @@ const Filter = ({
                 />
             </div>
             <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search PO Number</label>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                    Search PO Number
+                </label>
                 <input
                     type="text"
                     placeholder="Example: PO-20260824-895"
                     value={searchPo}
                     onChange={onPoChange}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                />
+            </div>
+            <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                    From Created Date
+                </label>
+                <input
+                    type="date"
+                    value={fromCreatedDate}
+                    onChange={onFromDateChange}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                />
+            </div>
+            <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                    To Created Date
+                </label>
+                <input
+                    type="date"
+                    value={toCreatedDate}
+                    onChange={onToDateChange}
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
                 />
             </div>

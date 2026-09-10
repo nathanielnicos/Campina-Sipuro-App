@@ -17,12 +17,16 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         error,
         searchProduct,
         searchPo,
+        fromCreatedDate,
+        toCreatedDate,
         pagination,
         setPage,
         setLimit,
         loadData,
         handleProductChange,
         handlePoChange,
+        handleFromDateChange,
+        handleToDateChange,
         handleResetFilters
     } = useUnbatchedTable(reloadTrigger);
 
@@ -76,8 +80,12 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
             <Filter
                 searchProduct={searchProduct}
                 searchPo={searchPo}
+                fromCreatedDate={fromCreatedDate}
+                toCreatedDate={toCreatedDate}
                 onProductChange={handleProductChange}
                 onPoChange={handlePoChange}
+                onFromDateChange={handleFromDateChange}
+                onToDateChange={handleToDateChange}
                 onResetFilters={handleResetFilters}
             />
 
@@ -91,14 +99,15 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                 <th style={{ padding: '12px 10px', textAlign: 'right', wordBreak: 'break-word' }}>Total Required Qty (Pcs)</th>
                                 <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>PO Count</th>
                                 <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>PO Number</th>
+                                <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>Created Date</th>
                                 <th style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>PO Qty (Pcs)</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', width: '140px' }}>Action</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', width: '120px' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {summaryList.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                                    <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                                         No SKUs need to be allocated at this time.
                                     </td>
                                 </tr>

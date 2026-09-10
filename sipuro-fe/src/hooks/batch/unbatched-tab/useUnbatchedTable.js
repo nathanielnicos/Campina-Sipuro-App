@@ -8,6 +8,8 @@ export const useUnbatchedTable = (reloadTrigger) => {
 
     const [searchProduct, setSearchProduct] = useState('');
     const [searchPo, setSearchPo] = useState('');
+    const [fromCreatedDate, setFromCreatedDate] = useState('');
+    const [toCreatedDate, setToCreatedDate] = useState('');
 
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
@@ -17,7 +19,12 @@ export const useUnbatchedTable = (reloadTrigger) => {
         setLoading(true);
         setError('');
         try {
-            const filters = { searchProduct, searchPo };
+            const filters = {
+                searchProduct,
+                searchPo,
+                fromCreatedDate,
+                toCreatedDate
+            };
             const res = await fetchUnassignedSummary(page, limit, filters);
             if (res && res.success) {
                 setSummaryList(res.data || []);
@@ -37,7 +44,7 @@ export const useUnbatchedTable = (reloadTrigger) => {
         } finally {
             setLoading(false);
         }
-    }, [page, limit, searchProduct, searchPo]);
+    }, [page, limit, searchProduct, searchPo, fromCreatedDate, toCreatedDate]);
 
     useEffect(() => {
         loadData();
@@ -53,9 +60,21 @@ export const useUnbatchedTable = (reloadTrigger) => {
         setPage(1);
     };
 
+    const handleFromDateChange = (e) => {
+        setFromCreatedDate(e.target.value);
+        setPage(1);
+    };
+
+    const handleToDateChange = (e) => {
+        setToCreatedDate(e.target.value);
+        setPage(1);
+    };
+
     const handleResetFilters = () => {
         setSearchProduct('');
         setSearchPo('');
+        setFromCreatedDate('');
+        setToCreatedDate('');
         setPage(1);
     };
 
@@ -65,6 +84,8 @@ export const useUnbatchedTable = (reloadTrigger) => {
         error,
         searchProduct,
         searchPo,
+        fromCreatedDate,
+        toCreatedDate,
         page,
         limit,
         pagination,
@@ -73,6 +94,8 @@ export const useUnbatchedTable = (reloadTrigger) => {
         loadData,
         handleProductChange,
         handlePoChange,
+        handleFromDateChange,
+        handleToDateChange,
         handleResetFilters
     };
 };

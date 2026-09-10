@@ -5,6 +5,10 @@ const TableRow = ({ row, currentUserRole, isPoFilterActive, onOpenModal }) => {
         ? row.po_numbers.split('\n').filter(Boolean)
         : [];
 
+    const dateItems = row.created_dates
+        ? row.created_dates.split('\n').filter(Boolean)
+        : [];
+
     return (
         <tr style={{ borderBottom: '1px solid #dee2e6' }}>
             <td style={{ padding: '12px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
@@ -26,6 +30,16 @@ const TableRow = ({ row, currentUserRole, isPoFilterActive, onOpenModal }) => {
                         const poNumber = item.split(' (')[0];
                         return <div key={idx} style={{ fontWeight: '500' }}>{poNumber}</div>;
                     })
+                ) : (
+                    '-'
+                )}
+            </td>
+
+            <td style={{ padding: '12px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap', lineHeight: '1.6', color: '#495057' }}>
+                {dateItems.length > 0 ? (
+                    dateItems.map((dateStr, idx) => (
+                        <div key={idx}>{dateStr}</div>
+                    ))
                 ) : (
                     '-'
                 )}
@@ -56,17 +70,18 @@ const TableRow = ({ row, currentUserRole, isPoFilterActive, onOpenModal }) => {
                             backgroundColor: isPoFilterActive ? '#6c757d' : '#0d6efd',
                             color: '#fff',
                             border: 'none',
-                            padding: '6px 12px',
+                            padding: '6px 10px',
                             borderRadius: '4px',
                             cursor: isPoFilterActive ? 'not-allowed' : 'pointer',
                             fontWeight: '600',
-                            fontSize: '12px',
-                            whiteSpace: 'nowrap',
+                            fontSize: '11px',
+                            lineHeight: '1.2',
+                            width: '100px',
                             display: 'inline-block',
                             opacity: isPoFilterActive ? 0.65 : 1
                         }}
                     >
-                        + Production Schedule
+                        + Production<br />Schedule
                     </button>
                 ) : (
                     <span>-</span>
