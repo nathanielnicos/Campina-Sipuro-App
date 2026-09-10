@@ -7,14 +7,14 @@ export const formatQty = (val) =>
 export const formatDate = (dateStr) => {
     if (!dateStr) return '-';
 
-    // Pemotongan string langsung aman dari pergeseran zona waktu (WIB)
-    const cleanDate = dateStr.split('T')[0];
-    const [year, month, day] = cleanDate.split('-');
+    // Konversi langsung menggunakan Date objek agar menyesuaikan offset timezone backend
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '-';
 
-    if (!year || !month || !day) return '-';
-
+    const day = String(date.getDate()).padStart(2, '0');
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthName = months[parseInt(month, 10) - 1];
+    const monthName = months[date.getMonth()];
+    const year = date.getFullYear();
 
     return `${day} ${monthName} ${year}`;
 };
