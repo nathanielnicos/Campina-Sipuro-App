@@ -39,7 +39,7 @@ exports.getUnallocatedStocks = async (req, res) => {
         const [countResult] = await db.query(countQuery, queryParams);
         const totalItems = Number(countResult[0]?.total || 0);
 
-        // Query Data Paged (Aman: limit & offset menggunakan placeholder ?)
+        // Query Data Paged
         const dataQuery = `
             SELECT 
                 us.id,
@@ -163,7 +163,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
             [newUnallocatedQty, currentUserId, unallocatedId]
         );
 
-        // --- TAMBAHAN LOG AUDIT MUTASI STOK ---
+        // --- LOG AUDIT MUTASI STOK ---
         await connection.query(`
             INSERT INTO unallocated_stock_logs 
                 (unallocated_stock_id, target_allocation_id, qty_reallocated, qty_before, qty_after, created_by)
@@ -177,10 +177,10 @@ exports.reallocateUnallocatedStock = async (req, res) => {
             currentUserId
         ]);
 
-        // E. TINGKAT 2: Cek Keseluruhan PO Allocation dalam Batch
+        // E. TINGKAT 2: Cek Keseluruhan PO Allocation dalam Batch (DIPERBAIKI: Menggunakan placeholder ? untuk nilai 'Open')
         const [remainingOpenAllocations] = await connection.query(
-            'SELECT COUNT(*) as openCount FROM po_batch_allocations WHERE id_batch = ? AND status = "Open"',
-            [batchId]
+            'SELECT COUNT(*) as openCount FROM po_batch_allocations WHERE id_batch = ? AND status = ?',
+            [batchId, 'Open']
         );
 
         const openCount = remainingOpenAllocations[0]?.openCount || 0;
