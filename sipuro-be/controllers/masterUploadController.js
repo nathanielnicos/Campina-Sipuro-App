@@ -23,8 +23,14 @@ function safeFormatDate(rawDate) {
     }
 
     try {
-        // Jika angka serial Excel
-        if (typeof rawDate === 'number' || (!isNaN(Number(rawDate)) && !String(rawDate).includes('-') && !String(rawDate).includes('/'))) {
+        // 1. Jika input sudah berupa string format YYYY-MM-DD / YYYY-MM-DDTHH:mm:ss...
+        const strDate = String(rawDate).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(strDate)) {
+            return strDate.substring(0, 10);
+        }
+
+        // 2. Jika angka serial Excel
+        if (typeof rawDate === 'number' || (!isNaN(Number(rawDate)) && !strDate.includes('-') && !strDate.includes('/'))) {
             const parsedDate = xlsx.SSF.parse_date_code(Number(rawDate));
             if (parsedDate) {
                 const y = parsedDate.y;
@@ -34,13 +40,14 @@ function safeFormatDate(rawDate) {
             }
         }
 
-        // Jika String atau Date object
+        // 3. Jika Date object atau string format tanggal lainnya
         const parsed = new Date(rawDate);
         if (isNaN(parsed.getTime())) return null;
 
-        const y = parsed.getFullYear();
-        const m = String(parsed.getMonth() + 1).padStart(2, '0');
-        const d = String(parsed.getDate()).padStart(2, '0');
+        // Gunakan fungsi UTC agar tidak tergeser oleh zona waktu lokal server
+        const y = parsed.getUTCFullYear();
+        const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(parsed.getUTCDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
     } catch {
         return null;
@@ -271,9 +278,14 @@ exports.previewPrices = async (req, res) => {
         const [registeredProducts] = await db.query('SELECT id_product, product_code FROM sipuro_db.products');
         const registeredProductCodes = new Set(registeredProducts.map(p => p.product_code));
 
-        // 2. Ambil daftar harga yang sudah ada di tabel product_selling_prices
+        // 2. Ambil daftar harga yang sudah ada di tabel product_selling_prices (Gunakan DATE_FORMAT agar nilai tanggal murni string)
         const [existingPrices] = await db.query(`
-            SELECT sp.price_id, p.product_code, sp.price, sp.start_date, sp.end_date 
+            SELECT 
+                sp.price_id, 
+                p.product_code, 
+                sp.price, 
+                DATE_FORMAT(sp.start_date, '%Y-%m-%d') AS start_date, 
+                DATE_FORMAT(sp.end_date, '%Y-%m-%d') AS end_date 
             FROM sipuro_db.product_selling_prices sp
             JOIN sipuro_db.products p ON sp.id_product = p.id_product
         `);
