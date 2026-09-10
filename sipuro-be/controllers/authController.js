@@ -303,8 +303,16 @@ exports.getProfile = async (req, res) => {
 
             return res.json({ success: true, data: rows[0] });
         } else {
+            // PERBAIKAN: Gunakan DATE_FORMAT agar nilai tanggal bertipe string "YYYY-MM-DD" murni tanpa timezone UTC
             const query = `
-                SELECT id, employee_code, full_name, gender, birth_date, department, join_date
+                SELECT 
+                    id, 
+                    employee_code, 
+                    full_name, 
+                    gender, 
+                    DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date, 
+                    department, 
+                    DATE_FORMAT(join_date, '%Y-%m-%d') AS join_date
                 FROM sipuro_db.employees
                 WHERE id = ?
             `;
