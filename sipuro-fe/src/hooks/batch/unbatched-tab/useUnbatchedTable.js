@@ -10,6 +10,11 @@ export const useUnbatchedTable = (reloadTrigger) => {
     const [searchPo, setSearchPo] = useState('');
     const [fromCreatedDate, setFromCreatedDate] = useState('');
     const [toCreatedDate, setToCreatedDate] = useState('');
+    const [fromDeliveryDate, setFromDeliveryDate] = useState('');
+    const [toDeliveryDate, setToDeliveryDate] = useState('');
+
+    const [sortKey, setSortKey] = useState('');
+    const [sortOrder, setSortOrder] = useState('ASC');
 
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
@@ -23,7 +28,11 @@ export const useUnbatchedTable = (reloadTrigger) => {
                 searchProduct,
                 searchPo,
                 fromCreatedDate,
-                toCreatedDate
+                toCreatedDate,
+                fromDeliveryDate,
+                toDeliveryDate,
+                sortKey,
+                sortOrder
             };
             const res = await fetchUnassignedSummary(page, limit, filters);
             if (res && res.success) {
@@ -44,7 +53,18 @@ export const useUnbatchedTable = (reloadTrigger) => {
         } finally {
             setLoading(false);
         }
-    }, [page, limit, searchProduct, searchPo, fromCreatedDate, toCreatedDate]);
+    }, [
+        page,
+        limit,
+        searchProduct,
+        searchPo,
+        fromCreatedDate,
+        toCreatedDate,
+        fromDeliveryDate,
+        toDeliveryDate,
+        sortKey,
+        sortOrder
+    ]);
 
     useEffect(() => {
         loadData();
@@ -60,13 +80,29 @@ export const useUnbatchedTable = (reloadTrigger) => {
         setPage(1);
     };
 
-    const handleFromDateChange = (e) => {
+    const handleFromCreatedDateChange = (e) => {
         setFromCreatedDate(e.target.value);
         setPage(1);
     };
 
-    const handleToDateChange = (e) => {
+    const handleToCreatedDateChange = (e) => {
         setToCreatedDate(e.target.value);
+        setPage(1);
+    };
+
+    const handleFromDeliveryDateChange = (e) => {
+        setFromDeliveryDate(e.target.value);
+        setPage(1);
+    };
+
+    const handleToDeliveryDateChange = (e) => {
+        setToDeliveryDate(e.target.value);
+        setPage(1);
+    };
+
+    const handleSort = (key, order) => {
+        setSortKey(key);
+        setSortOrder(order);
         setPage(1);
     };
 
@@ -75,6 +111,10 @@ export const useUnbatchedTable = (reloadTrigger) => {
         setSearchPo('');
         setFromCreatedDate('');
         setToCreatedDate('');
+        setFromDeliveryDate('');
+        setToDeliveryDate('');
+        setSortKey('');
+        setSortOrder('ASC');
         setPage(1);
     };
 
@@ -86,6 +126,10 @@ export const useUnbatchedTable = (reloadTrigger) => {
         searchPo,
         fromCreatedDate,
         toCreatedDate,
+        fromDeliveryDate,
+        toDeliveryDate,
+        sortKey,
+        sortOrder,
         page,
         limit,
         pagination,
@@ -94,8 +138,11 @@ export const useUnbatchedTable = (reloadTrigger) => {
         loadData,
         handleProductChange,
         handlePoChange,
-        handleFromDateChange,
-        handleToDateChange,
-        handleResetFilters
+        handleFromCreatedDateChange,
+        handleToCreatedDateChange,
+        handleFromDeliveryDateChange,
+        handleToDeliveryDateChange,
+        handleResetFilters,
+        handleSort
     };
 };

@@ -133,9 +133,9 @@ export const updateAllocationStatusApi = async (allocationId, payload) => {
         return response.data;
     } catch (error) {
         console.error('Error updating allocation status:', error);
-        return { 
-            success: false, 
-            message: error.response?.data?.message || 'Gagal mengubah status alokasi.' 
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Gagal mengubah status alokasi.'
         };
     }
 };

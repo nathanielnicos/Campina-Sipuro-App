@@ -1,15 +1,29 @@
+import React from 'react';
+import DateRangePicker from '../../common/DateRangePicker';
+
 const Filter = ({
     searchProduct,
     searchPo,
     fromCreatedDate,
     toCreatedDate,
+    fromDeliveryDate,
+    toDeliveryDate,
     onProductChange,
     onPoChange,
-    onFromDateChange,
-    onToDateChange,
+    onFromCreatedDateChange,
+    onToCreatedDateChange,
+    onFromDeliveryDateChange,
+    onToDeliveryDateChange,
     onResetFilters
 }) => {
-    const isFilterActive = Boolean(searchProduct || searchPo || fromCreatedDate || toCreatedDate);
+    const isFilterActive = Boolean(
+        searchProduct ||
+        searchPo ||
+        fromCreatedDate ||
+        toCreatedDate ||
+        fromDeliveryDate ||
+        toDeliveryDate
+    );
 
     return (
         <div style={{
@@ -19,7 +33,7 @@ const Filter = ({
             border: '1px solid #dee2e6',
             marginBottom: '20px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gridTemplateColumns: 'repeat(5, 1fr)',
             gap: '12px',
             alignItems: 'end'
         }}>
@@ -32,9 +46,10 @@ const Filter = ({
                     placeholder="Example: FG-CN-00060"
                     value={searchProduct}
                     onChange={onProductChange}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px' }}
                 />
             </div>
+
             <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
                     Search PO Number
@@ -44,37 +59,33 @@ const Filter = ({
                     placeholder="Example: PO-20260824-895"
                     value={searchPo}
                     onChange={onPoChange}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px' }}
                 />
             </div>
-            <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                    From Created Date
-                </label>
-                <input
-                    type="date"
-                    value={fromCreatedDate}
-                    onChange={onFromDateChange}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
-                />
-            </div>
-            <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                    To Created Date
-                </label>
-                <input
-                    type="date"
-                    value={toCreatedDate}
-                    onChange={onToDateChange}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
-                />
-            </div>
+
+            <DateRangePicker
+                label="PO Created Date Range"
+                fromDate={fromCreatedDate}
+                toDate={toCreatedDate}
+                onFromDateChange={onFromCreatedDateChange}
+                onToDateChange={onToCreatedDateChange}
+            />
+
+            <DateRangePicker
+                label="PO Req. Delivery Date Range"
+                fromDate={fromDeliveryDate}
+                toDate={toDeliveryDate}
+                onFromDateChange={onFromDeliveryDateChange}
+                onToDateChange={onToDeliveryDateChange}
+            />
+
             <div>
                 <button
                     onClick={onResetFilters}
                     disabled={!isFilterActive}
                     style={{
                         width: '100%',
+                        height: '38px',
                         padding: '8px 12px',
                         backgroundColor: isFilterActive ? '#dc3545' : '#e9ecef',
                         color: isFilterActive ? '#fff' : '#adb5bd',

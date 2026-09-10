@@ -1,4 +1,6 @@
+import React from 'react';
 import PaginationControl from '../../common/PaginationControl';
+import SortableHeader from '../../common/SortableHeader';
 import BatchAllocationModal from '../batch-allocation-modal/BatchAllocationModal';
 import Filter from './Filter';
 import TableRow from './TableRow';
@@ -10,7 +12,6 @@ import { useBatchAllocation } from '../../../hooks/batch/unbatched-tab/useBatchA
 const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
     const currentUserId = currentUser?.employee_id || currentUser?.id;
 
-    // 1. Hook Tabel & Filter
     const {
         summaryList,
         loading,
@@ -19,18 +20,24 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         searchPo,
         fromCreatedDate,
         toCreatedDate,
+        fromDeliveryDate,
+        toDeliveryDate,
+        sortKey,
+        sortOrder,
         pagination,
         setPage,
         setLimit,
         loadData,
         handleProductChange,
         handlePoChange,
-        handleFromDateChange,
-        handleToDateChange,
-        handleResetFilters
+        handleFromCreatedDateChange,
+        handleToCreatedDateChange,
+        handleFromDeliveryDateChange,
+        handleToDeliveryDateChange,
+        handleResetFilters,
+        handleSort
     } = useUnbatchedTable(reloadTrigger);
 
-    // 2. Hook Alokasi Batch Modal
     const {
         selectedSku,
         isModalOpen,
@@ -82,10 +89,14 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 searchPo={searchPo}
                 fromCreatedDate={fromCreatedDate}
                 toCreatedDate={toCreatedDate}
+                fromDeliveryDate={fromDeliveryDate}
+                toDeliveryDate={toDeliveryDate}
                 onProductChange={handleProductChange}
                 onPoChange={handlePoChange}
-                onFromDateChange={handleFromDateChange}
-                onToDateChange={handleToDateChange}
+                onFromCreatedDateChange={handleFromCreatedDateChange}
+                onToCreatedDateChange={handleToCreatedDateChange}
+                onFromDeliveryDateChange={handleFromDeliveryDateChange}
+                onToDeliveryDateChange={handleToDeliveryDateChange}
                 onResetFilters={handleResetFilters}
             />
 
@@ -93,13 +104,42 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'auto' }}>
                         <thead>
-                            <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>Product Code</th>
-                                <th style={{ padding: '12px 10px' }}>Product Name</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'right', wordBreak: 'break-word' }}>Total Required Qty (Pcs)</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>PO Count</th>
-                                <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>PO Number</th>
-                                <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>PO Created Date</th>
+                            <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                                <SortableHeader
+                                    label="Product Code"
+                                    sortKey="product_code"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                />
+                                <SortableHeader
+                                    label="Product Name"
+                                    sortKey="product_name"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                />
+                                <SortableHeader
+                                    label="Total Required Qty (Pcs)"
+                                    sortKey="total_qty_needed"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                    align="right"
+                                />
+                                <SortableHeader
+                                    label="PO Count"
+                                    sortKey="total_po_count"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                    align="center"
+                                />
+                                <th style={{ padding: '12px 10px', textAlign: 'left', whiteSpace: 'nowrap' }}>PO Number</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>PO Created Date</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                    PO Requested<br />Delivery Date
+                                </th>
                                 <th style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>PO Qty (Pcs)</th>
                                 <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', width: '120px' }}>Action</th>
                             </tr>
@@ -107,7 +147,7 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                         <tbody>
                             {summaryList.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                                    <td colSpan="9" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                                         No SKUs need to be allocated at this time.
                                     </td>
                                 </tr>

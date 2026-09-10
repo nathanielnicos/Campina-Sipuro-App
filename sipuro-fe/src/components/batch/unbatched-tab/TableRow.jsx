@@ -1,3 +1,4 @@
+import React from 'react';
 import { formatQty } from '../../../utils/formatters';
 
 const TableRow = ({ row, currentUserRole, isPoFilterActive, onOpenModal }) => {
@@ -5,8 +6,12 @@ const TableRow = ({ row, currentUserRole, isPoFilterActive, onOpenModal }) => {
         ? row.po_numbers.split('\n').filter(Boolean)
         : [];
 
-    const dateItems = row.created_dates
+    const createdDateItems = row.created_dates
         ? row.created_dates.split('\n').filter(Boolean)
+        : [];
+
+    const deliveryDateItems = row.requested_delivery_dates
+        ? row.requested_delivery_dates.split('\n').filter(Boolean)
         : [];
 
     return (
@@ -14,17 +19,20 @@ const TableRow = ({ row, currentUserRole, isPoFilterActive, onOpenModal }) => {
             <td style={{ padding: '12px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                 <strong>{row.product_code}</strong>
             </td>
-            <td style={{ padding: '12px 10px', verticalAlign: 'middle', wordBreak: 'break-word' }}>
+
+            <td style={{ padding: '12px 10px', verticalAlign: 'middle', maxWidth: '220px', wordBreak: 'break-word' }}>
                 {row.product_name}
             </td>
+
             <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 'bold', verticalAlign: 'middle' }}>
                 {formatQty(row.total_qty_needed)}
             </td>
+
             <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
                 {formatQty(row.total_po_count)}
             </td>
 
-            <td style={{ padding: '12px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap', lineHeight: '1.6' }}>
+            <td style={{ padding: '12px 10px', textAlign: 'left', verticalAlign: 'middle', whiteSpace: 'nowrap', lineHeight: '1.6' }}>
                 {poItems.length > 0 ? (
                     poItems.map((item, idx) => {
                         const poNumber = item.split(' (')[0];
@@ -35,9 +43,19 @@ const TableRow = ({ row, currentUserRole, isPoFilterActive, onOpenModal }) => {
                 )}
             </td>
 
-            <td style={{ padding: '12px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap', lineHeight: '1.6', color: '#495057' }}>
-                {dateItems.length > 0 ? (
-                    dateItems.map((dateStr, idx) => (
+            <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap', lineHeight: '1.6', color: '#495057' }}>
+                {createdDateItems.length > 0 ? (
+                    createdDateItems.map((dateStr, idx) => (
+                        <div key={idx}>{dateStr}</div>
+                    ))
+                ) : (
+                    '-'
+                )}
+            </td>
+
+            <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap', lineHeight: '1.6', color: '#495057' }}>
+                {deliveryDateItems.length > 0 ? (
+                    deliveryDateItems.map((dateStr, idx) => (
                         <div key={idx}>{dateStr}</div>
                     ))
                 ) : (

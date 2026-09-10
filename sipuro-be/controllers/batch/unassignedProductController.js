@@ -8,7 +8,16 @@ exports.getUnassignedSummary = async (req, res) => {
         const limitNum = Math.max(1, parseInt(req.query.limit, 10) || 10);
         const offset = (pageNum - 1) * limitNum;
 
-        const { searchProduct, searchPo, fromCreatedDate, toCreatedDate } = req.query;
+        const {
+            searchProduct,
+            searchPo,
+            fromCreatedDate,
+            toCreatedDate,
+            fromDeliveryDate,
+            toDeliveryDate,
+            sortKey,
+            sortOrder
+        } = req.query;
 
         let whereClauses = [
             `h.status IN ('Waiting for Batch Assignment', 'In Progress')`,
@@ -37,7 +46,29 @@ exports.getUnassignedSummary = async (req, res) => {
             queryParams.push(toCreatedDate);
         }
 
+        if (fromDeliveryDate) {
+            whereClauses.push(`DATE(h.requested_delivery_date) >= ?`);
+            queryParams.push(fromDeliveryDate);
+        }
+
+        if (toDeliveryDate) {
+            whereClauses.push(`DATE(h.requested_delivery_date) <= ?`);
+            queryParams.push(toDeliveryDate);
+        }
+
         const whereSql = whereClauses.join(' AND ');
+
+        // Mapping aman untuk ORDER BY (Mencegah SQL Injection)
+        const allowedSortKeys = {
+            product_code: 'p.product_code',
+            product_name: 'p.product_name',
+            total_qty_needed: 'total_qty_needed',
+            total_po_count: 'total_po_count'
+        };
+
+        const targetSortColumn = allowedSortKeys[sortKey] || 'p.product_code';
+        const targetSortOrder = String(sortOrder).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+        const orderBySql = `ORDER BY ${targetSortColumn} ${targetSortOrder}`;
 
         const countQuery = `
             SELECT COUNT(*) AS total FROM (
@@ -88,7 +119,16 @@ exports.getUnassignedSummary = async (req, res) => {
                     )
                     ORDER BY h.po_header_id ASC 
                     SEPARATOR '\n'
-                ) AS created_dates
+                ) AS created_dates,
+                GROUP_CONCAT(
+                    DISTINCT IF(
+                        (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0,
+                        IFNULL(DATE_FORMAT(h.requested_delivery_date, '%Y-%m-%d'), '-'),
+                        NULL
+                    )
+                    ORDER BY h.po_header_id ASC 
+                    SEPARATOR '\n'
+                ) AS requested_delivery_dates
             FROM sipuro_db.po_details d
             JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
             JOIN sipuro_db.products p ON d.id_product = p.id_product
@@ -100,7 +140,7 @@ exports.getUnassignedSummary = async (req, res) => {
             ) alloc ON d.po_detail_id = alloc.po_detail_id
             WHERE ${whereSql}
             GROUP BY p.id_product, p.product_code, p.product_name, p.base_uom
-            ORDER BY p.product_code ASC
+            ${orderBySql}
             LIMIT ${limitNum} OFFSET ${offset};
         `;
 
