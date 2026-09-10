@@ -37,7 +37,7 @@ const Filter = ({
                 />
             </div>
             <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>From Date</label>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>From Planned Production Date</label>
                 <input
                     type="date"
                     value={fromDate}
@@ -46,7 +46,7 @@ const Filter = ({
                 />
             </div>
             <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>To Date</label>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>To Planned Production Date</label>
                 <input
                     type="date"
                     value={toDate}
