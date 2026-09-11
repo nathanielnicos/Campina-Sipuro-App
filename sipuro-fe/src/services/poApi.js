@@ -1,11 +1,12 @@
 import { API_BASE_URL } from './config';
 
 export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters = {}) => {
-    // Tambahkan extract sortBy dan sortOrder dari filters
     const {
         search = '',
         startDate = '',
         endDate = '',
+        deliveryStartDate = '',
+        deliveryEndDate = '',
         status = '',
         sortBy = 'created_at',
         sortOrder = 'desc'
@@ -18,9 +19,11 @@ export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters =
         search,
         startDate,
         endDate,
+        deliveryStartDate,
+        deliveryEndDate,
         status,
-        sortBy,     // <-- Dikirim ke backend
-        sortOrder   // <-- Dikirim ke backend
+        sortBy,
+        sortOrder
     });
 
     const res = await fetch(`${API_BASE_URL}/po?${params.toString()}`);
@@ -78,23 +81,45 @@ export const updatePOStatusApi = async (poId, status, notes, updatedBy) => {
 
 export const exportPoExcelApi = async (customerId, filters = {}) => {
     try {
-        const { search = '', startDate = '', endDate = '', status = '' } = filters;
+        const {
+            search = '',
+            startDate = '',
+            endDate = '',
+            deliveryStartDate = '',
+            deliveryEndDate = '',
+            status = ''
+        } = filters;
+
         const params = new URLSearchParams({
             customer_id: customerId || '',
             search,
             startDate,
             endDate,
+            deliveryStartDate,
+            deliveryEndDate,
             status
         });
 
         const res = await fetch(`${API_BASE_URL}/po/export-excel?${params.toString()}`);
         if (!res.ok) throw new Error('Gagal mengunduh file Excel');
 
+        // Ambil nama file langsung dari header Content-Disposition server
+        let filename = 'PO_Recap.xlsx';
+        const disposition = res.headers.get('Content-Disposition');
+
+        if (disposition && disposition.includes('filename=')) {
+            const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+            const matches = filenameRegex.exec(disposition);
+            if (matches != null && matches[1]) {
+                filename = matches[1].replace(/['"]/g, '');
+            }
+        }
+
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Rekap_PO_${new Date().toISOString().split('T')[0]}.xlsx`);
+        link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
         link.remove();

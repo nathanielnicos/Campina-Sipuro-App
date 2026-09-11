@@ -1,18 +1,38 @@
+import DateRangePicker from '../../common/DateRangePicker';
+
 const Filter = ({
     searchQuery,
-    fromDate,
-    toDate,
     batchStatus,
+    fromPlanDate,
+    toPlanDate,
+    fromActualDate,
+    toActualDate,
+    fromCreatedDate,
+    toCreatedDate,
+    fromDeliveryDate,
+    toDeliveryDate,
     currentUserRole,
     exporting,
     onSearchChange,
-    onFromDateChange,
-    onToDateChange,
     onStatusChange,
+    onFromPlanDateChange,
+    onToPlanDateChange,
+    onFromActualDateChange,
+    onToActualDateChange,
+    onFromCreatedDateChange,
+    onToCreatedDateChange,
+    onFromDeliveryDateChange,
+    onToDeliveryDateChange,
     onResetFilters,
     onExportExcel
 }) => {
-    const isFilterActive = Boolean(searchQuery || fromDate || toDate || batchStatus);
+    const isFilterActive = Boolean(
+        searchQuery || batchStatus ||
+        fromPlanDate || toPlanDate ||
+        fromActualDate || toActualDate ||
+        fromCreatedDate || toCreatedDate ||
+        fromDeliveryDate || toDeliveryDate
+    );
 
     return (
         <div style={{
@@ -22,7 +42,7 @@ const Filter = ({
             border: '1px solid #dee2e6',
             marginBottom: '20px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
             gap: '12px',
             alignItems: 'end'
         }}>
@@ -33,33 +53,48 @@ const Filter = ({
                     placeholder="Search Batch / Product / PO..."
                     value={searchQuery}
                     onChange={onSearchChange}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px' }}
                 />
             </div>
-            <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>From Planned Production Date</label>
-                <input
-                    type="date"
-                    value={fromDate}
-                    onChange={onFromDateChange}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
-                />
-            </div>
-            <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>To Planned Production Date</label>
-                <input
-                    type="date"
-                    value={toDate}
-                    onChange={onToDateChange}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
-                />
-            </div>
+
+            <DateRangePicker
+                label="Planned Prod. Date Range"
+                fromDate={fromPlanDate}
+                toDate={toPlanDate}
+                onFromDateChange={(e) => onFromPlanDateChange(e.target.value)}
+                onToDateChange={(e) => onToPlanDateChange(e.target.value)}
+            />
+
+            <DateRangePicker
+                label="Actual Prod. Date Range"
+                fromDate={fromActualDate}
+                toDate={toActualDate}
+                onFromDateChange={(e) => onFromActualDateChange(e.target.value)}
+                onToDateChange={(e) => onToActualDateChange(e.target.value)}
+            />
+
+            <DateRangePicker
+                label="PO Created Date Range"
+                fromDate={fromCreatedDate}
+                toDate={toCreatedDate}
+                onFromDateChange={(e) => onFromCreatedDateChange(e.target.value)}
+                onToDateChange={(e) => onToCreatedDateChange(e.target.value)}
+            />
+
+            <DateRangePicker
+                label="PO Req. Delivery Range"
+                fromDate={fromDeliveryDate}
+                toDate={toDeliveryDate}
+                onFromDateChange={(e) => onFromDeliveryDateChange(e.target.value)}
+                onToDateChange={(e) => onToDeliveryDateChange(e.target.value)}
+            />
+
             <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Batch Status</label>
                 <select
                     value={batchStatus}
                     onChange={onStatusChange}
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px' }}
                 >
                     <option value="">All Status</option>
                     <option value="Open">Open</option>
@@ -68,6 +103,7 @@ const Filter = ({
                     <option value="Canceled">Canceled</option>
                 </select>
             </div>
+
             <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                     onClick={onResetFilters}
@@ -81,6 +117,7 @@ const Filter = ({
                         borderRadius: '4px',
                         cursor: isFilterActive ? 'pointer' : 'not-allowed',
                         fontWeight: 'bold',
+                        height: '38px',
                         transition: 'all 0.2s ease'
                     }}
                 >
@@ -100,6 +137,7 @@ const Filter = ({
                             cursor: exporting ? 'not-allowed' : 'pointer',
                             fontWeight: 'bold',
                             whiteSpace: 'nowrap',
+                            height: '38px',
                             transition: 'all 0.2s ease'
                         }}
                     >

@@ -1,4 +1,6 @@
+import React from 'react';
 import PaginationControl from '../../common/PaginationControl';
+import SortableHeader from '../../common/SortableHeader';
 import Filter from './Filter';
 import TableRow from './TableRow';
 import ReallocateModal from '../reallocate-modal/ReallocateModal';
@@ -12,7 +14,10 @@ const OverproductionTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         loading,
         error,
         searchStock,
-        prodDate,
+        fromProdDate,
+        toProdDate,
+        sortKey,
+        sortOrder,
         pagination,
         selectedStock,
         openAllocations,
@@ -25,8 +30,10 @@ const OverproductionTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         setTargetAllocId,
         setQtyToAllocate,
         handleStockSearchChange,
-        handleProdDateChange,
+        handleFromProdDateChange,
+        handleToProdDateChange,
         handleResetFilters,
+        handleSort,
         handleOpenModal,
         handleCloseModal,
         handleSubmitReallocate
@@ -52,9 +59,11 @@ const OverproductionTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
 
             <Filter
                 searchStock={searchStock}
-                prodDate={prodDate}
+                fromProdDate={fromProdDate}
+                toProdDate={toProdDate}
                 onSearchChange={handleStockSearchChange}
-                onDateChange={handleProdDateChange}
+                onFromProdDateChange={handleFromProdDateChange}
+                onToProdDateChange={handleToProdDateChange}
                 onResetFilters={handleResetFilters}
             />
 
@@ -62,12 +71,44 @@ const OverproductionTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                         <thead>
-                            <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                <th style={{ padding: '12px 16px' }}>Source Batch Number</th>
-                                <th style={{ padding: '12px 16px' }}>Product Code</th>
-                                <th style={{ padding: '12px 16px' }}>Product Name</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'center' }}>Production Date</th>
-                                <th style={{ padding: '12px 16px', textAlign: 'right' }}>Qty (Pcs)</th>
+                            <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                                <SortableHeader
+                                    label="Source Batch Number"
+                                    sortKey="batch_number"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                />
+                                <SortableHeader
+                                    label="Product Code"
+                                    sortKey="product_code"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                />
+                                <SortableHeader
+                                    label="Product Name"
+                                    sortKey="product_name"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                />
+                                <SortableHeader
+                                    label="Production Date"
+                                    sortKey="production_date"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                    align="center"
+                                />
+                                <SortableHeader
+                                    label="Qty (Pcs)"
+                                    sortKey="qty_available"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                    align="right"
+                                />
                                 <th style={{ padding: '12px 16px', textAlign: 'center' }}>Action</th>
                             </tr>
                         </thead>

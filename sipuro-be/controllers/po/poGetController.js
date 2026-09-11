@@ -7,8 +7,12 @@ exports.getPOList = async (req, res) => {
             page = 1,
             limit = 10,
             search,
+            // 1. Rentang Tanggal Created Date
             startDate,
             endDate,
+            // 2. Rentang Tanggal Requested Delivery Date
+            deliveryStartDate,
+            deliveryEndDate,
             status,
             sortBy = 'created_at',
             sortOrder = 'desc'
@@ -31,6 +35,7 @@ exports.getPOList = async (req, res) => {
             queryParams.push(`%${search.trim()}%`);
         }
 
+        // Filter 1: Created Date Range
         if (startDate && startDate !== '') {
             conditions.push('DATE(h.created_at) >= ?');
             queryParams.push(startDate);
@@ -39,6 +44,17 @@ exports.getPOList = async (req, res) => {
         if (endDate && endDate !== '') {
             conditions.push('DATE(h.created_at) <= ?');
             queryParams.push(endDate);
+        }
+
+        // Filter 2: Requested Delivery Date Range
+        if (deliveryStartDate && deliveryStartDate !== '') {
+            conditions.push('DATE(h.requested_delivery_date) >= ?');
+            queryParams.push(deliveryStartDate);
+        }
+
+        if (deliveryEndDate && deliveryEndDate !== '') {
+            conditions.push('DATE(h.requested_delivery_date) <= ?');
+            queryParams.push(deliveryEndDate);
         }
 
         if (status && status !== '') {

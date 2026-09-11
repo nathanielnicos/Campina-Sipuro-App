@@ -10,11 +10,12 @@ const SortableHeader = ({
     style = {}
 }) => {
     const isActive = currentSortKey === sortKey;
+    const isAsc = currentSortOrder?.toUpperCase() === 'ASC';
 
     const handleClick = () => {
         if (!onSort) return;
         if (isActive) {
-            onSort(sortKey, currentSortOrder === 'ASC' ? 'DESC' : 'ASC');
+            onSort(sortKey, isAsc ? 'DESC' : 'ASC');
         } else {
             onSort(sortKey, 'ASC');
         }
@@ -22,9 +23,24 @@ const SortableHeader = ({
 
     const renderSortIcon = () => {
         return (
-            <span style={{ marginLeft: '4px', display: 'inline-flex', flexDirection: 'column', fontSize: '9px', lineHeight: '1' }}>
-                <span style={{ color: isActive && currentSortOrder === 'ASC' ? '#0d6efd' : '#adb5bd' }}>▲</span>
-                <span style={{ color: isActive && currentSortOrder === 'DESC' ? '#0d6efd' : '#adb5bd' }}>▼</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '6px', verticalAlign: 'middle' }}>
+                {!isActive ? (
+                    // Default State: Panah ganda atas-bawah (warna abu-abu)
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#adb5bd" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m7 15 5 5 5-5" />
+                        <path d="m7 9 5-5 5 5" />
+                    </svg>
+                ) : isAsc ? (
+                    // Active ASC: Panah ke atas (warna biru)
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d6efd" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m7 15 5-5 5 5" />
+                    </svg>
+                ) : (
+                    // Active DESC: Panah ke bawah (warna biru)
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d6efd" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m7 9 5 5 5-5" />
+                    </svg>
+                )}
             </span>
         );
     };

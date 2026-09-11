@@ -9,7 +9,7 @@ exports.getUnallocatedStocks = async (req, res) => {
         const offset = (page - 1) * limit;
 
         // Tangkap parameter query dari frontend
-        const { searchStock, prodDate } = req.query;
+        const { searchStock, fromProdDate, toProdDate, sortKey, sortOrder } = req.query;
 
         let whereClauses = ['us.qty_available > 0'];
         let queryParams = [];
@@ -21,13 +21,30 @@ exports.getUnallocatedStocks = async (req, res) => {
             queryParams.push(keyword, keyword, keyword);
         }
 
-        // Filter Tanggal Produksi
-        if (prodDate && String(prodDate).trim() !== '') {
-            whereClauses.push('DATE(us.production_date) = ?');
-            queryParams.push(String(prodDate).trim());
+        // Filter Rentang Tanggal Produksi
+        if (fromProdDate && String(fromProdDate).trim() !== '') {
+            whereClauses.push('us.production_date >= ?');
+            queryParams.push(`${fromProdDate.trim()} 00:00:00`);
+        }
+        if (toProdDate && String(toProdDate).trim() !== '') {
+            whereClauses.push('us.production_date <= ?');
+            queryParams.push(`${toProdDate.trim()} 23:59:59`);
         }
 
         const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
+
+        // Mapping aman untuk ORDER BY (Mencegah SQL Injection)
+        const allowedSortKeys = {
+            batch_number: 'us.batch_number',
+            product_code: 'p.product_code',
+            product_name: 'p.product_name',
+            production_date: 'us.production_date',
+            qty_available: 'us.qty_available'
+        };
+
+        const targetSortColumn = allowedSortKeys[sortKey] || 'us.production_date';
+        const targetSortOrder = String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+        const orderBySql = `ORDER BY ${targetSortColumn} ${targetSortOrder}, us.id DESC`;
 
         // Query Count Total Items untuk Pagination
         const countQuery = `
@@ -52,7 +69,7 @@ exports.getUnallocatedStocks = async (req, res) => {
             FROM unallocated_stocks us
             LEFT JOIN products p ON us.id_product = p.id_product
             ${whereSql}
-            ORDER BY us.production_date DESC, us.id DESC
+            ${orderBySql}
             LIMIT ? OFFSET ?
         `;
 
@@ -129,7 +146,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Insufficient unallocated stock available.' });
         }
 
-        // B. Validasi Target Allocation (Ambil id_batch & po_detail_id)
+        // B. Validasi Target Allocation
         const [[targetAlloc]] = await connection.query(
             'SELECT id, id_batch, po_detail_id, allocated_qty, fulfilled_qty FROM po_batch_allocations WHERE id = ? FOR UPDATE',
             [targetAllocationId]
@@ -144,7 +161,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
         const poDetailId = targetAlloc.po_detail_id;
         const newFulfilledQty = targetAlloc.fulfilled_qty + qtyToAlloc;
 
-        // C. TINGKAT 1: Cek Toleransi PO Dinamis dari Database company_profile
+        // C. TINGKAT 1: Cek Toleransi PO Dinamis
         const poTolerance = await getPOTolerance(connection);
         const poRatio = targetAlloc.allocated_qty > 0 ? (newFulfilledQty / targetAlloc.allocated_qty) : 0;
         const newAllocStatus = poRatio >= poTolerance ? 'Closed' : 'Open';
@@ -154,7 +171,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
             [newFulfilledQty, newAllocStatus, currentUserId, targetAllocationId]
         );
 
-        // D. Potong Qty Available Lebihan Stok dan isi updated_by
+        // D. Potong Qty Available Lebihan Stok
         const qtyBefore = unallocated.qty_available;
         const newUnallocatedQty = qtyBefore - qtyToAlloc;
 
@@ -163,7 +180,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
             [newUnallocatedQty, currentUserId, unallocatedId]
         );
 
-        // --- LOG AUDIT MUTASI STOK ---
+        // LOG AUDIT MUTASI STOK
         await connection.query(`
             INSERT INTO unallocated_stock_logs 
                 (unallocated_stock_id, target_allocation_id, qty_reallocated, qty_before, qty_after, created_by)
@@ -177,7 +194,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
             currentUserId
         ]);
 
-        // E. TINGKAT 2: Cek Keseluruhan PO Allocation dalam Batch (DIPERBAIKI: Menggunakan placeholder ? untuk nilai 'Open')
+        // E. TINGKAT 2: Cek Keseluruhan PO Allocation dalam Batch
         const [remainingOpenAllocations] = await connection.query(
             'SELECT COUNT(*) as openCount FROM po_batch_allocations WHERE id_batch = ? AND status = ?',
             [batchId, 'Open']
@@ -191,7 +208,7 @@ exports.reallocateUnallocatedStock = async (req, res) => {
             [newBatchStatus, currentUserId, batchId]
         );
 
-        // F. TINGKAT 3: Evaluasi Presisi Status PO Header (po_headers) via Helper
+        // F. TINGKAT 3: Evaluasi Status PO Header
         const [[pd]] = await connection.query('SELECT po_header_id FROM po_details WHERE po_detail_id = ?', [poDetailId]);
         if (pd && pd.po_header_id) {
             await refreshPOStatus(connection, pd.po_header_id);

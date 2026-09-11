@@ -1,7 +1,6 @@
-import React from 'react';
 import { formatQty } from '../../../utils/formatters';
 
-const TableRow = ({ row, currentUserRole, isPoFilterActive, onOpenModal }) => {
+const TableRow = ({ row, currentUserRole, isAnyFilterActive, onOpenModal }) => {
     const poItems = row.po_numbers
         ? row.po_numbers.split('\n').filter(Boolean)
         : [];
@@ -82,21 +81,21 @@ const TableRow = ({ row, currentUserRole, isPoFilterActive, onOpenModal }) => {
                 {currentUserRole !== 'CUSTOMER' ? (
                     <button
                         onClick={() => onOpenModal(row)}
-                        disabled={isPoFilterActive}
-                        title={isPoFilterActive ? 'Reset PO number filter for batch allocation' : ''}
+                        disabled={isAnyFilterActive}
+                        title={isAnyFilterActive ? 'Please clear PO number / Date filters before allocating batch schedule' : ''}
                         style={{
-                            backgroundColor: isPoFilterActive ? '#6c757d' : '#0d6efd',
+                            backgroundColor: isAnyFilterActive ? '#6c757d' : '#0d6efd',
                             color: '#fff',
                             border: 'none',
                             padding: '6px 10px',
                             borderRadius: '4px',
-                            cursor: isPoFilterActive ? 'not-allowed' : 'pointer',
+                            cursor: isAnyFilterActive ? 'not-allowed' : 'pointer',
                             fontWeight: '600',
                             fontSize: '11px',
                             lineHeight: '1.2',
                             width: '100px',
                             display: 'inline-block',
-                            opacity: isPoFilterActive ? 0.65 : 1
+                            opacity: isAnyFilterActive ? 0.65 : 1
                         }}
                     >
                         + Production<br />Schedule

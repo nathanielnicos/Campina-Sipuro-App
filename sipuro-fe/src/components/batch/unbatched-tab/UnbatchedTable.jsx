@@ -64,7 +64,14 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         }
     });
 
-    const isPoFilterActive = Boolean(searchPo && searchPo.trim() !== '');
+    // Menutup akses tombol alokasi jika ada filter spesifik yang menyala (kecuali searchProduct)
+    const isAnyFilterActive = Boolean(
+        (searchPo && searchPo.trim() !== '') ||
+        fromCreatedDate ||
+        toCreatedDate ||
+        fromDeliveryDate ||
+        toDeliveryDate
+    );
 
     return (
         <div style={{ position: 'relative', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
@@ -157,7 +164,7 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                         key={row.id_product}
                                         row={row}
                                         currentUserRole={currentUser?.role}
-                                        isPoFilterActive={isPoFilterActive}
+                                        isAnyFilterActive={isAnyFilterActive}
                                         onOpenModal={handleOpenModal}
                                     />
                                 ))

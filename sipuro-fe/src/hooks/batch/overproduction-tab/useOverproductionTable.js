@@ -9,7 +9,12 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
 
     // State Filter
     const [searchStock, setSearchStock] = useState('');
-    const [prodDate, setProdDate] = useState('');
+    const [fromProdDate, setFromProdDate] = useState('');
+    const [toProdDate, setToProdDate] = useState('');
+
+    // State Sorting
+    const [sortKey, setSortKey] = useState('');
+    const [sortOrder, setSortOrder] = useState('DESC');
 
     // State Pagination
     const [page, setPage] = useState(1);
@@ -29,7 +34,13 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         setLoading(true);
         setError('');
         try {
-            const filters = { search: searchStock, prodDate };
+            const filters = {
+                searchStock,
+                fromProdDate,
+                toProdDate,
+                sortKey,
+                sortOrder
+            };
             const res = await fetchUnallocatedStocks(page, limit, filters);
             if (res && res.success) {
                 setUnallocatedList(res.data || []);
@@ -49,7 +60,7 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         } finally {
             setLoading(false);
         }
-    }, [page, limit, searchStock, prodDate]);
+    }, [page, limit, searchStock, fromProdDate, toProdDate, sortKey, sortOrder]);
 
     useEffect(() => {
         loadData();
@@ -61,14 +72,28 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         setPage(1);
     };
 
-    const handleProdDateChange = (e) => {
-        setProdDate(e.target.value);
+    const handleFromProdDateChange = (e) => {
+        setFromProdDate(e.target.value);
+        setPage(1);
+    };
+
+    const handleToProdDateChange = (e) => {
+        setToProdDate(e.target.value);
+        setPage(1);
+    };
+
+    const handleSort = (key, order) => {
+        setSortKey(key);
+        setSortOrder(order);
         setPage(1);
     };
 
     const handleResetFilters = () => {
         setSearchStock('');
-        setProdDate('');
+        setFromProdDate('');
+        setToProdDate('');
+        setSortKey('');
+        setSortOrder('DESC');
         setPage(1);
     };
 
@@ -134,7 +159,10 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         loading,
         error,
         searchStock,
-        prodDate,
+        fromProdDate,
+        toProdDate,
+        sortKey,
+        sortOrder,
         pagination,
         selectedStock,
         openAllocations,
@@ -147,8 +175,10 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         setTargetAllocId,
         setQtyToAllocate,
         handleStockSearchChange,
-        handleProdDateChange,
+        handleFromProdDateChange,
+        handleToProdDateChange,
         handleResetFilters,
+        handleSort,
         handleOpenModal,
         handleCloseModal,
         handleSubmitReallocate

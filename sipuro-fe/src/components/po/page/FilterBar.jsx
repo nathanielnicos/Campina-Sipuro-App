@@ -1,7 +1,12 @@
+import React from 'react';
+import DateRangePicker from '../../common/DateRangePicker';
+
 const FilterBar = ({
     search,
     startDate,
     endDate,
+    deliveryStartDate,
+    deliveryEndDate,
     status,
     isFilterActive,
     userRole,
@@ -9,6 +14,8 @@ const FilterBar = ({
     onSearchChange,
     onStartDateChange,
     onEndDateChange,
+    onDeliveryStartDateChange,
+    onDeliveryEndDateChange,
     onStatusChange,
     onResetFilters,
     onExportExcel,
@@ -26,6 +33,7 @@ const FilterBar = ({
             gap: '12px',
             alignItems: 'flex-end'
         }}>
+            {/* Search Input */}
             <div style={{ flex: '1 1 180px', minWidth: '150px' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search PO Number</label>
                 <input
@@ -33,36 +41,55 @@ const FilterBar = ({
                     placeholder="Example: 001/PO/..."
                     value={search}
                     onChange={onSearchChange}
-                    style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '13px' }}
+                    style={{
+                        width: '100%',
+                        height: '38px',
+                        padding: '7px 10px',
+                        borderRadius: '4px',
+                        border: '1px solid #ced4da',
+                        boxSizing: 'border-box',
+                        fontSize: '13px'
+                    }}
                 />
             </div>
 
-            <div style={{ flex: '0 0 135px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>From Date</label>
-                <input
-                    type="date"
-                    value={startDate}
-                    onChange={onStartDateChange}
-                    style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '12px' }}
+            {/* Created Date Range Picker */}
+            <div style={{ flex: '0 0 220px' }}>
+                <DateRangePicker
+                    label="Filter Created Date"
+                    fromDate={startDate}
+                    toDate={endDate}
+                    onFromDateChange={onStartDateChange}
+                    onToDateChange={onEndDateChange}
                 />
             </div>
 
-            <div style={{ flex: '0 0 135px' }}>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>To Date</label>
-                <input
-                    type="date"
-                    value={endDate}
-                    onChange={onEndDateChange}
-                    style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '12px' }}
+            {/* Requested Delivery Date Range Picker */}
+            <div style={{ flex: '0 0 220px' }}>
+                <DateRangePicker
+                    label="Filter Delivery Date"
+                    fromDate={deliveryStartDate}
+                    toDate={deliveryEndDate}
+                    onFromDateChange={onDeliveryStartDateChange}
+                    onToDateChange={onDeliveryEndDateChange}
                 />
             </div>
 
+            {/* PO Status Select */}
             <div style={{ flex: '0 0 160px' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>PO Status</label>
                 <select
                     value={status}
                     onChange={onStatusChange}
-                    style={{ width: '100%', padding: '7px 8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', fontSize: '12px' }}
+                    style={{
+                        width: '100%',
+                        height: '38px',
+                        padding: '7px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid #ced4da',
+                        boxSizing: 'border-box',
+                        fontSize: '12px'
+                    }}
                 >
                     <option value="">All Status</option>
                     <option value="Waiting for Confirmation">Waiting for Confirmation</option>
@@ -74,12 +101,14 @@ const FilterBar = ({
                 </select>
             </div>
 
+            {/* Action Buttons */}
             <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
                 <button
                     onClick={onResetFilters}
                     disabled={!isFilterActive}
                     style={{
                         padding: '8px 12px',
+                        height: '38px',
                         backgroundColor: isFilterActive ? '#dc3545' : '#e9ecef',
                         color: isFilterActive ? '#fff' : '#adb5bd',
                         border: isFilterActive ? '1px solid #dc3545' : '1px solid #ced4da',
@@ -100,6 +129,7 @@ const FilterBar = ({
                         disabled={exporting}
                         style={{
                             padding: '8px 12px',
+                            height: '38px',
                             backgroundColor: '#28a745',
                             color: '#fff',
                             border: 'none',
@@ -120,6 +150,7 @@ const FilterBar = ({
                         onClick={onCreateNewPO}
                         style={{
                             padding: '8px 12px',
+                            height: '38px',
                             backgroundColor: '#007bff',
                             color: '#fff',
                             border: 'none',

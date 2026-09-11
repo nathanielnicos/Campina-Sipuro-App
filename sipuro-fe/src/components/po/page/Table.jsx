@@ -1,5 +1,7 @@
+import React from 'react';
 import Row from './Row';
 import PaginationControl from '../../common/PaginationControl';
+import SortableHeader from '../../common/SortableHeader';
 
 const Table = ({
     poList,
@@ -16,29 +18,6 @@ const Table = ({
     onSelectPODetail,
     onOpenPdfModal
 }) => {
-    const renderSortIcon = (key) => {
-        const isSelected = sortConfig.key === key;
-        const isAsc = sortConfig.direction === 'asc';
-
-        return (
-            <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '6px', verticalAlign: 'middle' }}>
-                {!isSelected ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#adb5bd" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" />
-                    </svg>
-                ) : isAsc ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d6efd" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m7 15 5-5 5 5" />
-                    </svg>
-                ) : (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d6efd" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m7 9 5 5 5-5" />
-                    </svg>
-                )}
-            </span>
-        );
-    };
-
     return (
         <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden', position: 'relative' }}>
             {fetching && (
@@ -59,27 +38,51 @@ const Table = ({
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
                     <thead>
                         <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                            <th onClick={() => onSort('po_number')} style={{ padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}>
-                                PO Number {renderSortIcon('po_number')}
-                            </th>
-                            <th onClick={() => onSort('created_at')} style={{ padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}>
-                                Created Date {renderSortIcon('created_at')}
-                            </th>
-                            <th onClick={() => onSort('requested_delivery_date')} style={{ padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}>
-                                Requested Delivery Date {renderSortIcon('requested_delivery_date')}
-                            </th>
-                            <th onClick={() => onSort('total_items')} style={{ padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}>
-                                Total Items {renderSortIcon('total_items')}
-                            </th>
+                            <SortableHeader
+                                label="PO Number"
+                                sortKey="po_number"
+                                currentSortKey={sortConfig?.key}
+                                currentSortOrder={sortConfig?.direction}
+                                onSort={onSort}
+                            />
+                            <SortableHeader
+                                label="Created Date"
+                                sortKey="created_at"
+                                currentSortKey={sortConfig?.key}
+                                currentSortOrder={sortConfig?.direction}
+                                onSort={onSort}
+                            />
+                            <SortableHeader
+                                label="Requested Delivery Date"
+                                sortKey="requested_delivery_date"
+                                currentSortKey={sortConfig?.key}
+                                currentSortOrder={sortConfig?.direction}
+                                onSort={onSort}
+                            />
+                            <SortableHeader
+                                label="Total Items"
+                                sortKey="total_items"
+                                currentSortKey={sortConfig?.key}
+                                currentSortOrder={sortConfig?.direction}
+                                onSort={onSort}
+                            />
                             {user?.role !== 'PPIC' && (
-                                <th onClick={() => onSort('total_price')} style={{ padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}>
-                                    Total Price (Inc. PPN) {renderSortIcon('total_price')}
-                                </th>
+                                <SortableHeader
+                                    label="Total Price (Inc. PPN)"
+                                    sortKey="total_price"
+                                    currentSortKey={sortConfig?.key}
+                                    currentSortOrder={sortConfig?.direction}
+                                    onSort={onSort}
+                                />
                             )}
-                            <th onClick={() => onSort('status')} style={{ padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}>
-                                Status {renderSortIcon('status')}
-                            </th>
-                            <th style={{ padding: '12px 16px' }}>Action</th>
+                            <SortableHeader
+                                label="Status"
+                                sortKey="status"
+                                currentSortKey={sortConfig?.key}
+                                currentSortOrder={sortConfig?.direction}
+                                onSort={onSort}
+                            />
+                            <th style={{ padding: '12px 10px' }}>Action</th>
                         </tr>
                     </thead>
                     <tbody>

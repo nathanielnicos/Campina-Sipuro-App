@@ -49,24 +49,11 @@ export const fetchBatchMapping = async (page = 1, limit = 10, filters = {}) => {
 
 // --- ENDPOINT UNALLOCATED STOCKS ---
 
-export const fetchUnallocatedStocks = async (page = 1, limit = 10, searchStock = '', prodDate = '') => {
+export const fetchUnallocatedStocks = async (page = 1, limit = 10, filters = {}) => {
     try {
-        let params = { page, limit };
-
-        if (typeof searchStock === 'object' && searchStock !== null) {
-            const filters = searchStock;
-            params.search = filters.search || filters.searchStock || '';
-            params.searchStock = filters.searchStock || filters.search || '';
-            params.prodDate = filters.prodDate || '';
-        } else {
-            if (searchStock) {
-                params.search = searchStock;
-                params.searchStock = searchStock;
-            }
-            if (prodDate) params.prodDate = prodDate;
-        }
-
-        const response = await axios.get(`${API_BASE_URL}/batch/unallocated`, { params });
+        const response = await axios.get(`${API_BASE_URL}/batch/unallocated`, {
+            params: { page, limit, ...filters }
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching unallocated stocks:', error);
@@ -103,6 +90,17 @@ export const exportBatchExcelApi = async (params) => {
             responseType: 'blob'
         });
 
+        let filename = 'Export_Batch.xlsx';
+        const disposition = response.headers['content-disposition'];
+
+        if (disposition && disposition.includes('filename=')) {
+            const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+            const matches = filenameRegex.exec(disposition);
+            if (matches != null && matches[1]) {
+                filename = matches[1].replace(/['"]/g, '');
+            }
+        }
+
         const blob = new Blob([response.data], {
             type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         });
@@ -110,9 +108,7 @@ export const exportBatchExcelApi = async (params) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-
-        const todayStr = new Date().toISOString().split('T')[0];
-        a.download = `Export_Batch_${todayStr}.xlsx`;
+        a.download = filename;
 
         document.body.appendChild(a);
         a.click();

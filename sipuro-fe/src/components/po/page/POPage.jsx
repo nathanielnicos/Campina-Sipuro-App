@@ -16,6 +16,8 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
         search,
         startDate,
         endDate,
+        deliveryStartDate,
+        deliveryEndDate,
         status,
         sortConfig,
         currentPage,
@@ -25,11 +27,13 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
         handleSearchChange,
         handleStartDateChange,
         handleEndDateChange,
+        handleDeliveryStartDateChange,
+        handleDeliveryEndDateChange,
         handleStatusChange,
         handleResetFilters
     } = useFilterBar();
 
-    // 2. Hook Fetch List Data (Kirimkan nilai eksplisit, tanpa dibungkus objek filters)
+    // 2. Hook Fetch List Data
     const {
         poList,
         loading,
@@ -47,6 +51,8 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
         search,
         startDate,
         endDate,
+        deliveryStartDate,
+        deliveryEndDate,
         status,
         sortBy: sortConfig.key,
         sortOrder: sortConfig.direction
@@ -55,7 +61,14 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
     // 3. Hook Export Excel
     const { exporting, handleExportExcel } = useExportExcel({
         customerId,
-        filters: { search, startDate, endDate, status }
+        filters: { 
+            search, 
+            startDate, 
+            endDate, 
+            deliveryStartDate, 
+            deliveryEndDate, 
+            status 
+        }
     });
 
     return (
@@ -64,6 +77,8 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                 search={search}
                 startDate={startDate}
                 endDate={endDate}
+                deliveryStartDate={deliveryStartDate}
+                deliveryEndDate={deliveryEndDate}
                 status={status}
                 isFilterActive={isFilterActive}
                 userRole={user?.role}
@@ -71,6 +86,8 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                 onSearchChange={handleSearchChange}
                 onStartDateChange={handleStartDateChange}
                 onEndDateChange={handleEndDateChange}
+                onDeliveryStartDateChange={handleDeliveryStartDateChange}
+                onDeliveryEndDateChange={handleDeliveryEndDateChange}
                 onStatusChange={handleStatusChange}
                 onResetFilters={handleResetFilters}
                 onExportExcel={handleExportExcel}

@@ -39,9 +39,21 @@ export const usePdfModal = (poId) => {
         const element = pdfContentRef.current;
         if (!element) return;
 
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const timestamp = `${year}${month}${day}_${hours}${minutes}${seconds}`;
+
+        const rawPoNumber = poData?.header?.po_number || 'Document';
+        const safePoNumber = rawPoNumber.replace(/\//g, '-');
+
         const options = {
             margin: 10,
-            filename: `PO_${poData?.header?.po_number || 'Document'}.pdf`,
+            filename: `${safePoNumber}_${timestamp}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }

@@ -1,4 +1,5 @@
 import PaginationControl from '../../common/PaginationControl';
+import SortableHeader from '../../common/SortableHeader';
 import Filter from './Filter';
 import ViewModeSwitcher from './ViewModeSwitcher';
 import { BatchViewRows, PoViewRows } from './TableRow';
@@ -13,9 +14,17 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         loading,
         error,
         searchQuery,
-        fromDate,
-        toDate,
         batchStatus,
+        fromPlanDate, setFromPlanDate,
+        toPlanDate, setToPlanDate,
+        fromActualDate, setFromActualDate,
+        toActualDate, setToActualDate,
+        fromCreatedDate, setFromCreatedDate,
+        toCreatedDate, setToCreatedDate,
+        fromDeliveryDate, setFromDeliveryDate,
+        toDeliveryDate, setToDeliveryDate,
+        sortKey,
+        sortOrder,
         pagination,
         viewMode,
         exporting,
@@ -23,13 +32,11 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         setLimit,
         setViewMode,
         handleSearchChange,
-        handleFromDateChange,
-        handleToDateChange,
         handleStatusChange,
+        handleSort,
         handleResetFilters,
         handleExportExcel,
-        handleUpdateStatus,
-        getPoGroupedData
+        handleUpdateStatus
     } = useBatchListTable(currentUser, reloadTrigger, onRefreshAll);
 
     return (
@@ -52,15 +59,27 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
 
             <Filter
                 searchQuery={searchQuery}
-                fromDate={fromDate}
-                toDate={toDate}
                 batchStatus={batchStatus}
+                fromPlanDate={fromPlanDate}
+                toPlanDate={toPlanDate}
+                fromActualDate={fromActualDate}
+                toActualDate={toActualDate}
+                fromCreatedDate={fromCreatedDate}
+                toCreatedDate={toCreatedDate}
+                fromDeliveryDate={fromDeliveryDate}
+                toDeliveryDate={toDeliveryDate}
                 currentUserRole={currentUser?.role}
                 exporting={exporting}
                 onSearchChange={handleSearchChange}
-                onFromDateChange={handleFromDateChange}
-                onToDateChange={handleToDateChange}
                 onStatusChange={handleStatusChange}
+                onFromPlanDateChange={setFromPlanDate}
+                onToPlanDateChange={setToPlanDate}
+                onFromActualDateChange={setFromActualDate}
+                onToActualDateChange={setToActualDate}
+                onFromCreatedDateChange={setFromCreatedDate}
+                onToCreatedDateChange={setToCreatedDate}
+                onFromDeliveryDateChange={setFromDeliveryDate}
+                onToDeliveryDateChange={setToDeliveryDate}
                 onResetFilters={handleResetFilters}
                 onExportExcel={handleExportExcel}
             />
@@ -78,34 +97,26 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
                                 {viewMode === 'BATCH' ? (
                                     <>
-                                        {currentUser?.role !== 'CUSTOMER' && (
-                                            <th style={{ padding: '12px 14px' }}>Batch Number</th>
-                                        )}
-                                        <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Planned Production Date</th>
-                                        {currentUser?.role !== 'CUSTOMER' && (
-                                            <th style={{ padding: '12px 14px', textAlign: 'center' }}>Batch Status</th>
-                                        )}
-                                        <th style={{ padding: '12px 14px' }}>PO Number</th>
+                                        <SortableHeader label="Batch Number" sortKey="batch_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
+                                        <SortableHeader label="Product" sortKey="product_name" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
+                                        <SortableHeader label={<>Prod. Dates<br /><small style={{ fontWeight: 'normal', color: '#6c757d' }}>(Plan / Actual)</small></>} sortKey="plan_production_date" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
+                                        <SortableHeader label="Batch Status" sortKey="batch_status" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
+                                        <SortableHeader label="PO Number" sortKey="po_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
                                     </>
                                 ) : (
                                     <>
-                                        <th style={{ padding: '12px 14px' }}>PO Number</th>
-                                        <th style={{ padding: '12px 14px' }}>Product</th>
-                                        {currentUser?.role !== 'CUSTOMER' && (
-                                            <th style={{ padding: '12px 14px' }}>Batch Number</th>
-                                        )}
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Planned Production Date</th>
-                                        {currentUser?.role !== 'CUSTOMER' && (
-                                            <th style={{ padding: '12px 14px', textAlign: 'center' }}>Batch Status</th>
-                                        )}
+                                        <SortableHeader label="PO Number" sortKey="po_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
+                                        <SortableHeader label={<>PO Created<br />Date</>} sortKey="po_created_date" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
+                                        <SortableHeader label={<>PO Req.<br />Delivery Date</>} sortKey="po_requested_delivery_date" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
+                                        <SortableHeader label="Product" sortKey="product_name" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
+                                        <SortableHeader label="Batch Number" sortKey="batch_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
                                     </>
                                 )}
-                                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocation Qty (Pcs)</th>
-                                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled Qty (Pcs)</th>
-                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Percentage</th>
-                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Allocation Status</th>
-                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Action</th>
+                                <SortableHeader label={<>Allocation Qty<br />(Pcs)</>} sortKey="allocated_qty" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="right" />
+                                <SortableHeader label={<>Fulfilled Qty<br />(Pcs)</>} sortKey="fulfilled_qty" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="right" />
+                                <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Percentage</th>
+                                <SortableHeader label="Allocation Status" sortKey="status" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
+                                <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -118,7 +129,7 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                 />
                             ) : (
                                 <PoViewRows
-                                    poList={getPoGroupedData()}
+                                    mappingList={mappingList}
                                     currentUserRole={currentUser?.role}
                                     poTolerance={poTolerance}
                                     onUpdateStatus={handleUpdateStatus}

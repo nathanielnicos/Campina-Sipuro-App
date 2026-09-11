@@ -8,6 +8,8 @@ export const useTable = ({
     search,
     startDate,
     endDate,
+    deliveryStartDate,
+    deliveryEndDate,
     status,
     sortBy,
     sortOrder
@@ -32,8 +34,16 @@ export const useTable = ({
 
             setError('');
 
-            // Susun objek filter di dalam function agar tidak memicu re-render
-            const filters = { search, startDate, endDate, status, sortBy, sortOrder };
+            const filters = { 
+                search, 
+                startDate, 
+                endDate, 
+                deliveryStartDate, 
+                deliveryEndDate, 
+                status, 
+                sortBy, 
+                sortOrder 
+            };
             const result = await fetchPOListApi(customerId, currentPage, pageSize, filters);
 
             if (result.success) {
@@ -53,7 +63,7 @@ export const useTable = ({
             setLoading(false);
             setFetching(false);
         }
-    }, [customerId, currentPage, pageSize, search, startDate, endDate, status, sortBy, sortOrder]); // <-- Nilai primitif aman dimasukkan ke sini
+    }, [customerId, currentPage, pageSize, search, startDate, endDate, deliveryStartDate, deliveryEndDate, status, sortBy, sortOrder]);
 
     useEffect(() => {
         getPOList();

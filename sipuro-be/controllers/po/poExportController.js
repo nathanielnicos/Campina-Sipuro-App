@@ -3,7 +3,15 @@ const { sipuroDb } = require('../../config/db');
 
 exports.exportPoExcel = async (req, res) => {
     try {
-        const { customer_id, search, status, startDate, endDate } = req.query;
+        const {
+            customer_id,
+            search,
+            status,
+            startDate,
+            endDate,
+            deliveryStartDate,
+            deliveryEndDate
+        } = req.query;
 
         let query = `
             SELECT 
@@ -39,6 +47,8 @@ exports.exportPoExcel = async (req, res) => {
             query += ` AND ph.status = ?`;
             params.push(status);
         }
+
+        // Filter Created Date Range
         if (startDate && startDate !== '') {
             query += ` AND DATE(ph.created_at) >= ?`;
             params.push(startDate);
@@ -46,6 +56,16 @@ exports.exportPoExcel = async (req, res) => {
         if (endDate && endDate !== '') {
             query += ` AND DATE(ph.created_at) <= ?`;
             params.push(endDate);
+        }
+
+        // Filter Requested Delivery Date Range
+        if (deliveryStartDate && deliveryStartDate !== '') {
+            query += ` AND DATE(ph.requested_delivery_date) >= ?`;
+            params.push(deliveryStartDate);
+        }
+        if (deliveryEndDate && deliveryEndDate !== '') {
+            query += ` AND DATE(ph.requested_delivery_date) <= ?`;
+            params.push(deliveryEndDate);
         }
 
         query += ` ORDER BY ph.po_header_id DESC`;
@@ -72,14 +92,12 @@ exports.exportPoExcel = async (req, res) => {
         rows.forEach((item) => {
             const baseQty = Number(item.base_qty) || 0;
             const basePrice = Number(item.base_price) || 0;
-            const ppnPercent = Number(item.ppn_percent) || 0; // Ambil nilai PPN dinamis dari database
+            const ppnPercent = Number(item.ppn_percent) || 0;
 
-            // Hitung subtotal per item
             const totalExclPpn = Number(item.total_price) || (basePrice * baseQty);
             const ppnAmount = totalExclPpn * (ppnPercent / 100);
             const totalInclPpn = totalExclPpn + ppnAmount;
 
-            // Perhitungan harga per 1 satuan dasar
             const baseUnitPrice = baseQty > 0 ? totalExclPpn / baseQty : basePrice;
 
             excelData.push([
@@ -120,8 +138,22 @@ exports.exportPoExcel = async (req, res) => {
 
         const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
 
+        // Format waktu YYYYMMDD_HHmmss
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+
+        const filename = `PO_Recap_${year}${month}${day}_${hours}${minutes}${seconds}.xlsx`;
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=PO_Summary_${Date.now()}.xlsx`);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        // Eksplisitkan header agar dapat dibaca JS Frontend (CORS exposure)
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
 
         return res.send(buffer);
     } catch (error) {

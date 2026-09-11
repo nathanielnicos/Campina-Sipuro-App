@@ -3,47 +3,123 @@ const { sipuroDb } = require('../../config/db');
 
 exports.exportBatchMappingExcel = async (req, res) => {
     try {
-        const { search, fromDate, toDate, batchStatus } = req.query;
+        const {
+            search,
+            fromDate,
+            toDate,
+            fromPlanDate,
+            toPlanDate,
+            fromActualDate,
+            toActualDate,
+            fromCreatedDate,
+            toCreatedDate,
+            fromDeliveryDate,
+            toDeliveryDate,
+            batchStatus
+        } = req.query;
+
+        // Mendukung alias untuk Planned Production Date
+        const startDatePlan = fromPlanDate || fromDate;
+        const endDatePlan = toPlanDate || toDate;
+
+        // Tentukan apakah perlu mengikutsertakan unassigned PO
+        const hasBatchSpecificFilter = Boolean(
+            startDatePlan || endDatePlan || fromActualDate || toActualDate || batchStatus
+        );
+        const shouldIncludeUnassigned = !hasBatchSpecificFilter;
 
         // Where clauses & parameters terpisah untuk 2 query UNION
         let whereClauses1 = ['d.deleted_at IS NULL'];
+        let queryParams1 = [];
+
         let whereClauses2 = ['d.deleted_at IS NULL'];
-        let queryParams = [];
+        let queryParams2 = [];
 
         // 1. Filter Text (Batch / SKU / Nama Produk / PO)
         if (search && search.trim() !== '') {
+            const searchTerm = `%${search.trim()}%`;
             whereClauses1.push(`(b.batch_number LIKE ? OR p.product_code LIKE ? OR p.product_name LIKE ? OR h.po_number LIKE ?)`);
-            whereClauses2.push(`(p.product_code LIKE ? OR p.product_name LIKE ? OR h.po_number LIKE ?)`);
+            queryParams1.push(searchTerm, searchTerm, searchTerm, searchTerm);
 
-            // Params Bagian 1 (4 placeholder)
-            queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
-            // Params Bagian 2 (3 placeholder)
-            queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
+            if (shouldIncludeUnassigned) {
+                whereClauses2.push(`(p.product_code LIKE ? OR p.product_name LIKE ? OR h.po_number LIKE ?)`);
+                queryParams2.push(searchTerm, searchTerm, searchTerm);
+            }
         }
 
-        // 2. Filter Rentang Tanggal Rencana Produksi (fromDate & toDate)
-        if (fromDate && fromDate.trim() !== '') {
+        // 2. Filter Rentang Tanggal Rencana Produksi (Plan Production Date)
+        if (startDatePlan && startDatePlan.trim() !== '') {
             whereClauses1.push(`DATE(b.plan_production_date) >= ?`);
-            queryParams.push(fromDate);
+            queryParams1.push(startDatePlan.trim());
         }
-
-        if (toDate && toDate.trim() !== '') {
+        if (endDatePlan && endDatePlan.trim() !== '') {
             whereClauses1.push(`DATE(b.plan_production_date) <= ?`);
-            queryParams.push(toDate);
+            queryParams1.push(endDatePlan.trim());
         }
 
-        // 3. Filter Status Batch
+        // 3. Filter Rentang Tanggal Realisasi Produksi (Actual Production Date)
+        if (fromActualDate && fromActualDate.trim() !== '') {
+            whereClauses1.push(`DATE(b.actual_production_date) >= ?`);
+            queryParams1.push(fromActualDate.trim());
+        }
+        if (toActualDate && toActualDate.trim() !== '') {
+            whereClauses1.push(`DATE(b.actual_production_date) <= ?`);
+            queryParams1.push(toActualDate.trim());
+        }
+
+        // 4. Filter Rentang Tanggal PO Dibuat (PO Created Date)
+        if (fromCreatedDate && fromCreatedDate.trim() !== '') {
+            whereClauses1.push(`DATE(h.created_at) >= ?`);
+            queryParams1.push(fromCreatedDate.trim());
+
+            if (shouldIncludeUnassigned) {
+                whereClauses2.push(`DATE(h.created_at) >= ?`);
+                queryParams2.push(fromCreatedDate.trim());
+            }
+        }
+        if (toCreatedDate && toCreatedDate.trim() !== '') {
+            whereClauses1.push(`DATE(h.created_at) <= ?`);
+            queryParams1.push(toCreatedDate.trim());
+
+            if (shouldIncludeUnassigned) {
+                whereClauses2.push(`DATE(h.created_at) <= ?`);
+                queryParams2.push(toCreatedDate.trim());
+            }
+        }
+
+        // 5. Filter Rentang Tanggal Permintaan Pengiriman (PO Requested Delivery Date)
+        if (fromDeliveryDate && fromDeliveryDate.trim() !== '') {
+            whereClauses1.push(`DATE(h.requested_delivery_date) >= ?`);
+            queryParams1.push(fromDeliveryDate.trim());
+
+            if (shouldIncludeUnassigned) {
+                whereClauses2.push(`DATE(h.requested_delivery_date) >= ?`);
+                queryParams2.push(fromDeliveryDate.trim());
+            }
+        }
+        if (toDeliveryDate && toDeliveryDate.trim() !== '') {
+            whereClauses1.push(`DATE(h.requested_delivery_date) <= ?`);
+            queryParams1.push(toDeliveryDate.trim());
+
+            if (shouldIncludeUnassigned) {
+                whereClauses2.push(`DATE(h.requested_delivery_date) <= ?`);
+                queryParams2.push(toDeliveryDate.trim());
+            }
+        }
+
+        // 6. Filter Status Batch
         if (batchStatus && batchStatus.trim() !== '') {
             whereClauses1.push(`b.status = ?`);
-            queryParams.push(batchStatus);
+            queryParams1.push(batchStatus.trim());
         }
 
         const whereSql1 = whereClauses1.length > 0 ? `WHERE ${whereClauses1.join(' AND ')}` : '';
         const whereSql2 = whereClauses2.length > 0 ? `WHERE ${whereClauses2.join(' AND ')}` : '';
 
-        // Jika user melakukan filter spesifik pada Batch (Tanggal / Status Batch),
-        // sisa PO yang belum dialokasikan ke batch tidak perlu diikutsertakan.
-        const shouldIncludeUnassigned = !fromDate && !toDate && !batchStatus;
+        // Gabungkan parameter sesuai urutan query UNION
+        const queryParams = shouldIncludeUnassigned
+            ? [...queryParams1, ...queryParams2]
+            : queryParams1;
 
         const query = `
             SELECT * FROM (
@@ -159,10 +235,20 @@ exports.exportBatchMappingExcel = async (req, res) => {
 
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-        const filename = `Export_Batch_${new Date().toISOString().split('T')[0]}.xlsx`;
+        // Standarisasi Penamaan File: Export_Batch_YYYYMMDD_HHmmss.xlsx
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+
+        const filename = `Export_Batch_${year}${month}${day}_${hours}${minutes}${seconds}.xlsx`;
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
         res.setHeader('Content-Length', buffer.length);
 
         return res.status(200).end(buffer);
