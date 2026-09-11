@@ -53,7 +53,7 @@ const Table = ({
                                 onSort={onSort}
                             />
                             <SortableHeader
-                                label="Requested Delivery Date"
+                                label="Req. Delivery Date"
                                 sortKey="requested_delivery_date"
                                 currentSortKey={sortConfig?.key}
                                 currentSortOrder={sortConfig?.direction}
@@ -66,7 +66,7 @@ const Table = ({
                                 currentSortOrder={sortConfig?.direction}
                                 onSort={onSort}
                             />
-                            {user?.role !== 'PPIC' && (
+                            {user?.role === 'CUSTOMER' && (
                                 <SortableHeader
                                     label="Total Price (Inc. PPN)"
                                     sortKey="total_price"
@@ -88,7 +88,7 @@ const Table = ({
                     <tbody>
                         {poList.length === 0 ? (
                             <tr>
-                                <td colSpan={user?.role === 'PPIC' ? "6" : "7"} style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                                <td colSpan={user?.role !== 'CUSTOMER' ? "6" : "7"} style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                                     No Purchase Orders created yet.
                                 </td>
                             </tr>

@@ -121,16 +121,16 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '50%' : '35%' }}>Product</th>
-                                    {userRole !== 'PPIC' && (
+                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '50%' : '35%' }}>Product</th>
+                                    {userRole === 'CUSTOMER' && (
                                         <th style={{ padding: '12px 16px', width: '15%', textAlign: 'right' }}>Unit Price</th>
                                     )}
-                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '20%' : '12%', textAlign: 'center' }}>Qty</th>
-                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '20%' : '12%' }}>Unit</th>
-                                    {userRole !== 'PPIC' && (
+                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '20%' : '12%', textAlign: 'center' }}>Qty</th>
+                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '20%' : '12%' }}>Unit</th>
+                                    {userRole === 'CUSTOMER' && (
                                         <th style={{ padding: '12px 16px', width: '18%', textAlign: 'right' }}>Total Price</th>
                                     )}
-                                    <th style={{ padding: '12px 16px', width: userRole === 'PPIC' ? '10%' : '8%', textAlign: 'center' }}>Action</th>
+                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '10%' : '8%', textAlign: 'center' }}>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -145,7 +145,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                                             openDropdown={openDropdown}
                                             products={products}
                                             userRole={userRole}
-                                            isReadOnly={userRole === 'PPIC'}
+                                            isReadOnly={userRole !== 'CUSTOMER'}
                                             onSearchChange={(i, val) => {
                                                 setSearchTerm({ ...searchTerm, [i]: val });
                                                 setOpenDropdown(i);
@@ -174,7 +174,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         />
                     </div>
 
-                    {userRole !== 'PPIC' && (
+                    {userRole === 'CUSTOMER' && (
                         <button
                             type="button"
                             onClick={handleAddItem}

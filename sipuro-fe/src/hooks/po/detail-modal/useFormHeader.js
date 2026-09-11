@@ -8,8 +8,8 @@ import {
 
 export const useFormHeader = ({ poId, currentUser }) => {
     const userRole = currentUser?.role;
-    const customerId = userRole === 'CUSTOMER' ? (currentUser?.customer_id || currentUser?.id) : null;
-    const isCustomer = userRole !== 'PPIC';
+    const customerId = userRole === 'CUSTOMER' ? currentUser?.customer_id : null;
+    const isCustomer = userRole === 'CUSTOMER';
 
     const [poCode, setPoCode] = useState('');
     const [poStatus, setPoStatus] = useState('');

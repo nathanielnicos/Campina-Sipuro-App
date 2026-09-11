@@ -5,8 +5,8 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
     const [actionLoading, setActionLoading] = useState(false);
 
     const userRole = currentUser?.role;
-    const customerUserId = userRole === 'CUSTOMER' ? (currentUser?.customer_user_id || currentUser?.user_id || currentUser?.id) : null;
-    const employeeId = userRole !== 'CUSTOMER' ? (currentUser?.employee_id || currentUser?.user_id || currentUser?.id) : null;
+    const customerUserId = userRole === 'CUSTOMER' ? currentUser?.id : null;
+    const employeeId = userRole !== 'CUSTOMER' ? currentUser?.id : null;
 
     const handleSubmit = async (e, formData) => {
         if (e) e.preventDefault();

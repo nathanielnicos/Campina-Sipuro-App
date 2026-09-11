@@ -1,8 +1,7 @@
 import { formatCurrency } from '../../../utils/formatters';
 
 const Summary = ({ subtotal, ppnPercent, taxAmount, grandTotal, userRole }) => {
-    // Jika role adalah PPIC, jangan tampilkan ringkasan harga apapun
-    if (userRole === 'PPIC') {
+    if (userRole !== 'CUSTOMER') {
         return null;
     }
 

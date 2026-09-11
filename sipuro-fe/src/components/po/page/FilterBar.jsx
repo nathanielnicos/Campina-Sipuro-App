@@ -1,4 +1,3 @@
-import React from 'react';
 import DateRangePicker from '../../common/DateRangePicker';
 
 const FilterBar = ({
@@ -64,7 +63,7 @@ const FilterBar = ({
                 />
             </div>
 
-            {/* Requested Delivery Date Range Picker */}
+            {/* Req. Delivery Date Range Picker */}
             <div style={{ flex: '0 0 220px' }}>
                 <DateRangePicker
                     label="Filter Delivery Date"
@@ -94,7 +93,7 @@ const FilterBar = ({
                     <option value="">All Status</option>
                     <option value="Waiting for Confirmation">Waiting for Confirmation</option>
                     <option value="Canceled">Canceled</option>
-                    <option value="Waiting for Batch Assignment">Approved</option>
+                    <option value="Waiting for Batch Assignment">{userRole === 'CUSTOMER' ? 'Approved' : 'Waiting for Batch Assignment'}</option>
                     <option value="Rejected">Rejected</option>
                     <option value="In Progress">In Progress</option>
                     <option value="Completed">Production Completed</option>
@@ -123,7 +122,7 @@ const FilterBar = ({
                     Reset Filters
                 </button>
 
-                {userRole !== 'PPIC' && (
+                {userRole === 'CUSTOMER' && (
                     <button
                         onClick={onExportExcel}
                         disabled={exporting}

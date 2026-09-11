@@ -87,7 +87,7 @@ exports.exportBatchMappingExcel = async (req, res) => {
             }
         }
 
-        // 5. Filter Rentang Tanggal Permintaan Pengiriman (PO Requested Delivery Date)
+        // 5. Filter Rentang Tanggal Permintaan Pengiriman (PO Req. Delivery Date)
         if (fromDeliveryDate && fromDeliveryDate.trim() !== '') {
             whereClauses1.push(`DATE(h.requested_delivery_date) >= ?`);
             queryParams1.push(fromDeliveryDate.trim());

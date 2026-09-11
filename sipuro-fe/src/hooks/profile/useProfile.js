@@ -3,7 +3,7 @@ import { getProfile, updatePassword } from '../../services/profileApi';
 
 export const useProfile = ({ currentUser }) => {
     const isCustomer = currentUser?.role === 'CUSTOMER';
-    const userId = currentUser?.user_id || currentUser?.id;
+    const userId = currentUser?.id;
     const userRole = currentUser?.role;
 
     const [loading, setLoading] = useState(true);

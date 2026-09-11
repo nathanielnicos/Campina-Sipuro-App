@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import POPage from './components/po/page/POPage';
 import DetailModal from './components/po/detail-modal/DetailModal';
 import BatchPage from './components/batch/page/BatchPage';
@@ -15,7 +15,7 @@ import Login from './components/auth/Login';
 import Navbar from './components/navigation/Navbar';
 import NotificationBanner from './components/navigation/NotificationBanner';
 import { markAllAsRead } from './services/notificationApi';
-import { ROLE_PERMISSIONS } from './config/navigationConfig';
+import { getNavItemsByUser } from './config/navigationConfig';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -28,24 +28,30 @@ function App() {
   const [showPoBanner, setShowPoBanner] = useState(false);
   const [bannerMessage, setBannerMessage] = useState('');
 
-  const getDefaultTab = (role) => {
-    const userMenus = ROLE_PERMISSIONS[role] || [];
-    return userMenus.length > 0 ? userMenus[0].id : 'po-list';
-  };
+  // Membungkus getDefaultTab dalam useCallback agar aman dijadikan dependency
+  const getDefaultTab = useCallback((userData) => {
+    if (!userData) return 'po-list';
+    const userMenus = getNavItemsByUser(userData);
+    return userMenus && userMenus.length > 0 ? userMenus[0].id : 'po-list';
+  }, []);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('sipuro_user');
     if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      setActiveTab(getDefaultTab(parsedUser.role));
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        setActiveTab(getDefaultTab(parsedUser));
+      } catch (e) {
+        console.error('Failed to parse saved user:', e);
+      }
     }
-  }, []);
+  }, [getDefaultTab]);
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem('sipuro_user', JSON.stringify(userData));
-    setActiveTab(getDefaultTab(userData.role));
+    setActiveTab(getDefaultTab(userData));
   };
 
   const handleUserUpdated = (updatedUserData) => {
@@ -90,8 +96,8 @@ function App() {
     // Tandai semua notifikasi milik role/user sebagai dibaca saat menekan tombol banner
     if (user) {
       try {
-        const userId = user?.customer_id || user?.id || user?.code;
-        const userDepartment = user?.department || user?.role;
+        const userId = user?.id;
+        const userDepartment = user?.department;
         await markAllAsRead(user.role, userId, userDepartment);
       } catch (err) {
         console.error('Failed to mark all as read from banner:', err);

@@ -1,5 +1,5 @@
 import NotificationBell from './NotificationBell';
-import { ROLE_PERMISSIONS } from '../../config/navigationConfig';
+import { getNavItemsByUser } from '../../config/navigationConfig';
 
 const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) => {
     const getButtonStyle = (tabName) => ({
@@ -15,14 +15,14 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
         transition: 'all 0.2s'
     });
 
-    const userMenu = ROLE_PERMISSIONS[user?.role] || [];
+    const userMenu = getNavItemsByUser(user);
 
     const displayName = user?.role === 'CUSTOMER'
-        ? `${user?.full_name || user?.name || ''} (${user?.company_name || ''})`
+        ? `${user?.name || ''} (${user?.company_name || ''})`
         : user?.name || user?.full_name || '';
 
     const displayCode = user?.role === 'CUSTOMER'
-        ? user?.user_code || user?.code || ''
+        ? user?.code || ''
         : user?.code || '';
 
     return (

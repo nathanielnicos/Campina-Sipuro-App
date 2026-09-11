@@ -70,7 +70,7 @@ export const useProductList = () => {
         try {
             const savedUser = localStorage.getItem('sipuro_user');
             const currentUser = savedUser ? JSON.parse(savedUser) : null;
-            const createdBy = currentUser?.code || currentUser?.username || 'SYSTEM';
+            const createdBy = currentUser?.code || currentUser?.name || 'SYSTEM';
 
             const res = await commitProductsApi(items, createdBy);
             if (res.success) {

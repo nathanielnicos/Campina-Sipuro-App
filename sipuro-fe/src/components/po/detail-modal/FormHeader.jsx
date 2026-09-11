@@ -9,7 +9,7 @@ const FormHeader = ({
     description,
     setDescription
 }) => {
-    const isPPIC = userRole === 'PPIC';
+    const isNotCustomer = userRole !== 'CUSTOMER';
 
     return (
         <>
@@ -32,14 +32,14 @@ const FormHeader = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
                     <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                        Requested Delivery Date *
+                        Req. Delivery Date *
                     </label>
                     <input
                         type="date"
                         value={requestedDeliveryDate}
                         onChange={(e) => setRequestedDeliveryDate(e.target.value)}
                         required
-                        disabled={isPPIC}
+                        disabled={isNotCustomer}
                         min={new Date().toISOString().split('T')[0]}
                         style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                     />
@@ -67,7 +67,7 @@ const FormHeader = ({
                     value={description}
                     maxLength={50}
                     onChange={(e) => setDescription(e.target.value)}
-                    disabled={isPPIC}
+                    disabled={isNotCustomer}
                     style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                 />
                 <small style={{ color: '#6c757d', fontSize: '11px', display: 'block', marginTop: '2px' }}>

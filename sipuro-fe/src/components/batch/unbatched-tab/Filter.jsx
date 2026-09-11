@@ -72,7 +72,7 @@ const Filter = ({
             />
 
             <DateRangePicker
-                label="PO Requested Delivery Date Range"
+                label="PO Req. Delivery Date Range"
                 fromDate={fromDeliveryDate}
                 toDate={toDeliveryDate}
                 onFromDateChange={onFromDeliveryDateChange}

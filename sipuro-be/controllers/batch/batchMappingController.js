@@ -101,7 +101,7 @@ exports.getAllocatedBatchMapping = async (req, res) => {
             queryParams.push(`${toCreatedDate} 23:59:59`);
         }
 
-        // 4. Filter PO Requested Delivery Date
+        // 4. Filter PO Req. Delivery Date
         if (fromDeliveryDate) {
             whereClauses.push(`h.requested_delivery_date >= ?`);
             queryParams.push(`${fromDeliveryDate} 00:00:00`);

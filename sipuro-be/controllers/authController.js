@@ -84,21 +84,22 @@ exports.login = async (req, res) => {
                 success: true,
                 message: 'Customer login successful.',
                 data: {
-                    user_id: user.customer_user_id,
-                    user_code: user.customer_user_code,
-                    full_name: user.full_name,
+                    id: user.customer_user_id,
+                    code: user.customer_user_code,
+                    name: user.full_name,
                     email: user.email,
+                    role: 'CUSTOMER',
+                    department: null,
                     customer_id: user.customer_id,
                     customer_code: user.customer_code,
                     company_name: user.company_name,
-                    role: 'CUSTOMER',
                     loginIp: clientIp
                 }
             });
 
         } else if (role_type === 'EMPLOYEE') {
             const query = `
-                SELECT id, employee_code, full_name, department, password, is_suspended, allowed_ip
+                SELECT id, employee_code, full_name, department, role, password, is_suspended, allowed_ip
                 FROM sipuro_db.employees
                 WHERE employee_code = ?
             `;
@@ -139,9 +140,6 @@ exports.login = async (req, res) => {
             );
             await logAttempt('EMPLOYEE', username, clientIp, userAgent, 'SUCCESS');
 
-            const deptUpper = (emp.department || '').toUpperCase();
-            const assignedRole = (deptUpper === 'SUPERADMIN' || deptUpper === 'ADMIN') ? 'SUPERADMIN' : emp.department;
-
             return res.json({
                 success: true,
                 message: 'Employee login successful.',
@@ -149,8 +147,12 @@ exports.login = async (req, res) => {
                     id: emp.id,
                     code: emp.employee_code,
                     name: emp.full_name,
+                    email: null,
+                    role: emp.role,
                     department: emp.department,
-                    role: assignedRole,
+                    customer_id: null,
+                    customer_code: null,
+                    company_name: null,
                     loginIp: clientIp
                 }
             });

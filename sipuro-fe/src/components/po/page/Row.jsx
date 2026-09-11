@@ -8,7 +8,7 @@ const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
             <td style={{ padding: '12px 16px' }}>{formatDate(po.created_at)}</td>
             <td style={{ padding: '12px 16px' }}>{formatDate(po.requested_delivery_date)}</td>
             <td style={{ padding: '12px 16px' }}>{formatQty(po.total_items)} SKU</td>
-            {user?.role !== 'PPIC' && (
+            {user?.role === 'CUSTOMER' && (
                 <td style={{ padding: '12px 16px' }}>{formatCurrency(po.total_amount)}</td>
             )}
             <td style={{ padding: '12px 16px' }}>
@@ -20,7 +20,11 @@ const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
                     display: 'inline-block',
                     ...getStatusStyle(po.status)
                 }}>
-                    {po.status === "Completed" ? "Production Completed" : po.status === "Waiting for Batch Assignment" ? "Approved" : po.status}
+                    {po.status === "Completed"
+                        ? "Production Completed"
+                        : po.status === "Waiting for Batch Assignment" && user.role === 'CUSTOMER'
+                            ? "Approved"
+                            : po.status}
                 </span>
             </td>
             <td style={{ padding: '12px 16px' }}>
@@ -41,8 +45,7 @@ const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
                         Details
                     </button>
 
-                    {/* Sembunyikan Tombol Preview PDF untuk Role PPIC */}
-                    {user?.role !== 'PPIC' && (
+                    {user?.role === 'CUSTOMER' && (
                         <button
                             onClick={() => onOpenPdfModal && onOpenPdfModal(po.po_header_id)}
                             style={{

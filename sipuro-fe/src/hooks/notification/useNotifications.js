@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getUnreadCount, getNotifications, markAllAsRead } from '../../services/notificationApi';
-import { ROLE_PERMISSIONS } from '../../config/navigationConfig';
+import { getNavItemsByUser } from '../../config/navigationConfig';
 
 export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowPoBanner }) => {
     const [unreadCount, setUnreadCount] = useState(0);
@@ -103,7 +103,7 @@ export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowP
         }
 
         if (!targetTab) {
-            const roleMenus = ROLE_PERMISSIONS[userRole] || [];
+            const roleMenus = getNavItemsByUser(user);
             if (roleMenus.length > 0) {
                 targetTab = roleMenus[0].id;
             }

@@ -18,7 +18,7 @@ const ItemRow = ({
     isMultipleItems,
     onCloseDropdown
 }) => {
-    const isCustomer = userRole !== 'PPIC';
+    const isCustomer = userRole === 'CUSTOMER';
     const dropdownRef = useRef(null);
 
     useEffect(() => {
@@ -130,8 +130,7 @@ const ItemRow = ({
                 )}
             </td>
 
-            {/* Sembunyikan Harga Satuan untuk PPIC */}
-            {userRole !== 'PPIC' && (
+            {userRole === 'CUSTOMER' && (
                 <td style={{ padding: '12px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
                     {formatCurrency(item.unit_price)}
                 </td>
@@ -164,8 +163,7 @@ const ItemRow = ({
                 )}
             </td>
 
-            {/* Sembunyikan Total Harga untuk PPIC */}
-            {userRole !== 'PPIC' && (
+            {userRole === 'CUSTOMER' && (
                 <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', verticalAlign: 'middle' }}>
                     {formatCurrency(item.total_price)}
                 </td>
