@@ -28,6 +28,8 @@ export const useProfile = ({ currentUser }) => {
         confirmPassword: ''
     });
 
+    // File: useProfile.js
+
     useEffect(() => {
         const loadProfileData = async () => {
             setLoading(true);
@@ -35,12 +37,12 @@ export const useProfile = ({ currentUser }) => {
             if (res.success && res.data) {
                 const data = res.data;
                 setFormData({
-                    user_code: data.employee_code || data.customer_user_code || '',
-                    full_name: data.full_name || '',
-                    email: data.email || '',
-                    gender: data.gender || 'M',
+                    user_code: data.code,
+                    full_name: data.full_name,
+                    email: data.email,
+                    gender: data.gender,
                     birth_date: data.birth_date ? data.birth_date.split('T')[0] : '',
-                    department: data.department || '',
+                    department: data.department,
                     join_date: data.join_date ? data.join_date.split('T')[0] : ''
                 });
             }

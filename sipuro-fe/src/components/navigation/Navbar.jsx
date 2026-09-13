@@ -17,13 +17,9 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
 
     const userMenu = getNavItemsByUser(user);
 
-    const displayName = user?.role === 'CUSTOMER'
-        ? `${user?.name || ''} (${user?.company_name || ''})`
-        : user?.name || user?.full_name || '';
+    const displayName = user?.name || 'No Name';
 
-    const displayCode = user?.role === 'CUSTOMER'
-        ? user?.code || ''
-        : user?.code || '';
+    const displayCode = user?.code || 'No Code';
 
     return (
         <div style={styles.container}>
