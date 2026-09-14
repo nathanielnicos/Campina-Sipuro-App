@@ -57,8 +57,37 @@ const ReallocateModal = ({
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                        <button type="button" onClick={onClose} style={{ padding: '8px 16px', border: '1px solid #ccc', background: '#fff', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
-                        <button type="submit" disabled={submitting} style={{ padding: '8px 16px', background: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={submitting}
+                            style={{
+                                padding: '8px 16px',
+                                border: '1px solid #ccc',
+                                background: '#fff',
+                                borderRadius: '4px',
+                                cursor: submitting ? 'not-allowed' : 'pointer',
+                                opacity: submitting ? 0.6 : 1,
+                                transition: 'all 0.2s ease-in-out'
+                            }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            style={{
+                                padding: '8px 16px',
+                                background: '#198754',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: submitting ? 'not-allowed' : 'pointer',
+                                opacity: submitting ? 0.6 : 1,
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s ease-in-out'
+                            }}
+                        >
                             {submitting ? 'Processing...' : 'Save Allocation'}
                         </button>
                     </div>

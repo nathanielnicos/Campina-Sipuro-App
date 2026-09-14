@@ -106,8 +106,10 @@ const EmployeeListPage = () => {
                                                         borderRadius: '4px',
                                                         border: 'none',
                                                         cursor: updatingId === emp.id ? 'not-allowed' : 'pointer',
+                                                        opacity: updatingId === emp.id ? 0.6 : 1,
                                                         backgroundColor: emp.is_suspended ? '#198754' : '#dc3545',
-                                                        color: '#fff'
+                                                        color: '#fff',
+                                                        transition: 'all 0.2s ease-in-out'
                                                     }}
                                                 >
                                                     {updatingId === emp.id

@@ -81,7 +81,18 @@ const PriceListPage = () => {
                     <button
                         type="submit"
                         disabled={uploading}
-                        style={{ padding: '6px 12px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}
+                        style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#198754',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontWeight: 'bold',
+                            fontSize: '12px',
+                            cursor: uploading ? 'not-allowed' : 'pointer',
+                            opacity: uploading ? 0.6 : 1,
+                            transition: 'all 0.2s ease-in-out'
+                        }}
                     >
                         {uploading ? 'Processing...' : 'Upload & Preview Prices'}
                     </button>
@@ -140,6 +151,7 @@ const PriceListPage = () => {
                     previewData={previewModal.data}
                     onClose={closePreviewModal}
                     onConfirm={handleConfirmCommit}
+                    isCommitting={uploading}
                 />
             )}
         </div>

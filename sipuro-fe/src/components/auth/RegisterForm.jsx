@@ -245,20 +245,43 @@ function RegisterForm({ onSubmit, loading, onSwitchToLogin, setErrorMsg }) {
                 </>
             )}
 
+            {/* Submit Button */}
             <button
                 type="submit"
                 disabled={loading}
-                style={{ width: '100%', padding: '10px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                style={{
+                    width: '100%',
+                    padding: '10px',
+                    backgroundColor: '#198754',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.6 : 1,
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s ease-in-out'
+                }}
             >
                 {loading ? 'Processing Registration...' : 'Register User'}
             </button>
 
+            {/* Switch to Login Button */}
             <div style={{ textAlign: 'center', marginTop: '15px', fontSize: '13px' }}>
                 Already have an account?{' '}
                 <button
                     type="button"
                     onClick={onSwitchToLogin}
-                    style={{ border: 'none', background: 'none', color: '#0d6efd', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}
+                    disabled={loading}
+                    style={{
+                        border: 'none',
+                        background: 'none',
+                        color: '#0d6efd',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        opacity: loading ? 0.6 : 1,
+                        textDecoration: 'underline',
+                        fontWeight: 'bold',
+                        transition: 'all 0.2s ease-in-out'
+                    }}
                 >
                     Back to Login
                 </button>

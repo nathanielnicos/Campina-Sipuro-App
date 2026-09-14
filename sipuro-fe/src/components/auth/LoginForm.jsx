@@ -54,20 +54,43 @@ function LoginForm({ onSubmit, loading, onSwitchToRegister }) {
                 />
             </div>
 
+            {/* Submit Button */}
             <button
                 type="submit"
                 disabled={loading}
-                style={{ width: '100%', padding: '10px', backgroundColor: '#0d6efd', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                style={{
+                    width: '100%',
+                    padding: '10px',
+                    backgroundColor: '#0d6efd',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.6 : 1,
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s ease-in-out'
+                }}
             >
                 {loading ? 'Logging in...' : 'Login'}
             </button>
 
+            {/* Switch to Register Button */}
             <div style={{ textAlign: 'center', marginTop: '15px', fontSize: '13px' }}>
                 Don't have an account?{' '}
                 <button
                     type="button"
                     onClick={onSwitchToRegister}
-                    style={{ border: 'none', background: 'none', color: '#0d6efd', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}
+                    disabled={loading}
+                    style={{
+                        border: 'none',
+                        background: 'none',
+                        color: '#0d6efd',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        opacity: loading ? 0.6 : 1,
+                        textDecoration: 'underline',
+                        fontWeight: 'bold',
+                        transition: 'all 0.2s ease-in-out'
+                    }}
                 >
                     Register Now
                 </button>

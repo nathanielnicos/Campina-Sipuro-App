@@ -156,13 +156,36 @@ const BatchAllocationModal = ({
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                        <button type="button" onClick={onClose} style={{ padding: '8px 16px', borderRadius: '4px', border: '1px solid #ccc', cursor: 'pointer' }}>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={submitting}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '4px',
+                                border: '1px solid #ccc',
+                                backgroundColor: '#fff',
+                                cursor: submitting ? 'not-allowed' : 'pointer',
+                                opacity: submitting ? 0.6 : 1,
+                                transition: 'all 0.2s ease-in-out'
+                            }}
+                        >
                             Close
                         </button>
                         <button
                             type="submit"
                             disabled={submitting || (allocationMode === 'EXISTING' && existingBatches.length === 0)}
-                            style={{ padding: '8px 16px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: '#28a745',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: (submitting || (allocationMode === 'EXISTING' && existingBatches.length === 0)) ? 'not-allowed' : 'pointer',
+                                opacity: (submitting || (allocationMode === 'EXISTING' && existingBatches.length === 0)) ? 0.6 : 1,
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s ease-in-out'
+                            }}
                         >
                             {submitting ? 'Saving...' : 'Save Allocation'}
                         </button>

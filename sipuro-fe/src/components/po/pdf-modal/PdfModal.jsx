@@ -49,7 +49,15 @@ const PdfModal = ({ poId, onClose }) => {
                     <h5 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>PO Document Preview</h5>
                     <button
                         onClick={onClose}
-                        style={{ border: 'none', background: 'transparent', fontSize: '20px', cursor: 'pointer', color: '#6c757d' }}
+                        disabled={loading}
+                        style={{
+                            border: 'none',
+                            background: 'transparent',
+                            fontSize: '20px',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.6 : 1,
+                            color: '#6c757d'
+                        }}
                     >
                         &times;
                     </button>
@@ -82,14 +90,17 @@ const PdfModal = ({ poId, onClose }) => {
                 }}>
                     <button
                         onClick={onClose}
+                        disabled={loading}
                         style={{
                             padding: '6px 14px',
                             borderRadius: '4px',
                             border: '1px solid #6c757d',
                             backgroundColor: '#ffffff',
                             color: '#6c757d',
-                            cursor: 'pointer',
-                            fontSize: '13px'
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.6 : 1,
+                            fontSize: '13px',
+                            transition: 'all 0.2s ease-in-out'
                         }}
                     >
                         Close
@@ -106,7 +117,8 @@ const PdfModal = ({ poId, onClose }) => {
                             fontWeight: 'bold',
                             cursor: loading || !poData ? 'not-allowed' : 'pointer',
                             opacity: loading || !poData ? 0.6 : 1,
-                            fontSize: '13px'
+                            fontSize: '13px',
+                            transition: 'all 0.2s ease-in-out'
                         }}
                     >
                         Download PDF

@@ -487,18 +487,39 @@ const ImportExcelModal = ({
                 {/* Footer Buttons */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid #dee2e6' }}>
                     <button
+                        type="button"
                         onClick={onRejectPreview}
                         disabled={saving}
-                        style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#6c757d',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: saving ? 'not-allowed' : 'pointer',
+                            opacity: saving ? 0.6 : 1,
+                            transition: 'all 0.2s ease-in-out'
+                        }}
                     >
                         Close
                     </button>
 
                     {canSave && (
                         <button
+                            type="button"
                             onClick={handleSaveClick}
                             disabled={saving}
-                            style={{ padding: '8px 16px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: '#198754',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: saving ? 'not-allowed' : 'pointer',
+                                opacity: saving ? 0.6 : 1,
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s ease-in-out'
+                            }}
                         >
                             {saving ? 'Saving...' : `Save to Database (${summary.newCount} New Rows)`}
                         </button>

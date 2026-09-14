@@ -107,8 +107,10 @@ const CustomerUserListPage = () => {
                                                             borderRadius: '4px',
                                                             border: 'none',
                                                             cursor: updatingId === u.customer_user_id ? 'not-allowed' : 'pointer',
+                                                            opacity: updatingId === u.customer_user_id ? 0.6 : 1,
                                                             backgroundColor: isActive ? '#dc3545' : '#198754',
-                                                            color: '#fff'
+                                                            color: '#fff',
+                                                            transition: 'all 0.2s ease-in-out'
                                                         }}
                                                     >
                                                         {updatingId === u.customer_user_id

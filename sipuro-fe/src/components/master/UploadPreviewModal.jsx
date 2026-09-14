@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
+const UploadPreviewModal = ({ title, previewData, onClose, onConfirm, isCommitting }) => {
     const [activeTab, setActiveTab] = useState('ALL');
 
     if (!previewData || !previewData.data) return null;
@@ -199,16 +199,40 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm }) => {
                 <div style={{ padding: '12px 20px', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'flex-end', gap: '8px', backgroundColor: '#fff' }}>
                     <button
                         onClick={onClose}
-                        style={{ padding: '8px 16px', backgroundColor: '#e0e0e0', color: '#333', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                        disabled={isCommitting}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#e0e0e0',
+                            color: '#333',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontWeight: 'bold',
+                            fontSize: '13px',
+                            cursor: isCommitting ? 'not-allowed' : 'pointer',
+                            opacity: isCommitting ? 0.6 : 1,
+                            transition: 'all 0.2s ease-in-out'
+                        }}
                     >
                         Cancel
                     </button>
                     {hasChangesToSave && (
                         <button
                             onClick={handleSave}
-                            style={{ padding: '8px 16px', backgroundColor: '#0d6efd', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                            disabled={isCommitting}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: '#0d6efd',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontWeight: 'bold',
+                                fontSize: '13px',
+                                cursor: isCommitting ? 'not-allowed' : 'pointer',
+                                opacity: isCommitting ? 0.6 : 1,
+                                transition: 'all 0.2s ease-in-out'
+                            }}
                         >
-                            Save to Database
+                            {isCommitting ? 'Saving...' : 'Save to Database'}
                         </button>
                     )}
                 </div>

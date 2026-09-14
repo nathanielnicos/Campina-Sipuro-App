@@ -156,7 +156,12 @@ const ProfilePage = ({ currentUser }) => {
                         <button
                             type="submit"
                             disabled={savingPassword}
-                            style={styles.saveBtn}
+                            style={{
+                                ...styles.saveBtn,
+                                opacity: savingPassword ? 0.6 : 1,
+                                cursor: savingPassword ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s ease-in-out'
+                            }}
                         >
                             {savingPassword ? 'Updating...' : 'Update Password'}
                         </button>
