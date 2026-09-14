@@ -1,4 +1,17 @@
 const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdateStatus }) => {
+    // Helper untuk style tombol universal saat loading
+    const getButtonStyle = (baseBgColor = 'transparent', isTextWhite = true) => ({
+        padding: '8px 16px',
+        backgroundColor: baseBgColor,
+        color: isTextWhite ? '#fff' : '#000',
+        border: baseBgColor === 'transparent' ? '1px solid #ccc' : 'none',
+        borderRadius: '4px',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        opacity: loading ? 0.6 : 1,
+        fontWeight: baseBgColor !== 'transparent' ? 'bold' : 'normal',
+        transition: 'all 0.2s ease-in-out'
+    });
+
     return (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
             <div>
@@ -7,15 +20,20 @@ const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdat
                         type="button"
                         onClick={onCancel}
                         disabled={loading}
-                        style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                        style={getButtonStyle('#dc3545')}
                     >
-                        Cancel PO
+                        {loading ? 'Cancelling...' : 'Cancel PO'}
                     </button>
                 )}
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="button" onClick={onClose} style={{ padding: '8px 16px' }}>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={loading}
+                    style={getButtonStyle('#6c757d')}
+                >
                     Close
                 </button>
 
@@ -26,17 +44,17 @@ const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdat
                             type="button"
                             disabled={loading}
                             onClick={() => onUpdateStatus('Rejected')}
-                            style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            style={getButtonStyle('#dc3545')}
                         >
-                            Reject PO
+                            {loading ? 'Rejecting...' : 'Reject PO'}
                         </button>
                         <button
                             type="button"
                             disabled={loading}
                             onClick={() => onUpdateStatus('Waiting for Batch Assignment')}
-                            style={{ padding: '8px 16px', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            style={getButtonStyle('#198754')}
                         >
-                            Approve PO
+                            {loading ? 'Approving...' : 'Approve PO'}
                         </button>
                     </>
                 )}
@@ -45,9 +63,12 @@ const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdat
                     <button
                         type="submit"
                         disabled={loading}
-                        style={{ padding: '8px 16px', backgroundColor: '#0d6efd', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        style={getButtonStyle('#0d6efd')}
                     >
-                        {poId ? 'Save Changes' : 'Save PO'}
+                        {loading
+                            ? 'Saving...'
+                            : (poId ? 'Save Changes' : 'Save PO')
+                        }
                     </button>
                 )}
             </div>
