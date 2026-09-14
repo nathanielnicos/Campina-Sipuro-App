@@ -10,8 +10,8 @@ export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowP
     const dropdownRef = useRef(null);
 
     const userRole = user?.role;
-    const userId = user?.customer_id || user?.id || user?.code;
-    const userDepartment = user?.department || user?.role;
+    const userId = user?.id;
+    const userDepartment = user?.department;
 
     // Polling & Visibility Listener
     useEffect(() => {

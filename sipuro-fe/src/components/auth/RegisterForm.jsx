@@ -140,6 +140,8 @@ function RegisterForm({ onSubmit, loading, onSwitchToLogin, setErrorMsg }) {
                         >
                             <option value="Pilih">-- Select Department --</option>
                             <option value="PPIC">PPIC</option>
+                            <option value="LOGISTIC">LOGISTIC</option>
+                            <option value="FINANCE">FINANCE</option>
                         </select>
                     </div>
 

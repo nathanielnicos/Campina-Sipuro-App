@@ -2,6 +2,9 @@ const { sipuroDb } = require('../../config/db');
 const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
 
+/**
+ * Helper untuk menghitung Base Qty (dalam PCS) berdasarkan UOM yang dipilih
+ */
 const calculateBaseQty = (qty, uom, product) => {
     const uppercaseUom = (uom || '').toUpperCase();
     const pcsPerCtn = product ? Number(product.pcs_per_ctn || 1) : 1;
@@ -68,16 +71,17 @@ exports.createPO = async (req, res) => {
         const formattedSeq = String(nextSeq).padStart(3, '0');
         const poNumber = `${formattedSeq}/PO/${customerCode}/${currentYear}`;
 
+        // Ambil data konversi produk secara lengkap
         const productIds = items.map(item => item.id_product);
         const [productRows] = await sipuroDb.query(
-            `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM sipuro_db.products WHERE id_product IN (?)`,
+            `SELECT id_product, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs FROM sipuro_db.products WHERE id_product IN (?)`,
             [productIds]
         );
         const productMap = new Map(productRows.map(p => [p.id_product, p]));
 
         await connection.beginTransaction();
 
-        // Insert Header (created_by dan updated_by diisi saat pembuatan)
+        // Insert Header
         const [headerResult] = await connection.query(
             `INSERT INTO sipuro_db.po_headers (po_number, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address, description, status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Waiting for Confirmation', ?, ?)`,
             [poNumber, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription, created_by || null, created_by || null]
@@ -86,18 +90,40 @@ exports.createPO = async (req, res) => {
         const poHeaderId = headerResult.insertId;
         const insertedDetails = [];
 
-        // Insert Details & Simpan ID untuk Log
+        // Insert Details dengan snapshot konversi
         for (const item of items) {
             const unitPrice = parseFloat(item.unit_price !== undefined ? item.unit_price : item.base_price) || 0;
             const qty = parseInt(item.qty) || 0;
             const totalPrice = item.total_price !== undefined ? parseFloat(item.total_price) : (unitPrice * qty);
             const selectedUom = item.selected_uom || item.uom || item.base_uom || 'PCS';
-            const product = productMap.get(item.id_product);
+
+            const product = productMap.get(item.id_product) || {};
+            const pcsPerCtn = Number(product.pcs_per_ctn || 1);
+            const ctnPerPlt = Number(product.ctn_per_plt || 1);
+            const mlPerPcs = product.ml_per_pcs !== undefined ? product.ml_per_pcs : null;
+            const kgPerPcs = product.kg_per_pcs !== undefined ? product.kg_per_pcs : null;
+
             const baseQty = calculateBaseQty(qty, selectedUom, product);
+            const basePrice = baseQty > 0 ? (totalPrice / baseQty) : unitPrice;
 
             const [detailRes] = await connection.query(
-                `INSERT INTO sipuro_db.po_details (po_header_id, id_product, qty, base_qty, uom, base_price, total_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [poHeaderId, item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null]
+                `INSERT INTO sipuro_db.po_details 
+                 (po_header_id, id_product, qty, base_qty, uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, base_price, total_price, notes) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    poHeaderId,
+                    item.id_product,
+                    qty,
+                    baseQty,
+                    selectedUom,
+                    pcsPerCtn,
+                    ctnPerPlt,
+                    mlPerPcs,
+                    kgPerPcs,
+                    basePrice,
+                    totalPrice,
+                    item.notes || null
+                ]
             );
 
             insertedDetails.push({
@@ -146,7 +172,7 @@ exports.createPO = async (req, res) => {
 };
 
 /**
- * 2. UPDATE PO (REVISI QTY ITEM)
+ * 2. UPDATE PO (REVISI QTY ITEM & KONVERSI)
  */
 exports.updatePO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
@@ -162,9 +188,9 @@ exports.updatePO = async (req, res) => {
 
         const [checkRows] = await connection.query(
             `SELECT h.po_number, h.status, h.customer_id, c.company_name 
-           FROM sipuro_db.po_headers h
-           LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id 
-           WHERE h.po_header_id = ?`,
+             FROM sipuro_db.po_headers h
+             LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id 
+             WHERE h.po_header_id = ?`,
             [id]
         );
         if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO not found.' });
@@ -192,16 +218,17 @@ exports.updatePO = async (req, res) => {
         });
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
+        // Ambil data konversi produk secara lengkap
         const productIds = items.map(item => item.id_product);
         const [productRows] = await sipuroDb.query(
-            `SELECT id_product, pcs_per_ctn, ctn_per_plt FROM sipuro_db.products WHERE id_product IN (?)`,
+            `SELECT id_product, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs FROM sipuro_db.products WHERE id_product IN (?)`,
             [productIds]
         );
         const productMap = new Map(productRows.map(p => [p.id_product, p]));
 
         await connection.beginTransaction();
 
-        // Update Header (mengubah updated_by; updated_at otomatis terisi via ON UPDATE CURRENT_TIMESTAMP)
+        // Update Header
         await connection.query(
             `UPDATE sipuro_db.po_headers SET subtotal = ?, ppn_percent = ?, total_amount = ?, requested_delivery_date = ?, delivery_address = ?, description = ?, updated_by = ? WHERE po_header_id = ?`,
             [subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription, updated_by || null, id]
@@ -210,7 +237,7 @@ exports.updatePO = async (req, res) => {
         const existingIds = existingDetails.map(row => row.po_detail_id);
         const payloadDetailIds = items.map(item => item.po_detail_id).filter(Boolean);
 
-        // Soft Delete Item yang Dihapus & Catat Log
+        // Soft Delete Item yang Dihapus
         const detailLogsToSave = [];
         const idsToDelete = existingIds.filter(detailId => !payloadDetailIds.includes(detailId));
 
@@ -231,18 +258,25 @@ exports.updatePO = async (req, res) => {
             }
         }
 
+        // Loop Update/Insert Item Detail
         for (const item of items) {
             const unitPrice = parseFloat(item.unit_price !== undefined ? item.unit_price : item.base_price) || 0;
             const qty = parseInt(item.qty) || 0;
             const totalPrice = item.total_price !== undefined ? parseFloat(item.total_price) : (unitPrice * qty);
             const selectedUom = item.selected_uom || item.uom || item.base_uom || 'PCS';
-            const product = productMap.get(item.id_product);
+
+            const product = productMap.get(item.id_product) || {};
+            const pcsPerCtn = Number(product.pcs_per_ctn || 1);
+            const ctnPerPlt = Number(product.ctn_per_plt || 1);
+            const mlPerPcs = product.ml_per_pcs !== undefined ? product.ml_per_pcs : null;
+            const kgPerPcs = product.kg_per_pcs !== undefined ? product.kg_per_pcs : null;
+
             const baseQty = calculateBaseQty(qty, selectedUom, product);
+            const basePrice = baseQty > 0 ? (totalPrice / baseQty) : unitPrice;
 
             if (item.po_detail_id && existingMap.has(item.po_detail_id)) {
                 const oldItem = existingMap.get(item.po_detail_id);
 
-                // Catat Log jika ada Perubahan Nilai
                 if (oldItem.qty !== qty || oldItem.total_price !== totalPrice) {
                     detailLogsToSave.push({
                         po_detail_id: item.po_detail_id,
@@ -257,13 +291,43 @@ exports.updatePO = async (req, res) => {
                 }
 
                 await connection.query(
-                    `UPDATE sipuro_db.po_details SET id_product = ?, qty = ?, base_qty = ?, uom = ?, base_price = ?, total_price = ?, notes = ? WHERE po_detail_id = ?`,
-                    [item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null, item.po_detail_id]
+                    `UPDATE sipuro_db.po_details 
+                     SET id_product = ?, qty = ?, base_qty = ?, uom = ?, pcs_per_ctn = ?, ctn_per_plt = ?, ml_per_pcs = ?, kg_per_pcs = ?, base_price = ?, total_price = ?, notes = ? 
+                     WHERE po_detail_id = ?`,
+                    [
+                        item.id_product,
+                        qty,
+                        baseQty,
+                        selectedUom,
+                        pcsPerCtn,
+                        ctnPerPlt,
+                        mlPerPcs,
+                        kgPerPcs,
+                        basePrice,
+                        totalPrice,
+                        item.notes || null,
+                        item.po_detail_id
+                    ]
                 );
             } else {
                 const [newDet] = await connection.query(
-                    `INSERT INTO sipuro_db.po_details (po_header_id, id_product, qty, base_qty, uom, base_price, total_price, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [id, item.id_product, qty, baseQty, selectedUom, unitPrice, totalPrice, item.notes || null]
+                    `INSERT INTO sipuro_db.po_details 
+                     (po_header_id, id_product, qty, base_qty, uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, base_price, total_price, notes) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        id,
+                        item.id_product,
+                        qty,
+                        baseQty,
+                        selectedUom,
+                        pcsPerCtn,
+                        ctnPerPlt,
+                        mlPerPcs,
+                        kgPerPcs,
+                        basePrice,
+                        totalPrice,
+                        item.notes || null
+                    ]
                 );
 
                 detailLogsToSave.push({

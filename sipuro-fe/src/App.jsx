@@ -9,6 +9,7 @@ import CustomerUserListPage from './components/master/CustomerUserListPage';
 import ProductListPage from './components/master/ProductListPage';
 import PriceListPage from './components/master/PriceListPage';
 
+import DOPage from './components/do/DOPage';
 import ProfilePage from './components/profile/ProfilePage';
 
 import Login from './components/auth/Login';
@@ -139,6 +140,7 @@ function App() {
 
       {activeTab === 'ppic-dashboard' && <Dashboard />}
       {activeTab === 'ppic-batch' && <BatchPage currentUser={user} />}
+      {activeTab === 'delivery-order' && <DOPage />}
 
       {activeTab === 'po-list' && (
         <POPage

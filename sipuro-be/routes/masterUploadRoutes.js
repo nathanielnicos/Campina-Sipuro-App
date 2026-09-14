@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const masterUploadController = require('../controllers/masterUploadController');
+const uploadController = require('../controllers/superadmin/upload/uploadController');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.post('/products/preview', upload.single('file'), masterUploadController.previewProducts);
-router.post('/products/commit', masterUploadController.commitProducts);
+router.post('/products/preview', upload.single('file'), uploadController.previewProducts);
+router.post('/products/commit', uploadController.commitProducts);
 
-router.post('/prices/preview', upload.single('file'), masterUploadController.previewPrices);
-router.post('/prices/commit', masterUploadController.commitPrices);
+router.post('/prices/preview', upload.single('file'), uploadController.previewPrices);
+router.post('/prices/commit', uploadController.commitPrices);
 
 module.exports = router;

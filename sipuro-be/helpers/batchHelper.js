@@ -29,7 +29,7 @@ async function refreshPOStatus(connection, poHeaderId) {
     if (!currentPO) return;
     const oldStatus = currentPO.status;
 
-    // A. Cek Pemenuhan Pembuatan Batch per SKU di PO (Abaikan alokasi Canceled)
+    // A. Cek Pemenuhan Pembuatan Batch per SKU di PO
     const [qtyCheck] = await connection.query(`
         SELECT 
             pd.po_detail_id,
@@ -56,7 +56,6 @@ async function refreshPOStatus(connection, poHeaderId) {
     if (!isFullyAssigned) {
         targetStatus = 'Waiting for Batch Assignment';
     } else {
-        // Cek alokasi yang masih bernilai 'Open'
         const [openAllocations] = await connection.query(`
             SELECT pba.id
             FROM sipuro_db.po_batch_allocations pba
@@ -64,7 +63,6 @@ async function refreshPOStatus(connection, poHeaderId) {
             WHERE pd.po_header_id = ? AND pba.status = 'Open'
         `, [poHeaderId]);
 
-        // PO Selesai jika tidak ada lagi alokasi berstatus 'Open'
         targetStatus = openAllocations.length === 0 ? 'Completed' : 'In Progress';
     }
 
@@ -86,7 +84,7 @@ async function refreshPOStatus(connection, poHeaderId) {
 }
 
 /**
- * Helper baru untuk menyegarkan status Induk Batch berdasarkan status alokasi di dalamnya
+ * Helper untuk menyegarkan status Induk Batch berdasarkan status alokasi di dalamnya
  */
 async function refreshBatchStatus(connection, batchId) {
     const [[currentBatch]] = await connection.query(
@@ -106,20 +104,13 @@ async function refreshBatchStatus(connection, batchId) {
     const statuses = allocations.map(a => a.status);
     let targetStatus = currentBatch.status;
 
-    // 1. Jika SEMUA alokasi 'Canceled' -> Batch Canceled
     if (statuses.every(s => s === 'Canceled')) {
         targetStatus = 'Canceled';
-    }
-    // 2. Jika MASIH ADA alokasi yang 'Open' -> Batch tetap Open
-    else if (statuses.includes('Open')) {
+    } else if (statuses.includes('Open')) {
         targetStatus = 'Open';
-    }
-    // 3. Jika TIDAK ADA 'Open', tapi ADA minimal 1 'Force Closed' -> Batch Force Closed
-    else if (statuses.includes('Force Closed')) {
+    } else if (statuses.includes('Force Closed')) {
         targetStatus = 'Force Closed';
-    }
-    // 4. Jika SEMUA alokasi selain Canceled sudah 'Closed' -> Batch Closed
-    else {
+    } else {
         targetStatus = 'Closed';
     }
 

@@ -11,6 +11,7 @@ const poRoutes = require('./routes/poRoutes');
 const batchRoutes = require('./routes/batchRoutes');
 const productionUploadRoutes = require('./routes/productionUploadRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const doRoutes = require('./routes/doRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -34,6 +35,7 @@ app.use('/api/po', poRoutes);
 app.use('/api/batch', batchRoutes);
 app.use('/api/upload/production', productionUploadRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/delivery-orders', doRoutes);
 
 // Run Server
 app.listen(PORT, () => {

@@ -24,7 +24,7 @@ exports.previewExcelUpload = async (req, res) => {
         );
         const existingHashes = existingHashRows.map(row => row.row_hash);
 
-        // Ambil SEMUA alokasi yang belum dibatalkan (termasuk yang 'Closed') agar baris koreksi minus bisa dicocokkan
+        // Ambil SEMUA alokasi yang belum dibatalkan
         const [targetAllocations] = await db.query(`
             SELECT 
                 pba.id AS id_allocation,
@@ -121,18 +121,26 @@ exports.commitExcelAllocation = async (req, res) => {
         );
         const uploadLogId = uploadLogResult.insertId;
 
-        // 2. Simpan detail baris data baru ke production_upload_details (Termasuk nilai minus)
+        // Set penampung seluruh batch_number yang terlibat pada transaksi ini
+        const affectedBatchNumbers = new Set();
+
+        // 2. Simpan detail baris data baru ke production_upload_details
         if (newDetails && newDetails.length > 0) {
-            const detailValues = newDetails.map(detail => [
-                uploadLogId,
-                detail.batchNumber,
-                detail.lotNumber || null,
-                detail.itemCode,
-                detail.qtyPac || 0,
-                detail.actualStartDatetime || null,
-                detail.actualCompletedDatetime || null,
-                detail.rowHash
-            ]);
+            const detailValues = newDetails.map(detail => {
+                if (detail.batchNumber) {
+                    affectedBatchNumbers.add(detail.batchNumber);
+                }
+                return [
+                    uploadLogId,
+                    detail.batchNumber,
+                    detail.lotNumber || null,
+                    detail.itemCode,
+                    detail.qtyPac || 0,
+                    detail.actualStartDatetime || null,
+                    detail.actualCompletedDatetime || null,
+                    detail.rowHash
+                ];
+            });
 
             await connection.query(
                 `INSERT INTO production_upload_details 
@@ -144,9 +152,18 @@ exports.commitExcelAllocation = async (req, res) => {
 
         // 3. Update status & qty fulfilled, serta CATAT LOG DETAIL per baris alokasi PO
         for (const item of allocations) {
+            const allocationId = item.allocationId || item.id_allocation || item.id;
+            const poDetailId = item.poDetailId || item.po_detail_id;
+            const batchId = item.batchId || item.id_batch;
+            const fulfilledQty = item.fulfilledQty !== undefined ? item.fulfilledQty : item.fulfilled_qty;
+            const rowStatus = item.rowStatus || item.status;
+            const batchNumber = item.batchNumber || item.batch_number;
+
+            if (batchNumber) affectedBatchNumbers.add(batchNumber);
+
             const [[oldData]] = await connection.query(
                 'SELECT fulfilled_qty, status FROM po_batch_allocations WHERE id = ?',
-                [item.allocationId]
+                [allocationId]
             );
 
             if (oldData) {
@@ -158,13 +175,13 @@ exports.commitExcelAllocation = async (req, res) => {
                     ) VALUES (?, ?, ?, ?, 'UPDATE', ?, ?, ?, ?, ?)`,
                     [
                         uploadLogId,
-                        item.allocationId,
-                        item.poDetailId,
-                        item.batchId,
+                        allocationId,
+                        poDetailId,
+                        batchId,
                         oldData.fulfilled_qty || 0,
-                        item.fulfilledQty,
+                        fulfilledQty,
                         oldData.status,
-                        item.rowStatus,
+                        rowStatus,
                         currentUserId
                     ]
                 );
@@ -172,37 +189,79 @@ exports.commitExcelAllocation = async (req, res) => {
 
             await connection.query(
                 'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ?, updated_by = ? WHERE id = ?',
-                [item.fulfilledQty, item.rowStatus, currentUserId, item.allocationId]
+                [fulfilledQty, rowStatus, currentUserId, allocationId]
             );
+        }
 
-            if (item.actDate && item.batchId) {
-                await connection.query(
-                    'UPDATE batches SET actual_production_date = ?, updated_by = ? WHERE id = ?',
-                    [item.actDate, currentUserId, item.batchId]
-                );
+        if (unallocatedStocks && unallocatedStocks.length > 0) {
+            for (const stock of unallocatedStocks) {
+                const bNo = stock.batchNumber || stock.batch_number;
+                if (bNo) affectedBatchNumbers.add(bNo);
             }
         }
 
-        // 4. Refresh status Induk Batch (Otomatis Re-Open / Close bergantung kondisi alokasi di dalamnya)
-        const batchIds = [...new Set(allocations.map(a => a.batchId).filter(Boolean))];
-        for (const bId of batchIds) {
+        // 4. Update MIN(actual_start) dan MAX(actual_completed) ke tabel `batches`
+        for (const bNo of affectedBatchNumbers) {
+            const [[dates]] = await connection.query(`
+                SELECT 
+                    MIN(actual_start_datetime) AS min_start,
+                    MAX(actual_completed_datetime) AS max_completed
+                FROM production_upload_details
+                WHERE batch_number = ?
+            `, [bNo]);
+
+            if (dates && (dates.min_start || dates.max_completed)) {
+                await connection.query(`
+                    UPDATE batches 
+                    SET 
+                        actual_production_date = COALESCE(?, actual_production_date),
+                        actual_completed_date = COALESCE(?, actual_completed_date),
+                        updated_by = ?
+                    WHERE batch_number = ?
+                `, [dates.min_start, dates.max_completed, currentUserId, bNo]);
+            }
+        }
+
+        // 5. Refresh status Induk Batch
+        const batchIdsToRefresh = new Set();
+        for (const item of allocations) {
+            const bId = item.batchId || item.id_batch;
+            if (bId) batchIdsToRefresh.add(bId);
+        }
+        for (const bId of batchIdsToRefresh) {
             await refreshBatchStatus(connection, bId);
         }
 
-        // 5. Simpan stok lebihan jika ada
+        // 6. Simpan stok lebihan jika ada
         if (unallocatedStocks && unallocatedStocks.length > 0) {
             for (const stock of unallocatedStocks) {
-                if (stock.idProduct && stock.qtyAvailable > 0) {
+                const bNo = stock.batchNumber || stock.batch_number;
+                const idProd = stock.idProduct || stock.id_product;
+                const qtyAvail = stock.qtyAvailable !== undefined ? stock.qtyAvailable : stock.qty_available;
+
+                if (idProd && qtyAvail > 0) {
+                    // Tarik tanggal MIN & MAX dari batch
+                    const [[bDates]] = await connection.query(`
+                        SELECT actual_production_date, actual_completed_date 
+                        FROM batches 
+                        WHERE batch_number = ? LIMIT 1
+                    `, [bNo]);
+
+                    const actStart = bDates?.actual_production_date || stock.actualStartDatetime || null;
+                    const actEnd = bDates?.actual_completed_date || stock.actualCompletedDatetime || null;
+
                     await connection.query(
-                        'INSERT INTO unallocated_stocks (batch_number, id_product, qty_available, production_date, created_by) VALUES (?, ?, ?, ?, ?)',
-                        [stock.batchNumber, stock.idProduct, stock.qtyAvailable, stock.productionDate, currentUserId]
+                        `INSERT INTO unallocated_stocks 
+                        (batch_number, id_product, qty_available, actual_production_date, actual_completed_date, created_by) 
+                        VALUES (?, ?, ?, ?, ?, ?)`,
+                        [bNo, idProd, qtyAvail, actStart, actEnd, currentUserId]
                     );
                 }
             }
         }
 
-        // 6. Update fulfilled_qty di po_details dan Evaluasi Status PO Header
-        const poDetailIds = [...new Set(allocations.map(a => a.poDetailId).filter(Boolean))];
+        // 7. Update fulfilled_qty di po_details dan Evaluasi Status PO Header
+        const poDetailIds = [...new Set(allocations.map(a => a.poDetailId || a.po_detail_id).filter(Boolean))];
         const poHeaderIds = new Set();
 
         for (const pdId of poDetailIds) {
@@ -223,7 +282,7 @@ exports.commitExcelAllocation = async (req, res) => {
             }
         }
 
-        // 7. Evaluasi perubahan status po_headers
+        // 8. Evaluasi perubahan status po_headers
         for (const poHeaderId of poHeaderIds) {
             await refreshPOStatus(connection, poHeaderId);
         }

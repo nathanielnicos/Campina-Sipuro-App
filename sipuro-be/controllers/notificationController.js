@@ -19,14 +19,16 @@ exports.getUnreadCount = async (req, res) => {
             `;
             params = [userId];
         } else {
+            const cleanDepartment = department ? department.trim() : null;
+
             query = `
                 SELECT COUNT(*) AS count 
                 FROM sipuro_db.notifications 
                 WHERE is_read = FALSE 
-                  AND recipient_type = 'EMPLOYEE' 
-                  AND (recipient_id = ? OR recipient_department = ?)
+                AND recipient_type = 'EMPLOYEE' 
+                AND (recipient_id = ? OR recipient_department = ?)
             `;
-            params = [userId, department || role || 'PPIC'];
+            params = [userId, cleanDepartment];
         }
 
         const [rows] = await sipuroDb.query(query, params);
@@ -56,15 +58,17 @@ exports.getNotifications = async (req, res) => {
             `;
             params = [userId];
         } else {
+            const cleanDepartment = department ? department.trim() : null;
+
             query = `
                 SELECT * 
                 FROM sipuro_db.notifications 
                 WHERE recipient_type = 'EMPLOYEE' 
-                  AND (recipient_id = ? OR recipient_department = ?)
+                AND (recipient_id = ? OR recipient_department = ?)
                 ORDER BY created_at DESC 
                 LIMIT 10
             `;
-            params = [userId, department || role || 'PPIC'];
+            params = [userId, cleanDepartment];
         }
 
         const [rows] = await sipuroDb.query(query, params);
@@ -104,14 +108,16 @@ exports.markAllAsRead = async (req, res) => {
             `;
             params = [userId];
         } else {
+            const cleanDepartment = department ? department.trim() : null;
+
             query = `
                 UPDATE sipuro_db.notifications 
                 SET is_read = TRUE 
                 WHERE is_read = FALSE 
-                  AND recipient_type = 'EMPLOYEE' 
-                  AND (recipient_id = ? OR recipient_department = ?)
+                AND recipient_type = 'EMPLOYEE' 
+                AND (recipient_id = ? OR recipient_department = ?)
             `;
-            params = [userId, department || role || 'PPIC'];
+            params = [userId, cleanDepartment];
         }
 
         await sipuroDb.query(query, params);

@@ -3,6 +3,7 @@ export const NAV_ITEMS = {
     PO_LIST: { id: 'po-list', label: 'Purchase Order' },
     PPIC_DASHBOARD: { id: 'ppic-dashboard', label: 'Dashboard' },
     PPIC_BATCH: { id: 'ppic-batch', label: 'Batch' },
+    DELIVERY_ORDER: { id: 'delivery-order', label: 'Delivery Order' },
     SA_EMPLOYEES: { id: 'sa-employees', label: 'Employee User' },
     SA_CUSTOMERS: { id: 'sa-customers', label: 'Customer User' },
     SA_PRODUCTS: { id: 'sa-products', label: 'Product' },
@@ -17,6 +18,8 @@ export const NAV_ITEMS = {
  * 1. CUSTOMER   : role === 'CUSTOMER' (department = null)
  * 2. SUPERADMIN : role === 'SUPERADMIN' (department bebas)
  * 3. PPIC       : department === 'PPIC' dan role === 'STAFF' atau 'MANAGER'
+ * 4. LOGISTICS  : department === 'LOGISTICS' (atau LOGISTIC) dan role === 'STAFF' atau 'MANAGER'
+ * 5. FINANCE    : department === 'FINANCE' dan role === 'STAFF' atau 'MANAGER'
  */
 export const getNavItemsByUser = (user) => {
     if (!user) return [];
@@ -54,6 +57,14 @@ export const getNavItemsByUser = (user) => {
         ];
     }
 
-    // Default jika tidak cocok dengan kriteria di atas (misal departemen lain yang belum diatur)
+    // 4. Akses untuk LOGISTICS & FINANCE (Department LOGISTICS/LOGISTIC/FINANCE, Role STAFF atau MANAGER)
+    if ((userDept === 'LOGISTICS' || userDept === 'LOGISTIC' || userDept === 'FINANCE') && (userRole === 'STAFF' || userRole === 'MANAGER')) {
+        return [
+            NAV_ITEMS.DELIVERY_ORDER,
+            NAV_ITEMS.PROFILE
+        ];
+    }
+
+    // Default jika tidak cocok dengan kriteria di atas
     return [NAV_ITEMS.PROFILE];
 };
