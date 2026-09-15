@@ -16,6 +16,8 @@ const OverproductionTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         searchStock,
         fromProdDate,
         toProdDate,
+        fromCompDate,
+        toCompDate,
         sortKey,
         sortOrder,
         pagination,
@@ -32,6 +34,8 @@ const OverproductionTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         handleStockSearchChange,
         handleFromProdDateChange,
         handleToProdDateChange,
+        handleFromCompDateChange,
+        handleToCompDateChange,
         handleResetFilters,
         handleSort,
         handleOpenModal,
@@ -61,9 +65,13 @@ const OverproductionTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 searchStock={searchStock}
                 fromProdDate={fromProdDate}
                 toProdDate={toProdDate}
+                fromCompDate={fromCompDate}
+                toCompDate={toCompDate}
                 onSearchChange={handleStockSearchChange}
                 onFromProdDateChange={handleFromProdDateChange}
                 onToProdDateChange={handleToProdDateChange}
+                onFromCompDateChange={handleFromCompDateChange}
+                onToCompDateChange={handleToCompDateChange}
                 onResetFilters={handleResetFilters}
             />
 
@@ -94,8 +102,16 @@ const OverproductionTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                     onSort={handleSort}
                                 />
                                 <SortableHeader
-                                    label="Production Date"
-                                    sortKey="production_date"
+                                    label="Actual Production Date"
+                                    sortKey="actual_production_date"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                    align="center"
+                                />
+                                <SortableHeader
+                                    label="Actual Completed Date"
+                                    sortKey="actual_completed_date"
                                     currentSortKey={sortKey}
                                     currentSortOrder={sortOrder}
                                     onSort={handleSort}

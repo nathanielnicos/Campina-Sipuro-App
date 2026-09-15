@@ -5,12 +5,16 @@ const Filter = ({
     searchStock,
     fromProdDate,
     toProdDate,
+    fromCompDate,
+    toCompDate,
     onSearchChange,
     onFromProdDateChange,
     onToProdDateChange,
+    onFromCompDateChange,
+    onToCompDateChange,
     onResetFilters
 }) => {
-    const isFilterActive = Boolean(searchStock || fromProdDate || toProdDate);
+    const isFilterActive = Boolean(searchStock || fromProdDate || toProdDate || fromCompDate || toCompDate);
 
     return (
         <div style={{
@@ -38,11 +42,19 @@ const Filter = ({
             </div>
 
             <DateRangePicker
-                label="Production Date Range"
+                label="Actual Production Date Range"
                 fromDate={fromProdDate}
                 toDate={toProdDate}
                 onFromDateChange={onFromProdDateChange}
                 onToDateChange={onToProdDateChange}
+            />
+
+            <DateRangePicker
+                label="Actual Completed Date Range"
+                fromDate={fromCompDate}
+                toDate={toCompDate}
+                onFromDateChange={onFromCompDateChange}
+                onToDateChange={onToCompDateChange}
             />
 
             <div>

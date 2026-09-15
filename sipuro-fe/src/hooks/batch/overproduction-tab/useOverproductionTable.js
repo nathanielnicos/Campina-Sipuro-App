@@ -11,6 +11,8 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
     const [searchStock, setSearchStock] = useState('');
     const [fromProdDate, setFromProdDate] = useState('');
     const [toProdDate, setToProdDate] = useState('');
+    const [fromCompDate, setFromCompDate] = useState('');
+    const [toCompDate, setToCompDate] = useState('');
 
     // State Sorting
     const [sortKey, setSortKey] = useState('');
@@ -38,6 +40,8 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
                 searchStock,
                 fromProdDate,
                 toProdDate,
+                fromCompDate,
+                toCompDate,
                 sortKey,
                 sortOrder
             };
@@ -60,7 +64,7 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         } finally {
             setLoading(false);
         }
-    }, [page, limit, searchStock, fromProdDate, toProdDate, sortKey, sortOrder]);
+    }, [page, limit, searchStock, fromProdDate, toProdDate, fromCompDate, toCompDate, sortKey, sortOrder]);
 
     useEffect(() => {
         loadData();
@@ -82,6 +86,16 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         setPage(1);
     };
 
+    const handleFromCompDateChange = (e) => {
+        setFromCompDate(e.target.value);
+        setPage(1);
+    };
+
+    const handleToCompDateChange = (e) => {
+        setToCompDate(e.target.value);
+        setPage(1);
+    };
+
     const handleSort = (key, order) => {
         setSortKey(key);
         setSortOrder(order);
@@ -92,6 +106,8 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         setSearchStock('');
         setFromProdDate('');
         setToProdDate('');
+        setFromCompDate('');
+        setToCompDate('');
         setSortKey('');
         setSortOrder('DESC');
         setPage(1);
@@ -161,6 +177,8 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         searchStock,
         fromProdDate,
         toProdDate,
+        fromCompDate,
+        toCompDate,
         sortKey,
         sortOrder,
         pagination,
@@ -177,6 +195,8 @@ export const useOverproductionTable = (currentUser, reloadTrigger, onRefreshAll)
         handleStockSearchChange,
         handleFromProdDateChange,
         handleToProdDateChange,
+        handleFromCompDateChange,
+        handleToCompDateChange,
         handleResetFilters,
         handleSort,
         handleOpenModal,

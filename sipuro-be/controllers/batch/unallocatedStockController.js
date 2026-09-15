@@ -9,7 +9,15 @@ exports.getUnallocatedStocks = async (req, res) => {
         const offset = (page - 1) * limit;
 
         // Tangkap parameter query dari frontend
-        const { searchStock, fromProdDate, toProdDate, sortKey, sortOrder } = req.query;
+        const {
+            searchStock,
+            fromProdDate,
+            toProdDate,
+            fromCompDate,
+            toCompDate,
+            sortKey,
+            sortOrder
+        } = req.query;
 
         let whereClauses = ['us.qty_available > 0'];
         let queryParams = [];
@@ -21,14 +29,24 @@ exports.getUnallocatedStocks = async (req, res) => {
             queryParams.push(keyword, keyword, keyword);
         }
 
-        // Filter Rentang Tanggal Produksi
+        // Filter Rentang Tanggal Mulai Produksi (actual_production_date)
         if (fromProdDate && String(fromProdDate).trim() !== '') {
-            whereClauses.push('us.production_date >= ?');
+            whereClauses.push('us.actual_production_date >= ?');
             queryParams.push(`${fromProdDate.trim()} 00:00:00`);
         }
         if (toProdDate && String(toProdDate).trim() !== '') {
-            whereClauses.push('us.production_date <= ?');
+            whereClauses.push('us.actual_production_date <= ?');
             queryParams.push(`${toProdDate.trim()} 23:59:59`);
+        }
+
+        // Filter Rentang Tanggal Selesai Produksi (actual_completed_date)
+        if (fromCompDate && String(fromCompDate).trim() !== '') {
+            whereClauses.push('us.actual_completed_date >= ?');
+            queryParams.push(`${fromCompDate.trim()} 00:00:00`);
+        }
+        if (toCompDate && String(toCompDate).trim() !== '') {
+            whereClauses.push('us.actual_completed_date <= ?');
+            queryParams.push(`${toCompDate.trim()} 23:59:59`);
         }
 
         const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
@@ -38,11 +56,12 @@ exports.getUnallocatedStocks = async (req, res) => {
             batch_number: 'us.batch_number',
             product_code: 'p.product_code',
             product_name: 'p.product_name',
-            production_date: 'us.production_date',
+            actual_production_date: 'us.actual_production_date',
+            actual_completed_date: 'us.actual_completed_date',
             qty_available: 'us.qty_available'
         };
 
-        const targetSortColumn = allowedSortKeys[sortKey] || 'us.production_date';
+        const targetSortColumn = allowedSortKeys[sortKey] || 'us.actual_production_date';
         const targetSortOrder = String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
         const orderBySql = `ORDER BY ${targetSortColumn} ${targetSortOrder}, us.id DESC`;
 
@@ -63,7 +82,8 @@ exports.getUnallocatedStocks = async (req, res) => {
                 us.batch_number,
                 us.id_product,
                 us.qty_available,
-                us.production_date,
+                us.actual_production_date,
+                us.actual_completed_date,
                 p.product_code,
                 p.product_name
             FROM unallocated_stocks us

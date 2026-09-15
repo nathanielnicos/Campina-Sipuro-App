@@ -1,10 +1,11 @@
+import React from 'react';
 import { formatDate, formatQty } from '../../../utils/formatters';
 
 const TableRow = ({ unallocatedList, onOpenModal }) => {
     if (unallocatedList.length === 0) {
         return (
             <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                     No overproduction stock available.
                 </td>
             </tr>
@@ -17,7 +18,10 @@ const TableRow = ({ unallocatedList, onOpenModal }) => {
             <td style={{ padding: '12px 16px' }}>{item.product_code || '-'}</td>
             <td style={{ padding: '12px 16px' }}>{item.product_name || '-'}</td>
             <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                {formatDate(item.production_date)}
+                {formatDate(item.actual_production_date)}
+            </td>
+            <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                {formatDate(item.actual_completed_date)}
             </td>
             <td style={{ padding: '12px 16px', textAlign: 'right', color: '#198754', fontWeight: 'bold' }}>
                 {formatQty(item.qty_available)}

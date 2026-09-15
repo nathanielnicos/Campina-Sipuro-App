@@ -68,7 +68,7 @@ const Table = ({
                             />
                             {user?.role === 'CUSTOMER' && (
                                 <SortableHeader
-                                    label="Total Price (Inc. PPN)"
+                                    label="Total Price (Inc. VAT)"
                                     sortKey="total_price"
                                     currentSortKey={sortConfig?.key}
                                     currentSortOrder={sortConfig?.direction}
