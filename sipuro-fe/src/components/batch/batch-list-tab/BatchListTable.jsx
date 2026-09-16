@@ -2,7 +2,9 @@ import PaginationControl from '../../common/PaginationControl';
 import SortableHeader from '../../common/SortableHeader';
 import Filter from './Filter';
 import ViewModeSwitcher from './ViewModeSwitcher';
-import { BatchViewRows, PoViewRows } from './TableRow';
+import BatchViewRows from './BatchViewRows';
+import PoViewRows from './PoViewRows';
+import EditBatchModal from './EditBatchModal';
 
 // Hook Custom
 import { useBatchListTable } from '../../../hooks/batch/batch-list-tab/useBatchListTable';
@@ -36,7 +38,14 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         handleSort,
         handleResetFilters,
         handleExportExcel,
-        handleUpdateStatus
+        handleUpdateStatus,
+        // Handlers & State Modal
+        isEditModalOpen,
+        selectedBatch,
+        editLoading,
+        handleOpenEditBatch,
+        handleCloseEditBatch,
+        handleSaveBatchNumber
     } = useBatchListTable(currentUser, reloadTrigger, onRefreshAll);
 
     return (
@@ -126,6 +135,8 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                     currentUserRole={currentUser?.role}
                                     poTolerance={poTolerance}
                                     onUpdateStatus={handleUpdateStatus}
+                                    onOpenEditBatch={handleOpenEditBatch}
+                                    loading={loading}
                                 />
                             ) : (
                                 <PoViewRows
@@ -133,6 +144,7 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                     currentUserRole={currentUser?.role}
                                     poTolerance={poTolerance}
                                     onUpdateStatus={handleUpdateStatus}
+                                    loading={loading}
                                 />
                             )}
                         </tbody>
@@ -148,6 +160,15 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                     }}
                 />
             </div>
+
+            {/* Modal Edit Batch Number */}
+            <EditBatchModal
+                isOpen={isEditModalOpen}
+                onClose={handleCloseEditBatch}
+                batchData={selectedBatch}
+                onSubmit={handleSaveBatchNumber}
+                loading={editLoading}
+            />
         </div>
     );
 };

@@ -15,6 +15,7 @@ module.exports = {
     // Batch Mapping
     getAllocatedBatchMapping: batchMapping.getAllocatedBatchMapping,
     updateAllocationStatus: batchMapping.updateAllocationStatus,
+    updateBatchNumber: batchMapping.updateBatchNumber,
 
     // Unallocated Stock
     getUnallocatedStocks: unallocatedStock.getUnallocatedStocks,

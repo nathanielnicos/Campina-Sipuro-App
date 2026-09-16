@@ -16,5 +16,6 @@ router.get('/open-allocations/:productId', batchController.getOpenAllocationsByP
 router.post('/assign-batch-bulk', batchController.assignBatchBulk);
 router.post('/reallocate', batchController.reallocateUnallocatedStock);
 router.patch('/allocation/:allocationId/status', batchController.updateAllocationStatus);
+router.patch('/:batchId/rename', batchController.updateBatchNumber);
 
 module.exports = router;

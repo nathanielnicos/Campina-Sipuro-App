@@ -135,3 +135,17 @@ export const updateAllocationStatusApi = async (allocationId, payload) => {
         };
     }
 };
+
+// Rename Batch Number
+export const updateBatchNumberApi = async (batchId, payload) => {
+    try {
+        const response = await axios.patch(`${API_BASE_URL}/batch/${batchId}/rename`, payload);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating batch number:', error);
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Gagal mengubah nomor batch.'
+        };
+    }
+};

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchBatchMapping, exportBatchExcelApi, updateAllocationStatusApi } from '../../../services/batchApi';
+import { fetchBatchMapping, exportBatchExcelApi, updateAllocationStatusApi, updateBatchNumberApi } from '../../../services/batchApi';
 
 export const useBatchListTable = (currentUser, reloadTrigger, onRefreshAll) => {
     // State Data & API
@@ -35,6 +35,11 @@ export const useBatchListTable = (currentUser, reloadTrigger, onRefreshAll) => {
     const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
     const [exporting, setExporting] = useState(false);
+
+    // --- State Baru: Modal Rename Batch ---
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedBatch, setSelectedBatch] = useState(null);
+    const [editLoading, setEditLoading] = useState(false);
 
     // Fetch Data dari API
     const loadData = useCallback(async () => {
@@ -84,7 +89,7 @@ export const useBatchListTable = (currentUser, reloadTrigger, onRefreshAll) => {
         loadData();
     }, [loadData, reloadTrigger]);
 
-    // Handlers
+    // Handlers Existing
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value);
         setPage(1);
@@ -161,6 +166,35 @@ export const useBatchListTable = (currentUser, reloadTrigger, onRefreshAll) => {
         }
     };
 
+    // --- Handlers Baru: Rename Batch ---
+    const handleOpenEditBatch = (batchRow) => {
+        setSelectedBatch(batchRow);
+        setIsEditModalOpen(true);
+    };
+
+    const handleCloseEditBatch = () => {
+        setSelectedBatch(null);
+        setIsEditModalOpen(false);
+    };
+
+    const handleSaveBatchNumber = async (batchId, newBatchNumber) => {
+        setEditLoading(true);
+        try {
+            const res = await updateBatchNumberApi(batchId, { newBatchNumber });
+            if (res && res.success) {
+                alert(res.message || 'Batch number successfully updated.');
+                handleCloseEditBatch();
+                loadData();
+            } else {
+                alert(res?.message || 'Failed to update batch number.');
+            }
+        } catch (err) {
+            alert('A system error occurred while updating batch number.');
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
     return {
         mappingList,
         poTolerance,
@@ -189,6 +223,14 @@ export const useBatchListTable = (currentUser, reloadTrigger, onRefreshAll) => {
         handleSort,
         handleResetFilters,
         handleExportExcel,
-        handleUpdateStatus
+        handleUpdateStatus,
+
+        // Expose state & handler modal
+        isEditModalOpen,
+        selectedBatch,
+        editLoading,
+        handleOpenEditBatch,
+        handleCloseEditBatch,
+        handleSaveBatchNumber
     };
 };
