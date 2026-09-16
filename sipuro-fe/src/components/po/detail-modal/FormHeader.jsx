@@ -11,6 +11,12 @@ const FormHeader = ({
 }) => {
     const isNotCustomer = userRole !== 'CUSTOMER';
 
+    const getMinDeliveryDate = () => {
+        const date = new Date();
+        date.setMonth(date.getMonth() + 4);
+        return date.toISOString().split('T')[0];
+    };
+
     return (
         <>
             {poStatus === 'Rejected' && (
@@ -40,7 +46,7 @@ const FormHeader = ({
                         onChange={(e) => setRequestedDeliveryDate(e.target.value)}
                         required
                         disabled={isNotCustomer}
-                        min={new Date().toISOString().split('T')[0]}
+                        min={getMinDeliveryDate()}
                         style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                     />
                 </div>

@@ -122,8 +122,50 @@ async function refreshBatchStatus(connection, batchId) {
     }
 }
 
+/**
+ * Helper untuk menyegarkan total fulfilled_qty pada po_details dari alokasinya
+ */
+async function refreshPODetailFulfilledQty(connection, poDetailId) {
+    await connection.query(
+        `UPDATE po_details d
+         SET d.fulfilled_qty = (
+             SELECT COALESCE(SUM(pba.fulfilled_qty), 0)
+             FROM po_batch_allocations pba
+             WHERE pba.po_detail_id = d.po_detail_id
+         )
+         WHERE d.po_detail_id = ?`,
+        [poDetailId]
+    );
+}
+
+/**
+ * Helper untuk menyinkronkan tanggal aktual produksi ke tabel batches dari detail upload
+ */
+async function updateBatchProductionDates(connection, batchNumber, currentUserId) {
+    const [[dates]] = await connection.query(`
+        SELECT 
+            MIN(actual_start_datetime) AS min_start,
+            MAX(actual_completed_datetime) AS max_completed
+        FROM production_upload_details
+        WHERE batch_number = ?
+    `, [batchNumber]);
+
+    if (dates && (dates.min_start || dates.max_completed)) {
+        await connection.query(`
+            UPDATE batches 
+            SET 
+                actual_production_date = COALESCE(?, actual_production_date),
+                actual_completed_date = COALESCE(?, actual_completed_date),
+                updated_by = ?
+            WHERE batch_number = ?
+        `, [dates.min_start, dates.max_completed, currentUserId, batchNumber]);
+    }
+}
+
 module.exports = {
     getPOTolerance,
     refreshPOStatus,
-    refreshBatchStatus
+    refreshBatchStatus,
+    refreshPODetailFulfilledQty,
+    updateBatchProductionDates
 };

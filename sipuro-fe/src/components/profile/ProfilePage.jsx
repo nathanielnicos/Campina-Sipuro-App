@@ -70,6 +70,16 @@ const ProfilePage = ({ currentUser }) => {
                     ) : (
                         <>
                             <div style={styles.formGroup}>
+                                <label style={styles.label}>Email Address</label>
+                                <input
+                                    type="email"
+                                    value={formData.email || ''}
+                                    disabled
+                                    style={styles.inputDisabled}
+                                />
+                            </div>
+
+                            <div style={styles.formGroup}>
                                 <label style={styles.label}>Gender</label>
                                 <input
                                     type="text"

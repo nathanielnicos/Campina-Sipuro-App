@@ -36,18 +36,41 @@ function App() {
     return userMenus && userMenus.length > 0 ? userMenus[0].id : 'po-list';
   }, []);
 
+  // Membaca path dari URL browser (misal: /po-list)
+  const getInitialTab = useCallback((userData) => {
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, ''); // Menghapus tanda '/'
+
+    // Jika path di URL cocok dengan tab yang valid
+    if (path === 'po-list') return 'po-list';
+    if (path === 'delivery-order') return 'delivery-order';
+    if (path === 'ppic-dashboard') return 'ppic-dashboard';
+    if (path === 'ppic-batch') return 'ppic-batch';
+    if (path === 'profile') return 'profile';
+
+    // Jika tidak ada di URL, gunakan tab pertama sesuai role user
+    return getDefaultTab(userData);
+  }, [getDefaultTab]);
+
   useEffect(() => {
     const savedUser = localStorage.getItem('sipuro_user');
     if (savedUser) {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
-        setActiveTab(getDefaultTab(parsedUser));
+        // Ganti getDefaultTab dengan getInitialTab
+        setActiveTab(getInitialTab(parsedUser));
       } catch (e) {
         console.error('Failed to parse saved user:', e);
       }
     }
-  }, [getDefaultTab]);
+  }, [getInitialTab]);
+
+  // Mengupdate URL di address bar browser saat activeTab berubah
+  useEffect(() => {
+    if (user && activeTab) {
+      window.history.pushState(null, '', `/${activeTab}`);
+    }
+  }, [activeTab, user]);
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);

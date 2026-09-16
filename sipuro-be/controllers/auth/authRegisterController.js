@@ -6,9 +6,9 @@ exports.register = async (req, res) => {
         const { user_type } = req.body;
 
         if (user_type === 'EMPLOYEE') {
-            const { employee_code, full_name, gender, birth_date, department, password, confirm_password } = req.body;
+            const { employee_code, full_name, email, gender, birth_date, department, password, confirm_password } = req.body;
 
-            if (!employee_code || !full_name || !gender || !birth_date || !department || !password || !confirm_password) {
+            if (!employee_code || !full_name || !email || !gender || !birth_date || !department || !password || !confirm_password) {
                 return res.status(400).json({ success: false, message: 'All employee fields are required.' });
             }
 
@@ -16,6 +16,11 @@ exports.register = async (req, res) => {
 
             if (cleanEmpCode.length !== 5) {
                 return res.status(400).json({ success: false, message: 'Employee Code must be exactly 5 characters.' });
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ success: false, message: 'Invalid email format.' });
             }
 
             if (department === 'Pilih') {
@@ -36,12 +41,12 @@ exports.register = async (req, res) => {
 
             const encryptedPassword = await hashPassword(password);
 
-            // Menggunakan CURDATE() langsung dari database agar konsisten dengan timezone +07:00 di db.js
+            // Insert data employee beserta email
             await sipuroDb.query(
                 `INSERT INTO sipuro_db.employees 
-                (employee_code, full_name, gender, birth_date, department, role, join_date, is_suspended, password) 
-                VALUES (?, ?, ?, ?, ?, 'STAFF', CURDATE(), 1, ?)`,
-                [cleanEmpCode, full_name, gender, birth_date, department, encryptedPassword]
+                (employee_code, full_name, email, gender, birth_date, department, role, join_date, is_suspended, password) 
+                VALUES (?, ?, ?, ?, ?, ?, 'STAFF', CURDATE(), 1, ?)`,
+                [cleanEmpCode, full_name, email, gender, birth_date, department, encryptedPassword]
             );
 
             return res.status(201).json({

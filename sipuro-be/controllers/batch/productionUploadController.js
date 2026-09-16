@@ -1,6 +1,12 @@
 const { sipuroDb: db } = require('../../config/db');
 const { parseProductionExcel, calculateFifoAllocation } = require('../../helpers/excelFifoService');
-const { refreshPOStatus, refreshBatchStatus, getPOTolerance } = require('../../helpers/batchHelper');
+const {
+    refreshPOStatus,
+    refreshBatchStatus,
+    getPOTolerance,
+    refreshPODetailFulfilledQty,
+    updateBatchProductionDates
+} = require('../../helpers/batchHelper');
 
 /**
  * Preview Upload Excel Produksi (PPIC)
@@ -202,24 +208,7 @@ exports.commitExcelAllocation = async (req, res) => {
 
         // 4. Update MIN(actual_start) dan MAX(actual_completed) ke tabel `batches`
         for (const bNo of affectedBatchNumbers) {
-            const [[dates]] = await connection.query(`
-                SELECT 
-                    MIN(actual_start_datetime) AS min_start,
-                    MAX(actual_completed_datetime) AS max_completed
-                FROM production_upload_details
-                WHERE batch_number = ?
-            `, [bNo]);
-
-            if (dates && (dates.min_start || dates.max_completed)) {
-                await connection.query(`
-                    UPDATE batches 
-                    SET 
-                        actual_production_date = COALESCE(?, actual_production_date),
-                        actual_completed_date = COALESCE(?, actual_completed_date),
-                        updated_by = ?
-                    WHERE batch_number = ?
-                `, [dates.min_start, dates.max_completed, currentUserId, bNo]);
-            }
+            await updateBatchProductionDates(connection, bNo, currentUserId);
         }
 
         // 5. Refresh status Induk Batch
@@ -265,16 +254,7 @@ exports.commitExcelAllocation = async (req, res) => {
         const poHeaderIds = new Set();
 
         for (const pdId of poDetailIds) {
-            await connection.query(
-                `UPDATE po_details d
-                 SET d.fulfilled_qty = (
-                     SELECT COALESCE(SUM(pba.fulfilled_qty), 0)
-                     FROM po_batch_allocations pba
-                     WHERE pba.po_detail_id = d.po_detail_id
-                 )
-                 WHERE d.po_detail_id = ?`,
-                [pdId]
-            );
+            await refreshPODetailFulfilledQty(connection, pdId);
 
             const [[pd]] = await connection.query('SELECT po_header_id FROM po_details WHERE po_detail_id = ?', [pdId]);
             if (pd && pd.po_header_id) {

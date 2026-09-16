@@ -6,6 +6,7 @@ function RegisterForm({ onSubmit, loading, onSwitchToLogin, setErrorMsg }) {
     // State Employee
     const [empCode, setEmpCode] = useState('');
     const [empName, setEmpName] = useState('');
+    const [empEmail, setEmpEmail] = useState('');
     const [empGender, setEmpGender] = useState('M');
     const [empBirthDate, setEmpBirthDate] = useState('');
     const [empDept, setEmpDept] = useState('Pilih');
@@ -40,6 +41,7 @@ function RegisterForm({ onSubmit, loading, onSwitchToLogin, setErrorMsg }) {
                 ...payload,
                 employee_code: empCode.trim(),
                 full_name: empName,
+                email: empEmail,
                 gender: empGender,
                 birth_date: empBirthDate,
                 department: empDept,
@@ -104,6 +106,18 @@ function RegisterForm({ onSubmit, loading, onSwitchToLogin, setErrorMsg }) {
                             onChange={(e) => setEmpName(e.target.value)}
                             required
                             placeholder="Full Name"
+                            style={{ width: '100%', padding: '7px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ccc', fontSize: '13px' }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '12px' }}>
+                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Email:</label>
+                        <input
+                            type="email"
+                            value={empEmail}
+                            onChange={(e) => setEmpEmail(e.target.value)}
+                            required
+                            placeholder="employee@company.com"
                             style={{ width: '100%', padding: '7px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ccc', fontSize: '13px' }}
                         />
                     </div>

@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 
-const initialItemState = {
+const generateUniqueId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+const createInitialItem = () => ({
+    row_id: generateUniqueId(),
     id_product: '',
     product_code: '',
     product_name: '',
@@ -12,10 +20,10 @@ const initialItemState = {
     pcs_per_ctn: 1,
     ctn_per_plt: 1,
     total_price: 0
-};
+});
 
 export const useItemRow = ({ rawPoItems = [], products = [], isCustomer = true }) => {
-    const [items, setItems] = useState([{ ...initialItemState }]);
+    const [items, setItems] = useState([createInitialItem()]);
     const [searchTerm, setSearchTerm] = useState({});
     const [openDropdown, setOpenDropdown] = useState(null);
 
@@ -25,7 +33,9 @@ export const useItemRow = ({ rawPoItems = [], products = [], isCustomer = true }
     // Mappings data items saat rawPoItems atau products berubah
     useEffect(() => {
         if (rawPoItems && rawPoItems.length > 0) {
-            const mappedItems = rawPoItems.map((item) => {
+            const initialSearch = {};
+
+            const mappedItems = rawPoItems.map((item, idx) => {
                 const productId = item.id_product || item.product_id;
                 const masterProd = products.find((p) => String(p.id_product) === String(productId));
 
@@ -56,11 +66,21 @@ export const useItemRow = ({ rawPoItems = [], products = [], isCustomer = true }
                     }
                 }
 
+                const productCode = item.product_code || masterProd?.product_code || '';
+                const productName = item.product_name || masterProd?.product_name || '';
+
+                if (productCode || productName) {
+                    initialSearch[idx] = isCustomer
+                        ? productName
+                        : `${productCode} - ${productName}`;
+                }
+
                 return {
+                    row_id: generateUniqueId(),
                     po_detail_id: item.po_detail_id || item.id,
                     id_product: productId,
-                    product_code: item.product_code || masterProd?.product_code || '',
-                    product_name: item.product_name || masterProd?.product_name || '',
+                    product_code: productCode,
+                    product_name: productName,
                     qty: currentQty,
                     base_price: pureBasePrice,
                     unit_price: unitPrice,
@@ -73,15 +93,6 @@ export const useItemRow = ({ rawPoItems = [], products = [], isCustomer = true }
             });
 
             setItems(mappedItems);
-
-            const initialSearch = {};
-            mappedItems.forEach((itm, idx) => {
-                if (itm.product_code || itm.product_name) {
-                    initialSearch[idx] = isCustomer
-                        ? itm.product_name
-                        : `${itm.product_code} - ${itm.product_name}`;
-                }
-            });
             setSearchTerm(initialSearch);
         }
     }, [rawPoItems, products, isCustomer]);
@@ -108,7 +119,7 @@ export const useItemRow = ({ rawPoItems = [], products = [], isCustomer = true }
 
         setItems(updatedItems);
         const displayLabel = isCustomer ? prod.product_name : `${prod.product_code} - ${prod.product_name}`;
-        setSearchTerm({ ...searchTerm, [index]: displayLabel });
+        setSearchTerm(prev => ({ ...prev, [index]: displayLabel }));
         setOpenDropdown(null);
     };
 
@@ -118,21 +129,44 @@ export const useItemRow = ({ rawPoItems = [], products = [], isCustomer = true }
 
         const updatedItems = [...items];
         const item = updatedItems[index];
-        item.qty = qty;
-        item.total_price = (item.unit_price || 0) * qty;
-
-        setItems(updatedItems);
+        if (item) {
+            item.qty = qty;
+            item.total_price = (item.unit_price || 0) * qty;
+            setItems(updatedItems);
+        }
     };
 
-    const handleAddItem = () => setItems([...items, { ...initialItemState }]);
+    const handleAddItem = () => {
+        setItems(prevItems => [...prevItems, createInitialItem()]);
+    };
 
     const handleRemoveItem = (index) => {
-        if (items.length === 1) return;
+        if (items.length <= 1) return;
+
         const updatedItems = items.filter((_, i) => i !== index);
-        const newSearchTerm = { ...searchTerm };
-        delete newSearchTerm[index];
+
+        // Re-index searchTerm agar baris yang bergeser ke atas tetap mempertahankan label pengetikannya
+        const newSearchTerm = {};
+        updatedItems.forEach((itm, newIdx) => {
+            const oldIdx = newIdx >= index ? newIdx + 1 : newIdx;
+            if (searchTerm[oldIdx] !== undefined) {
+                newSearchTerm[newIdx] = searchTerm[oldIdx];
+            } else if (itm.product_name || itm.product_code) {
+                newSearchTerm[newIdx] = isCustomer
+                    ? itm.product_name
+                    : `${itm.product_code} - ${itm.product_name}`;
+            }
+        });
+
+        // Sesuaikan halaman pagination jika halaman saat ini menjadi kosong setelah item dihapus
+        const newTotalPages = Math.ceil(updatedItems.length / pageSize) || 1;
+        if (currentPage > newTotalPages) {
+            setCurrentPage(newTotalPages);
+        }
+
         setSearchTerm(newSearchTerm);
         setItems(updatedItems);
+        setOpenDropdown(null);
     };
 
     const totalPages = Math.ceil(items.length / pageSize) || 1;

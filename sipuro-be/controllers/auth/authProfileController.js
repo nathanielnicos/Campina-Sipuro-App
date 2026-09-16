@@ -32,6 +32,7 @@ exports.getProfile = async (req, res) => {
                     id, 
                     employee_code AS code, 
                     full_name, 
+                    email,
                     gender, 
                     DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date, 
                     department,
