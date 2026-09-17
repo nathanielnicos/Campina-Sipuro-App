@@ -75,22 +75,26 @@ const parseProductionExcel = (fileBuffer) => {
         const row = rawData[i];
         if (!row) continue;
 
+        // B = index 1, E = index 4, F = index 5, J = index 9, N = index 13
         const batchNumber = row[1] ? String(row[1]).trim() : '';
         const lotNumber = row[4] ? String(row[4]).trim() : '';
         const itemCode = row[5] ? String(row[5]).trim() : '';
-        const qtyPac = parseInt(row[12], 10) || 0;
+        const lotStatus = row[9] ? String(row[9]).trim() : '';
+        const qtyPac = parseInt(row[13], 10) || 0;
 
         if (!batchNumber || batchNumber === 'Batch Num.' || batchNumber === 'SubTot') {
             continue;
         }
 
-        const startDatetime = parseExcelDateTime(row[14], row[15]);
-        const completedDatetime = parseExcelDateTime(row[16], row[17]);
+        // Q = index 16, R = index 17 | S = index 18, T = index 19
+        const startDatetime = parseExcelDateTime(row[16], row[17]);
+        const completedDatetime = parseExcelDateTime(row[18], row[19]);
 
         const hashPayload = [
             batchNumber,
             lotNumber,
             itemCode,
+            lotStatus,
             qtyPac,
             startDatetime || '',
             completedDatetime || ''
@@ -102,6 +106,7 @@ const parseProductionExcel = (fileBuffer) => {
             batchNumber,
             lotNumber,
             itemCode,
+            lotStatus,
             qtyPac,
             actualStartDatetime: startDatetime,
             actualCompletedDatetime: completedDatetime,
@@ -135,7 +140,8 @@ const calculateFifoAllocation = (
     const categorizedDetails = {
         newRows: [],
         duplicateRows: [],
-        unregisteredRows: []
+        unregisteredRows: [],
+        nonGoodRows: [] // Tab ke-4 untuk menampung status lot selain GOOD
     };
 
     const newItemsAggregated = {};
@@ -148,10 +154,14 @@ const calculateFifoAllocation = (
 
         const isRegistered = !!matchedProduct && matchedAllocations.length > 0;
         const isDuplicate = hashSet.has(row.rowHash);
+        const isLotGood = row.lotStatus && row.lotStatus.toUpperCase() === 'GOOD';
 
         if (!isRegistered) {
             row.rowStatusCategory = 'UNREGISTERED';
             categorizedDetails.unregisteredRows.push(row);
+        } else if (!isLotGood) {
+            row.rowStatusCategory = 'NON_GOOD';
+            categorizedDetails.nonGoodRows.push(row);
         } else if (isDuplicate) {
             row.rowStatusCategory = 'DUPLICATE';
             categorizedDetails.duplicateRows.push(row);
@@ -159,6 +169,7 @@ const calculateFifoAllocation = (
             row.rowStatusCategory = 'NEW';
             categorizedDetails.newRows.push(row);
 
+            // Hanya akumulasi baris yang NEW (Valid & Status Lot GOOD)
             const key = `${row.batchNumber}_${row.itemCode}`;
             if (!newItemsAggregated[key]) {
                 newItemsAggregated[key] = {
@@ -281,7 +292,8 @@ const calculateFifoAllocation = (
             totalRows: rawRows.length,
             newCount: categorizedDetails.newRows.length,
             duplicateCount: categorizedDetails.duplicateRows.length,
-            unregisteredCount: categorizedDetails.unregisteredRows.length
+            unregisteredCount: categorizedDetails.unregisteredRows.length,
+            nonGoodCount: categorizedDetails.nonGoodRows.length
         },
         previewResults,
         unallocatedStocks,

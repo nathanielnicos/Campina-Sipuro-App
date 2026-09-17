@@ -50,15 +50,21 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
     const handleConfirmSave = async (modalPayload = {}) => {
         if (!previewData) return;
 
-        const newDetailsCount = modalPayload.newDetails ? modalPayload.newDetails.length : 0;
+        // Fallback aman untuk menghitung baris newDetails
+        const validNewDetails = modalPayload.newDetails
+            || previewData.categorizedDetails?.newRows
+            || [];
+
+        const newDetailsCount = validNewDetails.length || previewData.summary?.newCount || 0;
 
         const confirmMsg = previewData.isReupload
             ? `${previewData.warningMessage}\nAre you sure you want to resave this production allocation?`
-            : `Save ${newDetailsCount} new row(s) to the database?`;
+            : `Save ${newDetailsCount} new valid row(s) to the database?`;
 
         if (!window.confirm(confirmMsg)) return;
 
         setSaving(true);
+
         const payload = {
             processTimestamp: previewData.processTimestamp,
             fileHash: previewData.fileHash,
@@ -66,7 +72,7 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
             userId: currentUserId,
             allocations: previewData.detailedAllocations || [],
             unallocatedStocks: previewData.unallocatedStocks || [],
-            newDetails: modalPayload.newDetails || []
+            newDetails: validNewDetails
         };
 
         const res = await confirmProductionApi(payload);

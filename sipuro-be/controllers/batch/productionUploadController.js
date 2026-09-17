@@ -130,7 +130,7 @@ exports.commitExcelAllocation = async (req, res) => {
         // Set penampung seluruh batch_number yang terlibat pada transaksi ini
         const affectedBatchNumbers = new Set();
 
-        // 2. Simpan detail baris data baru ke production_upload_details
+        // 2. Simpan detail baris data baru ke production_upload_details (termasuk lot_status)
         if (newDetails && newDetails.length > 0) {
             const detailValues = newDetails.map(detail => {
                 if (detail.batchNumber) {
@@ -141,6 +141,7 @@ exports.commitExcelAllocation = async (req, res) => {
                     detail.batchNumber,
                     detail.lotNumber || null,
                     detail.itemCode,
+                    detail.lotStatus || null,
                     detail.qtyPac || 0,
                     detail.actualStartDatetime || null,
                     detail.actualCompletedDatetime || null,
@@ -150,7 +151,7 @@ exports.commitExcelAllocation = async (req, res) => {
 
             await connection.query(
                 `INSERT INTO production_upload_details 
-                (upload_log_id, batch_number, lot_number, item_code, qty_pac, actual_start_datetime, actual_completed_datetime, row_hash) 
+                (upload_log_id, batch_number, lot_number, item_code, lot_status, qty_pac, actual_start_datetime, actual_completed_datetime, row_hash) 
                 VALUES ?`,
                 [detailValues]
             );
