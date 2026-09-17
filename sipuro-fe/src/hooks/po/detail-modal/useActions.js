@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { savePO, cancelPOApi, updatePOStatusApi } from '../../../services/poApi';
 
 export const useActions = ({ poId, currentUser, onSuccess }) => {
-    const [actionLoading, setActionLoading] = useState(false);
+    // Simpan jenis aksi yang sedang loading, contoh: 'SAVE', 'CANCEL', 'APPROVE', 'REJECT', atau null
+    const [actionLoading, setActionLoading] = useState(null);
 
     const userRole = currentUser?.role;
     const customerUserId = userRole === 'CUSTOMER' ? currentUser?.id : null;
@@ -47,7 +48,7 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
         };
 
         try {
-            setActionLoading(true);
+            setActionLoading('SAVE');
             const result = await savePO(poId, payload);
             if (result.success) {
                 alert(poId ? 'PO updated successfully!' : 'PO created successfully!');
@@ -59,7 +60,7 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
             console.error('Error submitting PO:', err);
             alert('A connection error occurred while saving the PO.');
         } finally {
-            setActionLoading(false);
+            setActionLoading(null);
         }
     };
 
@@ -67,7 +68,7 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
         if (!window.confirm('Are you sure you want to cancel this PO?')) return;
 
         try {
-            setActionLoading(true);
+            setActionLoading('CANCEL');
             const result = await cancelPOApi(poId, customerUserId);
             if (result.success) {
                 alert('PO cancelled successfully!');
@@ -79,12 +80,14 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
             console.error('Error canceling PO:', err);
             alert('An error occurred while cancelling the PO.');
         } finally {
-            setActionLoading(false);
+            setActionLoading(null);
         }
     };
 
     const handleUpdateStatus = async (newStatus) => {
         let notes = '';
+        const targetAction = newStatus === 'Rejected' ? 'REJECT' : 'APPROVE';
+
         if (newStatus === 'Rejected') {
             const inputNotes = prompt('Enter rejection reason (Maximum 50 characters):');
             if (inputNotes === null) return;
@@ -108,7 +111,7 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
         }
 
         try {
-            setActionLoading(true);
+            setActionLoading(targetAction);
             const result = await updatePOStatusApi(poId, newStatus, notes, employeeId);
 
             if (result.success) {
@@ -124,7 +127,7 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
             console.error('Error updating status:', err);
             alert('A server connection error occurred.');
         } finally {
-            setActionLoading(false);
+            setActionLoading(null);
         }
     };
 

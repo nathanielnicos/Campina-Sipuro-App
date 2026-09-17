@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { formatQty, formatDate } from '../../../utils/formatters';
 import PaginationControl from '../../common/PaginationControl';
 
@@ -73,11 +73,15 @@ const ValidDataTab = ({ previewResults = [], unallocatedStocks = [] }) => {
                                     const actualIndex = (mainCurrentPage - 1) * mainPageSize + localIdx;
 
                                     const matchedAlloc = item.allocations && item.allocations[0];
-                                    const planDate = matchedAlloc?.plan_production_date
-                                        ? matchedAlloc.plan_production_date.split('T')[0]
-                                        : (item.planDate ? item.planDate.split('T')[0] : '-');
-                                    const actDate = item.actDate ? item.actDate.split('T')[0] : '-';
-                                    const isDateDifferent = planDate !== '-' && actDate !== '-' && planDate !== actDate;
+
+                                    // Mengutamakan item.planDate agar presisi dari backend, fallback ke matchedAlloc jika tidak ada
+                                    const rawPlanDate = item.planDate || matchedAlloc?.plan_production_date || null;
+                                    const rawActDate = item.actDate || null;
+
+                                    const formattedPlanDate = rawPlanDate ? formatDate(rawPlanDate) : '-';
+                                    const formattedActDate = rawActDate ? formatDate(rawActDate) : '-';
+
+                                    const isDateDifferent = formattedPlanDate !== '-' && formattedActDate !== '-' && formattedPlanDate !== formattedActDate;
 
                                     const productTitle = item.productName
                                         ? `${item.productCode} - ${item.productName}`
@@ -110,7 +114,7 @@ const ValidDataTab = ({ previewResults = [], unallocatedStocks = [] }) => {
                                                             {productTitle}
                                                         </td>
                                                         <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top' }}>
-                                                            {formatDate(planDate)}
+                                                            {formattedPlanDate}
                                                         </td>
                                                         <td rowSpan={rowSpan} style={{
                                                             textAlign: 'center',
@@ -118,7 +122,7 @@ const ValidDataTab = ({ previewResults = [], unallocatedStocks = [] }) => {
                                                             fontWeight: isDateDifferent ? 'bold' : 'normal',
                                                             color: isDateDifferent ? '#dc3545' : 'inherit'
                                                         }}>
-                                                            {formatDate(actDate)}
+                                                            {formattedActDate}
                                                         </td>
                                                     </>
                                                 )}

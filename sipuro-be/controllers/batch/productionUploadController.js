@@ -7,6 +7,8 @@ const {
     refreshPODetailFulfilledQty,
     updateBatchProductionDates
 } = require('../../helpers/batchHelper');
+const { logAllocationUpdate } = require('../../helpers/poBatchAllocationLogHelper');
+const { logUnallocatedStock } = require('../../helpers/unallocatedStockLogHelper');
 
 /**
  * Preview Upload Excel Produksi (PPIC)
@@ -158,6 +160,8 @@ exports.commitExcelAllocation = async (req, res) => {
         }
 
         // 3. Update status & qty fulfilled, serta CATAT LOG DETAIL per baris alokasi PO
+        const logsToInsert = [];
+
         for (const item of allocations) {
             const allocationId = item.allocationId || item.id_allocation || item.id;
             const poDetailId = item.poDetailId || item.po_detail_id;
@@ -174,30 +178,28 @@ exports.commitExcelAllocation = async (req, res) => {
             );
 
             if (oldData) {
-                await connection.query(
-                    `INSERT INTO po_batch_allocation_logs (
-                        upload_log_id, allocation_id, po_detail_id, id_batch,
-                        action_type, old_fulfilled_qty, new_fulfilled_qty,
-                        old_status, new_status, created_by
-                    ) VALUES (?, ?, ?, ?, 'UPDATE', ?, ?, ?, ?, ?)`,
-                    [
-                        uploadLogId,
-                        allocationId,
-                        poDetailId,
-                        batchId,
-                        oldData.fulfilled_qty || 0,
-                        fulfilledQty,
-                        oldData.status,
-                        rowStatus,
-                        currentUserId
-                    ]
-                );
+                logsToInsert.push({
+                    upload_log_id: uploadLogId,
+                    allocation_id: allocationId,
+                    po_detail_id: poDetailId,
+                    id_batch: batchId,
+                    old_fulfilled_qty: oldData.fulfilled_qty || 0,
+                    new_fulfilled_qty: fulfilledQty,
+                    old_status: oldData.status,
+                    new_status: rowStatus,
+                    created_by: currentUserId
+                });
             }
 
             await connection.query(
                 'UPDATE po_batch_allocations SET fulfilled_qty = ?, status = ?, updated_by = ? WHERE id = ?',
                 [fulfilledQty, rowStatus, currentUserId, allocationId]
             );
+        }
+
+        // Catat seluruh log UPDATE secara batch menggunakan helper
+        if (logsToInsert.length > 0) {
+            await logAllocationUpdate(connection, logsToInsert, currentUserId);
         }
 
         if (unallocatedStocks && unallocatedStocks.length > 0) {
@@ -222,8 +224,10 @@ exports.commitExcelAllocation = async (req, res) => {
             await refreshBatchStatus(connection, bId);
         }
 
-        // 6. Simpan stok lebihan jika ada
+        // 6. Simpan stok lebihan jika ada & CATAT LOG CREATE
         if (unallocatedStocks && unallocatedStocks.length > 0) {
+            const unallocatedLogsToInsert = [];
+
             for (const stock of unallocatedStocks) {
                 const bNo = stock.batchNumber || stock.batch_number;
                 const idProd = stock.idProduct || stock.id_product;
@@ -240,13 +244,28 @@ exports.commitExcelAllocation = async (req, res) => {
                     const actStart = bDates?.actual_production_date || stock.actualStartDatetime || null;
                     const actEnd = bDates?.actual_completed_date || stock.actualCompletedDatetime || null;
 
-                    await connection.query(
+                    const [insertUnallocResult] = await connection.query(
                         `INSERT INTO unallocated_stocks 
                         (batch_number, id_product, qty_available, actual_production_date, actual_completed_date, created_by) 
                         VALUES (?, ?, ?, ?, ?, ?)`,
                         [bNo, idProd, qtyAvail, actStart, actEnd, currentUserId]
                     );
+
+                    // Kumpulkan data log awal (CREATE) untuk stok lebihan ini
+                    unallocatedLogsToInsert.push({
+                        unallocatedStockId: insertUnallocResult.insertId,
+                        targetAllocationId: null,
+                        actionType: 'CREATE',
+                        qtyReallocated: 0,
+                        qtyBefore: 0,
+                        qtyAfter: qtyAvail
+                    });
                 }
+            }
+
+            // Catat log penciptaan awal stok ke unallocated_stock_logs
+            if (unallocatedLogsToInsert.length > 0) {
+                await logUnallocatedStock(connection, unallocatedLogsToInsert, currentUserId);
             }
         }
 

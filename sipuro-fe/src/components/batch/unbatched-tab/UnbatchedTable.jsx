@@ -107,11 +107,11 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 onResetFilters={handleResetFilters}
             />
 
-            <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
+            <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e9ecef', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'auto' }}>
                         <thead>
-                            <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                            <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
                                 <SortableHeader
                                     label="Product Code"
                                     sortKey="product_code"
@@ -142,13 +142,13 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                     onSort={handleSort}
                                     align="center"
                                 />
-                                <th style={{ padding: '12px 10px', textAlign: 'left', whiteSpace: 'nowrap' }}>PO Number</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>PO Created Date</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                <th style={{ padding: '12px 10px', textAlign: 'left', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Number</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Created Date</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>
                                     PO Req.<br />Delivery Date
                                 </th>
-                                <th style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>PO Qty (Pcs)</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', width: '120px' }}>Action</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Qty (Pcs)</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', width: '120px', color: '#495057', fontWeight: '600' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>

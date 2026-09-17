@@ -1,5 +1,6 @@
 const { sipuroDb } = require('../../config/db');
 const { refreshPOStatus } = require('../../helpers/batchHelper');
+const { logAllocationInsert } = require('../../helpers/poBatchAllocationLogHelper');
 
 // Mengambil daftar produk yang belum dialokasikan ke batch
 exports.getUnassignedSummary = async (req, res) => {
@@ -99,7 +100,7 @@ exports.getUnassignedSummary = async (req, res) => {
                 SUM(d.base_qty - IFNULL(alloc.total_allocated, 0)) AS total_qty_needed,
                 COUNT(DISTINCT CASE WHEN (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0 THEN h.po_header_id END) AS total_po_count,
                 GROUP_CONCAT(
-                    DISTINCT IF(
+                    IF(
                         (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0,
                         CONCAT(
                             h.po_number, ' (', 
@@ -112,7 +113,7 @@ exports.getUnassignedSummary = async (req, res) => {
                     SEPARATOR '\n'
                 ) AS po_numbers,
                 GROUP_CONCAT(
-                    DISTINCT IF(
+                    IF(
                         (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0,
                         DATE_FORMAT(h.created_at, '%Y-%m-%d'),
                         NULL
@@ -121,7 +122,7 @@ exports.getUnassignedSummary = async (req, res) => {
                     SEPARATOR '\n'
                 ) AS created_dates,
                 GROUP_CONCAT(
-                    DISTINCT IF(
+                    IF(
                         (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0,
                         IFNULL(DATE_FORMAT(h.requested_delivery_date, '%Y-%m-%d'), '-'),
                         NULL
@@ -268,21 +269,48 @@ exports.assignBatchBulk = async (req, res) => {
 
         let remainingToDistribute = reqQty;
         const affectedHeaders = new Set();
+        const newLogItems = [];
 
         for (const item of unassignedItems) {
             if (remainingToDistribute <= 0) break;
 
             const allocForThisItem = Math.min(item.remaining_qty, remainingToDistribute);
 
-            await connection.query(
+            const [allocResult] = await connection.query(
                 `INSERT INTO sipuro_db.po_batch_allocations (po_detail_id, id_batch, allocated_qty, fulfilled_qty, status, created_by) 
                  VALUES (?, ?, ?, 0, 'Open', ?)
                  ON DUPLICATE KEY UPDATE allocated_qty = allocated_qty + VALUES(allocated_qty)`,
                 [item.po_detail_id, targetId, allocForThisItem, created_by || null]
             );
 
+            // Jika memasukkan record baru, gunakan insertId. Jika update ON DUPLICATE KEY, ambil ID yang ada.
+            let insertedAllocationId = allocResult.insertId;
+            if (!insertedAllocationId || insertedAllocationId === 0) {
+                const [[existingAlloc]] = await connection.query(
+                    `SELECT id FROM sipuro_db.po_batch_allocations WHERE po_detail_id = ? AND id_batch = ?`,
+                    [item.po_detail_id, targetId]
+                );
+                insertedAllocationId = existingAlloc?.id;
+            }
+
+            if (insertedAllocationId) {
+                newLogItems.push({
+                    allocation_id: insertedAllocationId,
+                    po_detail_id: item.po_detail_id,
+                    id_batch: targetId,
+                    fulfilled_qty: 0,
+                    status: 'Open',
+                    reason: allocation_mode === 'EXISTING' ? 'Allocated to Existing Batch' : 'Allocated to New Batch'
+                });
+            }
+
             remainingToDistribute -= allocForThisItem;
             affectedHeaders.add(item.po_header_id);
+        }
+
+        // Catat log INSERT untuk semua item alokasi yang baru saja dibuat
+        if (newLogItems.length > 0) {
+            await logAllocationInsert(connection, newLogItems, created_by || null);
         }
 
         for (const poHeaderId of affectedHeaders) {

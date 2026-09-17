@@ -1,5 +1,6 @@
 const { sipuroDb } = require('../../config/db');
 const { getPOTolerance, refreshPOStatus, refreshBatchStatus } = require('../../helpers/batchHelper');
+const { logAllocationUpdate } = require('../../helpers/poBatchAllocationLogHelper');
 
 // Helper untuk menyusun klausa ORDER BY yang aman dari SQL Injection
 const buildOrderByClause = (displayMode, sortKey, sortOrder) => {
@@ -356,33 +357,18 @@ exports.updateAllocationStatus = async (req, res) => {
             [newStatus, allocationId]
         );
 
-        await connection.query(`
-            INSERT INTO sipuro_db.po_batch_allocation_logs 
-            (
-                allocation_id, 
-                po_detail_id, 
-                id_batch, 
-                action_type, 
-                old_fulfilled_qty, 
-                new_fulfilled_qty, 
-                old_status, 
-                new_status, 
-                reason,
-                created_by, 
-                created_at
-            )
-            VALUES (?, ?, ?, 'UPDATE', ?, ?, ?, ?, ?, ?, NOW())
-        `, [
-            allocationId,
-            allocation.po_detail_id,
-            allocation.id_batch,
-            allocation.fulfilled_qty || 0,
-            allocation.fulfilled_qty || 0,
-            allocation.status,
-            newStatus,
-            reason || `Manual ${action} action`,
-            userId || allocation.created_by || 1
-        ]);
+        // Pencatatan Log UPDATE menggunakan helper baru
+        await logAllocationUpdate(connection, {
+            allocation_id: allocationId,
+            po_detail_id: allocation.po_detail_id,
+            id_batch: allocation.id_batch,
+            old_fulfilled_qty: allocation.fulfilled_qty || 0,
+            new_fulfilled_qty: allocation.fulfilled_qty || 0,
+            old_status: allocation.status,
+            new_status: newStatus,
+            reason: reason || `Manual ${action} action`,
+            created_by: userId || allocation.created_by || 1
+        });
 
         await refreshPOStatus(connection, allocation.po_header_id);
         await refreshBatchStatus(connection, allocation.id_batch);

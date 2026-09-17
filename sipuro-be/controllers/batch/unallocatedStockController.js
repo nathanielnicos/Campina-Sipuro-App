@@ -1,5 +1,6 @@
 const { sipuroDb: db } = require('../../config/db');
 const { refreshPOStatus, getPOTolerance } = require('../../helpers/batchHelper');
+const { logUnallocatedStock } = require('../../helpers/unallocatedStockLogHelper');
 
 // Mengambil daftar stok kelebihan produksi
 exports.getUnallocatedStocks = async (req, res) => {
@@ -177,6 +178,16 @@ exports.reallocateUnallocatedStock = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Target allocation not found.' });
         }
 
+        // VALIDASI TAMBAHAN: Cek sisa kebutuhan target alokasi
+        const remainingTargetQty = targetAlloc.allocated_qty - targetAlloc.fulfilled_qty;
+        if (qtyToAlloc > remainingTargetQty) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: `Allocation quantity (${qtyToAlloc} Pcs) exceeds target remaining requirement (${remainingTargetQty} Pcs).`
+            });
+        }
+
         const batchId = targetAlloc.id_batch;
         const poDetailId = targetAlloc.po_detail_id;
         const newFulfilledQty = targetAlloc.fulfilled_qty + qtyToAlloc;
@@ -200,19 +211,15 @@ exports.reallocateUnallocatedStock = async (req, res) => {
             [newUnallocatedQty, currentUserId, unallocatedId]
         );
 
-        // LOG AUDIT MUTASI STOK
-        await connection.query(`
-            INSERT INTO unallocated_stock_logs 
-                (unallocated_stock_id, target_allocation_id, qty_reallocated, qty_before, qty_after, created_by)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `, [
-            unallocatedId,
-            targetAllocationId,
-            qtyToAlloc,
-            qtyBefore,
-            newUnallocatedQty,
-            currentUserId
-        ]);
+        // LOG AUDIT MUTASI STOK (Menggunakan Helper)
+        await logUnallocatedStock(connection, {
+            unallocatedStockId: unallocatedId,
+            targetAllocationId: targetAllocationId,
+            actionType: 'REALLOCATE',
+            qtyReallocated: qtyToAlloc,
+            qtyBefore: qtyBefore,
+            qtyAfter: newUnallocatedQty
+        }, currentUserId);
 
         // E. TINGKAT 2: Cek Keseluruhan PO Allocation dalam Batch
         const [remainingOpenAllocations] = await connection.query(

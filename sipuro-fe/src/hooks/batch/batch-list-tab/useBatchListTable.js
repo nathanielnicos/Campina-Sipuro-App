@@ -178,6 +178,10 @@ export const useBatchListTable = (currentUser, reloadTrigger, onRefreshAll) => {
     };
 
     const handleSaveBatchNumber = async (batchId, newBatchNumber) => {
+        // Konfirmasi sebelum mengeksekusi update
+        const confirmSave = window.confirm(`Are you sure you want to rename this batch number to "${newBatchNumber}"?`);
+        if (!confirmSave) return;
+
         setEditLoading(true);
         try {
             const res = await updateBatchNumberApi(batchId, { newBatchNumber });

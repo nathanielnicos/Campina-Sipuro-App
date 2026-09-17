@@ -23,7 +23,7 @@ const RawDataTab = ({ rows = [], config }) => {
                             <th style={{ textAlign: 'left' }}>Lot Number</th>
                             <th style={{ textAlign: 'left' }}>Item Code</th>
                             <th style={{ textAlign: 'center' }}>Lot Status</th>
-                            <th style={{ textAlign: 'right' }}>Qty Pac</th>
+                            <th style={{ textAlign: 'right' }}>Qty (Pcs)</th>
                             <th style={{ textAlign: 'center' }}>Start Datetime</th>
                             <th style={{ textAlign: 'center' }}>Completed Datetime</th>
                         </tr>
