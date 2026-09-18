@@ -13,6 +13,7 @@ const batchRoutes = require('./routes/batchRoutes');
 const productionUploadRoutes = require('./routes/productionUploadRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const doRoutes = require('./routes/doRoutes');
+const productionPlanRoutes = require('./routes/productionPlanRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,6 +38,7 @@ app.use('/api/batch', batchRoutes);
 app.use('/api/upload/production', productionUploadRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/delivery-orders', doRoutes);
+app.use('/api/production-plans', productionPlanRoutes);
 
 // Run Server
 app.listen(PORT, () => {
