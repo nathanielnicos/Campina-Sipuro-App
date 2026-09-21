@@ -1,183 +1,242 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import SummaryCards from './SummaryCards';
 import ValidDataTab from './ValidDataTab';
 import RawDataTab from './RawDataTab';
 
-const tabConfigs = {
-    non_good: {
-        borderColor: '#fecba1',
-        bgColor: '#fff4eb',
-        textColor: '#a73a00',
-        headerBg: '#ffe5d0',
-        highlightStatus: true,
-        infoMessage: <>ℹ️ The following rows have a Lot Status <strong>other than GOOD</strong> and <strong>will be skipped</strong> during saving.</>,
-        emptyMessage: 'No rows with non-GOOD status found.'
-    },
-    duplicate: {
-        borderColor: '#ffeeba',
-        bgColor: '#fff8e6',
-        textColor: '#856404',
-        headerBg: '#fff3cd',
-        highlightStatus: false,
-        infoMessage: <>ℹ️ The following rows have been uploaded previously and <strong>will be skipped</strong> during saving.</>,
-        emptyMessage: 'No duplicate data found.'
-    },
-    unregistered: {
-        borderColor: '#f5c2c7',
-        bgColor: '#fdf2f2',
-        textColor: '#842029',
-        headerBg: '#f8d7da',
-        highlightStatus: false,
-        infoMessage: <>⚠️ The following Batch / Item Codes were not found in the database and <strong>will be skipped</strong> during saving.</>,
-        emptyMessage: 'No unregistered data found.'
-    }
-};
-
 const ImportExcelModal = ({
-    isOpen,
-    previewData,
-    saving,
-    onConfirmSave,
-    onRejectPreview
+    show,
+    onClose,
+    onConfirmImport,
+    parsedData = null,
+    loading = false
 }) => {
     const [activeTab, setActiveTab] = useState('new');
 
-    useEffect(() => {
-        setActiveTab('new');
-    }, [previewData]);
+    if (!show || !parsedData) return null;
 
-    if (!isOpen || !previewData) return null;
+    const {
+        summary = {},
+        previewResults: validData = [],
+        unallocatedStocks = [],
+        categorizedDetails = {},
+        duplicateRows = parsedData.duplicateRows || categorizedDetails.duplicateRows || [],
+        duplicateStatusUpdateRows = parsedData.duplicateStatusUpdateRows || categorizedDetails.duplicateStatusUpdateRows || [],
+        nonGoodRows = parsedData.nonGoodRows || categorizedDetails.nonGoodRows || [],
+        unregisteredRows = parsedData.unregisteredRows || categorizedDetails.unregisteredRows || []
+    } = parsedData || {};
 
-    const summary = previewData.summary || {
-        totalRows: 0,
-        newCount: 0,
-        duplicateCount: 0,
-        unregisteredCount: 0,
-        nonGoodCount: 0
+    const tabConfigs = {
+        new: {
+            title: 'Valid Data (Allocated to PO)',
+            alertBg: '#d1e7dd',
+            alertColor: '#0f5132',
+            alertBorder: '#badbcc',
+            alertMessage: 'The data below is valid and successfully allocated to matching POs. This data will be saved to the database when you click Save.'
+        },
+        unallocated: {
+            title: 'Unallocated Stock',
+            alertBg: '#cff4fc',
+            alertColor: '#055160',
+            alertBorder: '#b6effb',
+            alertMessage: 'The items below are valid but do not have active PO allocations. This data will be stored as unallocated stock.'
+        },
+        duplicate: {
+            title: 'Duplicate Rows (Skipped)',
+            alertBg: '#fff3cd',
+            alertColor: '#664d03',
+            alertBorder: '#ffecb5',
+            alertMessage: 'The rows below are exact duplicates and will be skipped during processing.'
+        },
+        duplicate_status_update: {
+            title: 'Duplicate Status Update Only',
+            alertBg: '#e2e3e5',
+            alertColor: '#41464b',
+            alertBorder: '#d3d6d8',
+            alertMessage: 'The rows below were previously imported, but contain status or condition updates.'
+        },
+        non_good: {
+            title: 'Non-GOOD Status Rows',
+            alertBg: '#ffe5d0',
+            alertColor: '#853e00',
+            alertBorder: '#ffd0a8',
+            alertMessage: 'The rows below have a Non-GOOD quality status and require special attention or will be skipped.'
+        },
+        unregistered: {
+            title: 'Unregistered SKU Rows',
+            alertBg: '#f8d7da',
+            alertColor: '#842029',
+            alertBorder: '#f5c2c7',
+            alertMessage: 'The rows below contain SKU codes that are not registered in the master data. Please register the SKUs first.'
+        }
     };
 
-    const categorizedDetails = previewData.categorizedDetails || {
-        newRows: [],
-        duplicateRows: [],
-        unregisteredRows: [],
-        nonGoodRows: []
-    };
-
-    const canSave = summary.newCount > 0 && !previewData.isReupload;
-
-    const handleSaveClick = () => {
-        onConfirmSave({
-            newDetails: categorizedDetails.newRows || []
-        });
-    };
+    const currentConfig = tabConfigs[activeTab] || tabConfigs.new;
 
     return (
         <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
         }}>
             <div style={{
-                backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '95%', maxWidth: '1350px',
-                maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box'
+                backgroundColor: '#fff',
+                borderRadius: '8px',
+                width: '1100px',
+                maxWidth: '95%',
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                overflow: 'hidden'
             }}>
-                {/* Header Title */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
-                        Production Output Preview (Unsaved)
+                {/* Modal Header */}
+                <div style={{
+                    padding: '16px 24px',
+                    borderBottom: '1px solid #dee2e6',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <h3 style={{ margin: 0, fontSize: '18px', color: '#333', fontWeight: 'bold' }}>
+                        Excel Import Preview
                     </h3>
-                </div>
-
-                {/* Re-upload Warning Alert */}
-                {previewData.isReupload && (
-                    <div style={{ padding: '10px 12px', backgroundColor: '#fff3cd', color: '#856404', borderRadius: '4px', marginBottom: '12px', fontSize: '13px' }}>
-                        ⚠️ <strong>Re-upload Warning:</strong> {previewData.warningMessage}
-                    </div>
-                )}
-
-                {/* Metadata & Interactive Summary Cards */}
-                <div style={{ fontSize: '13px', backgroundColor: '#f8f9fa', padding: '12px', borderRadius: '6px', border: '1px solid #e9ecef', marginBottom: '16px' }}>
-                    <div style={{ marginBottom: '12px' }}>
-                        <strong>File Name:</strong> {previewData.fileName} | <strong>Processed Time:</strong> {previewData.processTimestamp} | <strong>Total Rows:</strong> {summary.totalRows}
-                    </div>
-
-                    <SummaryCards
-                        summary={summary}
-                        activeTab={activeTab}
-                        setActiveTab={setActiveTab}
-                    />
-                </div>
-
-                {/* Content Area */}
-                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', marginBottom: '16px' }}>
-                    {activeTab === 'new' && (
-                        <ValidDataTab
-                            previewResults={previewData.previewResults || []}
-                            unallocatedStocks={previewData.unallocatedStocks || []}
-                        />
-                    )}
-
-                    {activeTab === 'non_good' && (
-                        <RawDataTab
-                            rows={categorizedDetails.nonGoodRows || []}
-                            config={tabConfigs.non_good}
-                        />
-                    )}
-
-                    {activeTab === 'duplicate' && (
-                        <RawDataTab
-                            rows={categorizedDetails.duplicateRows || []}
-                            config={tabConfigs.duplicate}
-                        />
-                    )}
-
-                    {activeTab === 'unregistered' && (
-                        <RawDataTab
-                            rows={categorizedDetails.unregisteredRows || []}
-                            config={tabConfigs.unregistered}
-                        />
-                    )}
-                </div>
-
-                {/* Footer Action Buttons */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid #dee2e6' }}>
                     <button
                         type="button"
-                        onClick={onRejectPreview}
-                        disabled={saving}
+                        onClick={onClose}
+                        disabled={loading}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            fontSize: '20px',
+                            cursor: 'pointer',
+                            color: '#666',
+                            lineHeight: 1
+                        }}
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                {/* Modal Body */}
+                <div style={{
+                    padding: '20px 24px',
+                    overflowY: 'auto',
+                    flex: 1
+                }}>
+                    <div style={{ marginBottom: '16px' }}>
+                        <SummaryCards
+                            summary={summary}
+                            activeTab={activeTab}
+                            setActiveTab={setActiveTab}
+                        />
+                    </div>
+
+                    <div style={{
+                        backgroundColor: currentConfig.alertBg,
+                        color: currentConfig.alertColor,
+                        border: `1px solid ${currentConfig.alertBorder}`,
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        marginBottom: '16px',
+                        fontSize: '13px'
+                    }}>
+                        <strong>{currentConfig.title}: </strong>{currentConfig.alertMessage}
+                    </div>
+
+                    {/* Tab Content */}
+                    <div>
+                        {activeTab === 'new' && (
+                            <ValidDataTab previewResults={validData} />
+                        )}
+
+                        {activeTab === 'unallocated' && (
+                            <RawDataTab
+                                rawData={unallocatedStocks}
+                                isUnallocatedMode={true} // FIX: Memunculkan kolom khusus Unallocated Stock
+                                emptyMessage="No unallocated stock available."
+                            />
+                        )}
+
+                        {activeTab === 'duplicate' && (
+                            <RawDataTab
+                                rawData={duplicateRows}
+                                emptyMessage="No duplicate rows found."
+                            />
+                        )}
+
+                        {activeTab === 'duplicate_status_update' && (
+                            <RawDataTab
+                                rawData={duplicateStatusUpdateRows}
+                                emptyMessage="No status update duplicates found."
+                            />
+                        )}
+
+                        {activeTab === 'non_good' && (
+                            <RawDataTab
+                                rawData={nonGoodRows}
+                                emptyMessage="No Non-GOOD status rows found."
+                            />
+                        )}
+
+                        {activeTab === 'unregistered' && (
+                            <RawDataTab
+                                rawData={unregisteredRows}
+                                emptyMessage="No unregistered SKU rows found."
+                            />
+                        )}
+                    </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div style={{
+                    padding: '16px 24px',
+                    borderTop: '1px solid #dee2e6',
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '8px',
+                    backgroundColor: '#f8f9fa'
+                }}>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={loading}
                         style={{
                             padding: '8px 16px',
-                            backgroundColor: '#6c757d',
+                            borderRadius: '4px',
+                            border: '1px solid #ccc',
+                            backgroundColor: '#fff',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.6 : 1,
+                            fontSize: '14px'
+                        }}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirmImport}
+                        disabled={loading || (summary.newCount === 0 && summary.unallocatedCount === 0)}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#0d6efd',
                             color: '#fff',
                             border: 'none',
                             borderRadius: '4px',
-                            cursor: saving ? 'not-allowed' : 'pointer',
-                            opacity: saving ? 0.6 : 1,
-                            transition: 'all 0.2s ease-in-out'
+                            cursor: (loading || (summary.newCount === 0 && summary.unallocatedCount === 0)) ? 'not-allowed' : 'pointer',
+                            opacity: (loading || (summary.newCount === 0 && summary.unallocatedCount === 0)) ? 0.6 : 1,
+                            fontWeight: 'bold',
+                            fontSize: '14px'
                         }}
                     >
-                        Close
+                        {loading ? 'Saving Data...' : 'Save Import Data'}
                     </button>
-
-                    {canSave && (
-                        <button
-                            type="button"
-                            onClick={handleSaveClick}
-                            disabled={saving}
-                            style={{
-                                padding: '8px 16px',
-                                backgroundColor: '#198754',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: saving ? 'not-allowed' : 'pointer',
-                                opacity: saving ? 0.6 : 1,
-                                fontWeight: 'bold',
-                                transition: 'all 0.2s ease-in-out'
-                            }}
-                        >
-                            {saving ? 'Saving...' : `Save to Database (${summary.newCount} Valid Rows)`}
-                        </button>
-                    )}
                 </div>
             </div>
         </div>

@@ -53,7 +53,7 @@ const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdat
                         <button
                             type="button"
                             disabled={isAnyLoading}
-                            onClick={() => onUpdateStatus('Waiting for Batch Assignment')}
+                            onClick={() => onUpdateStatus('Approved')}
                             style={getButtonStyle('#198754')}
                         >
                             {loading === 'APPROVE' ? 'Approving...' : 'Approve PO'}

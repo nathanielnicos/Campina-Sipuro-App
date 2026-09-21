@@ -5,17 +5,10 @@ const FormHeader = ({
     requestedDeliveryDate,
     setRequestedDeliveryDate,
     deliveryAddress,
-    // setDeliveryAddress,
     description,
     setDescription
 }) => {
     const isNotCustomer = userRole !== 'CUSTOMER';
-
-    const getMinDeliveryDate = () => {
-        const date = new Date();
-        date.setMonth(date.getMonth() + 4);
-        return date.toISOString().split('T')[0];
-    };
 
     return (
         <>
@@ -35,34 +28,17 @@ const FormHeader = ({
                 </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                        Req. Delivery Date *
-                    </label>
-                    <input
-                        type="date"
-                        value={requestedDeliveryDate}
-                        onChange={(e) => setRequestedDeliveryDate(e.target.value)}
-                        required
-                        disabled={isNotCustomer}
-                        min={getMinDeliveryDate()}
-                        style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
-                    />
-                </div>
-                <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-                        Shipping Address
-                    </label>
-                    <input
-                        type="text"
-                        placeholder="Shipping address..."
-                        value={deliveryAddress}
-                        // onChange={(e) => setDeliveryAddress(e.target.value)}
-                        disabled
-                        style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
-                    />
-                </div>
+            <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
+                    Shipping Address
+                </label>
+                <input
+                    type="text"
+                    placeholder="Shipping address..."
+                    value={deliveryAddress}
+                    disabled
+                    style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
+                />
             </div>
 
             <div style={{ marginBottom: '16px' }}>

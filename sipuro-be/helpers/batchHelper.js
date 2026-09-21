@@ -54,7 +54,7 @@ async function refreshPOStatus(connection, poHeaderId) {
     let targetStatus = null;
 
     if (!isFullyAssigned) {
-        targetStatus = 'Waiting for Batch Assignment';
+        targetStatus = 'Approved';
     } else {
         const [openAllocations] = await connection.query(`
             SELECT pba.id
@@ -63,7 +63,7 @@ async function refreshPOStatus(connection, poHeaderId) {
             WHERE pd.po_header_id = ? AND pba.status = 'Open'
         `, [poHeaderId]);
 
-        targetStatus = openAllocations.length === 0 ? 'Completed' : 'In Progress';
+        targetStatus = openAllocations.length === 0 ? 'Production Completed' : 'Approved';
     }
 
     if (targetStatus && targetStatus !== oldStatus) {

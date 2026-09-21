@@ -35,10 +35,6 @@ export const PoViewRows = ({ mappingList, currentUserRole, poTolerance, onUpdate
                             <td rowSpan={batchAllocations.length} style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'top', whiteSpace: 'nowrap', backgroundColor: '#fff' }}>
                                 {formatDate(row.po_created_date)}
                             </td>
-                            {/* 3. PO Req. Delivery Date */}
-                            <td rowSpan={batchAllocations.length} style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'top', whiteSpace: 'nowrap', backgroundColor: '#fff' }}>
-                                {formatDate(row.po_requested_delivery_date)}
-                            </td>
                         </>
                     )}
 

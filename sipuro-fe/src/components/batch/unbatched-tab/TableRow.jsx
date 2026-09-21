@@ -46,35 +46,6 @@ const TableRow = ({ row, currentUserRole, isAnyFilterActive, onOpenModal }) => {
                 <td style={{ padding: '12px 10px', textAlign: 'center', color: '#868e96' }}>-</td>
                 <td style={{ padding: '12px 10px', textAlign: 'center', color: '#868e96' }}>-</td>
                 <td style={{ padding: '12px 10px', textAlign: 'center', color: '#868e96' }}>-</td>
-                <td style={{ padding: '12px 10px', textAlign: 'center', color: '#868e96' }}>-</td>
-                <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
-                    {currentUserRole !== 'CUSTOMER' ? (
-                        <button
-                            onClick={() => onOpenModal(row)}
-                            disabled={isAnyFilterActive}
-                            title={isAnyFilterActive ? 'Please clear PO number / Date filters before allocating batch schedule' : ''}
-                            style={{
-                                backgroundColor: isAnyFilterActive ? '#adb5bd' : '#0d6efd',
-                                color: '#fff',
-                                border: 'none',
-                                padding: '6px 12px',
-                                borderRadius: '4px',
-                                cursor: isAnyFilterActive ? 'not-allowed' : 'pointer',
-                                fontWeight: '600',
-                                fontSize: '11px',
-                                lineHeight: '1.2',
-                                width: '110px',
-                                display: 'inline-block',
-                                opacity: isAnyFilterActive ? 0.65 : 1,
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                            }}
-                        >
-                            + Production<br />Schedule
-                        </button>
-                    ) : (
-                        <span style={{ color: '#868e96' }}>-</span>
-                    )}
-                </td>
             </tr>
         );
     }
@@ -155,51 +126,9 @@ const TableRow = ({ row, currentUserRole, isAnyFilterActive, onOpenModal }) => {
                         <td style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap', color: '#212529' }}>
                             {item.created_date || '-'}
                         </td>
-                        <td style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap', color: '#212529' }}>
-                            {item.requested_delivery_date || '-'}
-                        </td>
                         <td style={{ padding: '8px 10px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap', color: '#212529', fontWeight: '500' }}>
                             {formatQty(item.remaining_qty)}
                         </td>
-
-                        {/* Kolom Tombol Action */}
-                        {isFirstRow && (
-                            <td
-                                rowSpan={rowSpanCount}
-                                style={{
-                                    padding: '12px 10px',
-                                    textAlign: 'center',
-                                    verticalAlign: 'middle'
-                                }}
-                            >
-                                {currentUserRole !== 'CUSTOMER' ? (
-                                    <button
-                                        onClick={() => onOpenModal(row)}
-                                        disabled={isAnyFilterActive}
-                                        title={isAnyFilterActive ? 'Please clear PO number / Date filters before allocating batch schedule' : ''}
-                                        style={{
-                                            backgroundColor: isAnyFilterActive ? '#adb5bd' : '#0d6efd',
-                                            color: '#fff',
-                                            border: 'none',
-                                            padding: '6px 12px',
-                                            borderRadius: '4px',
-                                            cursor: isAnyFilterActive ? 'not-allowed' : 'pointer',
-                                            fontWeight: '600',
-                                            fontSize: '11px',
-                                            lineHeight: '1.2',
-                                            width: '110px',
-                                            display: 'inline-block',
-                                            opacity: isAnyFilterActive ? 0.65 : 1,
-                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                        }}
-                                    >
-                                        + Production<br />Schedule
-                                    </button>
-                                ) : (
-                                    <span style={{ color: '#868e96' }}>-</span>
-                                )}
-                            </td>
-                        )}
                     </tr>
                 );
             })}

@@ -6,7 +6,6 @@ const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
         <tr style={{ borderBottom: '1px solid #dee2e6' }}>
             <td style={{ padding: '12px 16px' }}><strong>{po.po_number}</strong></td>
             <td style={{ padding: '12px 16px' }}>{formatDate(po.created_at)}</td>
-            <td style={{ padding: '12px 16px' }}>{formatDate(po.requested_delivery_date)}</td>
             <td style={{ padding: '12px 16px' }}>{formatQty(po.total_items)} SKU</td>
             {user?.role === 'CUSTOMER' && (
                 <td style={{ padding: '12px 16px' }}>{formatCurrency(po.total_amount)}</td>
@@ -20,11 +19,7 @@ const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
                     display: 'inline-block',
                     ...getStatusStyle(po.status)
                 }}>
-                    {po.status === "Completed"
-                        ? "Production Completed"
-                        : po.status === "Waiting for Batch Assignment" && user.role === 'CUSTOMER'
-                            ? "Approved"
-                            : po.status}
+                    {po.status}
                 </span>
             </td>
             <td style={{ padding: '12px 16px' }}>

@@ -53,13 +53,6 @@ const Table = ({
                                 onSort={onSort}
                             />
                             <SortableHeader
-                                label="Req. Delivery Date"
-                                sortKey="requested_delivery_date"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                            />
-                            <SortableHeader
                                 label="Total Items"
                                 sortKey="total_items"
                                 currentSortKey={sortConfig?.key}

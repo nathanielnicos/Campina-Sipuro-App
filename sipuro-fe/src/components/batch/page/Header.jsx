@@ -43,7 +43,7 @@ const Header = ({
                             color: activeTab === 'summary' ? '#0d6efd' : '#6c757d'
                         }}
                     >
-                        Unbatched
+                        Outstanding
                     </button>
                     <button
                         onClick={() => onTabChange('mapping')}
@@ -53,7 +53,7 @@ const Header = ({
                             color: activeTab === 'mapping' ? '#0d6efd' : '#6c757d'
                         }}
                     >
-                        Batch List
+                        Batch
                     </button>
                     {userRole !== 'CUSTOMER' && (
                         <button
@@ -64,7 +64,7 @@ const Header = ({
                                 color: activeTab === 'unallocated' ? '#0d6efd' : '#6c757d'
                             }}
                         >
-                            Overproduction
+                            Unallocated
                         </button>
                     )}
                 </div>
@@ -89,11 +89,11 @@ const Header = ({
             </div>
 
             <ImportExcelModal
-                isOpen={isPreviewOpen}
-                previewData={previewData}
-                saving={saving}
-                onConfirmSave={handleConfirmSave}
-                onRejectPreview={handleRejectPreview}
+                show={isPreviewOpen}
+                parsedData={previewData}
+                loading={saving}
+                onConfirmImport={handleConfirmSave}
+                onClose={handleRejectPreview}
             />
         </>
     );

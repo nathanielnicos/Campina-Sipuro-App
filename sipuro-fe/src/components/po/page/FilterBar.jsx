@@ -63,17 +63,6 @@ const FilterBar = ({
                 />
             </div>
 
-            {/* Req. Delivery Date Range Picker */}
-            <div style={{ flex: '0 0 220px' }}>
-                <DateRangePicker
-                    label="Filter Delivery Date"
-                    fromDate={deliveryStartDate}
-                    toDate={deliveryEndDate}
-                    onFromDateChange={onDeliveryStartDateChange}
-                    onToDateChange={onDeliveryEndDateChange}
-                />
-            </div>
-
             {/* PO Status Select */}
             <div style={{ flex: '0 0 160px' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>PO Status</label>
@@ -93,10 +82,9 @@ const FilterBar = ({
                     <option value="">All Status</option>
                     <option value="Waiting for Confirmation">Waiting for Confirmation</option>
                     <option value="Canceled">Canceled</option>
-                    <option value="Waiting for Batch Assignment">{userRole === 'CUSTOMER' ? 'Approved' : 'Waiting for Batch Assignment'}</option>
+                    <option value="Approved">Approved</option>
                     <option value="Rejected">Rejected</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Production Completed</option>
+                    <option value="Production Completed">Production Completed</option>
                 </select>
             </div>
 

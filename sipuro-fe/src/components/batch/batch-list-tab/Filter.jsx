@@ -58,14 +58,6 @@ const Filter = ({
             </div>
 
             <DateRangePicker
-                label="Planned Prod. Date Range"
-                fromDate={fromPlanDate}
-                toDate={toPlanDate}
-                onFromDateChange={(e) => onFromPlanDateChange(e.target.value)}
-                onToDateChange={(e) => onToPlanDateChange(e.target.value)}
-            />
-
-            <DateRangePicker
                 label="Actual Prod. Date Range"
                 fromDate={fromActualDate}
                 toDate={toActualDate}
@@ -79,14 +71,6 @@ const Filter = ({
                 toDate={toCreatedDate}
                 onFromDateChange={(e) => onFromCreatedDateChange(e.target.value)}
                 onToDateChange={(e) => onToCreatedDateChange(e.target.value)}
-            />
-
-            <DateRangePicker
-                label="PO Req. Delivery Date Range"
-                fromDate={fromDeliveryDate}
-                toDate={toDeliveryDate}
-                onFromDateChange={(e) => onFromDeliveryDateChange(e.target.value)}
-                onToDateChange={(e) => onToDeliveryDateChange(e.target.value)}
             />
 
             <div>

@@ -21,7 +21,7 @@ exports.getUnassignedSummary = async (req, res) => {
         } = req.query;
 
         let whereClauses = [
-            `h.status IN ('Waiting for Batch Assignment', 'In Progress')`,
+            `h.status IN ('Approved')`,
             `d.deleted_at IS NULL`,
             `(d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0`
         ];
@@ -215,7 +215,7 @@ exports.assignBatchBulk = async (req, res) => {
                 GROUP BY po_detail_id
             ) alloc ON d.po_detail_id = alloc.po_detail_id
             WHERE d.id_product = ? 
-              AND h.status IN ('Waiting for Batch Assignment', 'In Progress')
+              AND h.status IN ('Approved')
               AND d.deleted_at IS NULL
               AND (d.base_qty - IFNULL(alloc.total_allocated, 0)) > 0
             ORDER BY d.po_header_id ASC, d.po_detail_id ASC

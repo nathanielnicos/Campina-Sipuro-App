@@ -144,11 +144,7 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                 />
                                 <th style={{ padding: '12px 10px', textAlign: 'left', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Number</th>
                                 <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Created Date</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>
-                                    PO Req.<br />Delivery Date
-                                </th>
                                 <th style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Qty (Pcs)</th>
-                                <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', width: '120px', color: '#495057', fontWeight: '600' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>

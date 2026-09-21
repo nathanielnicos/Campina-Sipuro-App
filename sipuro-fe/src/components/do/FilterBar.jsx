@@ -63,17 +63,6 @@ const FilterBar = ({
                 />
             </div>
 
-            {/* Req. Delivery Date Range Picker */}
-            <div style={{ flex: '0 0 220px' }}>
-                <DateRangePicker
-                    label="Filter Delivery Date"
-                    fromDate={deliveryStartDate}
-                    toDate={deliveryEndDate}
-                    onFromDateChange={onDeliveryStartDateChange}
-                    onToDateChange={onDeliveryEndDateChange}
-                />
-            </div>
-
             {/* Actual Completed Date Range Picker */}
             <div style={{ flex: '0 0 220px' }}>
                 <DateRangePicker

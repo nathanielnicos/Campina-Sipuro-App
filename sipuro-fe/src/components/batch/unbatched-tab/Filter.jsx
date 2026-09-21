@@ -71,14 +71,6 @@ const Filter = ({
                 onToDateChange={onToCreatedDateChange}
             />
 
-            <DateRangePicker
-                label="PO Req. Delivery Date Range"
-                fromDate={fromDeliveryDate}
-                toDate={toDeliveryDate}
-                onFromDateChange={onFromDeliveryDateChange}
-                onToDateChange={onToDeliveryDateChange}
-            />
-
             <div>
                 <button
                     onClick={onResetFilters}

@@ -104,7 +104,7 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
             notes = trimmedNotes;
 
             if (!window.confirm('Are you sure you want to REJECT this PO?')) return;
-        } else if (newStatus === 'Waiting for Batch Assignment') {
+        } else if (newStatus === 'Approved') {
             if (!window.confirm('Are you sure you want to APPROVE this PO?')) return;
         } else {
             if (!window.confirm(`Are you sure you want to change PO status to ${newStatus}?`)) return;
@@ -116,7 +116,7 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
 
             if (result.success) {
                 if (newStatus === 'Rejected') alert('PO rejected successfully!');
-                else if (newStatus === 'Waiting for Batch Assignment') alert('PO approved successfully!');
+                else if (newStatus === 'Approved') alert('PO approved successfully!');
                 else alert(`PO status successfully updated to ${newStatus}!`);
 
                 if (onSuccess) onSuccess();
