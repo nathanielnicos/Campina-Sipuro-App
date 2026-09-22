@@ -36,32 +36,37 @@ const ConfirmCreatePOModal = ({
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
                 overflow: 'hidden'
             }}>
+                {/* Header */}
                 <div style={{
                     padding: '16px 24px',
                     borderBottom: '1px solid #dee2e6',
                     backgroundColor: '#f8f9fa'
                 }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>
-                        Konfirmasi Pembuatan Draft PO
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#212529' }}>
+                        Confirm Create Draft PO
                     </h3>
                 </div>
 
+                {/* Content */}
                 <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-                    {/* Pilih Customer */}
+                    {/* Customer Selection */}
                     <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>
-                            Pilih Customer:
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#212529' }}>
+                            Select Customer:
                         </label>
                         <select
                             value={selectedCustomerId}
                             onChange={(e) => setSelectedCustomerId(e.target.value)}
+                            disabled={loading}
                             style={{
                                 width: '100%',
                                 padding: '8px 12px',
                                 borderRadius: '4px',
                                 border: '1px solid #ced4da',
-                                fontSize: '13px'
+                                fontSize: '13px',
+                                backgroundColor: loading ? '#e9ecef' : '#fff',
+                                cursor: loading ? 'not-allowed' : 'pointer'
                             }}
                         >
                             {customers.map(c => (
@@ -72,26 +77,26 @@ const ConfirmCreatePOModal = ({
                         </select>
                     </div>
 
-                    {/* Ringkasan Produk */}
+                    {/* Product Summary */}
                     <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>
-                            Ringkasan Produk yang Diproses:
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#212529' }}>
+                            Processed Products Summary:
                         </label>
                         <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                                 <thead>
                                     <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
-                                        <th style={{ padding: '8px', textAlign: 'left' }}>Kode & Nama Produk</th>
-                                        <th style={{ padding: '8px', textAlign: 'right' }}>Qty Required (Pcs)</th>
+                                        <th style={{ padding: '8px 12px', textAlign: 'left', color: '#495057' }}>Product Code & Name</th>
+                                        <th style={{ padding: '8px 12px', textAlign: 'right', color: '#495057' }}>Required Qty (Pcs)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filteredItems.map(item => (
                                         <tr key={item.id_product} style={{ borderBottom: '1px solid #e9ecef' }}>
-                                            <td style={{ padding: '8px' }}>
+                                            <td style={{ padding: '8px 12px', color: '#212529' }}>
                                                 {item.product_code} - {item.product_name}
                                             </td>
-                                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>
+                                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 'bold', color: '#212529' }}>
                                                 {Number(item.required_po_qty).toLocaleString('id-ID')}
                                             </td>
                                         </tr>
@@ -102,10 +107,11 @@ const ConfirmCreatePOModal = ({
                     </div>
 
                     <div style={{ fontSize: '12px', color: '#6c757d', fontStyle: 'italic' }}>
-                        * Harga per unit, subtotal, PPN, dan grand total akan dikalkulasi otomatis oleh sistem saat PO disimpan.
+                        * Unit price, subtotal, VAT/PPN, and total amount will be calculated automatically by the system upon saving.
                     </div>
                 </div>
 
+                {/* Footer Buttons */}
                 <div style={{
                     padding: '12px 24px',
                     borderTop: '1px solid #dee2e6',
@@ -123,10 +129,14 @@ const ConfirmCreatePOModal = ({
                             color: '#fff',
                             border: 'none',
                             borderRadius: '4px',
-                            cursor: 'pointer'
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.6 : 1,
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            transition: 'all 0.2s ease'
                         }}
                     >
-                        Batal
+                        Cancel
                     </button>
                     <button
                         onClick={onConfirm}
@@ -138,10 +148,14 @@ const ConfirmCreatePOModal = ({
                             border: 'none',
                             borderRadius: '4px',
                             fontWeight: '600',
-                            cursor: 'pointer'
+                            fontSize: '13px',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.6 : 1,
+                            pointerEvents: loading ? 'none' : 'auto',
+                            transition: 'all 0.2s ease'
                         }}
                     >
-                        {loading ? 'Memproses...' : 'Buat Draft PO'}
+                        {loading ? 'Processing...' : 'Create Draft PO'}
                     </button>
                 </div>
             </div>

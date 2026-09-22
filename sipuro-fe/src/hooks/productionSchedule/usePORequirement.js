@@ -102,7 +102,7 @@ export const usePORequirement = () => {
         const itemsToCreate = data.filter(item => item.required_po_qty > 0);
 
         if (itemsToCreate.length === 0) {
-            alert('Silakan isi nilai Required PO (Pcs) setidaknya pada satu produk.');
+            alert('Please enter Required PO (Pcs) for at least one product.');
             return;
         }
 
@@ -114,7 +114,7 @@ export const usePORequirement = () => {
             }
             setIsConfirmModalOpen(true);
         } catch (error) {
-            alert('Gagal mengambil daftar customer.');
+            alert('Failed to fetch customers list.');
         }
     };
 
@@ -123,7 +123,13 @@ export const usePORequirement = () => {
         const itemsToCreate = data.filter(item => item.required_po_qty > 0);
 
         if (!selectedCustomerId) {
-            alert('Pilih customer terlebih dahulu!');
+            alert('Please select a customer first!');
+            return;
+        }
+
+        // Konfirmasi terlebih dahulu sebelum submit ke backend
+        const isConfirmed = window.confirm('Are you sure you want to create this Draft PO?');
+        if (!isConfirmed) {
             return;
         }
 
@@ -135,13 +141,13 @@ export const usePORequirement = () => {
             });
 
             if (res.success) {
-                alert(res.message);
+                alert(res.message || 'Draft PO created successfully!');
                 setIsConfirmModalOpen(false);
                 loadPORequirementSummary();
             }
         } catch (error) {
             console.error('Error creating Draft PO:', error);
-            alert(error.response?.data?.message || 'Gagal membuat Draft PO.');
+            alert(error.response?.data?.message || 'Failed to create Draft PO.');
         } finally {
             setCreatingPO(false);
         }

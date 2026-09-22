@@ -14,11 +14,6 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
 
         const { requestedDeliveryDate, deliveryAddress, description, subtotal, taxAmount, grandTotal, items, customerId } = formData;
 
-        if (!requestedDeliveryDate) {
-            alert('Delivery date is required!');
-            return;
-        }
-
         const invalidItem = items.find((i) => !i.id_product || i.qty <= 0);
         if (invalidItem) {
             alert('Please select a product and ensure Quantity is greater than 0 for all rows.');

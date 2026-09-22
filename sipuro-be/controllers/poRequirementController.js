@@ -255,15 +255,16 @@ exports.createDraftPO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Customer and items are required.' });
         }
 
-        // 1. Ambil data customer code
+        // 1. Ambil customer_code dan delivery_address dari tabel customers
         const [customerRows] = await connection.query(
-            `SELECT customer_code FROM sipuro_db.customers WHERE customer_id = ?`,
+            `SELECT customer_code, delivery_address FROM sipuro_db.customers WHERE customer_id = ?`,
             [customer_id]
         );
         if (customerRows.length === 0) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
         const customerCode = customerRows[0].customer_code || 'CUST';
+        const deliveryAddress = customerRows[0].delivery_address || '';
 
         // 2. Ambil PPN Percent dari Company Profile
         const [profileRows] = await connection.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
@@ -345,12 +346,12 @@ exports.createDraftPO = async (req, res) => {
 
         await connection.beginTransaction();
 
-        // 6. Insert PO Header (Status 'Draft')
+        // 6. Insert PO Header (Status 'Draft' + delivery_address dari customers)
         const [headerResult] = await connection.query(
             `INSERT INTO sipuro_db.po_headers 
              (po_number, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address, description, status, created_by, updated_by) 
-             VALUES (?, ?, ?, ?, ?, NULL, '', ?, 'Draft', ?, ?)`,
-            [poNumber, customer_id, subtotal, ppn_percent, total_amount, description || 'Generated from PO Requirement', created_by || null, created_by || null]
+             VALUES (?, ?, ?, ?, ?, NULL, ?, ?, 'Draft', ?, ?)`,
+            [poNumber, customer_id, subtotal, ppn_percent, total_amount, deliveryAddress, description || 'Generated from PO Requirement', created_by || null, created_by || null]
         );
 
         const poHeaderId = headerResult.insertId;
