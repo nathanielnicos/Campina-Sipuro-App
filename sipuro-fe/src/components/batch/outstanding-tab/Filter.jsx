@@ -2,19 +2,22 @@ import React from 'react';
 import DateRangePicker from '../../common/DateRangePicker';
 
 const Filter = ({
-    searchStock,
-    fromProdDate,
-    toProdDate,
-    fromCompDate,
-    toCompDate,
-    onSearchChange,
-    onFromProdDateChange,
-    onToProdDateChange,
-    onFromCompDateChange,
-    onToCompDateChange,
+    searchProduct,
+    searchPo,
+    fromCreatedDate,
+    toCreatedDate,
+    onProductChange,
+    onPoChange,
+    onFromCreatedDateChange,
+    onToCreatedDateChange,
     onResetFilters
 }) => {
-    const isFilterActive = Boolean(searchStock || fromProdDate || toProdDate || fromCompDate || toCompDate);
+    const isFilterActive = Boolean(
+        searchProduct ||
+        searchPo ||
+        fromCreatedDate ||
+        toCreatedDate
+    );
 
     return (
         <div style={{
@@ -24,37 +27,42 @@ const Filter = ({
             border: '1px solid #dee2e6',
             marginBottom: '20px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gridTemplateColumns: 'repeat(4, 1fr)',
             gap: '12px',
             alignItems: 'end'
         }}>
             <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                    Search Source Batch / Product
+                    Search Product Code/Name
                 </label>
                 <input
                     type="text"
-                    placeholder="Example: BAT260824003"
-                    value={searchStock}
-                    onChange={onSearchChange}
+                    placeholder="Example: FG-CN-00060"
+                    value={searchProduct}
+                    onChange={onProductChange}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px' }}
+                />
+            </div>
+
+            <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                    Search PO Number
+                </label>
+                <input
+                    type="text"
+                    placeholder="Example: PO-20260824-895"
+                    value={searchPo}
+                    onChange={onPoChange}
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px' }}
                 />
             </div>
 
             <DateRangePicker
-                label="Actual Production Date Range"
-                fromDate={fromProdDate}
-                toDate={toProdDate}
-                onFromDateChange={onFromProdDateChange}
-                onToDateChange={onToProdDateChange}
-            />
-
-            <DateRangePicker
-                label="Actual Completed Date Range"
-                fromDate={fromCompDate}
-                toDate={toCompDate}
-                onFromDateChange={onFromCompDateChange}
-                onToDateChange={onToCompDateChange}
+                label="PO Created Date Range"
+                fromDate={fromCreatedDate}
+                toDate={toCreatedDate}
+                onFromDateChange={onFromCreatedDateChange}
+                onToDateChange={onToCreatedDateChange}
             />
 
             <div>

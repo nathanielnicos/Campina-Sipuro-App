@@ -5,7 +5,6 @@ const {
     updateBatchProductionDates
 } = require('./batchHelper');
 const { logAllocationInsert, logAllocationUpdate } = require('./poBatchAllocationLogHelper');
-const { logUnallocatedStock } = require('./unallocatedStockLogHelper');
 
 /**
  * Helper untuk commit data alokasi dan master terkait ke database
@@ -16,7 +15,6 @@ const commitProductionAllocationTransaction = async (connection, {
     fileHash,
     userId,
     allocations = [],
-    unallocatedStocks = [],
     newDetails = [],
     detailedAllocations = []
 }) => {
@@ -31,7 +29,7 @@ const commitProductionAllocationTransaction = async (connection, {
 
     const affectedBatchNumbers = new Set();
 
-    // 2. Insert detail baris data mentah Excel ke production_upload_details
+    // 2. Insert detail baris data mentah Excel yang valid ke production_upload_details
     if (newDetails && newDetails.length > 0) {
         const detailValues = newDetails.map(detail => {
             if (detail.batchNumber) {
@@ -58,36 +56,46 @@ const commitProductionAllocationTransaction = async (connection, {
         );
     }
 
+    // Sumber data alokasi yang akan diproses
+    const sourceAllocations = detailedAllocations.length > 0 ? detailedAllocations : allocations;
+
     // 3. Auto-create atau Find-or-Create Master Batch
+    // Loop gabungan dari newDetails & sourceAllocations agar tidak ada batch yang terlewat
     const batchIdMap = new Map();
     const uniqueBatchData = new Map();
 
-    newDetails.forEach(d => {
-        if (d.batchNumber && !uniqueBatchData.has(d.batchNumber)) {
-            uniqueBatchData.set(d.batchNumber, {
-                batchNumber: d.batchNumber,
-                itemCode: d.itemCode,
-                actualStartDatetime: d.actualStartDatetime,
-                actualCompletedDatetime: d.actualCompletedDatetime
-            });
+    const collectBatchInfo = (batchNumber, itemCode, startDt, completeDt) => {
+        if (batchNumber && itemCode) {
+            const compositeKey = `${batchNumber}_${itemCode}`;
+            if (!uniqueBatchData.has(compositeKey)) {
+                uniqueBatchData.set(compositeKey, {
+                    batchNumber,
+                    itemCode,
+                    actualStartDatetime: startDt || null,
+                    actualCompletedDatetime: completeDt || null
+                });
+            }
         }
-    });
+    };
 
-    for (const [bNo, bInfo] of uniqueBatchData.entries()) {
-        const [[existingBatch]] = await connection.query(
-            'SELECT id, id_product FROM batches WHERE batch_number = ? LIMIT 1',
-            [bNo]
+    newDetails.forEach(d => collectBatchInfo(d.batchNumber, d.itemCode, d.actualStartDatetime, d.actualCompletedDatetime));
+    sourceAllocations.forEach(a => collectBatchInfo(a.batchNumber || a.batch_number, a.productCode || a.product_code || a.itemCode, a.actualStartDatetime, a.actualCompletedDatetime));
+
+    for (const [compositeKey, bInfo] of uniqueBatchData.entries()) {
+        const [[product]] = await connection.query(
+            'SELECT id_product FROM products WHERE product_code = ? LIMIT 1',
+            [bInfo.itemCode]
         );
 
-        if (existingBatch) {
-            batchIdMap.set(bNo, existingBatch.id);
-        } else {
-            const [[product]] = await connection.query(
-                'SELECT id_product FROM sipuro_db.products WHERE product_code = ? LIMIT 1',
-                [bInfo.itemCode]
+        if (product) {
+            const [[existingBatch]] = await connection.query(
+                'SELECT id FROM batches WHERE batch_number = ? AND id_product = ? LIMIT 1',
+                [bInfo.batchNumber, product.id_product]
             );
 
-            if (product) {
+            if (existingBatch) {
+                batchIdMap.set(compositeKey, existingBatch.id);
+            } else {
                 const planDate = bInfo.actualStartDatetime
                     ? bInfo.actualStartDatetime.split(' ')[0]
                     : new Date().toISOString().split('T')[0];
@@ -96,7 +104,7 @@ const commitProductionAllocationTransaction = async (connection, {
                     `INSERT INTO batches (batch_number, id_product, plan_production_date, actual_production_date, actual_completed_date, status, created_by)
                      VALUES (?, ?, ?, ?, ?, 'Open', ?)`,
                     [
-                        bNo,
+                        bInfo.batchNumber,
                         product.id_product,
                         planDate,
                         bInfo.actualStartDatetime || null,
@@ -104,20 +112,22 @@ const commitProductionAllocationTransaction = async (connection, {
                         currentUserId
                     ]
                 );
-                batchIdMap.set(bNo, insertBatch.insertId);
+                batchIdMap.set(compositeKey, insertBatch.insertId);
             }
         }
     }
 
-    // 4. Upsert po_batch_allocations (Tambah/Kurang Qty & Log Aktivitas)
+    // 4. Upsert po_batch_allocations (Akumulasi allocated_qty)
     const updateLogsToInsert = [];
     const insertLogsToInsert = [];
-    const sourceAllocations = detailedAllocations.length > 0 ? detailedAllocations : allocations;
 
     for (const item of sourceAllocations) {
         const poDetailId = item.poDetailId || item.po_detail_id;
         const batchNumber = item.batchNumber || item.batch_number;
-        const batchId = item.batchId || batchIdMap.get(batchNumber) || item.id_batch;
+        const itemCode = item.productCode || item.product_code || item.itemCode;
+        const compositeKey = `${batchNumber}_${itemCode}`;
+
+        const batchId = item.batchId || batchIdMap.get(compositeKey) || item.id_batch;
         const addedQty = item.addedQty !== undefined ? item.addedQty : (item.addedAllocatedQty || 0);
         const rowStatus = item.rowStatus || item.status || 'Open';
 
@@ -130,16 +140,16 @@ const commitProductionAllocationTransaction = async (connection, {
         );
 
         if (existingAlloc) {
-            const oldQty = Number(existingAlloc.allocated_qty || 0);
-            const newAllocQty = oldQty + Number(addedQty);
+            const oldAllocatedQty = Number(existingAlloc.allocated_qty || 0);
+            const newAllocatedQty = oldAllocatedQty + Number(addedQty);
 
             updateLogsToInsert.push({
                 upload_log_id: uploadLogId,
                 allocation_id: existingAlloc.id,
                 po_detail_id: poDetailId,
                 id_batch: batchId,
-                old_fulfilled_qty: oldQty,
-                new_fulfilled_qty: newAllocQty,
+                old_fulfilled_qty: oldAllocatedQty,
+                new_fulfilled_qty: newAllocatedQty,
                 old_status: existingAlloc.status,
                 new_status: rowStatus,
                 created_by: currentUserId
@@ -147,15 +157,15 @@ const commitProductionAllocationTransaction = async (connection, {
 
             await connection.query(
                 'UPDATE po_batch_allocations SET allocated_qty = ?, status = ?, updated_by = ? WHERE id = ?',
-                [newAllocQty, rowStatus, currentUserId, existingAlloc.id]
+                [newAllocatedQty, rowStatus, currentUserId, existingAlloc.id]
             );
         } else {
-            const newAllocQty = Number(addedQty);
+            const newAllocatedQty = Number(addedQty);
 
             const [insertAlloc] = await connection.query(
                 `INSERT INTO po_batch_allocations (po_detail_id, id_batch, allocated_qty, fulfilled_qty, status, created_by)
                  VALUES (?, ?, ?, 0, ?, ?)`,
-                [poDetailId, batchId, newAllocQty, rowStatus, currentUserId]
+                [poDetailId, batchId, newAllocatedQty, rowStatus, currentUserId]
             );
 
             insertLogsToInsert.push({
@@ -163,7 +173,7 @@ const commitProductionAllocationTransaction = async (connection, {
                 allocation_id: insertAlloc.insertId,
                 po_detail_id: poDetailId,
                 id_batch: batchId,
-                fulfilled_qty: newAllocQty,
+                fulfilled_qty: newAllocatedQty,
                 status: rowStatus,
                 created_by: currentUserId
             });
@@ -188,51 +198,12 @@ const commitProductionAllocationTransaction = async (connection, {
         if (bId) await refreshBatchStatus(connection, bId);
     }
 
-    // 7. Simpan unallocated stock (sisa Qty produksi tak teralokasi)
-    if (unallocatedStocks && unallocatedStocks.length > 0) {
-        const unallocatedLogsToInsert = [];
-        for (const stock of unallocatedStocks) {
-            const bNo = stock.batchNumber || stock.batch_number;
-            const idProd = stock.idProduct || stock.id_product;
-            const qtyAvail = stock.qtyAvailable !== undefined ? stock.qtyAvailable : stock.qty_available;
-
-            if (idProd && qtyAvail > 0) {
-                const [[bDates]] = await connection.query(`
-                    SELECT actual_production_date, actual_completed_date 
-                    FROM batches 
-                    WHERE batch_number = ? LIMIT 1
-                `, [bNo]);
-
-                const actStart = bDates?.actual_production_date || stock.actualStartDatetime || null;
-                const actEnd = bDates?.actual_completed_date || stock.actualCompletedDatetime || null;
-
-                const [insertUnallocResult] = await connection.query(
-                    `INSERT INTO unallocated_stocks 
-                    (batch_number, id_product, qty_available, actual_production_date, actual_completed_date, created_by) 
-                    VALUES (?, ?, ?, ?, ?, ?)`,
-                    [bNo, idProd, qtyAvail, actStart, actEnd, currentUserId]
-                );
-
-                unallocatedLogsToInsert.push({
-                    unallocatedStockId: insertUnallocResult.insertId,
-                    targetAllocationId: null,
-                    actionType: 'CREATE',
-                    qtyReallocated: 0,
-                    qtyBefore: 0,
-                    qtyAfter: qtyAvail
-                });
-            }
-        }
-        if (unallocatedLogsToInsert.length > 0) {
-            await logUnallocatedStock(connection, unallocatedLogsToInsert, currentUserId);
-        }
-    }
-
-    // 8. Recalculate fulfilled_qty pada po_details & refresh status PO header
+    // 7. Recalculate fulfilled_qty pada po_details & refresh status PO header
     const poDetailIds = [...new Set(sourceAllocations.map(a => a.poDetailId || a.po_detail_id).filter(Boolean))];
     const poHeaderIds = new Set();
 
     for (const pdId of poDetailIds) {
+        // Fungsi ini menghitung ulang total akumulasi alokasi & memperbarui fulfilled_qty pada po_details
         await refreshPODetailFulfilledQty(connection, pdId);
         const [[pd]] = await connection.query('SELECT po_header_id FROM po_details WHERE po_detail_id = ?', [pdId]);
         if (pd && pd.po_header_id) {

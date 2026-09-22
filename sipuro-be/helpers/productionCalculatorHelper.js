@@ -14,8 +14,10 @@ const calculateFifoAllocation = (
 
     const hashSet = new Set(existingHashes);
 
+    // Semua kategori raw data ditampung dalam objek yang sama
     const categorizedDetails = {
         newRows: [],
+        unallocatedRows: [],
         duplicateRows: [],
         duplicateStatusUpdateRows: [],
         unregisteredRows: [],
@@ -35,26 +37,21 @@ const calculateFifoAllocation = (
             row.rowStatusCategory = 'UNREGISTERED';
             categorizedDetails.unregisteredRows.push(row);
         } else if (isDuplicate) {
-            // Data sudah pernah tersimpan di DB (yang di DB pasti berstatus GOOD)
             if (!isLotGood) {
-                // Jika status di Excel sekarang bukan GOOD, berarti terjadi perubahan status
                 row.rowStatusCategory = 'DUP_STATUS_UPDATE';
                 row.previousLotStatus = 'GOOD';
                 categorizedDetails.duplicateStatusUpdateRows.push(row);
             } else {
-                // Jika status di Excel tetap GOOD, maka murni duplicate (skipped)
                 row.rowStatusCategory = 'DUPLICATE';
                 categorizedDetails.duplicateRows.push(row);
             }
         } else if (!isLotGood) {
-            // Untuk baris BARU (belum ada di DB) yang statusnya NON-GOOD
             row.rowStatusCategory = 'NON_GOOD';
             categorizedDetails.nonGoodRows.push(row);
         } else {
             row.rowStatusCategory = 'NEW';
             categorizedDetails.newRows.push(row);
 
-            // Sum Qty per batch
             const key = `${row.batchNumber}_${row.itemCode}`;
             if (!newItemsAggregated[key]) {
                 newItemsAggregated[key] = {
@@ -67,7 +64,6 @@ const calculateFifoAllocation = (
             }
             newItemsAggregated[key].totalQtyOutput += Number(row.qtyPac) || 0;
 
-            // Track earliest start & latest completion timestamp
             if (row.actualStartDatetime) {
                 if (
                     !newItemsAggregated[key].actualStartDatetime ||
@@ -114,13 +110,13 @@ const calculateFifoAllocation = (
     });
 
     const previewResults = [];
-    const unallocatedStocks = [];
     const detailedAllocations = [];
 
     // 4. Perform FIFO Allocation
     sortedBatchItems.forEach((excelItem) => {
         const matchedProduct = allProducts.find(p => p.product_code === excelItem.itemCode);
         const productName = matchedProduct ? matchedProduct.product_name : '';
+        const idProduct = matchedProduct ? matchedProduct.id_product : null;
 
         const candidatePoList = Array.from(poStateMap.values())
             .filter(po => po.productCode === excelItem.itemCode)
@@ -162,6 +158,8 @@ const calculateFifoAllocation = (
                         poDetailId: poState.poDetailId,
                         batchNumber: excelItem.batchNumber,
                         productCode: excelItem.itemCode,
+                        idProduct: idProduct,
+                        productName: productName,
                         fulfilledQty: newFulfilled,
                         addedQty: qtyToAdd,
                         rowStatus: allocationStatus,
@@ -173,7 +171,6 @@ const calculateFifoAllocation = (
             }
         });
 
-        // Push valid allocated batches
         if (batchAllocations.length > 0) {
             previewResults.push({
                 batchNumber: excelItem.batchNumber,
@@ -186,23 +183,26 @@ const calculateFifoAllocation = (
             });
         }
 
-        // Remaining unallocated Qty
+        // Ambil raw item persis dari newRows jika ada sisa Qty yang tidak teralokasi
         if (remainingExcelQty > 0) {
-            unallocatedStocks.push({
+            const sourceRawRow = categorizedDetails.newRows.find(
+                r => r.batchNumber === excelItem.batchNumber && r.itemCode === excelItem.itemCode
+            ) || {};
+
+            categorizedDetails.unallocatedRows.push({
+                ...sourceRawRow,
                 batchNumber: excelItem.batchNumber,
-                productCode: excelItem.itemCode,
-                idProduct: matchedProduct ? matchedProduct.id_product : null,
-                productName: productName,
-                qtyAvailable: remainingExcelQty,
-                actualStartDatetime: excelItem.actualStartDatetime,
-                actualCompletedDatetime: excelItem.actualCompletedDatetime,
-                productionDate: excelItem.actualStartDatetime ? excelItem.actualStartDatetime.split(' ')[0] : null
+                itemCode: excelItem.itemCode,
+                qtyPac: remainingExcelQty
             });
         }
     });
 
+    // Mengembalikan semua array raw data sejajar di tingkat atas tanpa pembungkusan ganda
     return {
         categorizedDetails,
+        newRows: categorizedDetails.newRows,
+        unallocatedRows: categorizedDetails.unallocatedRows,
         duplicateRows: categorizedDetails.duplicateRows,
         duplicateStatusUpdateRows: categorizedDetails.duplicateStatusUpdateRows,
         unregisteredRows: categorizedDetails.unregisteredRows,
@@ -210,14 +210,13 @@ const calculateFifoAllocation = (
         summary: {
             totalRows: rawRows.length,
             newCount: previewResults.length,
+            unallocatedCount: categorizedDetails.unallocatedRows.length,
             duplicateCount: categorizedDetails.duplicateRows.length,
             duplicateStatusUpdateCount: categorizedDetails.duplicateStatusUpdateRows.length,
             unregisteredCount: categorizedDetails.unregisteredRows.length,
-            nonGoodCount: categorizedDetails.nonGoodRows.length,
-            unallocatedCount: unallocatedStocks.length
+            nonGoodCount: categorizedDetails.nonGoodRows.length
         },
         previewResults,
-        unallocatedStocks,
         detailedAllocations
     };
 };

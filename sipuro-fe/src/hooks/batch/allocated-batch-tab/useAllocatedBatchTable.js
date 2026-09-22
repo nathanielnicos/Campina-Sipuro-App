@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchBatchMapping, exportBatchExcelApi, updateAllocationStatusApi, updateBatchNumberApi } from '../../../services/batchApi';
 
-export const useBatchListTable = (currentUser, reloadTrigger, onRefreshAll) => {
+export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll) => {
     // State Data & API
     const [mappingList, setMappingList] = useState([]);
     const [poTolerance, setPoTolerance] = useState(null);

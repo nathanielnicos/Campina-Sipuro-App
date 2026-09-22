@@ -1,7 +1,6 @@
 import Header from './Header';
-import UnbatchedTable from '../unbatched-tab/UnbatchedTable';
-import BatchListTable from '../batch-list-tab/BatchListTable';
-import OverproductionTable from '../overproduction-tab/OverproductionTable';
+import OutstandingTable from '../outstanding-tab/OutstandingTable';
+import BatchListTable from '../allocated-batch-tab/AllocatedBatchTable';
 
 // Custom Hooks
 import { useBatchPage } from '../../../hooks/batch/page/useBatchPage';
@@ -26,23 +25,14 @@ const BatchPage = ({ currentUser }) => {
 
             <div>
                 {activeTab === 'summary' && (
-                    <UnbatchedTable
+                    <OutstandingTable
                         currentUser={currentUser}
                         reloadTrigger={reloadTrigger}
-                        onRefreshAll={handleTriggerReload}
                     />
                 )}
 
                 {activeTab === 'mapping' && (
                     <BatchListTable
-                        currentUser={currentUser}
-                        reloadTrigger={reloadTrigger}
-                        onRefreshAll={handleTriggerReload}
-                    />
-                )}
-
-                {activeTab === 'unallocated' && (
-                    <OverproductionTable
                         currentUser={currentUser}
                         reloadTrigger={reloadTrigger}
                         onRefreshAll={handleTriggerReload}

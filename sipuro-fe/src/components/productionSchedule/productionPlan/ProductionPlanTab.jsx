@@ -1,9 +1,9 @@
-import { useProductionPlan } from '../../hooks/productionPlan/useProductionPlan';
-import PaginationControl from '../common/PaginationControl';
-import ProductionPlanModal from './ProductionPlanModal';
-import { formatQty } from '../../utils/formatters';
+import { useProductionPlan } from '../../../hooks/productionSchedule/useProductionPlan';
+import PaginationControl from '../../common/PaginationControl';
+import ProductionPlanModal from '../productionPlan/ProductionPlanModal';
+import { formatQty } from '../../../utils/formatters';
 
-const ProductionPlanPage = () => {
+const ProductionPlanTab = () => {
     const {
         loading,
         data,
@@ -36,8 +36,7 @@ const ProductionPlanPage = () => {
     } = useProductionPlan();
 
     return (
-        /* Padding atas diset 0px & margin top diset 0px agar tidak ada celah berlebih di bawah Navbar */
-        <div style={{ padding: '0px 24px 24px 24px', backgroundColor: '#f8f9fa', minHeight: '100vh', marginTop: '0px' }}>
+        <div>
             {/* Card Container Filter & Search */}
             <div style={{
                 backgroundColor: '#fff',
@@ -52,7 +51,7 @@ const ProductionPlanPage = () => {
                 gap: '16px',
                 flexWrap: 'wrap'
             }}>
-                {/* Search Input Group (Kiri) */}
+                {/* Search Input Group */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1', minWidth: '260px', maxWidth: '320px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: '#212529' }}>
                         Search Product Code / Name
@@ -73,7 +72,7 @@ const ProductionPlanPage = () => {
                     />
                 </div>
 
-                {/* Week Filter Range Group (Kanan) */}
+                {/* Week Filter Range Group */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: '#212529' }}>
                         Week Range Filter
@@ -114,7 +113,6 @@ const ProductionPlanPage = () => {
                     <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '13px' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                                {/* Freeze Kolom 1: Product Code */}
                                 <th style={{
                                     padding: '12px 16px', textAlign: 'left', minWidth: '130px',
                                     position: 'sticky', left: 0, backgroundColor: '#f8f9fa', zIndex: 10,
@@ -123,7 +121,6 @@ const ProductionPlanPage = () => {
                                     Product Code
                                 </th>
 
-                                {/* Freeze Kolom 2: Product Name */}
                                 <th style={{
                                     padding: '12px 16px', textAlign: 'left', minWidth: '220px',
                                     position: 'sticky', left: '130px', backgroundColor: '#f8f9fa', zIndex: 10,
@@ -133,7 +130,6 @@ const ProductionPlanPage = () => {
                                     Product Name
                                 </th>
 
-                                {/* Kolom Minggu Dynamic */}
                                 {weeks.map(w => (
                                     <th key={`${w.year}_${w.week_number}`} style={{
                                         padding: '10px 12px', textAlign: 'center', minWidth: '110px',
@@ -146,7 +142,6 @@ const ProductionPlanPage = () => {
                                     </th>
                                 ))}
 
-                                {/* Freeze Kolom Terakhir: Action */}
                                 <th style={{
                                     padding: '12px 16px', textAlign: 'center', minWidth: '110px',
                                     position: 'sticky', right: 0, backgroundColor: '#f8f9fa', zIndex: 10,
@@ -173,7 +168,6 @@ const ProductionPlanPage = () => {
                             ) : (
                                 data.map((row) => (
                                     <tr key={row.id_product} style={{ borderBottom: '1px solid #e9ecef' }}>
-                                        {/* Sticky Cell 1: Product Code */}
                                         <td style={{
                                             padding: '12px 16px', fontWeight: 'bold', color: '#212529',
                                             position: 'sticky', left: 0, backgroundColor: '#fff', zIndex: 5,
@@ -182,7 +176,6 @@ const ProductionPlanPage = () => {
                                             {row.product_code}
                                         </td>
 
-                                        {/* Sticky Cell 2: Product Name */}
                                         <td style={{
                                             padding: '12px 16px', color: '#212529', fontWeight: '500',
                                             position: 'sticky', left: '130px', backgroundColor: '#fff', zIndex: 5,
@@ -192,7 +185,6 @@ const ProductionPlanPage = () => {
                                             {row.product_name}
                                         </td>
 
-                                        {/* Angka Campina's Plan Per Week */}
                                         {weeks.map(w => {
                                             const key = `${w.year}_${w.week_number}`;
                                             const qtyVal = row.campina_plans?.[key] ?? 0;
@@ -207,7 +199,6 @@ const ProductionPlanPage = () => {
                                             );
                                         })}
 
-                                        {/* Sticky Cell Terakhir: Action Button */}
                                         <td style={{
                                             padding: '12px 16px', textAlign: 'center',
                                             position: 'sticky', right: 0, backgroundColor: '#fff', zIndex: 5,
@@ -232,7 +223,6 @@ const ProductionPlanPage = () => {
                     </table>
                 </div>
 
-                {/* Standard Pagination Component */}
                 <PaginationControl
                     pagination={pagination}
                     onPageChange={handlePageChange}
@@ -240,7 +230,6 @@ const ProductionPlanPage = () => {
                 />
             </div>
 
-            {/* Modal Detail Production Plan */}
             <ProductionPlanModal
                 isOpen={isModalOpen}
                 onClose={closeModal}
@@ -261,4 +250,4 @@ const ProductionPlanPage = () => {
     );
 };
 
-export default ProductionPlanPage;
+export default ProductionPlanTab;

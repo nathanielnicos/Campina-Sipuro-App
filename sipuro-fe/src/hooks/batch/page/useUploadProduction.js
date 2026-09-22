@@ -12,12 +12,12 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    // Reset state & hapus value pada HTML file input
+    // Reset state & clear HTML file input value
     const handleResetUploadState = () => {
         setIsPreviewOpen(false);
         setPreviewData(null);
         if (fileInputRef.current) {
-            fileInputRef.current.value = ''; // Memungkinkan unggah file yang sama kembali
+            fileInputRef.current.value = '';
         }
     };
 
@@ -44,7 +44,6 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
                 setIsPreviewOpen(true);
             } else {
                 alert('Upload failed: ' + (res?.message || 'Failed to process file.'));
-                // Bersihkan input jika upload gagal agar user bisa pilih file ulang
                 if (fileInputRef.current) fileInputRef.current.value = '';
             }
         } catch (err) {
@@ -54,31 +53,34 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
         }
     };
 
-    const handleConfirmSave = async (modalPayload = {}) => {
+    const handleConfirmSave = async () => {
         if (!previewData) return;
 
-        const validNewDetails = modalPayload.newDetails
-            || previewData.validData
-            || previewData.categorizedDetails?.newRows
-            || [];
+        // Strictly extract newRows and unallocatedRows without OR fallbacks
+        const rawNewRows = previewData.newRows;
+        const unallocatedRows = previewData.unallocatedRows;
 
-        const unallocatedStocks = previewData.unallocatedStocks || [];
-        const duplicateStatusRows = previewData.duplicateStatusUpdateRows
-            || previewData.categorizedDetails?.duplicateStatusUpdateRows
-            || [];
+        // Set keys for unallocated items to strictly filter them out
+        const unallocatedKeys = new Set(
+            unallocatedRows.map(u => `${u.batchNumber}_${u.itemCode}`)
+        );
 
-        const validCount = validNewDetails.length || previewData.summary?.newCount || 0;
-        const unallocatedCount = unallocatedStocks.length || previewData.summary?.unallocatedCount || 0;
+        // Filter newDetails so it strictly carries allocated rows only
+        const validNewDetails = rawNewRows.filter(
+            r => !unallocatedKeys.has(`${r.batchNumber}_${r.itemCode}`)
+        );
 
-        // Izinkan simpan jika ada valid data ATAU unallocated data
-        if (validCount === 0 && unallocatedCount === 0) {
-            alert('Tidak ada data valid atau unallocated yang dapat disimpan.');
+        const duplicateStatusRows = previewData.duplicateStatusUpdateRows;
+        const validCount = previewData.previewResults.length;
+
+        if (validCount === 0) {
+            alert('No valid data available to save.');
             return;
         }
 
         const confirmMsg = previewData.isReupload
-            ? `${previewData.warningMessage}\nApakah Anda yakin ingin menyimpan ulang alokasi produksi ini?`
-            : `Simpan ${validCount} baris valid dan ${unallocatedCount} item unallocated?`;
+            ? `${previewData.warningMessage}\nAre you sure you want to re-save this production allocation?`
+            : `Save ${validCount} valid row(s) to PO allocation?`;
 
         if (!window.confirm(confirmMsg)) return;
 
@@ -90,8 +92,7 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
                 fileHash: previewData.fileHash,
                 fileName: previewData.fileName,
                 userId: currentUserId,
-                allocations: previewData.detailedAllocations || [],
-                unallocatedStocks: unallocatedStocks,
+                allocations: previewData.detailedAllocations,
                 newDetails: validNewDetails,
                 duplicateStatusUpdateRows: duplicateStatusRows
             };

@@ -13,12 +13,12 @@ exports.commitExcelAllocation = async (req, res) => {
         fileName,
         userId,
         allocations = [],
-        unallocatedStocks = [],
         newDetails = [],
         detailedAllocations = []
     } = req.body;
 
-    const hasData = allocations.length > 0 || unallocatedStocks.length > 0 || newDetails.length > 0 || detailedAllocations.length > 0;
+    // Unallocated diabaikan, validasi hanya fokus pada data valid/alokasi
+    const hasData = allocations.length > 0 || newDetails.length > 0 || detailedAllocations.length > 0;
     
     if (!processTimestamp || !hasData) {
         return res.status(400).json({ 
@@ -38,7 +38,6 @@ exports.commitExcelAllocation = async (req, res) => {
             fileHash,
             userId,
             allocations,
-            unallocatedStocks,
             newDetails,
             detailedAllocations
         });

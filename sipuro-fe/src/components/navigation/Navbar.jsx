@@ -3,7 +3,7 @@ import { getNavItemsByUser } from '../../config/navigationConfig';
 
 const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) => {
     const getButtonStyle = (tabName) => ({
-        width: '140px',
+        width: '160px',
         textAlign: 'center',
         padding: '8px',
         cursor: 'pointer',

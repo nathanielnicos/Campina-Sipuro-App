@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { formatQty } from '../../utils/formatters';
+import { formatQty } from '../../../utils/formatters';
 
 const ProductionPlanModal = ({
     isOpen,

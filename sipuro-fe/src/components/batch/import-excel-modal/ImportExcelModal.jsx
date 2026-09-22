@@ -14,16 +14,16 @@ const ImportExcelModal = ({
 
     if (!show || !parsedData) return null;
 
+    // Direct destructuring from parsedData root without OR (||) fallback
     const {
         summary = {},
         previewResults: validData = [],
-        unallocatedStocks = [],
-        categorizedDetails = {},
-        duplicateRows = parsedData.duplicateRows || categorizedDetails.duplicateRows || [],
-        duplicateStatusUpdateRows = parsedData.duplicateStatusUpdateRows || categorizedDetails.duplicateStatusUpdateRows || [],
-        nonGoodRows = parsedData.nonGoodRows || categorizedDetails.nonGoodRows || [],
-        unregisteredRows = parsedData.unregisteredRows || categorizedDetails.unregisteredRows || []
-    } = parsedData || {};
+        unallocatedRows = [],
+        duplicateRows = [],
+        duplicateStatusUpdateRows = [],
+        nonGoodRows = [],
+        unregisteredRows = []
+    } = parsedData;
 
     const tabConfigs = {
         new: {
@@ -34,11 +34,11 @@ const ImportExcelModal = ({
             alertMessage: 'The data below is valid and successfully allocated to matching POs. This data will be saved to the database when you click Save.'
         },
         unallocated: {
-            title: 'Unallocated Stock',
+            title: 'Unallocated Data',
             alertBg: '#cff4fc',
             alertColor: '#055160',
             alertBorder: '#b6effb',
-            alertMessage: 'The items below are valid but do not have active PO allocations. This data will be stored as unallocated stock.'
+            alertMessage: 'The rows below are valid production items but exceeded active PO capacity or have no matching open POs. These items are displayed for information only.'
         },
         duplicate: {
             title: 'Duplicate Rows (Skipped)',
@@ -158,9 +158,8 @@ const ImportExcelModal = ({
 
                         {activeTab === 'unallocated' && (
                             <RawDataTab
-                                rawData={unallocatedStocks}
-                                isUnallocatedMode={true} // FIX: Memunculkan kolom khusus Unallocated Stock
-                                emptyMessage="No unallocated stock available."
+                                rawData={unallocatedRows}
+                                emptyMessage="No unallocated items found."
                             />
                         )}
 
@@ -222,15 +221,15 @@ const ImportExcelModal = ({
                     <button
                         type="button"
                         onClick={onConfirmImport}
-                        disabled={loading || (summary.newCount === 0 && summary.unallocatedCount === 0)}
+                        disabled={loading || (!summary.newCount || summary.newCount === 0)}
                         style={{
                             padding: '8px 16px',
                             backgroundColor: '#0d6efd',
                             color: '#fff',
                             border: 'none',
                             borderRadius: '4px',
-                            cursor: (loading || (summary.newCount === 0 && summary.unallocatedCount === 0)) ? 'not-allowed' : 'pointer',
-                            opacity: (loading || (summary.newCount === 0 && summary.unallocatedCount === 0)) ? 0.6 : 1,
+                            cursor: (loading || (!summary.newCount || summary.newCount === 0)) ? 'not-allowed' : 'pointer',
+                            opacity: (loading || (!summary.newCount || summary.newCount === 0)) ? 0.6 : 1,
                             fontWeight: 'bold',
                             fontSize: '14px'
                         }}

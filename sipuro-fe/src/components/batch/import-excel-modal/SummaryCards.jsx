@@ -28,7 +28,7 @@ const SummaryCards = ({ summary, activeTab, setActiveTab }) => {
                 }}
             >
                 <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Unallocated</div>
-                <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{summary.unallocatedCount || 0} Items</div>
+                <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{summary.unallocatedCount || 0} Rows</div>
             </div>
 
             {/* Card 3: Duplicate Data */}

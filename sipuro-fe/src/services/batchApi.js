@@ -1,37 +1,17 @@
 import axios from 'axios';
 import { API_BASE_URL } from './config';
 
-// --- ENDPOINT REKAP & ALOKASI BATCH ---
+// --- SUMMARY & BATCH ALLOCATION ENDPOINTS ---
 
-export const fetchUnassignedSummary = async (page = 1, limit = 10, filters = {}) => {
+export const fetchOutstandingSummary = async (page = 1, limit = 10, filters = {}) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/batch/unassigned-summary`, {
+        const response = await axios.get(`${API_BASE_URL}/batch/outstanding-summary`, {
             params: { page, limit, ...filters }
         });
         return response.data;
     } catch (error) {
-        console.error('Error fetching unassigned summary:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal memuat rekap SKU.' };
-    }
-};
-
-export const fetchBatchesBySku = async (id_product) => {
-    try {
-        const response = await axios.get(`${API_BASE_URL}/batch/batches-by-sku/${id_product}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching batches by SKU:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal memuat batch eksisting.' };
-    }
-};
-
-export const assignBatchBulk = async (payload) => {
-    try {
-        const response = await axios.post(`${API_BASE_URL}/batch/assign-batch-bulk`, payload);
-        return response.data;
-    } catch (error) {
-        console.error('Error assigning batch bulk:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal mengalokasikan batch.' };
+        console.error('Error fetching outstanding summary:', error);
+        return { success: false, message: error.response?.data?.message || 'Failed to fetch SKU summary.' };
     }
 };
 
@@ -43,11 +23,11 @@ export const fetchBatchMapping = async (page = 1, limit = 10, filters = {}) => {
         return response.data;
     } catch (error) {
         console.error('Error fetching batch mapping:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal memuat mapping batch.' };
+        return { success: false, message: error.response?.data?.message || 'Failed to fetch batch mapping.' };
     }
 };
 
-// --- ENDPOINT UNALLOCATED STOCKS ---
+// --- UNALLOCATED STOCKS ENDPOINTS ---
 
 export const fetchUnallocatedStocks = async (page = 1, limit = 10, filters = {}) => {
     try {
@@ -57,7 +37,7 @@ export const fetchUnallocatedStocks = async (page = 1, limit = 10, filters = {})
         return response.data;
     } catch (error) {
         console.error('Error fetching unallocated stocks:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal memuat data stok lebihan.' };
+        return { success: false, message: error.response?.data?.message || 'Failed to fetch unallocated stock data.' };
     }
 };
 
@@ -67,7 +47,7 @@ export const fetchOpenAllocationsByProduct = async (productId) => {
         return response.data;
     } catch (error) {
         console.error('Error fetching open allocations:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal memuat target alokasi.' };
+        return { success: false, message: error.response?.data?.message || 'Failed to fetch target allocation.' };
     }
 };
 
@@ -77,7 +57,7 @@ export const reallocateStockApi = async (payload) => {
         return response.data;
     } catch (error) {
         console.error('Error reallocating stock:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal mengalokasikan stok lebihan.' };
+        return { success: false, message: error.response?.data?.message || 'Failed to reallocate stock.' };
     }
 };
 
@@ -118,7 +98,7 @@ export const exportBatchExcelApi = async (params) => {
         return { success: true };
     } catch (error) {
         console.error('Export Excel Error:', error);
-        return { success: false, message: 'Gagal mengunduh berkas Excel.' };
+        return { success: false, message: 'Failed to download Excel file.' };
     }
 };
 
@@ -131,7 +111,7 @@ export const updateAllocationStatusApi = async (allocationId, payload) => {
         console.error('Error updating allocation status:', error);
         return {
             success: false,
-            message: error.response?.data?.message || 'Gagal mengubah status alokasi.'
+            message: error.response?.data?.message || 'Failed to update allocation status.'
         };
     }
 };
@@ -145,7 +125,7 @@ export const updateBatchNumberApi = async (batchId, payload) => {
         console.error('Error updating batch number:', error);
         return {
             success: false,
-            message: error.response?.data?.message || 'Gagal mengubah nomor batch.'
+            message: error.response?.data?.message || 'Failed to update batch number.'
         };
     }
 };

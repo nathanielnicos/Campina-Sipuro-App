@@ -1,5 +1,5 @@
 const exportBatch = require('./exportBatchController');
-const unassignedProduct = require('./unassignedProductController');
+const outstandingSummary = require('./outstandingSummaryController');
 const batchMapping = require('./batchMappingController');
 const unallocatedStock = require('./unallocatedStockController');
 
@@ -7,10 +7,8 @@ module.exports = {
     // Export
     exportBatchMappingExcel: exportBatch.exportBatchMappingExcel,
 
-    // Unassigned Product
-    getUnassignedSummary: unassignedProduct.getUnassignedSummary,
-    getBatchesBySku: unassignedProduct.getBatchesBySku,
-    assignBatchBulk: unassignedProduct.assignBatchBulk,
+    // Outstanding Summary
+    getOutstandingSummary: outstandingSummary.getOutstandingSummary,
 
     // Batch Mapping
     getAllocatedBatchMapping: batchMapping.getAllocatedBatchMapping,

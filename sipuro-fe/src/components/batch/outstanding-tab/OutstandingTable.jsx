@@ -1,17 +1,12 @@
-import React from 'react';
 import PaginationControl from '../../common/PaginationControl';
 import SortableHeader from '../../common/SortableHeader';
-import BatchAllocationModal from '../batch-allocation-modal/BatchAllocationModal';
 import Filter from './Filter';
 import TableRow from './TableRow';
 
 // Hooks
-import { useUnbatchedTable } from '../../../hooks/batch/unbatched-tab/useUnbatchedTable';
-import { useBatchAllocation } from '../../../hooks/batch/unbatched-tab/useBatchAllocation';
+import { useOutstandingTable } from '../../../hooks/batch/outstanding-tab/useOutstandingTable';
 
-const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
-    const currentUserId = currentUser?.employee_id || currentUser?.id;
-
+const OutstandingTable = ({ reloadTrigger }) => {
     const {
         summaryList,
         loading,
@@ -20,58 +15,18 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         searchPo,
         fromCreatedDate,
         toCreatedDate,
-        fromDeliveryDate,
-        toDeliveryDate,
         sortKey,
         sortOrder,
         pagination,
         setPage,
         setLimit,
-        loadData,
         handleProductChange,
         handlePoChange,
         handleFromCreatedDateChange,
         handleToCreatedDateChange,
-        handleFromDeliveryDateChange,
-        handleToDeliveryDateChange,
         handleResetFilters,
         handleSort
-    } = useUnbatchedTable(reloadTrigger);
-
-    const {
-        selectedSku,
-        isModalOpen,
-        allocationMode,
-        existingBatches,
-        selectedBatchId,
-        allocatedQty,
-        batchCode,
-        productionDate,
-        submitting,
-        setAllocatedQty,
-        setAllocationMode,
-        setBatchCode,
-        setProductionDate,
-        handleOpenModal,
-        handleCloseModal,
-        handleSelectBatchExisting,
-        handleSubmitBatch
-    } = useBatchAllocation({
-        currentUserId,
-        onSuccessAllocation: () => {
-            loadData();
-            if (onRefreshAll) onRefreshAll();
-        }
-    });
-
-    // Menutup akses tombol alokasi jika ada filter spesifik yang menyala (kecuali searchProduct)
-    const isAnyFilterActive = Boolean(
-        (searchPo && searchPo.trim() !== '') ||
-        fromCreatedDate ||
-        toCreatedDate ||
-        fromDeliveryDate ||
-        toDeliveryDate
-    );
+    } = useOutstandingTable(reloadTrigger);
 
     return (
         <div style={{ position: 'relative', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
@@ -96,14 +51,10 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 searchPo={searchPo}
                 fromCreatedDate={fromCreatedDate}
                 toCreatedDate={toCreatedDate}
-                fromDeliveryDate={fromDeliveryDate}
-                toDeliveryDate={toDeliveryDate}
                 onProductChange={handleProductChange}
                 onPoChange={handlePoChange}
                 onFromCreatedDateChange={handleFromCreatedDateChange}
                 onToCreatedDateChange={handleToCreatedDateChange}
-                onFromDeliveryDateChange={handleFromDeliveryDateChange}
-                onToDeliveryDateChange={handleToDeliveryDateChange}
                 onResetFilters={handleResetFilters}
             />
 
@@ -128,7 +79,15 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                 />
                                 <SortableHeader
                                     label="Total Required Qty (Pcs)"
-                                    sortKey="total_qty_needed"
+                                    sortKey="total_required_qty"
+                                    currentSortKey={sortKey}
+                                    currentSortOrder={sortOrder}
+                                    onSort={handleSort}
+                                    align="right"
+                                />
+                                <SortableHeader
+                                    label="Total Remaining Qty (Pcs)"
+                                    sortKey="total_remaining_qty"
                                     currentSortKey={sortKey}
                                     currentSortOrder={sortOrder}
                                     onSort={handleSort}
@@ -145,6 +104,7 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                 <th style={{ padding: '12px 10px', textAlign: 'left', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Number</th>
                                 <th style={{ padding: '12px 10px', textAlign: 'center', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Created Date</th>
                                 <th style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Qty (Pcs)</th>
+                                <th style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: '#495057', fontWeight: '600' }}>PO Remaining Qty (Pcs)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -159,9 +119,6 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                     <TableRow
                                         key={row.id_product}
                                         row={row}
-                                        currentUserRole={currentUser?.role}
-                                        isAnyFilterActive={isAnyFilterActive}
-                                        onOpenModal={handleOpenModal}
                                     />
                                 ))
                             )}
@@ -178,27 +135,8 @@ const UnbatchedTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                     }}
                 />
             </div>
-
-            <BatchAllocationModal
-                isOpen={isModalOpen}
-                selectedSku={selectedSku}
-                allocatedQty={allocatedQty}
-                setAllocatedQty={setAllocatedQty}
-                allocationMode={allocationMode}
-                setAllocationMode={setAllocationMode}
-                existingBatches={existingBatches}
-                selectedBatchId={selectedBatchId}
-                batchCode={batchCode}
-                setBatchCode={setBatchCode}
-                productionDate={productionDate}
-                setProductionDate={setProductionDate}
-                submitting={submitting}
-                onSelectBatchExisting={handleSelectBatchExisting}
-                onSubmit={handleSubmitBatch}
-                onClose={handleCloseModal}
-            />
         </div>
     );
 };
 
-export default UnbatchedTable;
+export default OutstandingTable;

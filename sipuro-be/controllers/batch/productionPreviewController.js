@@ -50,13 +50,8 @@ exports.previewExcelUpload = async (req, res) => {
         const [allProducts] = await db.query('SELECT id_product, product_code, product_name FROM products');
         const poTolerance = await getPOTolerance(db);
 
-        const {
-            categorizedDetails,
-            summary,
-            previewResults,
-            unallocatedStocks,
-            detailedAllocations
-        } = calculateFifoAllocation(
+        // Panggil helper
+        const calculationResult = calculateFifoAllocation(
             rawRows,
             existingHashes,
             openPoDetails || [],
@@ -64,6 +59,8 @@ exports.previewExcelUpload = async (req, res) => {
             poTolerance
         );
 
+        // Spread seluruh hasil helper agar array raw data (unallocatedRows, duplicateRows, dll) 
+        // berada sejajar di tingkat atas tanpa perlu pembungkusan ganda
         return res.json({
             success: true,
             data: {
@@ -73,11 +70,7 @@ exports.previewExcelUpload = async (req, res) => {
                 allocationMode: 'FIFO_CREATED_AT_ASC',
                 isReupload: isAlreadyUploaded,
                 warningMessage: isAlreadyUploaded ? 'This file or timestamp has been uploaded previously.' : null,
-                summary,
-                categorizedDetails,
-                previewResults,
-                unallocatedStocks,
-                detailedAllocations
+                ...calculationResult
             }
         });
 

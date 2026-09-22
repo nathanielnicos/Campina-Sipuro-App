@@ -129,7 +129,7 @@ async function refreshPODetailFulfilledQty(connection, poDetailId) {
     await connection.query(
         `UPDATE po_details d
          SET d.fulfilled_qty = (
-             SELECT COALESCE(SUM(pba.fulfilled_qty), 0)
+             SELECT COALESCE(SUM(pba.allocated_qty), 0)
              FROM po_batch_allocations pba
              WHERE pba.po_detail_id = d.po_detail_id
          )

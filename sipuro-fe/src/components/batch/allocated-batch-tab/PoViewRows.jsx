@@ -1,3 +1,4 @@
+import React from 'react';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import { formatDate, formatQty } from '../../../utils/formatters';
 import AllocationActionButton from './AllocationActionButton';
@@ -20,11 +21,12 @@ export const PoViewRows = ({ mappingList, currentUserRole, poTolerance, onUpdate
 
         return batchAllocations.map((batch, idx) => {
             const target = Number(batch.allocated_qty) || 0;
-            const fulfilled = Number(batch.fulfilled_qty) || 0;
-            const percent = target > 0 ? ((fulfilled / target) * 100).toFixed(1) : '0.0';
+            const basePoQty = Number(batch.po_base_qty) || 0;
+            const percent = Number(batch.fulfillment_percentage ?? 0).toFixed(1);
+            const toleranceVal = Number(poTolerance ?? 100);
 
             return (
-                <tr key={`${row.po_header_id}-${idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
+                <tr key={`${row.po_header_id}-${batch.allocation_id || idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
                     {idx === 0 && (
                         <>
                             {/* 1. PO Number */}
@@ -38,7 +40,7 @@ export const PoViewRows = ({ mappingList, currentUserRole, poTolerance, onUpdate
                         </>
                     )}
 
-                    {/* 4. Product */}
+                    {/* 3. Product */}
                     <td style={{ padding: '10px 14px', minWidth: '240px' }}>
                         {currentUserRole !== 'CUSTOMER' ? (
                             <>
@@ -48,25 +50,30 @@ export const PoViewRows = ({ mappingList, currentUserRole, poTolerance, onUpdate
                             batch.product_name
                         )}
                     </td>
-                    {/* 5. Batch Number */}
+
+                    {/* 4. Batch Number */}
                     <td style={{ padding: '10px 14px', fontWeight: '500', whiteSpace: 'nowrap' }}>
                         {batch.batch_number}
                     </td>
-                    {/* 6. Allocation Qty */}
+
+                    {/* 5. PO Base Qty */}
+                    <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', color: '#495057' }}>
+                        {basePoQty > 0 ? formatQty(basePoQty) : '-'}
+                    </td>
+
+                    {/* 6. Allocation Qty per Batch */}
                     <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {formatQty(target)}
                     </td>
-                    {/* 7. Fulfilled Qty */}
-                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 'bold', color: '#198754', whiteSpace: 'nowrap' }}>
-                        {formatQty(fulfilled)}
-                    </td>
-                    {/* 8. Percentage */}
+
+                    {/* 7. Running Total Percentage Keterpenuhan PO */}
                     <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                        <span style={{ color: percent >= poTolerance ? '#198754' : percent > 0 ? '#fd7e14' : '#6c757d' }}>
+                        <span style={{ color: percent >= toleranceVal ? '#198754' : percent > 0 ? '#fd7e14' : '#6c757d' }}>
                             {percent}%
                         </span>
                     </td>
-                    {/* 9. Allocation Status */}
+
+                    {/* 8. Allocation Status */}
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                         <span style={{
                             ...getStatusStyle(batch.status),
@@ -80,7 +87,8 @@ export const PoViewRows = ({ mappingList, currentUserRole, poTolerance, onUpdate
                             {batch.status}
                         </span>
                     </td>
-                    {/* 10. Action */}
+
+                    {/* 9. Action */}
                     <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <AllocationActionButton
                             status={batch.status}

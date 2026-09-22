@@ -3,7 +3,7 @@ export const NAV_ITEMS = {
     PO_LIST: { id: 'po-list', label: 'Purchase Order' },
     PPIC_DASHBOARD: { id: 'ppic-dashboard', label: 'Dashboard' },
     PPIC_BATCH: { id: 'ppic-batch', label: 'Batch' },
-    PPIC_PRODUCTION_PLAN: { id: 'ppic-production-plan', label: 'Production Plan' },
+    PPIC_PRODUCTION_SCHEDULE: { id: 'ppic-production-schedule', label: 'Production Schedule' },
     DELIVERY_ORDER: { id: 'delivery-order', label: 'Delivery Order' },
     SA_EMPLOYEES: { id: 'sa-employees', label: 'Employee User' },
     SA_CUSTOMERS: { id: 'sa-customers', label: 'Customer User' },
@@ -54,7 +54,7 @@ export const getNavItemsByUser = (user) => {
             NAV_ITEMS.PPIC_DASHBOARD,
             NAV_ITEMS.PO_LIST,
             NAV_ITEMS.PPIC_BATCH,
-            NAV_ITEMS.PPIC_PRODUCTION_PLAN,
+            NAV_ITEMS.PPIC_PRODUCTION_SCHEDULE,
             NAV_ITEMS.PROFILE
         ];
     }

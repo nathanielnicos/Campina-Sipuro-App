@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import POPage from './components/po/page/POPage';
 import DetailModal from './components/po/detail-modal/DetailModal';
 import BatchPage from './components/batch/page/BatchPage';
-import ProductionPlanPage from './components/productionPlan/ProductionPlanPage';
+import ProductionSchedulePage from './components/productionSchedule/page/ProductionSchedulePage';
 import Dashboard from './components/dashboard/Dashboard';
 
 import EmployeeListPage from './components/master/EmployeeListPage';
@@ -46,7 +46,7 @@ function App() {
     if (path === 'delivery-order') return 'delivery-order';
     if (path === 'ppic-dashboard') return 'ppic-dashboard';
     if (path === 'ppic-batch') return 'ppic-batch';
-    if (path === 'ppic-production-plan') return 'ppic-production-plan';
+    if (path === 'ppic-production-schedule') return 'ppic-production-schedule';
     if (path === 'profile') return 'profile';
 
     // Jika tidak ada di URL, gunakan tab pertama sesuai role user
@@ -165,7 +165,7 @@ function App() {
 
       {activeTab === 'ppic-dashboard' && <Dashboard />}
       {activeTab === 'ppic-batch' && <BatchPage currentUser={user} />}
-      {activeTab === 'ppic-production-plan' && <ProductionPlanPage />}
+      {activeTab === 'ppic-production-schedule' && <ProductionSchedulePage />}
       {activeTab === 'delivery-order' && <DOPage />}
 
       {activeTab === 'po-list' && (

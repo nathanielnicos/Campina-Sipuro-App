@@ -39,8 +39,8 @@ const ValidDataTab = ({ previewResults = [] }) => {
         if (startFormatted && completeFormatted) {
             return (
                 <div style={{ lineHeight: '1.3', fontSize: '11px' }}>
-                    <div>{startFormatted}</div>
-                    <div style={{ color: '#6c757d' }}>s/d {completeFormatted}</div>
+                    <div>{startFormatted} -</div>
+                    <div>{completeFormatted}</div>
                 </div>
             );
         }
@@ -59,7 +59,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                         <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '1px solid #dee2e6' }}>
                             <th style={{ textAlign: 'left', width: '100px', padding: '8px' }}>Batch Number</th>
                             <th style={{ textAlign: 'left', minWidth: '200px', padding: '8px' }}>Product</th>
-                            <th style={{ textAlign: 'center', width: '135px', padding: '8px' }}>Actual Date</th>
+                            <th style={{ textAlign: 'center', width: '140px', padding: '8px' }}>Actual Date</th>
                             <th style={{ textAlign: 'left', width: '140px', padding: '8px', whiteSpace: 'nowrap' }}>PO Number</th>
                             <th style={{ textAlign: 'right', width: '90px', padding: '8px' }}>PO Qty (Pcs)</th>
                             <th style={{ textAlign: 'right', width: '100px', padding: '8px' }}>Fulfilled Qty (Pcs)</th>

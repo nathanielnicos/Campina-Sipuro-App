@@ -53,20 +53,8 @@ const Header = ({
                             color: activeTab === 'mapping' ? '#0d6efd' : '#6c757d'
                         }}
                     >
-                        Batch
+                        Allocated Batch
                     </button>
-                    {userRole !== 'CUSTOMER' && (
-                        <button
-                            onClick={() => onTabChange('unallocated')}
-                            style={{
-                                padding: '12px 20px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px',
-                                borderBottom: activeTab === 'unallocated' ? '3px solid #0d6efd' : '3px solid transparent',
-                                color: activeTab === 'unallocated' ? '#0d6efd' : '#6c757d'
-                            }}
-                        >
-                            Unallocated
-                        </button>
-                    )}
                 </div>
 
                 {userRole !== 'CUSTOMER' && (

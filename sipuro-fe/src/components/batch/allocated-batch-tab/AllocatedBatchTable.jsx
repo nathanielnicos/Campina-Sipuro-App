@@ -6,10 +6,9 @@ import BatchViewRows from './BatchViewRows';
 import PoViewRows from './PoViewRows';
 import EditBatchModal from './EditBatchModal';
 
-// Hook Custom
-import { useBatchListTable } from '../../../hooks/batch/batch-list-tab/useBatchListTable';
+import { useAllocatedBatchTable } from '../../../hooks/batch/allocated-batch-tab/useAllocatedBatchTable';
 
-const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
+const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
     const {
         mappingList,
         poTolerance,
@@ -39,14 +38,13 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         handleResetFilters,
         handleExportExcel,
         handleUpdateStatus,
-        // Handlers & State Modal
         isEditModalOpen,
         selectedBatch,
         editLoading,
         handleOpenEditBatch,
         handleCloseEditBatch,
         handleSaveBatchNumber
-    } = useBatchListTable(currentUser, reloadTrigger, onRefreshAll);
+    } = useAllocatedBatchTable(currentUser, reloadTrigger, onRefreshAll);
 
     return (
         <div style={{ position: 'relative', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
@@ -104,11 +102,11 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                {viewMode === 'BATCH' ? (
+                                {viewMode === 'BY_BATCH' || viewMode === 'BATCH' ? (
                                     <>
                                         <SortableHeader label="Batch Number" sortKey="batch_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
                                         <SortableHeader label="Product" sortKey="product_name" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
-                                        <SortableHeader label={<>Prod. Dates<br /><small style={{ fontWeight: 'normal', color: '#6c757d' }}>(Plan / Actual)</small></>} sortKey="plan_production_date" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
+                                        <SortableHeader label={<>Production Date<br />and Time</>} sortKey="plan_production_date" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
                                         <SortableHeader label="Batch Status" sortKey="batch_status" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
                                         <SortableHeader label="PO Number" sortKey="po_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
                                     </>
@@ -120,15 +118,15 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                         <SortableHeader label="Batch Number" sortKey="batch_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
                                     </>
                                 )}
-                                <SortableHeader label={<>Allocation Qty<br />(Pcs)</>} sortKey="allocated_qty" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="right" />
-                                <SortableHeader label={<>Fulfilled Qty<br />(Pcs)</>} sortKey="fulfilled_qty" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="right" />
+                                <SortableHeader label={<>PO Qty<br />(Pcs)</>} sortKey="po_base_qty" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="right" />
+                                <SortableHeader label={<>Allocated Qty<br />(Pcs)</>} sortKey="allocated_qty" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="right" />
                                 <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Percentage</th>
                                 <SortableHeader label="Allocation Status" sortKey="status" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
                                 <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {viewMode === 'BATCH' ? (
+                            {viewMode === 'BY_BATCH' || viewMode === 'BATCH' ? (
                                 <BatchViewRows
                                     mappingList={mappingList}
                                     currentUserRole={currentUser?.role}
@@ -160,7 +158,6 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 />
             </div>
 
-            {/* Modal Edit Batch Number */}
             <EditBatchModal
                 isOpen={isEditModalOpen}
                 onClose={handleCloseEditBatch}
@@ -172,4 +169,4 @@ const BatchListTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
     );
 };
 
-export default BatchListTable;
+export default AllocatedBatchTable;

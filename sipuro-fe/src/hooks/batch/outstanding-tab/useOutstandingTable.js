@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchUnassignedSummary } from '../../../services/batchApi';
+import { fetchOutstandingSummary } from '../../../services/batchApi';
 
-export const useUnbatchedTable = (reloadTrigger) => {
+export const useOutstandingTable = (reloadTrigger) => {
     const [summaryList, setSummaryList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -34,7 +34,7 @@ export const useUnbatchedTable = (reloadTrigger) => {
                 sortKey,
                 sortOrder
             };
-            const res = await fetchUnassignedSummary(page, limit, filters);
+            const res = await fetchOutstandingSummary(page, limit, filters);
             if (res && res.success) {
                 setSummaryList(res.data || []);
                 if (res.pagination) {
