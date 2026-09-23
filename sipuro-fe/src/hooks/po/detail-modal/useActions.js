@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { savePO, cancelPOApi, updatePOStatusApi } from '../../../services/poApi';
 
 export const useActions = ({ poId, currentUser, onSuccess }) => {
-    // Simpan jenis aksi yang sedang loading, contoh: 'SAVE', 'CANCEL', 'APPROVE', 'REJECT', atau null
+    // Simpan jenis aksi yang sedang loading: 'SAVE', 'SAVE_DRAFT', 'SUBMIT', 'CANCEL', 'APPROVE', 'REJECT', atau null
     const [actionLoading, setActionLoading] = useState(null);
 
     const userRole = currentUser?.role;
@@ -12,7 +12,10 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
     const handleSubmit = async (e, formData) => {
         if (e) e.preventDefault();
 
-        const { requestedDeliveryDate, deliveryAddress, description, subtotal, taxAmount, grandTotal, items, customerId } = formData;
+        // Mengambil target_status dari tombol yang diklik (Save as Draft / Submit PO)
+        const targetStatus = e?.nativeEvent?.submitter?.getAttribute('value') || 'Waiting for Confirmation';
+
+        const { deliveryAddress, description, subtotal, taxAmount, grandTotal, items, customerId } = formData;
 
         const invalidItem = items.find((i) => !i.id_product || i.qty <= 0);
         if (invalidItem) {
@@ -20,13 +23,19 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
             return;
         }
 
-        const confirmMsg = poId ? 'Are you sure you want to save changes to this PO?' : 'Are you sure you want to create this new PO?';
+        let confirmMsg = 'Are you sure you want to save changes to this PO?';
+        if (targetStatus === 'Draft') {
+            confirmMsg = 'Are you sure you want to save this PO as Draft?';
+        } else if (targetStatus === 'Waiting for Confirmation') {
+            confirmMsg = poId ? 'Are you sure you want to submit this PO for confirmation?' : 'Are you sure you want to create and submit this new PO?';
+        }
+
         if (!window.confirm(confirmMsg)) return;
 
         const payload = {
             customer_id: customerId,
+            status: targetStatus,
             ...(poId ? { updated_by: customerUserId } : { created_by: customerUserId }),
-            requested_delivery_date: requestedDeliveryDate,
             delivery_address: deliveryAddress,
             description,
             subtotal,
@@ -42,11 +51,22 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
             }))
         };
 
+        // Perbaikan: Murni ditentukan berdasarkan aksi tombol yang diklik
+        let loadingType = 'SAVE';
+        if (targetStatus === 'Draft') {
+            loadingType = 'SAVE_DRAFT';
+        } else if (targetStatus === 'Waiting for Confirmation') {
+            loadingType = poId && formData.poStatus === 'Waiting for Confirmation' ? 'SAVE' : 'SUBMIT';
+        }
+
         try {
-            setActionLoading('SAVE');
+            setActionLoading(loadingType);
             const result = await savePO(poId, payload);
             if (result.success) {
-                alert(poId ? 'PO updated successfully!' : 'PO created successfully!');
+                const msg = targetStatus === 'Draft'
+                    ? 'PO saved as Draft successfully!'
+                    : (poId && formData.poStatus === 'Waiting for Confirmation' ? 'PO updated successfully!' : 'PO submitted successfully!');
+                alert(msg);
                 if (onSuccess) onSuccess();
             } else {
                 alert('Failed to save PO: ' + (result.message || 'An error occurred.'));

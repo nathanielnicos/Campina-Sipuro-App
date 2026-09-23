@@ -1,5 +1,5 @@
-const { sipuroDb } = require('../../config/db');
-const { getPOTolerance } = require('../../helpers/batchHelper');
+const { sipuroDb } = require('../../../config/db');
+const { getPOTolerance } = require('../../../helpers/batchHelper');
 
 const buildOrderByClause = (displayMode, sortKey, sortOrder) => {
     const order = (sortOrder && sortOrder.toUpperCase() === 'ASC') ? 'ASC' : 'DESC';
@@ -18,7 +18,6 @@ const buildOrderByClause = (displayMode, sortKey, sortOrder) => {
     const poSortMap = {
         'po_number': 'h.po_number',
         'po_created_date': 'h.created_at',
-        'po_requested_delivery_date': 'h.requested_delivery_date',
         'product_name': 'p.product_name',
         'batch_number': 'b.batch_number',
         'allocated_qty': 'total_allocated_qty',
@@ -49,8 +48,7 @@ exports.getAllocatedBatchMapping = async (req, res) => {
             sortOrder,
             fromPlanDate, toPlanDate,
             fromActualDate, toActualDate,
-            fromCreatedDate, toCreatedDate,
-            fromDeliveryDate, toDeliveryDate
+            fromCreatedDate, toCreatedDate
         } = req.query;
 
         let whereClauses = ['d.deleted_at IS NULL'];
@@ -93,15 +91,6 @@ exports.getAllocatedBatchMapping = async (req, res) => {
             queryParams.push(`${toCreatedDate} 23:59:59`);
         }
 
-        if (fromDeliveryDate) {
-            whereClauses.push(`h.requested_delivery_date >= ?`);
-            queryParams.push(`${fromDeliveryDate} 00:00:00`);
-        }
-        if (toDeliveryDate) {
-            whereClauses.push(`h.requested_delivery_date <= ?`);
-            queryParams.push(`${toDeliveryDate} 23:59:59`);
-        }
-
         const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
         const orderBySql = buildOrderByClause(displayMode, sortKey, sortOrder);
 
@@ -127,7 +116,6 @@ exports.getAllocatedBatchMapping = async (req, res) => {
                     h.po_header_id,
                     h.po_number,
                     h.created_at AS po_created_date,
-                    h.requested_delivery_date AS po_requested_delivery_date,
                     SUM(pba.allocated_qty) AS total_allocated_qty,
                     SUM(pba.fulfilled_qty) AS total_fulfilled_qty,
                     GROUP_CONCAT(
@@ -152,7 +140,7 @@ exports.getAllocatedBatchMapping = async (req, res) => {
                 JOIN sipuro_db.batches b ON pba.id_batch = b.id
                 JOIN sipuro_db.products p ON b.id_product = p.id_product
                 ${whereSql}
-                GROUP BY h.po_header_id, h.po_number, h.created_at, h.requested_delivery_date
+                GROUP BY h.po_header_id, h.po_number, h.created_at
                 ${orderBySql}
                 LIMIT ${limitNum} OFFSET ${offset};
             `;
@@ -251,7 +239,6 @@ exports.getAllocatedBatchMapping = async (req, res) => {
                             pba.fulfilled_qty, ';;', 
                             pba.status, ';;', 
                             IFNULL(h.created_at, ''), ';;', 
-                            IFNULL(h.requested_delivery_date, ''), ';;',
                             IFNULL(d.base_qty, 0), ';;',
                             IFNULL(d.fulfilled_qty, 0)
                         )
@@ -280,7 +267,6 @@ exports.getAllocatedBatchMapping = async (req, res) => {
                             fulfilled_qty,
                             status,
                             po_created_date,
-                            po_requested_delivery_date,
                             po_base_qty,
                             po_fulfilled_qty
                         ] = item.split(';;');
@@ -306,8 +292,7 @@ exports.getAllocatedBatchMapping = async (req, res) => {
                             po_fulfilled_qty: fulfilledQtyNum,
                             fulfillment_percentage: fulfillmentPercentage,
                             status: calculatedStatus,
-                            po_created_date: po_created_date || null,
-                            po_requested_delivery_date: po_requested_delivery_date || null
+                            po_created_date: po_created_date || null
                         };
                     })
                     : [];

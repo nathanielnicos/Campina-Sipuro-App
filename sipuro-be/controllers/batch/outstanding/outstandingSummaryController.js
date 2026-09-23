@@ -1,5 +1,5 @@
-const { sipuroDb } = require('../../config/db');
-const { getPOTolerance } = require('../../helpers/batchHelper');
+const { sipuroDb } = require('../../../config/db');
+const { getPOTolerance } = require('../../../helpers/batchHelper');
 
 /**
  * Mengambil daftar produk dan PO terkait yang masih outstanding (belum terpenuhi sesuai toleransi PO)
@@ -15,8 +15,6 @@ exports.getOutstandingSummary = async (req, res) => {
             searchPo,
             fromCreatedDate,
             toCreatedDate,
-            fromDeliveryDate,
-            toDeliveryDate,
             sortKey,
             sortOrder
         } = req.query;
@@ -50,16 +48,6 @@ exports.getOutstandingSummary = async (req, res) => {
         if (toCreatedDate) {
             whereClauses.push(`DATE(h.created_at) <= ?`);
             queryParams.push(toCreatedDate);
-        }
-
-        if (fromDeliveryDate) {
-            whereClauses.push(`DATE(h.requested_delivery_date) >= ?`);
-            queryParams.push(fromDeliveryDate);
-        }
-
-        if (toDeliveryDate) {
-            whereClauses.push(`DATE(h.requested_delivery_date) <= ?`);
-            queryParams.push(toDeliveryDate);
         }
 
         const whereSql = whereClauses.join(' AND ');
@@ -112,11 +100,6 @@ exports.getOutstandingSummary = async (req, res) => {
                     ORDER BY h.po_header_id ASC 
                     SEPARATOR '\n'
                 ) AS created_dates,
-                GROUP_CONCAT(
-                    IFNULL(DATE_FORMAT(h.requested_delivery_date, '%Y-%m-%d'), '-')
-                    ORDER BY h.po_header_id ASC 
-                    SEPARATOR '\n'
-                ) AS requested_delivery_dates,
                 GROUP_CONCAT(
                     d.base_qty
                     ORDER BY h.po_header_id ASC 

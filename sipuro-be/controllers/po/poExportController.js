@@ -8,16 +8,13 @@ exports.exportPoExcel = async (req, res) => {
             search,
             status,
             startDate,
-            endDate,
-            deliveryStartDate,
-            deliveryEndDate
+            endDate
         } = req.query;
 
         let query = `
             SELECT 
                 ph.po_number,
                 DATE_FORMAT(ph.created_at, '%Y-%m-%d') AS created_at,
-                DATE_FORMAT(ph.requested_delivery_date, '%Y-%m-%d') AS requested_delivery_date,
                 ph.status,
                 ph.delivery_address,
                 ph.description,
@@ -58,16 +55,6 @@ exports.exportPoExcel = async (req, res) => {
             params.push(endDate);
         }
 
-        // Filter Requested Delivery Date Range
-        if (deliveryStartDate && deliveryStartDate !== '') {
-            query += ` AND DATE(ph.requested_delivery_date) >= ?`;
-            params.push(deliveryStartDate);
-        }
-        if (deliveryEndDate && deliveryEndDate !== '') {
-            query += ` AND DATE(ph.requested_delivery_date) <= ?`;
-            params.push(deliveryEndDate);
-        }
-
         query += ` ORDER BY ph.po_header_id DESC`;
 
         const [rows] = await sipuroDb.query(query, params);
@@ -76,7 +63,6 @@ exports.exportPoExcel = async (req, res) => {
             [
                 'PO Number',
                 'Created Date',
-                'Requested Delivery Date',
                 'Status',
                 'Delivery Address',
                 'Notes',
@@ -103,7 +89,6 @@ exports.exportPoExcel = async (req, res) => {
             excelData.push([
                 item.po_number,
                 item.created_at,
-                item.requested_delivery_date,
                 item.status,
                 item.delivery_address || '',
                 item.description || '',
@@ -121,7 +106,6 @@ exports.exportPoExcel = async (req, res) => {
         worksheet['!cols'] = [
             { wch: 20 },
             { wch: 16 },
-            { wch: 22 },
             { wch: 26 },
             { wch: 50 },
             { wch: 25 },

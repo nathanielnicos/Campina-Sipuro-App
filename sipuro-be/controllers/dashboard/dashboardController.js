@@ -38,7 +38,7 @@ exports.getDashboardStats = async (req, res) => {
                 FROM dates d
                 LEFT JOIN sipuro_db.po_headers poh 
                     ON DATE(poh.created_at) = d.date_val
-                   AND poh.status NOT IN ('Rejected', 'Canceled')
+                   AND poh.status NOT IN ('Draft', 'Waiting for Confirmation', 'Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id 
                    AND pod.deleted_at IS NULL${productFilterClause}
@@ -70,7 +70,7 @@ exports.getDashboardStats = async (req, res) => {
                 FROM months m
                 LEFT JOIN sipuro_db.po_headers poh 
                     ON DATE_FORMAT(poh.created_at, '%Y-%m') = DATE_FORMAT(m.month_val, '%Y-%m')
-                   AND poh.status NOT IN ('Rejected', 'Canceled')
+                   AND poh.status NOT IN ('Draft', 'Waiting for Confirmation', 'Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id 
                    AND pod.deleted_at IS NULL${productFilterClause}
@@ -88,7 +88,11 @@ exports.getDashboardStats = async (req, res) => {
         const [monthlyStats] = await sipuroDb.query(trendQuery, trendParams);
 
         let statusWhere = [];
-        let topProductsWhere = [`d.deleted_at IS NULL`, `h.status NOT IN ('Rejected', 'Canceled')`];
+        // Mengecualikan 4 status untuk filter top 5 products
+        let topProductsWhere = [
+            `d.deleted_at IS NULL`,
+            `h.status NOT IN ('Draft', 'Waiting for Confirmation', 'Rejected', 'Canceled')`
+        ];
         let queryParamsStatus = [];
         let queryParamsTop = [];
 

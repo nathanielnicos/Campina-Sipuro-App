@@ -1,5 +1,4 @@
 const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdateStatus }) => {
-    // Helper untuk style tombol universal saat loading
     const isAnyLoading = Boolean(loading);
 
     const getButtonStyle = (baseBgColor = 'transparent', isTextWhite = true) => ({
@@ -14,10 +13,15 @@ const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdat
         transition: 'all 0.2s ease-in-out'
     });
 
+    const isCustomer = userRole === 'CUSTOMER';
+    const isDraftOrNew = !poId || poStatus === 'Draft';
+    const isWaiting = poStatus === 'Waiting for Confirmation';
+
     return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px' }}>
             <div>
-                {poId && userRole === 'CUSTOMER' && poStatus === 'Waiting for Confirmation' && (
+                {/* Tombol Cancel PO aktif saat Waiting for Confirmation ATAU Draft */}
+                {poId && isCustomer && (isWaiting || poStatus === 'Draft') && (
                     <button
                         type="button"
                         onClick={onCancel}
@@ -39,8 +43,8 @@ const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdat
                     Close
                 </button>
 
-                {/* Approve & Reject hanya muncul untuk non-CUSTOMER dan saat status "Waiting for Confirmation" */}
-                {poId && userRole !== 'CUSTOMER' && poStatus === 'Waiting for Confirmation' && (
+                {/* Approve & Reject untuk non-CUSTOMER saat Waiting for Confirmation */}
+                {poId && !isCustomer && isWaiting && (
                     <>
                         <button
                             type="button"
@@ -61,16 +65,41 @@ const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdat
                     </>
                 )}
 
-                {userRole === 'CUSTOMER' && (!poId || poStatus === 'Waiting for Confirmation') && (
+                {/* Tombol khusus CUSTOMER saat pembuatan baru/Draft */}
+                {isCustomer && isDraftOrNew && (
+                    <>
+                        {/* Tombol Save as Draft */}
+                        <button
+                            type="submit"
+                            name="target_status"
+                            value="Draft"
+                            disabled={isAnyLoading}
+                            style={getButtonStyle('#6f42c1')}
+                        >
+                            {loading === 'SAVE_DRAFT' ? 'Saving Draft...' : 'Save as Draft'}
+                        </button>
+
+                        {/* Tombol Submit PO (Mengubah status menjadi Waiting for Confirmation) */}
+                        <button
+                            type="submit"
+                            name="target_status"
+                            value="Waiting for Confirmation"
+                            disabled={isAnyLoading}
+                            style={getButtonStyle('#0d6efd')}
+                        >
+                            {loading === 'SUBMIT' ? 'Submitting...' : 'Submit PO'}
+                        </button>
+                    </>
+                )}
+
+                {/* Tombol Save Changes untuk Customer jika PO sudah posisi Waiting for Confirmation */}
+                {isCustomer && poId && isWaiting && (
                     <button
                         type="submit"
                         disabled={isAnyLoading}
                         style={getButtonStyle('#0d6efd')}
                     >
-                        {loading === 'SAVE'
-                            ? 'Saving...'
-                            : (poId ? 'Save Changes' : 'Save PO')
-                        }
+                        {loading === 'SAVE' ? 'Saving...' : 'Save Changes'}
                     </button>
                 )}
             </div>

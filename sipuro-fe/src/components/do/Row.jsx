@@ -10,7 +10,6 @@ const Row = ({ item }) => {
             <td style={poDoStyle}><strong>{item.po_number || '-'}</strong></td>
             <td style={poDoStyle}>{item.do_number || '-'}</td>
             <td style={dateStyle}>{formatDate(item.po_created_date)}</td>
-            <td style={dateStyle}>{formatDate(item.po_requested_delivery_date)}</td>
             <td style={dateStyle}>{formatDate(item.actual_completed_date)}</td>
             <td style={{ ...cellStyle, width: '280px', minWidth: '220px', lineHeight: '1.4' }}>{item.destination || '-'}</td>
             <td style={{ ...cellStyle, width: '100px' }}>{item.license_plate || '-'}</td>

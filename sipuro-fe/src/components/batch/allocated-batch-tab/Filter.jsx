@@ -9,20 +9,14 @@ const Filter = ({
     toActualDate,
     fromCreatedDate,
     toCreatedDate,
-    fromDeliveryDate,
-    toDeliveryDate,
     currentUserRole,
     exporting,
     onSearchChange,
     onStatusChange,
-    onFromPlanDateChange,
-    onToPlanDateChange,
     onFromActualDateChange,
     onToActualDateChange,
     onFromCreatedDateChange,
     onToCreatedDateChange,
-    onFromDeliveryDateChange,
-    onToDeliveryDateChange,
     onResetFilters,
     onExportExcel
 }) => {
@@ -30,8 +24,7 @@ const Filter = ({
         searchQuery || batchStatus ||
         fromPlanDate || toPlanDate ||
         fromActualDate || toActualDate ||
-        fromCreatedDate || toCreatedDate ||
-        fromDeliveryDate || toDeliveryDate
+        fromCreatedDate || toCreatedDate
     );
 
     return (

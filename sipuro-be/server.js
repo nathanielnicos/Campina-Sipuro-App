@@ -6,15 +6,13 @@ const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const masterRoutes = require('./routes/masterRoutes');
-const masterUploadRoutes = require('./routes/masterUploadRoutes'); // Tambahan: Route Upload Master Produk & Harga
-const superadminRoutes = require('./routes/superadminRoutes');     // Rute khusus Superadmin
+const masterUploadRoutes = require('./routes/masterUploadRoutes');
+const superadminRoutes = require('./routes/superadminRoutes');
 const poRoutes = require('./routes/poRoutes');
 const batchRoutes = require('./routes/batchRoutes');
-const productionUploadRoutes = require('./routes/productionUploadRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const doRoutes = require('./routes/doRoutes');
-const productionPlanRoutes = require('./routes/productionPlanRoutes');
-const poRequirementRoutes = require('./routes/poRequirementRoutes');
+const productionSchedule = require('./routes/productionScheduleRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,11 +34,9 @@ app.use('/api/upload/master', masterUploadRoutes);
 app.use('/api/superadmin', superadminRoutes);
 app.use('/api/po', poRoutes);
 app.use('/api/batch', batchRoutes);
-app.use('/api/upload/production', productionUploadRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/delivery-orders', doRoutes);
-app.use('/api/production-plans', productionPlanRoutes);
-app.use('/api/po-requirement', poRequirementRoutes);
+app.use('/api/production-schedule', productionSchedule);
 
 // Run Server
 app.listen(PORT, () => {

@@ -5,8 +5,6 @@ export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters =
         search = '',
         startDate = '',
         endDate = '',
-        deliveryStartDate = '',
-        deliveryEndDate = '',
         status = '',
         sortBy = 'created_at',
         sortOrder = 'desc'
@@ -19,8 +17,6 @@ export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters =
         search,
         startDate,
         endDate,
-        deliveryStartDate,
-        deliveryEndDate,
         status,
         sortBy,
         sortOrder
@@ -85,8 +81,6 @@ export const exportPoExcelApi = async (customerId, filters = {}) => {
             search = '',
             startDate = '',
             endDate = '',
-            deliveryStartDate = '',
-            deliveryEndDate = '',
             status = ''
         } = filters;
 
@@ -95,8 +89,6 @@ export const exportPoExcelApi = async (customerId, filters = {}) => {
             search,
             startDate,
             endDate,
-            deliveryStartDate,
-            deliveryEndDate,
             status
         });
 

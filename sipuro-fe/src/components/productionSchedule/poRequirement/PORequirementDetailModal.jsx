@@ -1,4 +1,4 @@
-import React from 'react';
+import { formatDate } from '../../../utils/formatters'
 
 const PORequirementDetailModal = ({
     isOpen,
@@ -185,7 +185,6 @@ const PORequirementDetailModal = ({
                                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
                                                 <th style={{ padding: '10px 12px', textAlign: 'left', borderRight: '1px solid #dee2e6' }}>PO Number</th>
                                                 <th style={{ padding: '10px 12px', textAlign: 'center', borderRight: '1px solid #dee2e6' }}>Created Date</th>
-                                                <th style={{ padding: '10px 12px', textAlign: 'center', borderRight: '1px solid #dee2e6' }}>Requested Delivery</th>
                                                 <th style={{ padding: '10px 12px', textAlign: 'right', borderRight: '1px solid #dee2e6' }}>Required Qty</th>
                                                 <th style={{ padding: '10px 12px', textAlign: 'right' }}>Remaining Qty</th>
                                             </tr>
@@ -204,10 +203,7 @@ const PORequirementDetailModal = ({
                                                             {po.po_number}
                                                         </td>
                                                         <td style={{ padding: '10px 12px', textAlign: 'center', borderRight: '1px solid #dee2e6' }}>
-                                                            {po.created_date}
-                                                        </td>
-                                                        <td style={{ padding: '10px 12px', textAlign: 'center', borderRight: '1px solid #dee2e6' }}>
-                                                            {po.requested_delivery_date}
+                                                            {formatDate(po.created_date)}
                                                         </td>
                                                         <td style={{ padding: '10px 12px', textAlign: 'right', borderRight: '1px solid #dee2e6' }}>
                                                             {Number(po.required_qty || 0).toLocaleString('id-ID')}

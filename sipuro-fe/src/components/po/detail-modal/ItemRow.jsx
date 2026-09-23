@@ -13,7 +13,6 @@ const ItemRow = ({
     onFocusDropdown,
     onSelectProduct,
     onQtyChange,
-    // onUomChange,
     onRemoveItem,
     isMultipleItems,
     onCloseDropdown
@@ -60,7 +59,6 @@ const ItemRow = ({
         backgroundColor: isReadOnly ? '#e9ecef' : '#fff'
     };
 
-    // Filter daftar produk saat pengetikan di dropdown
     const filteredProducts = products.filter(p => {
         const kw = (searchTerm || '').toLowerCase();
         if (isCustomer) {
@@ -70,9 +68,7 @@ const ItemRow = ({
     });
 
     const handleQtyInputChange = (e) => {
-        // Ambil angka murni saja (tanpa pemisah ribuan)
         const rawValue = e.target.value.replace(/\D/g, '');
-        // Kirim nilai murni ke parent component
         onQtyChange(index, rawValue);
     };
 
@@ -136,13 +132,13 @@ const ItemRow = ({
                 </td>
             )}
 
-            <td style={{ padding: '12px 16px' }}>
+            <td style={{ padding: '12px 10px' }}>
                 <input
                     type="text"
                     value={item.qty ? formatQty(item.qty) : ''}
                     onChange={handleQtyInputChange}
                     disabled={isReadOnly}
-                    style={{ ...inputStyle, textAlign: 'center' }}
+                    style={{ ...inputStyle, textAlign: 'right' }}
                     placeholder="0"
                 />
             </td>
@@ -152,7 +148,6 @@ const ItemRow = ({
                 ) : (
                     <select
                         value={item.selected_uom}
-                        // onChange={(e) => onUomChange(index, e.target.value)}
                         disabled
                         style={inputStyle}
                     >

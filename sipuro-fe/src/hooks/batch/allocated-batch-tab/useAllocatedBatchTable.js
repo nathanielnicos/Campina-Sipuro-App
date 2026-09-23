@@ -22,8 +22,6 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
     const [toActualDate, setToActualDate] = useState('');
     const [fromCreatedDate, setFromCreatedDate] = useState('');
     const [toCreatedDate, setToCreatedDate] = useState('');
-    const [fromDeliveryDate, setFromDeliveryDate] = useState('');
-    const [toDeliveryDate, setToDeliveryDate] = useState('');
 
     // State Sorting
     const [sortKey, setSortKey] = useState('');
@@ -53,7 +51,6 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
                 fromPlanDate, toPlanDate,
                 fromActualDate, toActualDate,
                 fromCreatedDate, toCreatedDate,
-                fromDeliveryDate, toDeliveryDate,
                 sortKey,
                 sortOrder
             };
@@ -81,7 +78,7 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
     }, [
         page, limit, searchQuery, batchStatus, viewMode,
         fromPlanDate, toPlanDate, fromActualDate, toActualDate,
-        fromCreatedDate, toCreatedDate, fromDeliveryDate, toDeliveryDate,
+        fromCreatedDate, toCreatedDate,
         sortKey, sortOrder
     ]);
 
@@ -115,8 +112,6 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         setToActualDate('');
         setFromCreatedDate('');
         setToCreatedDate('');
-        setFromDeliveryDate('');
-        setToDeliveryDate('');
         setSortKey('');
         setSortOrder('ASC');
         setPage(1);
@@ -131,7 +126,6 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
             fromPlanDate, toPlanDate,
             fromActualDate, toActualDate,
             fromCreatedDate, toCreatedDate,
-            fromDeliveryDate, toDeliveryDate
         });
         setExporting(false);
 
@@ -212,8 +206,6 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         toActualDate, setToActualDate,
         fromCreatedDate, setFromCreatedDate,
         toCreatedDate, setToCreatedDate,
-        fromDeliveryDate, setFromDeliveryDate,
-        toDeliveryDate, setToDeliveryDate,
         sortKey,
         sortOrder,
         pagination,

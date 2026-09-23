@@ -5,7 +5,7 @@ import Summary from './Summary';
 import Actions from './Actions';
 import PaginationControl from '../../common/PaginationControl';
 
-// Import ke-4 Custom Hook baru
+// Import ke-4 Custom Hook
 import { useFormHeader } from '../../../hooks/po/detail-modal/useFormHeader';
 import { useItemRow } from '../../../hooks/po/detail-modal/useItemRow';
 import { useSummary } from '../../../hooks/po/detail-modal/useSummary';
@@ -19,15 +19,12 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
         poCode,
         poStatus,
         products,
-        requestedDeliveryDate,
-        setRequestedDeliveryDate,
         deliveryAddress,
         description,
         setDescription,
         rejectionReason,
         ppnPercent,
         rawPoItems,
-        loading: headerLoading,
         error,
         isCustomer,
         customerId
@@ -63,13 +60,12 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
         handleUpdateStatus
     } = useActions({ poId, currentUser, onSuccess });
 
-    // Kombinasi status loading
-    const isLoading = headerLoading || actionLoading;
+    // Cek apakah form masih diizinkan diedit oleh Customer
+    const isEditableByCustomer = isCustomer && (!poId || poStatus === 'Draft' || poStatus === 'Waiting for Confirmation');
 
-    // Handler Form Submit wrapper untuk menyatukan data dari berbagai hook
+    // Handler Form Submit wrapper
     const onSubmitForm = (e) => {
         handleSubmit(e, {
-            requestedDeliveryDate,
             deliveryAddress,
             description,
             subtotal,
@@ -86,7 +82,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
             backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
             <div style={{
-                backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '900px', maxHeight: '90vh', overflowY: 'auto'
+                backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '1000px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto'
             }}>
                 <h2>
                     {poId ? `Detail Purchase Order: ${poCode}` : 'Create New Purchase Order (PO)'}
@@ -106,8 +102,6 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         userRole={userRole}
                         poStatus={poStatus}
                         rejectionReason={rejectionReason}
-                        requestedDeliveryDate={requestedDeliveryDate}
-                        setRequestedDeliveryDate={setRequestedDeliveryDate}
                         deliveryAddress={deliveryAddress}
                         description={description}
                         setDescription={setDescription}
@@ -118,15 +112,15 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                     <h3 style={{ marginBottom: '12px' }}>Product List</h3>
 
                     <div style={{ borderRadius: '8px', border: '1px solid #dee2e6', marginBottom: '16px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', tableLayout: 'fixed' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '50%' : '35%' }}>Product</th>
+                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '50%' : '36%' }}>Product</th>
                                     {userRole === 'CUSTOMER' && (
-                                        <th style={{ padding: '12px 16px', width: '15%', textAlign: 'right' }}>Unit Price</th>
+                                        <th style={{ padding: '12px 16px', width: '14%', textAlign: 'right' }}>Unit Price</th>
                                     )}
-                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '20%' : '12%', textAlign: 'center' }}>Qty</th>
-                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '20%' : '12%' }}>Unit</th>
+                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '20%' : '13%', textAlign: 'right' }}>Qty</th>
+                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '20%' : '11%' }}>Unit</th>
                                     {userRole === 'CUSTOMER' && (
                                         <th style={{ padding: '12px 16px', width: '18%', textAlign: 'right' }}>Total Price</th>
                                     )}
@@ -145,7 +139,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                                             openDropdown={openDropdown}
                                             products={products}
                                             userRole={userRole}
-                                            isReadOnly={userRole !== 'CUSTOMER'}
+                                            isReadOnly={!isEditableByCustomer}
                                             onSearchChange={(i, val) => {
                                                 setSearchTerm({ ...searchTerm, [i]: val });
                                                 setOpenDropdown(i);
@@ -174,7 +168,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         />
                     </div>
 
-                    {userRole === 'CUSTOMER' && (
+                    {isEditableByCustomer && (
                         <button
                             type="button"
                             onClick={handleAddItem}
@@ -196,7 +190,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         poId={poId}
                         userRole={userRole}
                         poStatus={poStatus}
-                        loading={isLoading}
+                        loading={actionLoading}
                         onClose={onClose}
                         onCancel={handleCancelPO}
                         onUpdateStatus={handleUpdateStatus}

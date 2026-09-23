@@ -8,8 +8,6 @@ export const useTable = ({
     search,
     startDate,
     endDate,
-    deliveryStartDate,
-    deliveryEndDate,
     status,
     sortBy,
     sortOrder
@@ -37,9 +35,7 @@ export const useTable = ({
             const filters = { 
                 search, 
                 startDate, 
-                endDate, 
-                deliveryStartDate, 
-                deliveryEndDate, 
+                endDate,
                 status, 
                 sortBy, 
                 sortOrder 
@@ -63,7 +59,7 @@ export const useTable = ({
             setLoading(false);
             setFetching(false);
         }
-    }, [customerId, currentPage, pageSize, search, startDate, endDate, deliveryStartDate, deliveryEndDate, status, sortBy, sortOrder]);
+    }, [customerId, currentPage, pageSize, search, startDate, endDate, status, sortBy, sortOrder]);
 
     useEffect(() => {
         getPOList();

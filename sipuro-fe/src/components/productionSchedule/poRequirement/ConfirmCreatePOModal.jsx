@@ -107,7 +107,7 @@ const ConfirmCreatePOModal = ({
                     </div>
 
                     <div style={{ fontSize: '12px', color: '#6c757d', fontStyle: 'italic' }}>
-                        * Unit price, subtotal, VAT/PPN, and total amount will be calculated automatically by the system upon saving.
+                        * Unit price, subtotal, VAT, and total amount will be calculated automatically by the system upon saving.
                     </div>
                 </div>
 

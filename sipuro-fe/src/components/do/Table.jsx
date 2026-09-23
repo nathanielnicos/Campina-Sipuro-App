@@ -63,14 +63,6 @@ const Table = ({
                                 style={dateHeaderStyle}
                             />
                             <SortableHeader
-                                label="PO Req. Delivery Date"
-                                sortKey="po_requested_delivery_date"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={dateHeaderStyle}
-                            />
-                            <SortableHeader
                                 label="Actual Complete Date"
                                 sortKey="actual_completed_date"
                                 currentSortKey={sortConfig?.key}

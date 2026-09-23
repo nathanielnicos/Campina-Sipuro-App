@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import FilterBar from './FilterBar';
-import Table from './Table';
+import POTable from './POTable';
 import POPdfModal from '../pdf-modal/PdfModal';
 
 // Import Hooks
@@ -16,8 +16,6 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
         search,
         startDate,
         endDate,
-        deliveryStartDate,
-        deliveryEndDate,
         status,
         sortConfig,
         currentPage,
@@ -27,8 +25,6 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
         handleSearchChange,
         handleStartDateChange,
         handleEndDateChange,
-        handleDeliveryStartDateChange,
-        handleDeliveryEndDateChange,
         handleStatusChange,
         handleResetFilters
     } = useFilterBar();
@@ -51,8 +47,6 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
         search,
         startDate,
         endDate,
-        deliveryStartDate,
-        deliveryEndDate,
         status,
         sortBy: sortConfig.key,
         sortOrder: sortConfig.direction
@@ -65,8 +59,6 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
             search, 
             startDate, 
             endDate, 
-            deliveryStartDate, 
-            deliveryEndDate, 
             status 
         }
     });
@@ -77,8 +69,6 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                 search={search}
                 startDate={startDate}
                 endDate={endDate}
-                deliveryStartDate={deliveryStartDate}
-                deliveryEndDate={deliveryEndDate}
                 status={status}
                 isFilterActive={isFilterActive}
                 userRole={user?.role}
@@ -86,8 +76,6 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                 onSearchChange={handleSearchChange}
                 onStartDateChange={handleStartDateChange}
                 onEndDateChange={handleEndDateChange}
-                onDeliveryStartDateChange={handleDeliveryStartDateChange}
-                onDeliveryEndDateChange={handleDeliveryEndDateChange}
                 onStatusChange={handleStatusChange}
                 onResetFilters={handleResetFilters}
                 onExportExcel={handleExportExcel}
@@ -98,7 +86,7 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
             {error && <p style={{ color: 'red' }}>{error}</p>}
 
             {!loading && !error && (
-                <Table
+                <POTable
                     poList={poList}
                     fetching={fetching}
                     sortConfig={sortConfig}

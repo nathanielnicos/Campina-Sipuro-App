@@ -11,8 +11,6 @@ const DOPage = () => {
         search,
         startDate,
         endDate,
-        deliveryStartDate,
-        deliveryEndDate,
         completedStartDate,
         completedEndDate,
         sortConfig,
@@ -23,8 +21,6 @@ const DOPage = () => {
         handleSearchChange,
         handleStartDateChange,
         handleEndDateChange,
-        handleDeliveryStartDateChange,
-        handleDeliveryEndDateChange,
         handleCompletedStartDateChange,
         handleCompletedEndDateChange,
         handleResetFilters
@@ -47,8 +43,6 @@ const DOPage = () => {
         search,
         startDate,
         endDate,
-        deliveryStartDate,
-        deliveryEndDate,
         completedStartDate,
         completedEndDate,
         sortBy: sortConfig.key,
@@ -61,16 +55,12 @@ const DOPage = () => {
                 search={search}
                 startDate={startDate}
                 endDate={endDate}
-                deliveryStartDate={deliveryStartDate}
-                deliveryEndDate={deliveryEndDate}
                 completedStartDate={completedStartDate}
                 completedEndDate={completedEndDate}
                 isFilterActive={isFilterActive}
                 onSearchChange={handleSearchChange}
                 onStartDateChange={handleStartDateChange}
                 onEndDateChange={handleEndDateChange}
-                onDeliveryStartDateChange={handleDeliveryStartDateChange}
-                onDeliveryEndDateChange={handleDeliveryEndDateChange}
                 onCompletedStartDateChange={handleCompletedStartDateChange}
                 onCompletedEndDateChange={handleCompletedEndDateChange}
                 onResetFilters={handleResetFilters}

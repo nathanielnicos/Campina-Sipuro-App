@@ -1,7 +1,7 @@
 const { sipuroDb: db } = require('../../config/db');
 
 /**
- * Get List of Delivery Orders (PO Batch Allocations with status 'Closed')
+ * Get List of Delivery Orders (PO Batch Allocations yang tidak 'Canceled' dan qty > 0)
  * Accessible by: LOGISTIC and FINANCE departments
  */
 exports.getDeliveryOrders = async (req, res) => {
@@ -10,8 +10,6 @@ exports.getDeliveryOrders = async (req, res) => {
             search = '',
             startDate = '',
             endDate = '',
-            deliveryStartDate = '',
-            deliveryEndDate = '',
             completedStartDate = '',
             completedEndDate = '',
             sortBy = 'po_created_date',
@@ -34,7 +32,10 @@ exports.getDeliveryOrders = async (req, res) => {
         `;
 
         // Dynamic WHERE Clause
-        const whereConditions = ["pba.status = 'Closed'"];
+        const whereConditions = [
+            "pba.status != 'Canceled'",
+            "pba.allocated_qty > 0"
+        ];
         const queryParams = [];
 
         // 1. Search Filter (PO Number, DO Number, Product Code, Product Name)
@@ -56,17 +57,7 @@ exports.getDeliveryOrders = async (req, res) => {
             queryParams.push(endDate);
         }
 
-        // 3. Filter PO Requested Delivery Date Range
-        if (deliveryStartDate) {
-            whereConditions.push('DATE(ph.requested_delivery_date) >= ?');
-            queryParams.push(deliveryStartDate);
-        }
-        if (deliveryEndDate) {
-            whereConditions.push('DATE(ph.requested_delivery_date) <= ?');
-            queryParams.push(deliveryEndDate);
-        }
-
-        // 4. Filter Actual Complete Date Range
+        // 3. Filter Actual Complete Date Range
         if (completedStartDate) {
             whereConditions.push('DATE(b.actual_completed_date) >= ?');
             queryParams.push(completedStartDate);
@@ -83,7 +74,6 @@ exports.getDeliveryOrders = async (req, res) => {
             po_number: 'ph.po_number',
             do_number: 'ph.do_number',
             po_created_date: 'ph.created_at',
-            po_requested_delivery_date: 'ph.requested_delivery_date',
             actual_completed_date: 'b.actual_completed_date',
             destination: 'ph.delivery_address',
             product_name: 'p.product_name',
@@ -107,17 +97,16 @@ exports.getDeliveryOrders = async (req, res) => {
                 ph.po_number,
                 ph.do_number,
                 DATE_FORMAT(ph.created_at, '%Y-%m-%d') AS po_created_date,
-                DATE_FORMAT(ph.requested_delivery_date, '%Y-%m-%d') AS po_requested_delivery_date,
                 DATE_FORMAT(b.actual_completed_date, '%Y-%m-%d') AS actual_completed_date,
                 ph.delivery_address AS destination,
                 NULL AS license_plate,
                 p.product_code,
                 p.product_name,
-                pba.fulfilled_qty,
+                pba.allocated_qty,
                 pd.pcs_per_ctn,
                 CASE 
                     WHEN pd.pcs_per_ctn IS NOT NULL AND pd.pcs_per_ctn > 0 
-                    THEN ROUND(pba.fulfilled_qty / pd.pcs_per_ctn, 2)
+                    THEN ROUND(pba.allocated_qty / pd.pcs_per_ctn, 2)
                     ELSE 0 
                 END AS qty_ctn,
                 ph.description,

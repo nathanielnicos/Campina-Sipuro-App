@@ -1,5 +1,5 @@
 const XLSX = require('xlsx');
-const { sipuroDb } = require('../../config/db');
+const { sipuroDb } = require('../../../config/db');
 
 exports.exportBatchMappingExcel = async (req, res) => {
     try {
@@ -13,8 +13,6 @@ exports.exportBatchMappingExcel = async (req, res) => {
             toActualDate,
             fromCreatedDate,
             toCreatedDate,
-            fromDeliveryDate,
-            toDeliveryDate,
             batchStatus
         } = req.query;
 
@@ -87,27 +85,7 @@ exports.exportBatchMappingExcel = async (req, res) => {
             }
         }
 
-        // 5. Filter Rentang Tanggal Permintaan Pengiriman (PO Req. Delivery Date)
-        if (fromDeliveryDate && fromDeliveryDate.trim() !== '') {
-            whereClauses1.push(`DATE(h.requested_delivery_date) >= ?`);
-            queryParams1.push(fromDeliveryDate.trim());
-
-            if (shouldIncludeUnassigned) {
-                whereClauses2.push(`DATE(h.requested_delivery_date) >= ?`);
-                queryParams2.push(fromDeliveryDate.trim());
-            }
-        }
-        if (toDeliveryDate && toDeliveryDate.trim() !== '') {
-            whereClauses1.push(`DATE(h.requested_delivery_date) <= ?`);
-            queryParams1.push(toDeliveryDate.trim());
-
-            if (shouldIncludeUnassigned) {
-                whereClauses2.push(`DATE(h.requested_delivery_date) <= ?`);
-                queryParams2.push(toDeliveryDate.trim());
-            }
-        }
-
-        // 6. Filter Status Batch
+        // 5. Filter Status Batch
         if (batchStatus && batchStatus.trim() !== '') {
             whereClauses1.push(`b.status = ?`);
             queryParams1.push(batchStatus.trim());
@@ -129,12 +107,12 @@ exports.exportBatchMappingExcel = async (req, res) => {
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
                     DATE_FORMAT(h.created_at, '%d/%m/%Y') AS tgl_po_dibuat,
-                    IF(h.requested_delivery_date IS NOT NULL, DATE_FORMAT(h.requested_delivery_date, '%d/%m/%Y'), '-') AS tgl_kirim_diminta,
-                    pba.allocated_qty AS kuantitas_po,
+                    d.base_qty AS kuantitas_po,
                     COALESCE(b.batch_number, '-') AS kode_batch,
-                    IF(b.plan_production_date IS NOT NULL, DATE_FORMAT(b.plan_production_date, '%d/%m/%Y'), '-') AS tgl_produksi,
-                    COALESCE(pba.fulfilled_qty, 0) AS hasil_produksi,
-                    (pba.allocated_qty - COALESCE(pba.fulfilled_qty, 0)) AS sisa_po,
+                    IF(b.actual_production_date IS NOT NULL, DATE_FORMAT(b.actual_production_date, '%d/%m/%Y %H:%i:%s'), '-') AS tgl_mulai_produksi,
+                    IF(b.actual_completed_date IS NOT NULL, DATE_FORMAT(b.actual_completed_date, '%d/%m/%Y %H:%i:%s'), '-') AS tgl_selesai_produksi,
+                    pba.allocated_qty AS hasil_produksi,
+                    GREATEST(0, d.base_qty - COALESCE(alloc_total.total_allocated, 0)) AS sisa_po,
                     IF(pba.status IS NOT NULL, UPPER(pba.status), '-') AS status_alokasi,
                     h.created_at,
                     pba.id AS sort_id
@@ -143,6 +121,11 @@ exports.exportBatchMappingExcel = async (req, res) => {
                 JOIN sipuro_db.products p ON d.id_product = p.id_product
                 JOIN sipuro_db.po_batch_allocations pba ON d.po_detail_id = pba.po_detail_id
                 LEFT JOIN sipuro_db.batches b ON pba.id_batch = b.id
+                LEFT JOIN (
+                    SELECT po_detail_id, SUM(allocated_qty) AS total_allocated
+                    FROM sipuro_db.po_batch_allocations
+                    GROUP BY po_detail_id
+                ) alloc_total ON d.po_detail_id = alloc_total.po_detail_id
                 ${whereSql1}
 
                 ${shouldIncludeUnassigned ? `
@@ -154,10 +137,10 @@ exports.exportBatchMappingExcel = async (req, res) => {
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
                     DATE_FORMAT(h.created_at, '%d/%m/%Y') AS tgl_po_dibuat,
-                    IF(h.requested_delivery_date IS NOT NULL, DATE_FORMAT(h.requested_delivery_date, '%d/%m/%Y'), '-') AS tgl_kirim_diminta,
-                    (d.base_qty - COALESCE(alloc.total_allocated, 0)) AS kuantitas_po,
+                    d.base_qty AS kuantitas_po,
                     '-' AS kode_batch,
-                    '-' AS tgl_produksi,
+                    '-' AS tgl_mulai_produksi,
+                    '-' AS tgl_selesai_produksi,
                     0 AS hasil_produksi,
                     (d.base_qty - COALESCE(alloc.total_allocated, 0)) AS sisa_po,
                     '-' AS status_alokasi,
@@ -188,10 +171,10 @@ exports.exportBatchMappingExcel = async (req, res) => {
             'Product Name',
             'PO Number',
             'PO Created Date',
-            'Requested Delivery Date',
             'PO Quantity (Pcs)',
             'Batch Code',
-            'Production Date',
+            'Production Start Date and Time',
+            'Production End Date and Time',
             'Production Output (Pcs)',
             'Remaining PO (Pcs)',
             'Status'
@@ -204,10 +187,10 @@ exports.exportBatchMappingExcel = async (req, res) => {
                 row.nama_produk || '-',
                 row.kode_po || '-',
                 row.tgl_po_dibuat || '-',
-                row.tgl_kirim_diminta || '-',
                 Number(row.kuantitas_po) || 0,
                 row.kode_batch,
-                row.tgl_produksi,
+                row.tgl_mulai_produksi,
+                row.tgl_selesai_produksi,
                 Number(row.hasil_produksi) || 0,
                 Number(row.sisa_po) || 0,
                 row.status_alokasi || '-'
@@ -221,10 +204,10 @@ exports.exportBatchMappingExcel = async (req, res) => {
             { wch: 45 },
             { wch: 22 },
             { wch: 16 },
-            { wch: 18 },
             { wch: 20 },
             { wch: 20 },
-            { wch: 16 },
+            { wch: 30 },
+            { wch: 30 },
             { wch: 22 },
             { wch: 16 },
             { wch: 12 }

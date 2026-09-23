@@ -24,11 +24,13 @@ const calculateBaseQty = (qty, uom, product) => {
 exports.createPO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
-        const { customer_id, created_by, requested_delivery_date, delivery_address, description, items } = req.body;
-        if (!customer_id || !requested_delivery_date || !items || !Array.isArray(items) || items.length === 0) {
+        const { customer_id, created_by, delivery_address, description, items, status } = req.body;
+
+        if (!customer_id || !items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ success: false, message: 'Incomplete request data.' });
         }
 
+        const targetStatus = status || 'Waiting for Confirmation';
         const safeDescription = description ? description.trim().slice(0, 50) : null;
 
         const [customerRows] = await sipuroDb.query(
@@ -71,7 +73,6 @@ exports.createPO = async (req, res) => {
         const formattedSeq = String(nextSeq).padStart(3, '0');
         const poNumber = `${formattedSeq}/PO/${customerCode}/${currentYear}`;
 
-        // Ambil data konversi produk secara lengkap
         const productIds = items.map(item => item.id_product);
         const [productRows] = await sipuroDb.query(
             `SELECT id_product, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs FROM sipuro_db.products WHERE id_product IN (?)`,
@@ -81,16 +82,15 @@ exports.createPO = async (req, res) => {
 
         await connection.beginTransaction();
 
-        // Insert Header
+        // Insert Header dengan target status (Draft / Waiting for Confirmation)
         const [headerResult] = await connection.query(
-            `INSERT INTO sipuro_db.po_headers (po_number, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address, description, status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Waiting for Confirmation', ?, ?)`,
-            [poNumber, customer_id, subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription, created_by || null, created_by || null]
+            `INSERT INTO sipuro_db.po_headers (po_number, customer_id, subtotal, ppn_percent, total_amount, delivery_address, description, status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [poNumber, customer_id, subtotal, ppn_percent, total_amount, delivery_address || '', safeDescription, targetStatus, created_by || null, created_by || null]
         );
 
         const poHeaderId = headerResult.insertId;
         const insertedDetails = [];
 
-        // Insert Details dengan snapshot konversi
         for (const item of items) {
             const unitPrice = parseFloat(item.unit_price !== undefined ? item.unit_price : item.base_price) || 0;
             const qty = parseInt(item.qty) || 0;
@@ -138,12 +138,12 @@ exports.createPO = async (req, res) => {
             });
         }
 
-        // Catat Audit Trail LOG CREATE
+        // Catat Audit Trail
         const poHeaderLogId = await logPOHeader(connection, {
             poHeaderId,
             actionType: 'CREATE',
             oldStatus: null,
-            newStatus: 'Waiting for Confirmation',
+            newStatus: targetStatus,
             actionBy: created_by || customer_id
         });
 
@@ -151,15 +151,18 @@ exports.createPO = async (req, res) => {
 
         await connection.commit();
 
-        await createNotification({
-            title: 'New PO Received',
-            message: `${poNumber} has been created by ${customerName}.`,
-            recipientType: 'EMPLOYEE',
-            recipientDepartment: 'PPIC',
-            senderType: 'CUSTOMER',
-            senderId: customer_id,
-            link: '/po-list'
-        });
+        // Notifikasi ke PPIC HANYA jika bukan status Draft
+        if (targetStatus !== 'Draft') {
+            await createNotification({
+                title: 'New PO Received',
+                message: `${poNumber} has been created by ${customerName}.`,
+                recipientType: 'EMPLOYEE',
+                recipientDepartment: 'PPIC',
+                senderType: 'CUSTOMER',
+                senderId: customer_id,
+                link: '/po-list'
+            });
+        }
 
         res.json({ success: true, message: 'Purchase Order created successfully!', data: { po_header_id: poHeaderId, po_number: poNumber } });
     } catch (error) {
@@ -172,13 +175,13 @@ exports.createPO = async (req, res) => {
 };
 
 /**
- * 2. UPDATE PO (REVISI QTY ITEM & KONVERSI)
+ * 2. UPDATE PO (REVISI QTY ITEM & STATUS)
  */
 exports.updatePO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
         const { id } = req.params;
-        const { requested_delivery_date, delivery_address, description, items, updated_by } = req.body;
+        const { delivery_address, description, items, updated_by, status } = req.body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ success: false, message: 'Incomplete request data.' });
@@ -196,11 +199,13 @@ exports.updatePO = async (req, res) => {
         if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO not found.' });
 
         const poData = checkRows[0];
-        if (poData.status !== 'Waiting for Confirmation') {
-            return res.status(400).json({ success: false, message: 'PO cannot be updated because the status is not "Waiting for Confirmation".' });
+        // Memperbolehkan update jika status 'Draft' atau 'Waiting for Confirmation'
+        if (!['Draft', 'Waiting for Confirmation'].includes(poData.status)) {
+            return res.status(400).json({ success: false, message: 'PO cannot be updated because of its current status.' });
         }
 
-        // Fetch Data Eksisting untuk Pembanding Log
+        const newStatus = status || poData.status;
+
         const [existingDetails] = await connection.query(
             `SELECT po_detail_id, id_product, qty, base_qty, total_price FROM sipuro_db.po_details WHERE po_header_id = ? AND deleted_at IS NULL`,
             [id]
@@ -218,7 +223,6 @@ exports.updatePO = async (req, res) => {
         });
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
-        // Ambil data konversi produk secara lengkap
         const productIds = items.map(item => item.id_product);
         const [productRows] = await sipuroDb.query(
             `SELECT id_product, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs FROM sipuro_db.products WHERE id_product IN (?)`,
@@ -228,16 +232,15 @@ exports.updatePO = async (req, res) => {
 
         await connection.beginTransaction();
 
-        // Update Header
+        // Update Header beserta update status jika berubah
         await connection.query(
-            `UPDATE sipuro_db.po_headers SET subtotal = ?, ppn_percent = ?, total_amount = ?, requested_delivery_date = ?, delivery_address = ?, description = ?, updated_by = ? WHERE po_header_id = ?`,
-            [subtotal, ppn_percent, total_amount, requested_delivery_date, delivery_address || '', safeDescription, updated_by || null, id]
+            `UPDATE sipuro_db.po_headers SET subtotal = ?, ppn_percent = ?, total_amount = ?, delivery_address = ?, description = ?, status = ?, updated_by = ? WHERE po_header_id = ?`,
+            [subtotal, ppn_percent, total_amount, delivery_address || '', safeDescription, newStatus, updated_by || null, id]
         );
 
         const existingIds = existingDetails.map(row => row.po_detail_id);
         const payloadDetailIds = items.map(item => item.po_detail_id).filter(Boolean);
 
-        // Soft Delete Item yang Dihapus
         const detailLogsToSave = [];
         const idsToDelete = existingIds.filter(detailId => !payloadDetailIds.includes(detailId));
 
@@ -258,7 +261,6 @@ exports.updatePO = async (req, res) => {
             }
         }
 
-        // Loop Update/Insert Item Detail
         for (const item of items) {
             const unitPrice = parseFloat(item.unit_price !== undefined ? item.unit_price : item.base_price) || 0;
             const qty = parseInt(item.qty) || 0;
@@ -343,12 +345,14 @@ exports.updatePO = async (req, res) => {
             }
         }
 
-        // Catat Audit Trail UPDATE_QTY
+        // Catat Audit Trail UPDATE_QTY atau perubahan status
+        const actionType = (poData.status === 'Draft' && newStatus === 'Waiting for Confirmation') ? 'SUBMIT' : 'UPDATE_QTY';
+
         const poHeaderLogId = await logPOHeader(connection, {
             poHeaderId: id,
-            actionType: 'UPDATE_QTY',
+            actionType,
             oldStatus: poData.status,
-            newStatus: poData.status,
+            newStatus,
             actionBy: updated_by || poData.customer_id
         });
 
@@ -356,15 +360,21 @@ exports.updatePO = async (req, res) => {
 
         await connection.commit();
 
-        await createNotification({
-            title: 'PO Updated',
-            message: `${poData.po_number} has been updated by ${poData.company_name || 'Customer'}.`,
-            recipientType: 'EMPLOYEE',
-            recipientDepartment: 'PPIC',
-            senderType: 'CUSTOMER',
-            senderId: updated_by || poData.customer_id,
-            link: '/po-list'
-        });
+        // Kirim Notifikasi ke PPIC jika baru dipublish dari Draft ke Waiting for Confirmation ATAU sekadar diupdate saat Waiting
+        if (newStatus === 'Waiting for Confirmation') {
+            const isFirstSubmit = poData.status === 'Draft';
+            await createNotification({
+                title: isFirstSubmit ? 'New PO Received' : 'PO Updated',
+                message: isFirstSubmit
+                    ? `${poData.po_number} has been submitted by ${poData.company_name || 'Customer'}.`
+                    : `${poData.po_number} has been updated by ${poData.company_name || 'Customer'}.`,
+                recipientType: 'EMPLOYEE',
+                recipientDepartment: 'PPIC',
+                senderType: 'CUSTOMER',
+                senderId: updated_by || poData.customer_id,
+                link: '/po-list'
+            });
+        }
 
         res.json({ success: true, message: 'Purchase Order updated successfully!' });
     } catch (error) {
@@ -395,15 +405,15 @@ exports.cancelPO = async (req, res) => {
         if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO not found.' });
 
         const poData = checkRows[0];
-        if (poData.status !== 'Waiting for Confirmation') {
-            return res.status(400).json({ success: false, message: 'PO cannot be canceled because the status is not "Waiting for Confirmation".' });
+        // Memperbolehkan cancel jika status 'Draft' atau 'Waiting for Confirmation'
+        if (!['Draft', 'Waiting for Confirmation'].includes(poData.status)) {
+            return res.status(400).json({ success: false, message: 'PO cannot be canceled because of its current status.' });
         }
 
         await connection.beginTransaction();
 
         await connection.query(`UPDATE sipuro_db.po_headers SET status = 'Canceled', updated_by = ? WHERE po_header_id = ?`, [canceled_by || null, id]);
 
-        // Catat Audit Trail CANCEL
         await logPOHeader(connection, {
             poHeaderId: id,
             actionType: 'CANCEL',
@@ -415,15 +425,18 @@ exports.cancelPO = async (req, res) => {
 
         await connection.commit();
 
-        await createNotification({
-            title: 'PO Canceled',
-            message: `${poData.po_number} has been canceled by ${poData.company_name || 'Customer'}.`,
-            recipientType: 'EMPLOYEE',
-            recipientDepartment: 'PPIC',
-            senderType: 'CUSTOMER',
-            senderId: canceled_by || poData.customer_id,
-            link: '/po-list'
-        });
+        // Notifikasi ke PPIC hanya dikirim jika PO yang dibatalkan sebelumnya sudah di-submit ke PPIC
+        if (poData.status === 'Waiting for Confirmation') {
+            await createNotification({
+                title: 'PO Canceled',
+                message: `${poData.po_number} has been canceled by ${poData.company_name || 'Customer'}.`,
+                recipientType: 'EMPLOYEE',
+                recipientDepartment: 'PPIC',
+                senderType: 'CUSTOMER',
+                senderId: canceled_by || poData.customer_id,
+                link: '/po-list'
+            });
+        }
 
         res.json({ success: true, message: 'Purchase Order canceled successfully.' });
     } catch (error) {
@@ -470,7 +483,6 @@ exports.updatePOStatus = async (req, res) => {
             [status, safeNotes, updated_by || null, id]
         );
 
-        // Catat Audit Trail APPROVE/REJECT
         await logPOHeader(connection, {
             poHeaderId: id,
             actionType,

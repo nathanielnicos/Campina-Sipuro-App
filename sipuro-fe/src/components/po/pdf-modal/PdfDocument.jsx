@@ -49,10 +49,6 @@ const PdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
                             <div>{formatDate(header.created_at)}</div>
                         </div>
                         <div style={{ marginBottom: '8px' }}>
-                            <div style={{ fontWeight: 'bold' }}>Delivery Date</div>
-                            <div>{formatDate(header.requested_delivery_date)}</div>
-                        </div>
-                        <div style={{ marginBottom: '8px' }}>
                             <div style={{ fontWeight: 'bold' }}>Purchase Order Number</div>
                             <div>{header.po_number}</div>
                         </div>
@@ -112,10 +108,24 @@ const PdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
                 </div>
             </div>
 
-            {/* Metadata Pembuat */}
+            {/* Metadata Dokumen */}
             <div style={{ fontSize: '10px', color: '#666', marginBottom: '24px', paddingBottom: '12px', borderBottom: '1px solid #ddd', lineHeight: '1.5' }}>
-                <div><strong>Created by:</strong> {header.creator_name || '-'}</div>
-                <div><strong>Created at:</strong> {formatDateTime(header.created_at)}</div>
+                {/* 1. Informasi Pembuat / Pemrakarsa */}
+                <div>
+                    <strong>Created by:</strong> {header.creator_name || 'System'}
+                </div>
+
+                {/* 2. Informasi Customer yang Mengirim / Mempublikasikan (jika berasal dari sistem) */}
+                {!header.creator_name && header.updater_name && (
+                    <div>
+                        <strong>Submitted by:</strong> {header.updater_name}
+                    </div>
+                )}
+
+                {/* 3. Waktu Pembuatan Dokumen */}
+                <div>
+                    <strong>Created at:</strong> {formatDateTime(header.created_at)}
+                </div>
             </div>
 
             {/* Info Pengiriman */}

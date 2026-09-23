@@ -1,5 +1,5 @@
-const { sipuroDb: db } = require('../../config/db');
-const { commitProductionAllocationTransaction } = require('../../helpers/productionCommitHelper');
+const { sipuroDb: db } = require('../../../config/db');
+const { commitProductionAllocationTransaction } = require('../../../helpers/productionCommitHelper');
 
 /**
  * Commit / Save Production Allocation Results (PPIC)

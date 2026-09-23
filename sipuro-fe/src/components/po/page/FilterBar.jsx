@@ -4,8 +4,6 @@ const FilterBar = ({
     search,
     startDate,
     endDate,
-    deliveryStartDate,
-    deliveryEndDate,
     status,
     isFilterActive,
     userRole,
@@ -13,8 +11,6 @@ const FilterBar = ({
     onSearchChange,
     onStartDateChange,
     onEndDateChange,
-    onDeliveryStartDateChange,
-    onDeliveryEndDateChange,
     onStatusChange,
     onResetFilters,
     onExportExcel,
@@ -80,6 +76,7 @@ const FilterBar = ({
                     }}
                 >
                     <option value="">All Status</option>
+                    <option value="Draft">Draft</option>
                     <option value="Waiting for Confirmation">Waiting for Confirmation</option>
                     <option value="Canceled">Canceled</option>
                     <option value="Approved">Approved</option>

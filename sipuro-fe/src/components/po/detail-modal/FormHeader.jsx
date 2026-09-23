@@ -2,8 +2,6 @@ const FormHeader = ({
     userRole,
     poStatus,
     rejectionReason,
-    requestedDeliveryDate,
-    setRequestedDeliveryDate,
     deliveryAddress,
     description,
     setDescription
@@ -35,7 +33,7 @@ const FormHeader = ({
                 <input
                     type="text"
                     placeholder="Shipping address..."
-                    value={deliveryAddress}
+                    value={deliveryAddress || ''}
                     disabled
                     style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                 />
@@ -46,14 +44,14 @@ const FormHeader = ({
                 <textarea
                     rows="2"
                     placeholder="Additional notes for the order..."
-                    value={description}
+                    value={description || ''}
                     maxLength={50}
                     onChange={(e) => setDescription(e.target.value)}
                     disabled={isNotCustomer}
                     style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                 />
                 <small style={{ color: '#6c757d', fontSize: '11px', display: 'block', marginTop: '2px' }}>
-                    {description.length}/50 characters
+                    {(description || '').length}/50 characters
                 </small>
             </div>
         </>

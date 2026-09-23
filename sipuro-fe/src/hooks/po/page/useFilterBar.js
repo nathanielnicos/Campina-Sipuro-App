@@ -4,14 +4,12 @@ export const useFilterBar = () => {
     const [search, setSearch] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [deliveryStartDate, setDeliveryStartDate] = useState('');
-    const [deliveryEndDate, setDeliveryEndDate] = useState('');
     const [status, setStatus] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
     const [currentPage, setCurrentPage] = useState(1);
 
     const isFilterActive = Boolean(
-        search || startDate || endDate || deliveryStartDate || deliveryEndDate || status
+        search || startDate || endDate || status
     );
 
     const handleSort = (key) => {
@@ -37,16 +35,6 @@ export const useFilterBar = () => {
         setCurrentPage(1);
     };
 
-    const handleDeliveryStartDateChange = (e) => {
-        setDeliveryStartDate(e.target.value);
-        setCurrentPage(1);
-    };
-
-    const handleDeliveryEndDateChange = (e) => {
-        setDeliveryEndDate(e.target.value);
-        setCurrentPage(1);
-    };
-
     const handleStatusChange = (e) => {
         setStatus(e.target.value);
         setCurrentPage(1);
@@ -57,8 +45,6 @@ export const useFilterBar = () => {
         setSearch('');
         setStartDate('');
         setEndDate('');
-        setDeliveryStartDate('');
-        setDeliveryEndDate('');
         setStatus('');
         setSortConfig({ key: 'created_at', direction: 'desc' });
         setCurrentPage(1);
@@ -68,8 +54,6 @@ export const useFilterBar = () => {
         search,
         startDate,
         endDate,
-        deliveryStartDate,
-        deliveryEndDate,
         status,
         sortConfig,
         currentPage,
@@ -79,8 +63,6 @@ export const useFilterBar = () => {
         handleSearchChange,
         handleStartDateChange,
         handleEndDateChange,
-        handleDeliveryStartDateChange,
-        handleDeliveryEndDateChange,
         handleStatusChange,
         handleResetFilters
     };

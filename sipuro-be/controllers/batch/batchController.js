@@ -1,22 +1,21 @@
-const exportBatch = require('./exportBatchController');
-const outstandingSummary = require('./outstandingSummaryController');
-const batchMapping = require('./batchMappingController');
-const unallocatedStock = require('./unallocatedStockController');
+const exportBatch = require('./export/exportBatchController');
+const productionUpload = require('./import/productionUploadController');
+const outstandingSummary = require('./outstanding/outstandingSummaryController');
+const batchMapping = require('./allocated/batchMappingController');
 
 module.exports = {
     // Export
     exportBatchMappingExcel: exportBatch.exportBatchMappingExcel,
 
-    // Outstanding Summary
+    // Import
+    previewExcelUpload: productionUpload.previewExcelUpload,
+    commitExcelAllocation: productionUpload.commitExcelAllocation,
+
+    // Outstanding
     getOutstandingSummary: outstandingSummary.getOutstandingSummary,
 
-    // Batch Mapping
+    // Allocated
     getAllocatedBatchMapping: batchMapping.getAllocatedBatchMapping,
     updateAllocationStatus: batchMapping.updateAllocationStatus,
     updateBatchNumber: batchMapping.updateBatchNumber,
-
-    // Unallocated Stock
-    getUnallocatedStocks: unallocatedStock.getUnallocatedStocks,
-    getOpenAllocationsByProduct: unallocatedStock.getOpenAllocationsByProduct,
-    reallocateUnallocatedStock: unallocatedStock.reallocateUnallocatedStock
 };

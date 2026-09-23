@@ -7,30 +7,25 @@ const ProductionSchedulePage = () => {
     const [activeTab, setActiveTab] = useState('PRODUCTION_PLAN');
 
     return (
-        <div style={{ backgroundColor: '#f8f9fa', minHeight: '100vh', padding: '0px 24px 24px 24px' }}>
-            {/* Header Sub-Tab Navigation */}
+        <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
+            {/* Header Sub-Tab Navigation (Disamakan dengan Batch Header) */}
             <div style={{
                 display: 'flex',
-                gap: '8px',
                 borderBottom: '2px solid #dee2e6',
-                marginBottom: '16px',
-                backgroundColor: '#fff',
-                padding: '12px 16px 0px 16px',
-                borderRadius: '8px 8px 0 0'
+                marginBottom: '20px'
             }}>
                 <button
                     type="button"
                     onClick={() => setActiveTab('PRODUCTION_PLAN')}
                     style={{
-                        padding: '10px 20px',
+                        padding: '12px 20px',
                         border: 'none',
-                        borderBottom: activeTab === 'PRODUCTION_PLAN' ? '3px solid #0d6efd' : '3px solid transparent',
-                        backgroundColor: 'transparent',
-                        color: activeTab === 'PRODUCTION_PLAN' ? '#0d6efd' : '#6c757d',
-                        fontWeight: activeTab === 'PRODUCTION_PLAN' ? '700' : '500',
-                        fontSize: '14px',
+                        background: 'none',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease-in-out'
+                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        borderBottom: activeTab === 'PRODUCTION_PLAN' ? '3px solid #0d6efd' : '3px solid transparent',
+                        color: activeTab === 'PRODUCTION_PLAN' ? '#0d6efd' : '#6c757d'
                     }}
                 >
                     Production Plan
@@ -39,15 +34,14 @@ const ProductionSchedulePage = () => {
                     type="button"
                     onClick={() => setActiveTab('PO_REQUIREMENT')}
                     style={{
-                        padding: '10px 20px',
+                        padding: '12px 20px',
                         border: 'none',
-                        borderBottom: activeTab === 'PO_REQUIREMENT' ? '3px solid #0d6efd' : '3px solid transparent',
-                        backgroundColor: 'transparent',
-                        color: activeTab === 'PO_REQUIREMENT' ? '#0d6efd' : '#6c757d',
-                        fontWeight: activeTab === 'PO_REQUIREMENT' ? '700' : '500',
-                        fontSize: '14px',
+                        background: 'none',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease-in-out'
+                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        borderBottom: activeTab === 'PO_REQUIREMENT' ? '3px solid #0d6efd' : '3px solid transparent',
+                        color: activeTab === 'PO_REQUIREMENT' ? '#0d6efd' : '#6c757d'
                     }}
                 >
                     PO Requirement

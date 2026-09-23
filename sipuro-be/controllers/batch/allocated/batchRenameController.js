@@ -1,4 +1,4 @@
-const { sipuroDb } = require('../../config/db');
+const { sipuroDb } = require('../../../config/db');
 
 exports.updateBatchNumber = async (req, res) => {
     const connection = await sipuroDb.getConnection();

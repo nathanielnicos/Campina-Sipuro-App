@@ -1,6 +1,6 @@
-const { sipuroDb } = require('../../config/db');
-const { refreshPOStatus, refreshBatchStatus } = require('../../helpers/batchHelper');
-const { logAllocationUpdate } = require('../../helpers/poBatchAllocationLogHelper');
+const { sipuroDb } = require('../../../config/db');
+const { refreshPOStatus, refreshBatchStatus } = require('../../../helpers/batchHelper');
+const { logAllocationUpdate } = require('../../../helpers/poBatchAllocationLogHelper');
 
 exports.updateAllocationStatus = async (req, res) => {
     const connection = await sipuroDb.getConnection();

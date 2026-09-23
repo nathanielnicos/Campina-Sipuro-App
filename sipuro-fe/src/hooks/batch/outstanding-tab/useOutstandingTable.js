@@ -10,8 +10,6 @@ export const useOutstandingTable = (reloadTrigger) => {
     const [searchPo, setSearchPo] = useState('');
     const [fromCreatedDate, setFromCreatedDate] = useState('');
     const [toCreatedDate, setToCreatedDate] = useState('');
-    const [fromDeliveryDate, setFromDeliveryDate] = useState('');
-    const [toDeliveryDate, setToDeliveryDate] = useState('');
 
     const [sortKey, setSortKey] = useState('');
     const [sortOrder, setSortOrder] = useState('ASC');
@@ -29,8 +27,6 @@ export const useOutstandingTable = (reloadTrigger) => {
                 searchPo,
                 fromCreatedDate,
                 toCreatedDate,
-                fromDeliveryDate,
-                toDeliveryDate,
                 sortKey,
                 sortOrder
             };
@@ -60,8 +56,6 @@ export const useOutstandingTable = (reloadTrigger) => {
         searchPo,
         fromCreatedDate,
         toCreatedDate,
-        fromDeliveryDate,
-        toDeliveryDate,
         sortKey,
         sortOrder
     ]);
@@ -90,16 +84,6 @@ export const useOutstandingTable = (reloadTrigger) => {
         setPage(1);
     };
 
-    const handleFromDeliveryDateChange = (e) => {
-        setFromDeliveryDate(e.target.value);
-        setPage(1);
-    };
-
-    const handleToDeliveryDateChange = (e) => {
-        setToDeliveryDate(e.target.value);
-        setPage(1);
-    };
-
     const handleSort = (key, order) => {
         setSortKey(key);
         setSortOrder(order);
@@ -111,8 +95,6 @@ export const useOutstandingTable = (reloadTrigger) => {
         setSearchPo('');
         setFromCreatedDate('');
         setToCreatedDate('');
-        setFromDeliveryDate('');
-        setToDeliveryDate('');
         setSortKey('');
         setSortOrder('ASC');
         setPage(1);
@@ -126,8 +108,6 @@ export const useOutstandingTable = (reloadTrigger) => {
         searchPo,
         fromCreatedDate,
         toCreatedDate,
-        fromDeliveryDate,
-        toDeliveryDate,
         sortKey,
         sortOrder,
         page,
@@ -140,8 +120,6 @@ export const useOutstandingTable = (reloadTrigger) => {
         handlePoChange,
         handleFromCreatedDateChange,
         handleToCreatedDateChange,
-        handleFromDeliveryDateChange,
-        handleToDeliveryDateChange,
         handleResetFilters,
         handleSort
     };

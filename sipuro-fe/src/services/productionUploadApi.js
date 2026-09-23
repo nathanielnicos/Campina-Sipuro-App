@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from './config';
 
-const BASE_URL = `${API_BASE_URL}/upload/production`;
+const BASE_URL = `${API_BASE_URL}/batch/production`;
 
 export const previewProductionApi = async (formData) => {
     try {

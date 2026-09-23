@@ -6,25 +6,6 @@ import {
     fetchPODetail
 } from '../../../services/poApi';
 
-// Helper function untuk memformat tanggal ke YYYY-MM-DD secara presisi berdasarkan zona waktu lokal
-const formatDateToLocalInput = (dateInput) => {
-    if (!dateInput) return '';
-
-    // Jika format sudah murni YYYY-MM-DD tanpa waktu T00:00:00.000Z
-    if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
-        return dateInput;
-    }
-
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return '';
-
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-};
-
 export const useFormHeader = ({ poId, currentUser }) => {
     const userRole = currentUser?.role;
     const customerId = userRole === 'CUSTOMER' ? currentUser?.customer_id : null;
@@ -33,7 +14,6 @@ export const useFormHeader = ({ poId, currentUser }) => {
     const [poCode, setPoCode] = useState('');
     const [poStatus, setPoStatus] = useState('');
     const [products, setProducts] = useState([]);
-    const [requestedDeliveryDate, setRequestedDeliveryDate] = useState('');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [description, setDescription] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
@@ -53,12 +33,6 @@ export const useFormHeader = ({ poId, currentUser }) => {
 
                 setPoStatus(poHeader.status || '');
                 setPoCode(poHeader.po_number || poHeader.po_code || poHeader.po_no || `#${poId}`);
-
-                if (poHeader.requested_delivery_date) {
-                    // Konversi presisi sesuai zona waktu lokal tanpa terpotong UTC
-                    const formattedDate = formatDateToLocalInput(poHeader.requested_delivery_date);
-                    setRequestedDeliveryDate(formattedDate);
-                }
                 setDeliveryAddress(poHeader.delivery_address || '');
                 setDescription(poHeader.description || '');
                 setRejectionReason(poHeader.rejection_reason || '');
@@ -117,8 +91,6 @@ export const useFormHeader = ({ poId, currentUser }) => {
         poCode,
         poStatus,
         products,
-        requestedDeliveryDate,
-        setRequestedDeliveryDate,
         deliveryAddress,
         setDeliveryAddress,
         description,

@@ -7,12 +7,9 @@ exports.getPOList = async (req, res) => {
             page = 1,
             limit = 10,
             search,
-            // 1. Rentang Tanggal Created Date
+            // Rentang Tanggal Created Date
             startDate,
             endDate,
-            // 2. Rentang Tanggal Requested Delivery Date
-            deliveryStartDate,
-            deliveryEndDate,
             status,
             sortBy = 'created_at',
             sortOrder = 'desc'
@@ -35,7 +32,7 @@ exports.getPOList = async (req, res) => {
             queryParams.push(`%${search.trim()}%`);
         }
 
-        // Filter 1: Created Date Range
+        // Filter: Created Date Range
         if (startDate && startDate !== '') {
             conditions.push('DATE(h.created_at) >= ?');
             queryParams.push(startDate);
@@ -44,17 +41,6 @@ exports.getPOList = async (req, res) => {
         if (endDate && endDate !== '') {
             conditions.push('DATE(h.created_at) <= ?');
             queryParams.push(endDate);
-        }
-
-        // Filter 2: Requested Delivery Date Range
-        if (deliveryStartDate && deliveryStartDate !== '') {
-            conditions.push('DATE(h.requested_delivery_date) >= ?');
-            queryParams.push(deliveryStartDate);
-        }
-
-        if (deliveryEndDate && deliveryEndDate !== '') {
-            conditions.push('DATE(h.requested_delivery_date) <= ?');
-            queryParams.push(deliveryEndDate);
         }
 
         if (status && status !== '') {
@@ -68,7 +54,6 @@ exports.getPOList = async (req, res) => {
         const validSortColumns = {
             po_number: 'h.po_number',
             created_at: 'h.created_at',
-            requested_delivery_date: 'h.requested_delivery_date',
             total_items: 'total_items',
             total_price: 'h.total_amount',
             status: 'h.status'
@@ -87,7 +72,7 @@ exports.getPOList = async (req, res) => {
         const totalPages = Math.ceil(totalItems / limitNum);
 
         const query = `
-            SELECT h.po_header_id, h.po_number, h.created_at, h.requested_delivery_date, h.total_amount, h.status, c.company_name, COUNT(d.po_detail_id) AS total_items
+            SELECT h.po_header_id, h.po_number, h.created_at, h.total_amount, h.status, c.company_name, COUNT(d.po_detail_id) AS total_items
             FROM sipuro_db.po_headers h
             LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id
             LEFT JOIN sipuro_db.po_details d ON h.po_header_id = d.po_header_id AND d.deleted_at IS NULL

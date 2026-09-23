@@ -22,8 +22,6 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         toActualDate, setToActualDate,
         fromCreatedDate, setFromCreatedDate,
         toCreatedDate, setToCreatedDate,
-        fromDeliveryDate, setFromDeliveryDate,
-        toDeliveryDate, setToDeliveryDate,
         sortKey,
         sortOrder,
         pagination,
@@ -73,8 +71,6 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 toActualDate={toActualDate}
                 fromCreatedDate={fromCreatedDate}
                 toCreatedDate={toCreatedDate}
-                fromDeliveryDate={fromDeliveryDate}
-                toDeliveryDate={toDeliveryDate}
                 currentUserRole={currentUser?.role}
                 exporting={exporting}
                 onSearchChange={handleSearchChange}
@@ -85,8 +81,6 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 onToActualDateChange={setToActualDate}
                 onFromCreatedDateChange={setFromCreatedDate}
                 onToCreatedDateChange={setToCreatedDate}
-                onFromDeliveryDateChange={setFromDeliveryDate}
-                onToDeliveryDateChange={setToDeliveryDate}
                 onResetFilters={handleResetFilters}
                 onExportExcel={handleExportExcel}
             />
