@@ -57,8 +57,8 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
         if (!previewData) return;
 
         // Strictly extract newRows and unallocatedRows without OR fallbacks
-        const rawNewRows = previewData.newRows;
-        const unallocatedRows = previewData.unallocatedRows;
+        const rawNewRows = previewData.newRows || [];
+        const unallocatedRows = previewData.unallocatedRows || [];
 
         // Set keys for unallocated items to strictly filter them out
         const unallocatedKeys = new Set(
@@ -70,8 +70,8 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
             r => !unallocatedKeys.has(`${r.batchNumber}_${r.itemCode}`)
         );
 
-        const duplicateStatusRows = previewData.duplicateStatusUpdateRows;
-        const validCount = previewData.previewResults.length;
+        const duplicateStatusRows = previewData.duplicateStatusUpdateRows || [];
+        const validCount = previewData.previewResults ? previewData.previewResults.length : 0;
 
         if (validCount === 0) {
             alert('No valid data available to save.');
@@ -87,13 +87,35 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
         setSaving(true);
 
         try {
+            // OPTIMISASI PAYLOAD (Trim data berulang untuk cegah Vercel 413 Payload Too Large)
+
+            // 1. Trim allocations: Hapus teks berulang seperti productName, productCode, dll.
+            const trimmedAllocations = (previewData.detailedAllocations || []).map(a => ({
+                poDetailId: a.poDetailId,
+                idProduct: a.idProduct,
+                batchNumber: a.batchNumber,
+                addedQty: a.addedQty || a.fulfilledQty,
+                rowStatus: a.rowStatus
+            }));
+
+            // 2. Trim newDetails: Ambil hanya properti yang dibutuhkan database
+            const trimmedNewDetails = validNewDetails.map(d => ({
+                batchNumber: d.batchNumber,
+                lotNumber: d.lotNumber,
+                itemCode: d.itemCode,
+                qtyPac: d.qtyPac,
+                actualStartDatetime: d.actualStartDatetime,
+                actualCompletedDatetime: d.actualCompletedDatetime,
+                rowHash: d.rowHash
+            }));
+
             const payload = {
                 processTimestamp: previewData.processTimestamp,
                 fileHash: previewData.fileHash,
                 fileName: previewData.fileName,
                 userId: currentUserId,
-                allocations: previewData.detailedAllocations,
-                newDetails: validNewDetails,
+                allocations: trimmedAllocations,
+                newDetails: trimmedNewDetails,
                 duplicateStatusUpdateRows: duplicateStatusRows
             };
 
