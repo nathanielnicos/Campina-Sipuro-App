@@ -105,7 +105,8 @@ const calculateFifoAllocation = (
             createdAt: po.created_at,
             baseQty: baseQty,
             currentFulfilledQty: fulfilledQty,
-            targetRequiredQty: Math.round(baseQty * poTolerance)
+            // Murni mengacu pada baseQty untuk alokasi fisik tanpa perkalian toleransi
+            targetRequiredQty: baseQty
         });
     });
 
@@ -128,6 +129,7 @@ const calculateFifoAllocation = (
         candidatePoList.forEach((poState) => {
             if (remainingExcelQty <= 0) return;
 
+            // Sisa kebutuhan PO sampai memenuhi 100% baseQty
             const neededQty = poState.targetRequiredQty - poState.currentFulfilledQty;
 
             if (neededQty > 0) {
@@ -140,8 +142,10 @@ const calculateFifoAllocation = (
                     poState.currentFulfilledQty = newFulfilled;
 
                     const poRatio = poState.baseQty > 0 ? (newFulfilled / poState.baseQty) : 0;
-                    const isClosed = newFulfilled >= poState.targetRequiredQty;
-                    const allocationStatus = isClosed ? 'Closed' : 'Open';
+
+                    // Evaluasi toleransi untuk penentuan status po_batch_allocations
+                    const isClosedByTolerance = poRatio >= poTolerance;
+                    const allocationStatus = isClosedByTolerance ? 'Closed' : 'Open';
 
                     batchAllocations.push({
                         poDetailId: poState.poDetailId,
@@ -183,7 +187,8 @@ const calculateFifoAllocation = (
             });
         }
 
-        // Ambil raw item persis dari newRows jika ada sisa Qty yang tidak teralokasi
+        // Jika semua PO yang ada sudah terpenuhi hingga 100% baseQty dan masih ada sisa Qty,
+        // sisa Qty tersebut dialihkan ke unallocatedRows
         if (remainingExcelQty > 0) {
             const sourceRawRow = categorizedDetails.newRows.find(
                 r => r.batchNumber === excelItem.batchNumber && r.itemCode === excelItem.itemCode
@@ -198,7 +203,6 @@ const calculateFifoAllocation = (
         }
     });
 
-    // Mengembalikan semua array raw data sejajar di tingkat atas tanpa pembungkusan ganda
     return {
         categorizedDetails,
         newRows: categorizedDetails.newRows,

@@ -1,4 +1,5 @@
 const {
+    getPOTolerance,
     refreshPOStatus,
     refreshBatchStatus,
     refreshPODetailFulfilledQty,
@@ -19,6 +20,10 @@ const commitProductionAllocationTransaction = async (connection, {
     detailedAllocations = []
 }) => {
     const currentUserId = userId || null;
+
+    // Ambil nilai toleransi PO (misal 0.90 untuk 90%)
+    const poToleranceRatio = await getPOTolerance(connection);
+    const poTolerancePercent = poToleranceRatio * 100;
 
     // 1. Insert log upload file produksi
     const [uploadLogResult] = await connection.query(
@@ -60,7 +65,6 @@ const commitProductionAllocationTransaction = async (connection, {
     const sourceAllocations = detailedAllocations.length > 0 ? detailedAllocations : allocations;
 
     // 3. Auto-create atau Find-or-Create Master Batch
-    // Loop gabungan dari newDetails & sourceAllocations agar tidak ada batch yang terlewat
     const batchIdMap = new Map();
     const uniqueBatchData = new Map();
 
@@ -129,7 +133,7 @@ const commitProductionAllocationTransaction = async (connection, {
 
         const batchId = item.batchId || batchIdMap.get(compositeKey) || item.id_batch;
         const addedQty = item.addedQty !== undefined ? item.addedQty : (item.addedAllocatedQty || 0);
-        const rowStatus = item.rowStatus || item.status || 'Open';
+        let rowStatus = item.rowStatus || item.status || 'Open';
 
         if (batchNumber) affectedBatchNumbers.add(batchNumber);
         if (!batchId || !poDetailId) continue;
@@ -143,6 +147,12 @@ const commitProductionAllocationTransaction = async (connection, {
             const oldAllocatedQty = Number(existingAlloc.allocated_qty || 0);
             const newAllocatedQty = oldAllocatedQty + Number(addedQty);
 
+            // Jangan timpa status jika alokasi di-Force Closed atau Canceled secara manual
+            const currentStatus = existingAlloc.status;
+            const finalStatus = (currentStatus === 'Force Closed' || currentStatus === 'Canceled')
+                ? currentStatus
+                : rowStatus;
+
             updateLogsToInsert.push({
                 upload_log_id: uploadLogId,
                 allocation_id: existingAlloc.id,
@@ -151,13 +161,13 @@ const commitProductionAllocationTransaction = async (connection, {
                 old_fulfilled_qty: oldAllocatedQty,
                 new_fulfilled_qty: newAllocatedQty,
                 old_status: existingAlloc.status,
-                new_status: rowStatus,
+                new_status: finalStatus,
                 created_by: currentUserId
             });
 
             await connection.query(
                 'UPDATE po_batch_allocations SET allocated_qty = ?, status = ?, updated_by = ? WHERE id = ?',
-                [newAllocatedQty, rowStatus, currentUserId, existingAlloc.id]
+                [newAllocatedQty, finalStatus, currentUserId, existingAlloc.id]
             );
         } else {
             const newAllocatedQty = Number(addedQty);
@@ -192,25 +202,49 @@ const commitProductionAllocationTransaction = async (connection, {
         await updateBatchProductionDates(connection, bNo, currentUserId);
     }
 
-    // 6. Refresh status batch
+    // 6. Recalculate fulfilled_qty pada po_details & Evaluasi Evaluasi Dua Arah Status Alokasi
+    const poDetailIds = [...new Set(sourceAllocations.map(a => a.poDetailId || a.po_detail_id).filter(Boolean))];
+    const poHeaderIds = new Set();
+
+    for (const pdId of poDetailIds) {
+        // A. Refresh total fulfilled_qty di po_details
+        await refreshPODetailFulfilledQty(connection, pdId);
+
+        // B. Cek persentase pemenuhan Qty vs Toleransi PO
+        const [[poDetailInfo]] = await connection.query(
+            `SELECT base_qty, fulfilled_qty, po_header_id FROM po_details WHERE po_detail_id = ?`,
+            [pdId]
+        );
+
+        if (poDetailInfo) {
+            if (poDetailInfo.po_header_id) {
+                poHeaderIds.add(poDetailInfo.po_header_id);
+            }
+
+            const baseQtyNum = Number(poDetailInfo.base_qty) || 0;
+            const fulfilledQtyNum = Number(poDetailInfo.fulfilled_qty) || 0;
+            const fulfillmentPercent = baseQtyNum > 0 ? (fulfilledQtyNum / baseQtyNum) * 100 : 0;
+
+            // Tentukan target status alokasi sistem berdasarkan toleransi
+            const targetSystemStatus = fulfillmentPercent >= poTolerancePercent ? 'Closed' : 'Open';
+
+            // Update status dua arah untuk alokasi otomatis (abaikan yang Force Closed / Canceled manual)
+            await connection.query(
+                `UPDATE po_batch_allocations 
+                 SET status = ?, updated_by = ? 
+                 WHERE po_detail_id = ? AND status IN ('Open', 'Closed')`,
+                [targetSystemStatus, currentUserId, pdId]
+            );
+        }
+    }
+
+    // 7. Refresh status Induk Batch (batches)
     const batchIdsToRefresh = new Set([...batchIdMap.values()]);
     for (const bId of batchIdsToRefresh) {
         if (bId) await refreshBatchStatus(connection, bId);
     }
 
-    // 7. Recalculate fulfilled_qty pada po_details & refresh status PO header
-    const poDetailIds = [...new Set(sourceAllocations.map(a => a.poDetailId || a.po_detail_id).filter(Boolean))];
-    const poHeaderIds = new Set();
-
-    for (const pdId of poDetailIds) {
-        // Fungsi ini menghitung ulang total akumulasi alokasi & memperbarui fulfilled_qty pada po_details
-        await refreshPODetailFulfilledQty(connection, pdId);
-        const [[pd]] = await connection.query('SELECT po_header_id FROM po_details WHERE po_detail_id = ?', [pdId]);
-        if (pd && pd.po_header_id) {
-            poHeaderIds.add(pd.po_header_id);
-        }
-    }
-
+    // 8. Refresh status Header PO (po_headers)
     for (const poHeaderId of poHeaderIds) {
         await refreshPOStatus(connection, poHeaderId);
     }

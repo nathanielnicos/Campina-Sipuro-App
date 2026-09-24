@@ -106,11 +106,11 @@ exports.exportBatchMappingExcel = async (req, res) => {
                     p.product_code AS id_produk,
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
-                    DATE_FORMAT(h.created_at, '%d/%m/%Y') AS tgl_po_dibuat,
+                    DATE_FORMAT(h.created_at, '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
                     d.base_qty AS kuantitas_po,
                     COALESCE(b.batch_number, '-') AS kode_batch,
-                    IF(b.actual_production_date IS NOT NULL, DATE_FORMAT(b.actual_production_date, '%d/%m/%Y %H:%i:%s'), '-') AS tgl_mulai_produksi,
-                    IF(b.actual_completed_date IS NOT NULL, DATE_FORMAT(b.actual_completed_date, '%d/%m/%Y %H:%i:%s'), '-') AS tgl_selesai_produksi,
+                    IF(b.actual_production_date IS NOT NULL, DATE_FORMAT(b.actual_production_date, '%Y-%m-%d %H:%i:%s'), '-') AS tgl_mulai_produksi,
+                    IF(b.actual_completed_date IS NOT NULL, DATE_FORMAT(b.actual_completed_date, '%Y-%m-%d %H:%i:%s'), '-') AS tgl_selesai_produksi,
                     pba.allocated_qty AS hasil_produksi,
                     GREATEST(0, d.base_qty - COALESCE(alloc_total.total_allocated, 0)) AS sisa_po,
                     IF(pba.status IS NOT NULL, UPPER(pba.status), '-') AS status_alokasi,
@@ -136,7 +136,7 @@ exports.exportBatchMappingExcel = async (req, res) => {
                     p.product_code AS id_produk,
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
-                    DATE_FORMAT(h.created_at, '%d/%m/%Y') AS tgl_po_dibuat,
+                    DATE_FORMAT(h.created_at, '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
                     d.base_qty AS kuantitas_po,
                     '-' AS kode_batch,
                     '-' AS tgl_mulai_produksi,
@@ -175,9 +175,9 @@ exports.exportBatchMappingExcel = async (req, res) => {
             'Batch Code',
             'Production Start Date and Time',
             'Production End Date and Time',
-            'Production Output (Pcs)',
+            'Allocated Qty (Pcs)',
             'Remaining PO (Pcs)',
-            'Status'
+            'Allocation Status'
         ]);
 
         // Baris Data
@@ -203,14 +203,14 @@ exports.exportBatchMappingExcel = async (req, res) => {
             { wch: 18 },
             { wch: 45 },
             { wch: 22 },
-            { wch: 16 },
+            { wch: 22 },
             { wch: 20 },
             { wch: 20 },
             { wch: 30 },
             { wch: 30 },
             { wch: 22 },
-            { wch: 16 },
-            { wch: 12 }
+            { wch: 18 },
+            { wch: 18 }
         ];
 
         const workbook = XLSX.utils.book_new();

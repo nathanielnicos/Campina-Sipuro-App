@@ -23,7 +23,7 @@ export const BatchViewRows = ({ mappingList, currentUserRole, poTolerance, onUpd
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>
-                <td colSpan="10" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                     No batch mapping data available.
                 </td>
             </tr>
@@ -33,7 +33,7 @@ export const BatchViewRows = ({ mappingList, currentUserRole, poTolerance, onUpd
     return mappingList.map((row) => {
         const allocations = Array.isArray(row.po_allocations) && row.po_allocations.length > 0
             ? row.po_allocations
-            : [{ po_number: '-', allocated_qty: row.total_allocated_qty, po_base_qty: 0, fulfillment_percentage: 0, status: '-' }];
+            : [{ po_number: '-', allocated_qty: row.total_allocated_qty, status: '-' }];
 
         const canEditBatch = currentUserRole !== 'CUSTOMER' && row.batch_status === 'Open';
 
@@ -42,9 +42,6 @@ export const BatchViewRows = ({ mappingList, currentUserRole, poTolerance, onUpd
 
         return allocations.map((po, idx) => {
             const target = Number(po.allocated_qty) || 0;
-            const basePoQty = Number(po.po_base_qty) || 0;
-            const percent = Number(po.fulfillment_percentage ?? 0).toFixed(1);
-            const toleranceVal = Number(poTolerance ?? 100);
 
             return (
                 <tr key={`${row.id_batch}-${po.allocation_id || idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
@@ -83,7 +80,7 @@ export const BatchViewRows = ({ mappingList, currentUserRole, poTolerance, onUpd
                                     row.product_name
                                 )}
                             </td>
-                            {/* 3. Production Date and Time (Baris 1: actual_production_date -, Baris 2: actual_completed_date) */}
+                            {/* 3. Production Date and Time */}
                             <td rowSpan={allocations.length} style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'top', whiteSpace: 'nowrap', backgroundColor: '#fff', fontSize: '12px' }}>
                                 <div>{startFormatted !== '-' ? `${startFormatted} -` : '-'}</div>
                                 <div>{endFormatted}</div>
@@ -110,24 +107,12 @@ export const BatchViewRows = ({ mappingList, currentUserRole, poTolerance, onUpd
                         {po.po_number}
                     </td>
 
-                    {/* 6. PO Base Qty */}
-                    <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', color: '#495057' }}>
-                        {basePoQty > 0 ? formatQty(basePoQty) : '-'}
-                    </td>
-
-                    {/* 7. Allocation Qty */}
+                    {/* 6. Allocated Qty (Pcs) */}
                     <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {formatQty(target)}
                     </td>
 
-                    {/* 8. Running Total Percentage Keterpenuhan PO */}
-                    <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                        <span style={{ color: percent >= toleranceVal ? '#198754' : percent > 0 ? '#fd7e14' : '#6c757d' }}>
-                            {percent}%
-                        </span>
-                    </td>
-
-                    {/* 9. Allocation Status */}
+                    {/* 7. Allocation Status (Murni dari DB pba.status) */}
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                         {po.status !== '-' ? (
                             <span style={{
@@ -144,12 +129,12 @@ export const BatchViewRows = ({ mappingList, currentUserRole, poTolerance, onUpd
                         ) : '-'}
                     </td>
 
-                    {/* 10. Action */}
+                    {/* 8. Action */}
                     <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <AllocationActionButton
                             status={po.status}
                             allocationId={po.allocation_id}
-                            fulfilledQty={po.fulfilled_qty}
+                            fulfilledQty={po.allocated_qty}
                             currentUserRole={currentUserRole}
                             onUpdateStatus={onUpdateStatus}
                             loading={loading}

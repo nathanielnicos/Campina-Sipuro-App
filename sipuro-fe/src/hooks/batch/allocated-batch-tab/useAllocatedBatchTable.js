@@ -86,6 +86,16 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         loadData();
     }, [loadData, reloadTrigger]);
 
+    // Handler pergantian View Mode (Reset Page & Sort)
+    const handleViewModeChange = (newMode) => {
+        if (newMode !== viewMode) {
+            setViewMode(newMode);
+            setSortKey('');
+            setSortOrder('ASC');
+            setPage(1);
+        }
+    };
+
     // Handlers Existing
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value);
@@ -172,7 +182,6 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
     };
 
     const handleSaveBatchNumber = async (batchId, newBatchNumber) => {
-        // Konfirmasi sebelum mengeksekusi update
         const confirmSave = window.confirm(`Are you sure you want to rename this batch number to "${newBatchNumber}"?`);
         if (!confirmSave) return;
 
@@ -213,7 +222,7 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         exporting,
         setPage,
         setLimit,
-        setViewMode,
+        setViewMode: handleViewModeChange,
         handleSearchChange,
         handleStatusChange,
         handleSort,

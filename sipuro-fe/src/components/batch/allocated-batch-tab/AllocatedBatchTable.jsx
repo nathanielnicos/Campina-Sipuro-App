@@ -98,25 +98,42 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
                                 {viewMode === 'BY_BATCH' || viewMode === 'BATCH' ? (
                                     <>
+                                        {/* Sortable Header - Baris Tunggal Level Batch */}
                                         <SortableHeader label="Batch Number" sortKey="batch_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
                                         <SortableHeader label="Product" sortKey="product_name" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
                                         <SortableHeader label={<>Production Date<br />and Time</>} sortKey="plan_production_date" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
                                         <SortableHeader label="Batch Status" sortKey="batch_status" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
-                                        <SortableHeader label="PO Number" sortKey="po_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
+
+                                        {/* Standard Header - Multirow Level Alokasi PO */}
+                                        <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>PO Number</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', width: '110px' }}>
+                                            Allocated Qty<br />(Pcs)
+                                        </th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Allocation Status</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Action</th>
                                     </>
                                 ) : (
                                     <>
                                         <SortableHeader label="PO Number" sortKey="po_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
                                         <SortableHeader label={<>PO Created<br />Date</>} sortKey="po_created_date" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
-                                        <SortableHeader label="Product" sortKey="product_name" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
-                                        <SortableHeader label="Batch Number" sortKey="batch_number" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} />
+                                        <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Product</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', width: '110px' }}>
+                                            PO Qty<br />(Pcs)
+                                        </th>
+                                        <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Batch Number</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', width: '110px' }}>
+                                            Allocated Qty<br />(Pcs)
+                                        </th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', width: '110px' }}>
+                                            Fulfilled Qty<br />(Pcs)
+                                        </th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', width: '110px' }}>
+                                            Remaining Qty<br />(Pcs)
+                                        </th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Percentage</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Allocation Status</th>
                                     </>
                                 )}
-                                <SortableHeader label={<>PO Qty<br />(Pcs)</>} sortKey="po_base_qty" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="right" />
-                                <SortableHeader label={<>Allocated Qty<br />(Pcs)</>} sortKey="allocated_qty" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="right" />
-                                <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Percentage</th>
-                                <SortableHeader label="Allocation Status" sortKey="status" currentSortKey={sortKey} currentSortOrder={sortOrder} onSort={handleSort} align="center" />
-                                <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>

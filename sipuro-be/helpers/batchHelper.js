@@ -2,7 +2,7 @@ const { sipuroDb: db } = require('../config/db');
 const { logPOHeader } = require('./poLogHelper');
 
 /**
- * Mengambil nilai toleransi PO
+ * Mengambil nilai toleransi PO dari database
  */
 async function getPOTolerance(dbOrConn) {
     const client = dbOrConn || db;
@@ -29,7 +29,11 @@ async function refreshPOStatus(connection, poHeaderId) {
     if (!currentPO) return;
     const oldStatus = currentPO.status;
 
-    // A. Cek Pemenuhan Pembuatan Batch per SKU di PO
+    // Ambil toleransi PO
+    const poToleranceRatio = await getPOTolerance(connection);
+    const poTolerancePercent = poToleranceRatio * 100;
+
+    // A. Cek Ketercukupan Kuantitas Alokasi vs Base Qty Per Detail PO
     const [qtyCheck] = await connection.query(`
         SELECT 
             pd.po_detail_id,
@@ -45,7 +49,12 @@ async function refreshPOStatus(connection, poHeaderId) {
 
     let isFullyAssigned = true;
     for (const item of qtyCheck) {
-        if (Number(item.total_allocated_qty) < Number(item.base_qty)) {
+        const baseQtyNum = Number(item.base_qty) || 0;
+        const allocatedQtyNum = Number(item.total_allocated_qty) || 0;
+        const fulfillmentPercent = baseQtyNum > 0 ? (allocatedQtyNum / baseQtyNum) * 100 : 0;
+
+        // Jika persentase alokasi belum mencapai toleransi, PO dianggap belum sepenuhnya teralokasi
+        if (fulfillmentPercent < poTolerancePercent) {
             isFullyAssigned = false;
             break;
         }
@@ -56,6 +65,8 @@ async function refreshPOStatus(connection, poHeaderId) {
     if (!isFullyAssigned) {
         targetStatus = 'Approved';
     } else {
+        // Jika ketercukupan kuantitas sudah memenuhi toleransi,
+        // cek apakah masih ada alokasi aktif berstatus 'Open'
         const [openAllocations] = await connection.query(`
             SELECT pba.id
             FROM sipuro_db.po_batch_allocations pba
@@ -84,7 +95,7 @@ async function refreshPOStatus(connection, poHeaderId) {
 }
 
 /**
- * Helper untuk menyegarkan status Induk Batch berdasarkan status alokasi di dalamnya
+ * Helper untuk menyegarkan status Induk Batch (batches) berdasarkan kombinasi status alokasi di dalamnya
  */
 async function refreshBatchStatus(connection, batchId) {
     const [[currentBatch]] = await connection.query(
@@ -131,7 +142,7 @@ async function refreshPODetailFulfilledQty(connection, poDetailId) {
          SET d.fulfilled_qty = (
              SELECT COALESCE(SUM(pba.allocated_qty), 0)
              FROM po_batch_allocations pba
-             WHERE pba.po_detail_id = d.po_detail_id
+             WHERE pba.po_detail_id = d.po_detail_id AND pba.status != 'Canceled'
          )
          WHERE d.po_detail_id = ?`,
         [poDetailId]
