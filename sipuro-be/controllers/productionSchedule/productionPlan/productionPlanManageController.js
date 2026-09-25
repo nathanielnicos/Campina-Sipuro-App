@@ -1,6 +1,20 @@
 const { sipuroDb } = require('../../../config/db');
 
 /**
+ * Helper sederhana untuk mengekstrak string YYYY-MM-DD dari format tanggal / ISO String
+ */
+const formatDateOnly = (dateVal) => {
+    if (!dateVal) return new Date().toISOString().split('T')[0];
+    if (typeof dateVal === 'string') {
+        return dateVal.split('T')[0];
+    }
+    if (dateVal instanceof Date) {
+        return dateVal.toISOString().split('T')[0];
+    }
+    return dateVal;
+};
+
+/**
  * Menyimpan / Meng-update Production Plan & Revisions dari Modal Detail
  */
 exports.saveProductionPlan = async (req, res) => {
@@ -49,6 +63,8 @@ exports.saveProductionPlan = async (req, res) => {
 
         // 2. Insert Ulang Seluruh Struktur Revisi
         for (const rev of revisions) {
+            const cleanRevisionDate = formatDateOnly(rev.revision_date);
+
             const [insertedRev] = await connection.query(
                 `INSERT INTO sipuro_db.production_plan_revisions 
                  (id_plan, revision_type, revision_label, revision_date, created_by) 
@@ -57,7 +73,7 @@ exports.saveProductionPlan = async (req, res) => {
                     id_plan,
                     rev.revision_type,
                     rev.revision_label,
-                    rev.revision_date || new Date().toISOString().split('T')[0],
+                    cleanRevisionDate,
                     created_by || null
                 ]
             );
@@ -71,6 +87,9 @@ exports.saveProductionPlan = async (req, res) => {
                     const rawQty = rev.weeks_data[key];
                     const qtyVal = Math.max(0, parseInt(rawQty, 10) || 0);
 
+                    const rawWeekStartDate = w.start_date || w.week_start_date || null;
+                    const cleanWeekStartDate = rawWeekStartDate ? formatDateOnly(rawWeekStartDate) : null;
+
                     await connection.query(
                         `INSERT INTO sipuro_db.production_plan_items 
                          (id_revision, year, week_number, week_start_date, qty) 
@@ -79,7 +98,7 @@ exports.saveProductionPlan = async (req, res) => {
                             id_revision,
                             w.year,
                             w.week_number,
-                            w.start_date || w.week_start_date || null,
+                            cleanWeekStartDate,
                             qtyVal
                         ]
                     );
