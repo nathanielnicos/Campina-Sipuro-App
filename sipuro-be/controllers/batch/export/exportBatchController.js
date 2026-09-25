@@ -1,5 +1,6 @@
 const XLSX = require('xlsx');
 const { sipuroDb } = require('../../../config/db');
+const { getWibDate } = require('../../../helpers/dateHelper');
 
 exports.exportBatchMappingExcel = async (req, res) => {
     try {
@@ -106,11 +107,11 @@ exports.exportBatchMappingExcel = async (req, res) => {
                     p.product_code AS id_produk,
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
-                    DATE_FORMAT(h.created_at, '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
+                    DATE_FORMAT(CONVERT_TZ(h.created_at, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
                     d.base_qty AS kuantitas_po,
                     COALESCE(b.batch_number, '-') AS kode_batch,
-                    IF(b.actual_production_date IS NOT NULL, DATE_FORMAT(b.actual_production_date, '%Y-%m-%d %H:%i:%s'), '-') AS tgl_mulai_produksi,
-                    IF(b.actual_completed_date IS NOT NULL, DATE_FORMAT(b.actual_completed_date, '%Y-%m-%d %H:%i:%s'), '-') AS tgl_selesai_produksi,
+                    IF(b.actual_production_date IS NOT NULL, DATE_FORMAT(CONVERT_TZ(b.actual_production_date, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s'), '-') AS tgl_mulai_produksi,
+                    IF(b.actual_completed_date IS NOT NULL, DATE_FORMAT(CONVERT_TZ(b.actual_completed_date, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s'), '-') AS tgl_selesai_produksi,
                     pba.allocated_qty AS hasil_produksi,
                     GREATEST(0, d.base_qty - COALESCE(alloc_total.total_allocated, 0)) AS sisa_po,
                     IF(pba.status IS NOT NULL, UPPER(pba.status), '-') AS status_alokasi,
@@ -136,7 +137,7 @@ exports.exportBatchMappingExcel = async (req, res) => {
                     p.product_code AS id_produk,
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
-                    DATE_FORMAT(h.created_at, '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
+                    DATE_FORMAT(CONVERT_TZ(h.created_at, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
                     d.base_qty AS kuantitas_po,
                     '-' AS kode_batch,
                     '-' AS tgl_mulai_produksi,
@@ -218,14 +219,14 @@ exports.exportBatchMappingExcel = async (req, res) => {
 
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-        // Standarisasi Penamaan File: Export_Batch_YYYYMMDD_HHmmss.xlsx
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
+        // Standarisasi Penamaan File Menggunakan Date WIB: Export_Batch_YYYYMMDD_HHmmss.xlsx
+        const nowWib = getWibDate();
+        const year = nowWib.getFullYear();
+        const month = String(nowWib.getMonth() + 1).padStart(2, '0');
+        const day = String(nowWib.getDate()).padStart(2, '0');
+        const hours = String(nowWib.getHours()).padStart(2, '0');
+        const minutes = String(nowWib.getMinutes()).padStart(2, '0');
+        const seconds = String(nowWib.getSeconds()).padStart(2, '0');
 
         const filename = `Export_Batch_${year}${month}${day}_${hours}${minutes}${seconds}.xlsx`;
 

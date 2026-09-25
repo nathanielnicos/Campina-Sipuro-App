@@ -1,10 +1,12 @@
+const { getWibDate } = require('./dateHelper');
+
 /**
- * Helper untuk perhitungan logika Week berdasarkan standar ISO-8601 Murni UTC.
+ * Helper untuk perhitungan logika Week berdasarkan standar ISO-8601 Murni.
  */
 
 function getWeekInfoFromDate(dateInput) {
-    const d = new Date(dateInput);
-    const utcDate = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const d = getWibDate(dateInput);
+    const utcDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
     const dayOfWeek = utcDate.getUTCDay() || 7;
     utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayOfWeek);
@@ -13,7 +15,7 @@ function getWeekInfoFromDate(dateInput) {
     const yearStart = new Date(Date.UTC(isoYear, 0, 1));
     const weekNumber = Math.ceil((((utcDate - yearStart) / 86400000) + 1) / 7);
 
-    const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const monday = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     monday.setUTCDate(monday.getUTCDate() - (dayOfWeek - 1));
 
     const sunday = new Date(monday);
@@ -87,7 +89,8 @@ function generateWeekRange(startWeekNo, startYear, totalCount) {
 }
 
 function getDefaultRollingWeeks() {
-    const today = new Date();
+    // Menggunakan WIB Date untuk penentuan tanggal hari ini
+    const today = getWibDate();
     const currentWeekInfo = getWeekInfoFromDate(today);
     return generateWeekRange(currentWeekInfo.week_number, currentWeekInfo.year, 9);
 }

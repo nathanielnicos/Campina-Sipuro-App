@@ -1,16 +1,30 @@
 const { sipuroDb } = require('../../../config/db');
+const { getWibDate, getWibMysqlString } = require('../../../helpers/dateHelper');
 
 /**
- * Helper sederhana untuk mengekstrak string YYYY-MM-DD dari format tanggal / ISO String
+ * Helper sederhana untuk mengekstrak string YYYY-MM-DD dari format tanggal / ISO String berbasis WIB
  */
 const formatDateOnly = (dateVal) => {
-    if (!dateVal) return new Date().toISOString().split('T')[0];
+    if (!dateVal) {
+        const nowWib = getWibDate();
+        const year = nowWib.getFullYear();
+        const month = String(nowWib.getMonth() + 1).padStart(2, '0');
+        const day = String(nowWib.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
     if (typeof dateVal === 'string') {
         return dateVal.split('T')[0];
     }
+
     if (dateVal instanceof Date) {
-        return dateVal.toISOString().split('T')[0];
+        const dWib = getWibDate(dateVal);
+        const year = dWib.getFullYear();
+        const month = String(dWib.getMonth() + 1).padStart(2, '0');
+        const day = String(dWib.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
+
     return dateVal;
 };
 
@@ -43,9 +57,10 @@ exports.saveProductionPlan = async (req, res) => {
             id_plan = newPlan.insertId;
         } else {
             id_plan = planRows[0].id_plan;
+            const wibNow = getWibMysqlString();
             await connection.query(
-                `UPDATE sipuro_db.production_plans SET updated_at = NOW(), updated_by = ? WHERE id_plan = ?`,
-                [created_by || null, id_plan]
+                `UPDATE sipuro_db.production_plans SET updated_at = ?, updated_by = ? WHERE id_plan = ?`,
+                [wibNow, created_by || null, id_plan]
             );
         }
 

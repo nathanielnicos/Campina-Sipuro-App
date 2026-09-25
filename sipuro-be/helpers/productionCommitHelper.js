@@ -6,6 +6,34 @@ const {
     updateBatchProductionDates
 } = require('./batchHelper');
 const { logAllocationInsert, logAllocationUpdate } = require('./poBatchAllocationLogHelper');
+const { getWibDate } = require('./dateHelper');
+
+/**
+ * Helper untuk mengekstrak string YYYY-MM-DD dari string tanggal/datetime secara aman
+ */
+const formatDateOnly = (dateVal) => {
+    if (!dateVal) {
+        const nowWib = getWibDate();
+        const year = nowWib.getFullYear();
+        const month = String(nowWib.getMonth() + 1).padStart(2, '0');
+        const day = String(nowWib.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    if (typeof dateVal === 'string') {
+        return dateVal.split('T')[0].split(' ')[0];
+    }
+
+    if (dateVal instanceof Date) {
+        const dWib = getWibDate(dateVal);
+        const year = dWib.getFullYear();
+        const month = String(dWib.getMonth() + 1).padStart(2, '0');
+        const day = String(dWib.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    return dateVal;
+};
 
 /**
  * Helper untuk commit data alokasi dan master terkait ke database
@@ -100,9 +128,8 @@ const commitProductionAllocationTransaction = async (connection, {
             if (existingBatch) {
                 batchIdMap.set(compositeKey, existingBatch.id);
             } else {
-                const planDate = bInfo.actualStartDatetime
-                    ? bInfo.actualStartDatetime.split(' ')[0]
-                    : new Date().toISOString().split('T')[0];
+                // Penentuan planDate berbasis WIB menggunakan helper formatDateOnly
+                const planDate = formatDateOnly(bInfo.actualStartDatetime);
 
                 const [insertBatch] = await connection.query(
                     `INSERT INTO batches (batch_number, id_product, plan_production_date, actual_production_date, actual_completed_date, status, created_by)

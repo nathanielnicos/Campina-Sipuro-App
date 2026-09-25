@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import html2pdf from 'html2pdf.js';
 import { fetchPODetail, fetchCompanyProfile } from '../../../services/poApi';
+import { getWibDate } from '../../../utils/dateHelper';
 
 export const usePdfModal = (poId) => {
     const [poData, setPoData] = useState(null);
@@ -39,7 +40,8 @@ export const usePdfModal = (poId) => {
         const element = pdfContentRef.current;
         if (!element) return;
 
-        const now = new Date();
+        // Menggunakan getWibDate agar timestamp file PDF berbasis zona waktu WIB
+        const now = getWibDate();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');

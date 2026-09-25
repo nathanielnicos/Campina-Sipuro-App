@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { formatQty } from '../../../utils/formatters';
+import { getWibDateString, getWibFormattedLabel } from '../../../utils/dateHelper';
 
 const ProductionPlanModal = ({
     isOpen,
@@ -32,10 +33,9 @@ const ProductionPlanModal = ({
 
     // Tambah Baris Revision Baru
     const handleAddRevision = () => {
-        const today = new Date();
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const dateFormattedStr = `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
-        const todayIso = today.toISOString().split('T')[0];
+        // Menggunakan helper WIB date agar konsisten dengan backend
+        const dateFormattedStr = getWibFormattedLabel();
+        const todayIso = getWibDateString();
 
         const lastRevData = revisions[lastRevIndex]?.weeks_data || {};
         const copiedWeeksData = { ...lastRevData };

@@ -1,6 +1,7 @@
 const { sipuroDb } = require('../../config/db');
 const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
+const { getWibYear, getWibMysqlString } = require('../../helpers/dateHelper');
 
 /**
  * Helper untuk menghitung Base Qty (dalam PCS) berdasarkan UOM yang dipilih
@@ -53,11 +54,12 @@ exports.createPO = async (req, res) => {
         });
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
-        const currentYear = new Date().getFullYear();
+        // Menggunakan getWibYear() untuk penentuan tahun nomor PO berbasis WIB
+        const currentYear = getWibYear();
 
         const [lastPoRows] = await sipuroDb.query(
             `SELECT po_number FROM sipuro_db.po_headers 
-             WHERE YEAR(created_at) = ? 
+             WHERE CAST(DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+07:00'), '%Y') AS UNSIGNED) = ? 
              ORDER BY po_header_id DESC LIMIT 1`,
             [currentYear]
         );
@@ -476,11 +478,14 @@ exports.updatePOStatus = async (req, res) => {
 
         await connection.beginTransaction();
 
+        // Menggunakan getWibMysqlString() untuk mengisi confirmed_at berbasis WIB
+        const wibConfirmedAt = getWibMysqlString();
+
         await connection.query(
             `UPDATE sipuro_db.po_headers 
-             SET status = ?, rejection_reason = ?, confirmed_by = ?, confirmed_at = NOW() 
+             SET status = ?, rejection_reason = ?, confirmed_by = ?, confirmed_at = ? 
              WHERE po_header_id = ?`,
-            [status, safeNotes, updated_by || null, id]
+            [status, safeNotes, updated_by || null, wibConfirmedAt, id]
         );
 
         await logPOHeader(connection, {

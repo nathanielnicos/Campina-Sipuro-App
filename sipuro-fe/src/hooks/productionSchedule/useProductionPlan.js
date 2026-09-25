@@ -4,10 +4,12 @@ import {
     fetchProductionPlanDetail,
     saveProductionPlan
 } from '../../services/productionPlanApi';
+import { getWibDate, getWibDateString } from '../../utils/dateHelper';
 
-// Helper menghitung ISO Week & Year murni UTC
+// Helper menghitung ISO Week & Year murni berbasis WibDate
 const getIsoWeekInfo = (dateObj) => {
-    const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+    const dWib = getWibDate(dateObj);
+    const d = new Date(Date.UTC(dWib.getFullYear(), dWib.getMonth(), dWib.getDate()));
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -15,9 +17,9 @@ const getIsoWeekInfo = (dateObj) => {
     return { year: d.getUTCFullYear(), week: weekNo };
 };
 
-// Helper mendapatkan ISO Week & Year saat ini
+// Helper mendapatkan ISO Week & Year saat ini dalam WIB
 const getCurrentIsoWeek = () => {
-    return getIsoWeekInfo(new Date());
+    return getIsoWeekInfo(getWibDate());
 };
 
 // Helper menggeser week secara presisi dan konsisten lintas tahun (100% ISO-8601)
@@ -119,7 +121,8 @@ export const useProductionPlan = () => {
                 let fetchedRevs = res.revisions || [];
 
                 if (!res.has_existing_plan || fetchedRevs.length === 0) {
-                    const todayStr = new Date().toISOString().split('T')[0];
+                    // Penentuan tanggal hari ini dalam format YYYY-MM-DD berbasis WIB
+                    const todayStr = getWibDateString();
                     const emptyWeeksData = {};
                     (res.weeks || []).forEach(w => {
                         emptyWeeksData[`${w.year}_${w.week_number}`] = 0;

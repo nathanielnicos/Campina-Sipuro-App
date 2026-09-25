@@ -1,5 +1,6 @@
 const { sipuroDb } = require('../../../config/db');
 const { logPOHeader, logPODetails } = require('../../../helpers/poLogHelper');
+const { getWibYear, getWibDateTimeString } = require('../../../helpers/dateHelper');
 
 /**
  * CREATE DRAFT PO FROM PO REQUIREMENT
@@ -83,8 +84,8 @@ exports.createDraftPO = async (req, res) => {
 
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
-        // 5. Generate Nomor PO
-        const currentYear = new Date().getFullYear();
+        // 5. Generate Nomor PO (Menggunakan Tahun Presisi WIB)
+        const currentYear = getWibYear();
         const [lastPoRows] = await connection.query(
             `SELECT po_number FROM sipuro_db.po_headers 
              WHERE YEAR(created_at) = ? 
@@ -104,12 +105,25 @@ exports.createDraftPO = async (req, res) => {
 
         await connection.beginTransaction();
 
-        // 6. Insert PO Header (Status 'Draft' + delivery_address dari customers)
+        // 6. Insert PO Header (Eksplisit menyertakan timestamp WIB untuk created_at & updated_at)
+        const nowWib = getWibDateTimeString();
         const [headerResult] = await connection.query(
             `INSERT INTO sipuro_db.po_headers 
-            (po_number, customer_id, subtotal, ppn_percent, total_amount, delivery_address, description, status, created_by, updated_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?)`,
-            [poNumber, customer_id, subtotal, ppn_percent, total_amount, deliveryAddress, description || null, created_by || null, created_by || null]
+            (po_number, customer_id, subtotal, ppn_percent, total_amount, delivery_address, description, status, created_by, updated_by, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?, ?, ?)`,
+            [
+                poNumber,
+                customer_id,
+                subtotal,
+                ppn_percent,
+                total_amount,
+                deliveryAddress,
+                description || null,
+                created_by || null,
+                created_by || null,
+                nowWib,
+                nowWib
+            ]
         );
 
         const poHeaderId = headerResult.insertId;
@@ -119,8 +133,8 @@ exports.createDraftPO = async (req, res) => {
         for (const item of processedItems) {
             const [detailRes] = await connection.query(
                 `INSERT INTO sipuro_db.po_details 
-                 (po_header_id, id_product, qty, base_qty, uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, base_price, total_price) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 (po_header_id, id_product, qty, base_qty, uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, base_price, total_price, created_at, updated_at) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     poHeaderId,
                     item.id_product,
@@ -132,7 +146,9 @@ exports.createDraftPO = async (req, res) => {
                     item.ml_per_pcs,
                     item.kg_per_pcs,
                     item.base_price,
-                    item.total_price
+                    item.total_price,
+                    nowWib,
+                    nowWib
                 ]
             );
 

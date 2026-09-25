@@ -1,12 +1,18 @@
 const { sipuroDb } = require('../../config/db');
+const { getWibYear, getWibDate } = require('../../helpers/dateHelper');
 
 // Statistik Dashboard
 exports.getDashboardStats = async (req, res) => {
     try {
         const { mode = 'YTD', startDate, endDate, selectedYear, selectedMonth, id_product } = req.query;
 
-        const currentYear = selectedYear || new Date().getFullYear();
-        const currentMonth = selectedMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+        // Mendapatkan fallback waktu presisi WIB jika selectedYear/selectedMonth tidak dikirim oleh frontend
+        const nowWib = getWibDate();
+        const fallbackYear = getWibYear();
+        const fallbackMonth = `${fallbackYear}-${String(nowWib.getMonth() + 1).padStart(2, '0')}`;
+
+        const currentYear = selectedYear || fallbackYear;
+        const currentMonth = selectedMonth || fallbackMonth;
 
         // Menyusun kondisi filter produk untuk JOIN po_details pada query tren
         let productFilterClause = '';
@@ -37,7 +43,7 @@ exports.getDashboardStats = async (req, res) => {
                     COALESCE(SUM(pba.total_fulfilled), 0) AS total_fulfilled
                 FROM dates d
                 LEFT JOIN sipuro_db.po_headers poh 
-                    ON DATE(poh.created_at) = d.date_val
+                    ON DATE(CONVERT_TZ(poh.created_at, '+00:00', '+07:00')) = d.date_val
                    AND poh.status NOT IN ('Draft', 'Waiting for Confirmation', 'Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id 
@@ -69,7 +75,7 @@ exports.getDashboardStats = async (req, res) => {
                     COALESCE(SUM(pba.total_fulfilled), 0) AS total_fulfilled
                 FROM months m
                 LEFT JOIN sipuro_db.po_headers poh 
-                    ON DATE_FORMAT(poh.created_at, '%Y-%m') = DATE_FORMAT(m.month_val, '%Y-%m')
+                    ON DATE_FORMAT(CONVERT_TZ(poh.created_at, '+00:00', '+07:00'), '%Y-%m') = DATE_FORMAT(m.month_val, '%Y-%m')
                    AND poh.status NOT IN ('Draft', 'Waiting for Confirmation', 'Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id 
@@ -97,15 +103,15 @@ exports.getDashboardStats = async (req, res) => {
         let queryParamsTop = [];
 
         if (startDate) {
-            statusWhere.push(`DATE(created_at) >= ?`);
-            topProductsWhere.push(`DATE(h.created_at) >= ?`);
+            statusWhere.push(`DATE(CONVERT_TZ(created_at, '+00:00', '+07:00')) >= ?`);
+            topProductsWhere.push(`DATE(CONVERT_TZ(h.created_at, '+00:00', '+07:00')) >= ?`);
             queryParamsStatus.push(startDate);
             queryParamsTop.push(startDate);
         }
 
         if (endDate) {
-            statusWhere.push(`DATE(created_at) <= ?`);
-            topProductsWhere.push(`DATE(h.created_at) <= ?`);
+            statusWhere.push(`DATE(CONVERT_TZ(created_at, '+00:00', '+07:00')) <= ?`);
+            topProductsWhere.push(`DATE(CONVERT_TZ(h.created_at, '+00:00', '+07:00')) <= ?`);
             queryParamsStatus.push(endDate);
             queryParamsTop.push(endDate);
         }

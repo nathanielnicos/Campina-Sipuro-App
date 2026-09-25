@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getDashboardStats } from '../../services/dashboardApi';
 import { fetchProducts } from '../../services/poApi';
 import { getStatusStyle } from '../../utils/statusHelper';
+import { getWibDate } from '../../utils/dateHelper';
 
 export const useDashboard = () => {
     const [stats, setStats] = useState(null);
@@ -16,9 +17,10 @@ export const useDashboard = () => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // State untuk Picker Grafik Baris 1
-    const currentYear = new Date().getFullYear();
-    const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    // State untuk Picker Grafik Baris 1 - Menggunakan WibDate
+    const nowWib = getWibDate();
+    const currentYear = nowWib.getFullYear();
+    const currentMonth = `${currentYear}-${String(nowWib.getMonth() + 1).padStart(2, '0')}`;
     const [selectedYear, setSelectedYear] = useState(currentYear);
     const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 

@@ -1,5 +1,6 @@
 const XLSX = require('xlsx');
 const { sipuroDb } = require('../../config/db');
+const { getWibDate } = require('../../helpers/dateHelper');
 
 exports.exportPoExcel = async (req, res) => {
     try {
@@ -14,7 +15,7 @@ exports.exportPoExcel = async (req, res) => {
         let query = `
             SELECT 
                 ph.po_number,
-                DATE_FORMAT(ph.created_at, '%Y-%m-%d') AS created_at,
+                DATE_FORMAT(CONVERT_TZ(ph.created_at, '+00:00', '+07:00'), '%Y-%m-%d') AS created_at,
                 ph.status,
                 ph.delivery_address,
                 ph.description,
@@ -45,13 +46,13 @@ exports.exportPoExcel = async (req, res) => {
             params.push(status);
         }
 
-        // Filter Created Date Range
+        // Filter Created Date Range berbasis WIB
         if (startDate && startDate !== '') {
-            query += ` AND DATE(ph.created_at) >= ?`;
+            query += ` AND DATE(CONVERT_TZ(ph.created_at, '+00:00', '+07:00')) >= ?`;
             params.push(startDate);
         }
         if (endDate && endDate !== '') {
-            query += ` AND DATE(ph.created_at) <= ?`;
+            query += ` AND DATE(CONVERT_TZ(ph.created_at, '+00:00', '+07:00')) <= ?`;
             params.push(endDate);
         }
 
@@ -122,14 +123,14 @@ exports.exportPoExcel = async (req, res) => {
 
         const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
 
-        // Format waktu YYYYMMDD_HHmmss
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
+        // Format waktu WIB YYYYMMDD_HHmmss untuk penamaan file
+        const nowWib = getWibDate();
+        const year = nowWib.getFullYear();
+        const month = String(nowWib.getMonth() + 1).padStart(2, '0');
+        const day = String(nowWib.getDate()).padStart(2, '0');
+        const hours = String(nowWib.getHours()).padStart(2, '0');
+        const minutes = String(nowWib.getMinutes()).padStart(2, '0');
+        const seconds = String(nowWib.getSeconds()).padStart(2, '0');
 
         const filename = `PO_Recap_${year}${month}${day}_${hours}${minutes}${seconds}.xlsx`;
 
