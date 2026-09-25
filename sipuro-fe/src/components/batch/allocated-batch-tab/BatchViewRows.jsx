@@ -19,7 +19,7 @@ const formatDateTime = (dateStr) => {
     return `${day} ${month} ${year} ${hours}:${minutes}:${seconds}`;
 };
 
-export const BatchViewRows = ({ mappingList, currentUserRole, poTolerance, onUpdateStatus, onOpenEditBatch, loading }) => {
+export const BatchViewRows = ({ mappingList, currentUserRole, onUpdateStatus, onOpenEditBatch, loading }) => {
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>

@@ -120,10 +120,14 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                         <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', width: '110px' }}>
                                             PO Qty<br />(Pcs)
                                         </th>
-                                        <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Batch Number</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', width: '110px' }}>
-                                            Allocated Qty<br />(Pcs)
-                                        </th>
+                                        {currentUser?.role !== 'CUSTOMER' && (
+                                            <>
+                                                <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Batch Number</th>
+                                                <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', width: '110px' }}>
+                                                    Allocated Qty<br />(Pcs)
+                                                </th>
+                                            </>
+                                        )}
                                         <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', width: '110px' }}>
                                             Fulfilled Qty<br />(Pcs)
                                         </th>
@@ -141,7 +145,6 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                 <BatchViewRows
                                     mappingList={mappingList}
                                     currentUserRole={currentUser?.role}
-                                    poTolerance={poTolerance}
                                     onUpdateStatus={handleUpdateStatus}
                                     onOpenEditBatch={handleOpenEditBatch}
                                     loading={loading}
@@ -151,8 +154,6 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                     mappingList={mappingList}
                                     currentUserRole={currentUser?.role}
                                     poTolerance={poTolerance}
-                                    onUpdateStatus={handleUpdateStatus}
-                                    loading={loading}
                                 />
                             )}
                         </tbody>

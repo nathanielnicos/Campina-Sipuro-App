@@ -1,8 +1,7 @@
-import React from 'react';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import { formatDate, formatQty } from '../../../utils/formatters';
 
-export const PoViewRows = ({ mappingList, currentUserRole, poTolerance, loading }) => {
+export const PoViewRows = ({ mappingList, currentUserRole, poTolerance }) => {
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>
@@ -74,15 +73,19 @@ export const PoViewRows = ({ mappingList, currentUserRole, poTolerance, loading 
                             </>
                         )}
 
-                        {/* 5. Batch Number (Per Baris Batch) */}
-                        <td style={{ padding: '10px 14px', fontWeight: '500', whiteSpace: 'nowrap', verticalAlign: 'top' }}>
-                            {batch.batch_number}
-                        </td>
+                        {currentUserRole !== 'CUSTOMER' && (
+                            <>
+                                {/* 5. Batch Number (Per Baris Batch) */}
+                                <td style={{ padding: '10px 14px', fontWeight: '500', whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                                    {batch.batch_number}
+                                </td>
 
-                        {/* 6. Allocated Qty (Pcs) (Per Baris Batch) */}
-                        <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'top', width: '110px' }}>
-                            {formatQty(batch.allocated_qty)}
-                        </td>
+                                {/* 6. Allocated Qty (Pcs) (Per Baris Batch) */}
+                                <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'top', width: '110px' }}>
+                                    {formatQty(batch.allocated_qty)}
+                                </td>
+                            </>
+                        )}
 
                         {/* 7. Fulfilled Qty, 8. Remaining Qty, 9. Percentage, 10. Status (Rowspan per Product/SKU) */}
                         {renderProductCells && (
