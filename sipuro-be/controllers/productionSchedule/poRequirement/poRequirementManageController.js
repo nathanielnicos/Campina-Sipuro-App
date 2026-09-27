@@ -129,12 +129,12 @@ exports.createDraftPO = async (req, res) => {
         const poHeaderId = headerResult.insertId;
         const insertedDetails = [];
 
-        // 7. Insert PO Details
+        // 7. Insert PO Details (Dibersihkan dari kolom created_at & updated_at)
         for (const item of processedItems) {
             const [detailRes] = await connection.query(
                 `INSERT INTO sipuro_db.po_details 
-                 (po_header_id, id_product, qty, base_qty, uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, base_price, total_price, created_at, updated_at) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 (po_header_id, id_product, qty, base_qty, uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, base_price, total_price) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     poHeaderId,
                     item.id_product,
@@ -146,9 +146,7 @@ exports.createDraftPO = async (req, res) => {
                     item.ml_per_pcs,
                     item.kg_per_pcs,
                     item.base_price,
-                    item.total_price,
-                    nowWib,
-                    nowWib
+                    item.total_price
                 ]
             );
 
