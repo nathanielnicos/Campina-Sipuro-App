@@ -1,7 +1,7 @@
 const { sipuroDb } = require('../../config/db');
 const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
-const { getWibYear, getWibMysqlString } = require('../../helpers/dateHelper');
+const { getWibYear, getWibDateTimeString } = require('../../helpers/dateHelper');
 
 /**
  * Helper untuk menghitung Base Qty (dalam PCS) berdasarkan UOM yang dipilih
@@ -59,7 +59,7 @@ exports.createPO = async (req, res) => {
 
         const [lastPoRows] = await sipuroDb.query(
             `SELECT po_number FROM sipuro_db.po_headers 
-             WHERE CAST(DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+07:00'), '%Y') AS UNSIGNED) = ? 
+             WHERE YEAR(created_at) = ? 
              ORDER BY po_header_id DESC LIMIT 1`,
             [currentYear]
         );
@@ -82,12 +82,30 @@ exports.createPO = async (req, res) => {
         );
         const productMap = new Map(productRows.map(p => [p.id_product, p]));
 
+        // Dapatkan timestamp waktu WIB presisi untuk created_at & updated_at
+        const nowWib = getWibDateTimeString();
+
         await connection.beginTransaction();
 
-        // Insert Header dengan target status (Draft / Waiting for Confirmation)
+        // Insert Header dengan timestamp WIB eksplisit untuk created_at & updated_at
         const [headerResult] = await connection.query(
-            `INSERT INTO sipuro_db.po_headers (po_number, customer_id, subtotal, ppn_percent, total_amount, delivery_address, description, status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [poNumber, customer_id, subtotal, ppn_percent, total_amount, delivery_address || '', safeDescription, targetStatus, created_by || null, created_by || null]
+            `INSERT INTO sipuro_db.po_headers 
+             (po_number, customer_id, subtotal, ppn_percent, total_amount, delivery_address, description, status, created_by, updated_by, created_at, updated_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                poNumber,
+                customer_id,
+                subtotal,
+                ppn_percent,
+                total_amount,
+                delivery_address || '',
+                safeDescription,
+                targetStatus,
+                created_by || null,
+                created_by || null,
+                nowWib,
+                nowWib
+            ]
         );
 
         const poHeaderId = headerResult.insertId;
@@ -232,12 +250,14 @@ exports.updatePO = async (req, res) => {
         );
         const productMap = new Map(productRows.map(p => [p.id_product, p]));
 
+        const nowWib = getWibDateTimeString();
+
         await connection.beginTransaction();
 
-        // Update Header beserta update status jika berubah
+        // Update Header beserta update status & updated_at WIB
         await connection.query(
-            `UPDATE sipuro_db.po_headers SET subtotal = ?, ppn_percent = ?, total_amount = ?, delivery_address = ?, description = ?, status = ?, updated_by = ? WHERE po_header_id = ?`,
-            [subtotal, ppn_percent, total_amount, delivery_address || '', safeDescription, newStatus, updated_by || null, id]
+            `UPDATE sipuro_db.po_headers SET subtotal = ?, ppn_percent = ?, total_amount = ?, delivery_address = ?, description = ?, status = ?, updated_by = ?, updated_at = ? WHERE po_header_id = ?`,
+            [subtotal, ppn_percent, total_amount, delivery_address || '', safeDescription, newStatus, updated_by || null, nowWib, id]
         );
 
         const existingIds = existingDetails.map(row => row.po_detail_id);
@@ -247,7 +267,7 @@ exports.updatePO = async (req, res) => {
         const idsToDelete = existingIds.filter(detailId => !payloadDetailIds.includes(detailId));
 
         if (idsToDelete.length > 0) {
-            await connection.query(`UPDATE sipuro_db.po_details SET deleted_at = NOW() WHERE po_detail_id IN (?)`, [idsToDelete]);
+            await connection.query(`UPDATE sipuro_db.po_details SET deleted_at = ? WHERE po_detail_id IN (?)`, [nowWib, idsToDelete]);
             for (const delId of idsToDelete) {
                 const oldItem = existingMap.get(delId);
                 detailLogsToSave.push({
@@ -412,9 +432,14 @@ exports.cancelPO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'PO cannot be canceled because of its current status.' });
         }
 
+        const nowWib = getWibDateTimeString();
+
         await connection.beginTransaction();
 
-        await connection.query(`UPDATE sipuro_db.po_headers SET status = 'Canceled', updated_by = ? WHERE po_header_id = ?`, [canceled_by || null, id]);
+        await connection.query(
+            `UPDATE sipuro_db.po_headers SET status = 'Canceled', updated_by = ?, updated_at = ? WHERE po_header_id = ?`,
+            [canceled_by || null, nowWib, id]
+        );
 
         await logPOHeader(connection, {
             poHeaderId: id,
@@ -478,14 +503,14 @@ exports.updatePOStatus = async (req, res) => {
 
         await connection.beginTransaction();
 
-        // Menggunakan getWibMysqlString() untuk mengisi confirmed_at berbasis WIB
-        const wibConfirmedAt = getWibMysqlString();
+        // Menggunakan getWibDateTimeString() untuk mengisi timestamp WIB pada confirmed_at & updated_at
+        const nowWib = getWibDateTimeString();
 
         await connection.query(
             `UPDATE sipuro_db.po_headers 
-             SET status = ?, rejection_reason = ?, confirmed_by = ?, confirmed_at = ? 
+             SET status = ?, rejection_reason = ?, confirmed_by = ?, confirmed_at = ?, updated_at = ? 
              WHERE po_header_id = ?`,
-            [status, safeNotes, updated_by || null, wibConfirmedAt, id]
+            [status, safeNotes, updated_by || null, nowWib, nowWib, id]
         );
 
         await logPOHeader(connection, {
