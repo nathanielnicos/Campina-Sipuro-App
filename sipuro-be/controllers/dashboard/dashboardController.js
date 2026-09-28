@@ -40,7 +40,7 @@ exports.getDashboardStats = async (req, res) => {
                     DATE_FORMAT(d.date_val, '%Y-%m-%d') AS label_key,
                     DATE_FORMAT(d.date_val, '%d %b') AS month_label,
                     COALESCE(SUM(pod.base_qty), 0) AS total_volume,
-                    COALESCE(SUM(pba.total_fulfilled), 0) AS total_fulfilled
+                    COALESCE(SUM(pod.fulfilled_qty), 0) AS total_fulfilled
                 FROM dates d
                 LEFT JOIN sipuro_db.po_headers poh 
                     ON DATE(CONVERT_TZ(poh.created_at, '+00:00', '+07:00')) = d.date_val
@@ -48,11 +48,6 @@ exports.getDashboardStats = async (req, res) => {
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id 
                    AND pod.deleted_at IS NULL${productFilterClause}
-                LEFT JOIN (
-                    SELECT po_detail_id, SUM(fulfilled_qty) AS total_fulfilled
-                    FROM sipuro_db.po_batch_allocations
-                    GROUP BY po_detail_id
-                ) pba ON pod.po_detail_id = pba.po_detail_id
                 GROUP BY d.date_val, label_key, month_label
                 ORDER BY d.date_val ASC;
             `;
@@ -72,7 +67,7 @@ exports.getDashboardStats = async (req, res) => {
                     DATE_FORMAT(m.month_val, '%Y-%m') AS label_key,
                     DATE_FORMAT(m.month_val, '%b %Y') AS month_label,
                     COALESCE(SUM(pod.base_qty), 0) AS total_volume,
-                    COALESCE(SUM(pba.total_fulfilled), 0) AS total_fulfilled
+                    COALESCE(SUM(pod.fulfilled_qty), 0) AS total_fulfilled
                 FROM months m
                 LEFT JOIN sipuro_db.po_headers poh 
                     ON DATE_FORMAT(CONVERT_TZ(poh.created_at, '+00:00', '+07:00'), '%Y-%m') = DATE_FORMAT(m.month_val, '%Y-%m')
@@ -80,11 +75,6 @@ exports.getDashboardStats = async (req, res) => {
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id 
                    AND pod.deleted_at IS NULL${productFilterClause}
-                LEFT JOIN (
-                    SELECT po_detail_id, SUM(fulfilled_qty) AS total_fulfilled
-                    FROM sipuro_db.po_batch_allocations
-                    GROUP BY po_detail_id
-                ) pba ON pod.po_detail_id = pba.po_detail_id
                 GROUP BY m.month_val, label_key, month_label
                 ORDER BY m.month_val ASC;
             `;
