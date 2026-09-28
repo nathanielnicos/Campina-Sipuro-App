@@ -19,12 +19,18 @@ import NotificationBanner from './components/navigation/NotificationBanner';
 import { markAllAsRead } from './services/notificationApi';
 import { getNavItemsByUser } from './config/navigationConfig';
 
-function App() {
+// Import ModalProvider & custom hook-nya
+import { ModalProvider, useGlobalModal } from './context/ModalContext';
+
+function MainApp() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('po-list');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPoId, setSelectedPoId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Akses showAlert dari Global Modal Context
+  const { showAlert } = useGlobalModal();
 
   // Global banner states
   const [showPoBanner, setShowPoBanner] = useState(false);
@@ -93,7 +99,11 @@ function App() {
 
   const handleOpenCreate = () => {
     if (user && user.role !== 'CUSTOMER') {
-      alert('Only Customers can create new Purchase Orders.');
+      showAlert({
+        type: 'warning',
+        title: 'Access Restricted',
+        message: 'Only Customers can create new Purchase Orders.'
+      });
       return;
     }
     setSelectedPoId(null);
@@ -194,6 +204,15 @@ function App() {
         />
       )}
     </div>
+  );
+}
+
+// Wrapper utama dengan ModalProvider
+function App() {
+  return (
+    <ModalProvider>
+      <MainApp />
+    </ModalProvider>
   );
 }
 

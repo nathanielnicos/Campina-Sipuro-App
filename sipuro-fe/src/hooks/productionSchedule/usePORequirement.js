@@ -5,8 +5,12 @@ import {
     fetchCustomersList,
     createDraftPO
 } from '../../services/poRequirementApi';
+import { useGlobalModal } from '../../context/ModalContext';
 
 export const usePORequirement = () => {
+    // Modal Global Context
+    const { showConfirm, showAlert } = useGlobalModal();
+
     const [search, setSearch] = useState('');
     const [startWeek, setStartWeek] = useState('2026-W39');
     const [endWeek, setEndWeek] = useState('2026-W47');
@@ -25,6 +29,10 @@ export const usePORequirement = () => {
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [selectedCustomerId, setSelectedCustomerId] = useState('');
+
+    // State untuk deskripsi Draft PO
+    const [description, setDescription] = useState('');
+
     const [creatingPO, setCreatingPO] = useState(false);
 
     const loadPORequirementSummary = useCallback(async () => {
@@ -55,9 +63,8 @@ export const usePORequirement = () => {
         return () => clearTimeout(timer);
     }, [loadPORequirementSummary]);
 
-    // Handler yang sudah disesuaikan untuk membersihkan pemisah ribuan
+    // Handler untuk membersihkan pemisah ribuan
     const handleRequiredQtyChange = (id_product, value) => {
-        // Hapus semua karakter non-digit (titik, koma, huruf, dll)
         const cleanVal = value.replace(/\D/g, '');
         const numericVal = cleanVal === '' ? 0 : parseInt(cleanVal, 10);
 
@@ -102,7 +109,11 @@ export const usePORequirement = () => {
         const itemsToCreate = data.filter(item => item.required_po_qty > 0);
 
         if (itemsToCreate.length === 0) {
-            alert('Please enter Required PO (Pcs) for at least one product.');
+            showAlert({
+                type: 'warning',
+                title: 'Validation Error',
+                message: 'Please enter Required PO (Pcs) for at least one product.'
+            });
             return;
         }
 
@@ -112,45 +123,70 @@ export const usePORequirement = () => {
                 setCustomers(custRes.data);
                 setSelectedCustomerId(custRes.data[0].customer_id);
             }
+
+            // Reset description setiap kali modal konfirmasi dibuka
+            setDescription('');
             setIsConfirmModalOpen(true);
         } catch (error) {
-            alert('Failed to fetch customers list.');
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'Failed to fetch customers list.'
+            });
         }
     };
 
-    // Eksekusi Submit Draft PO
-    const handleConfirmSubmitPO = async () => {
-        const itemsToCreate = data.filter(item => item.required_po_qty > 0);
-
-        if (!selectedCustomerId) {
-            alert('Please select a customer first!');
-            return;
-        }
-
-        // Konfirmasi terlebih dahulu sebelum submit ke backend
-        const isConfirmed = window.confirm('Are you sure you want to create this Draft PO?');
-        if (!isConfirmed) {
-            return;
-        }
-
+    // Fungsi internal eksekusi API Submit Draft PO
+    const executeSubmitPO = async (itemsToCreate) => {
         setCreatingPO(true);
         try {
             const res = await createDraftPO({
                 customer_id: selectedCustomerId,
-                items: itemsToCreate
+                items: itemsToCreate,
+                description: description
             });
 
             if (res.success) {
-                alert(res.message || 'Draft PO created successfully!');
+                showAlert({
+                    type: 'success',
+                    title: 'Success',
+                    message: res.message || 'Draft PO created successfully!'
+                });
                 setIsConfirmModalOpen(false);
+                setDescription('');
                 loadPORequirementSummary();
             }
         } catch (error) {
             console.error('Error creating Draft PO:', error);
-            alert(error.response?.data?.message || 'Failed to create Draft PO.');
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: error.response?.data?.message || 'Failed to create Draft PO.'
+            });
         } finally {
             setCreatingPO(false);
         }
+    };
+
+    // Eksekusi Submit Draft PO dengan modal konfirmasi global
+    const handleConfirmSubmitPO = () => {
+        const itemsToCreate = data.filter(item => item.required_po_qty > 0);
+
+        if (!selectedCustomerId) {
+            showAlert({
+                type: 'warning',
+                title: 'Selection Required',
+                message: 'Please select a customer first!'
+            });
+            return;
+        }
+
+        showConfirm({
+            title: 'Create Draft PO',
+            message: 'Are you sure you want to create this Draft PO?',
+            confirmText: 'Create Draft PO',
+            onConfirm: () => executeSubmitPO(itemsToCreate)
+        });
     };
 
     return {
@@ -176,6 +212,8 @@ export const usePORequirement = () => {
         customers,
         selectedCustomerId,
         setSelectedCustomerId,
+        description,
+        setDescription,
         handleConfirmSubmitPO,
         creatingPO
     };

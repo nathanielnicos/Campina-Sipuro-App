@@ -15,6 +15,7 @@ exports.getOutstandingSummary = async (req, res) => {
             searchPo,
             fromCreatedDate,
             toCreatedDate,
+            status,
             sortKey,
             sortOrder
         } = req.query;
@@ -29,6 +30,12 @@ exports.getOutstandingSummary = async (req, res) => {
             `d.fulfilled_qty < (d.base_qty * ?)`
         ];
         let queryParams = [poTolerance];
+
+        // Filter spesifik berdasarkan status item po_details jika dikirimkan oleh client
+        if (status) {
+            whereClauses.push(`d.status = ?`);
+            queryParams.push(status);
+        }
 
         if (searchProduct) {
             whereClauses.push(`(p.product_code LIKE ? OR p.product_name LIKE ?)`);
@@ -80,7 +87,7 @@ exports.getOutstandingSummary = async (req, res) => {
         const totalItems = Number(countRows[0]?.total || 0);
         const totalPages = Math.ceil(totalItems / limitNum);
 
-        // Query mengambil data outstanding per produk dan rincian PO
+        // Query mengambil data outstanding per produk dan rincian PO beserta ID & Status Item
         const query = `
             SELECT 
                 p.id_product,
@@ -90,6 +97,16 @@ exports.getOutstandingSummary = async (req, res) => {
                 SUM(d.base_qty) AS total_required_qty,
                 SUM(GREATEST(0, d.base_qty - d.fulfilled_qty)) AS total_remaining_qty,
                 COUNT(DISTINCT h.po_header_id) AS total_po_count,
+                GROUP_CONCAT(
+                    h.po_header_id
+                    ORDER BY h.po_header_id ASC 
+                    SEPARATOR '\n'
+                ) AS po_header_ids,
+                GROUP_CONCAT(
+                    d.po_detail_id
+                    ORDER BY h.po_header_id ASC 
+                    SEPARATOR '\n'
+                ) AS po_detail_ids,
                 GROUP_CONCAT(
                     h.po_number
                     ORDER BY h.po_header_id ASC 
@@ -109,7 +126,17 @@ exports.getOutstandingSummary = async (req, res) => {
                     GREATEST(0, d.base_qty - d.fulfilled_qty)
                     ORDER BY h.po_header_id ASC 
                     SEPARATOR '\n'
-                ) AS po_remaining_qtys
+                ) AS po_remaining_qtys,
+                GROUP_CONCAT(
+                    IFNULL(d.fulfilled_qty, 0)
+                    ORDER BY h.po_header_id ASC 
+                    SEPARATOR '\n'
+                ) AS po_fulfilled_qtys,
+                GROUP_CONCAT(
+                    IFNULL(d.status, 'Active')
+                    ORDER BY h.po_header_id ASC 
+                    SEPARATOR '\n'
+                ) AS po_statuses
             FROM sipuro_db.po_details d
             JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
             JOIN sipuro_db.products p ON d.id_product = p.id_product

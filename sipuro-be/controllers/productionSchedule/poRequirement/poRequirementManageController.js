@@ -1,9 +1,10 @@
 const { sipuroDb } = require('../../../config/db');
+const { createNotification } = require('../../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../../helpers/poLogHelper');
 const { getWibYear, getWibDateTimeString } = require('../../../helpers/dateHelper');
 
 /**
- * CREATE DRAFT PO FROM PO REQUIREMENT
+ * CREATE DRAFT PO FROM PO REQUIREMENT BY PPIC
  */
 exports.createDraftPO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
@@ -14,9 +15,12 @@ exports.createDraftPO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Customer and items are required.' });
         }
 
+        // Batasi dan bersihkan karakter description max 50 karakter
+        const safeDescription = description ? description.trim().slice(0, 50) : null;
+
         // 1. Ambil customer_code dan delivery_address dari tabel customers
         const [customerRows] = await connection.query(
-            `SELECT customer_code, delivery_address FROM sipuro_db.customers WHERE customer_id = ?`,
+            `SELECT customer_code, delivery_address, company_name FROM sipuro_db.customers WHERE customer_id = ?`,
             [customer_id]
         );
         if (customerRows.length === 0) {
@@ -118,7 +122,7 @@ exports.createDraftPO = async (req, res) => {
                 ppn_percent,
                 total_amount,
                 deliveryAddress,
-                description || null,
+                safeDescription,
                 created_by || null,
                 created_by || null,
                 nowWib,
@@ -129,12 +133,12 @@ exports.createDraftPO = async (req, res) => {
         const poHeaderId = headerResult.insertId;
         const insertedDetails = [];
 
-        // 7. Insert PO Details (Dibersihkan dari kolom created_at & updated_at)
+        // 7. Insert PO Details (Eksplisit menyertakan status 'Active')
         for (const item of processedItems) {
             const [detailRes] = await connection.query(
                 `INSERT INTO sipuro_db.po_details 
-                 (po_header_id, id_product, qty, base_qty, uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, base_price, total_price) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 (po_header_id, id_product, qty, base_qty, uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, base_price, total_price, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
                 [
                     poHeaderId,
                     item.id_product,
@@ -158,7 +162,9 @@ exports.createDraftPO = async (req, res) => {
                 old_base_qty: 0,
                 new_base_qty: item.base_qty,
                 old_total_price: 0,
-                new_total_price: item.total_price
+                new_total_price: item.total_price,
+                old_status: null,
+                new_status: 'Active'
             });
         }
 
@@ -174,6 +180,17 @@ exports.createDraftPO = async (req, res) => {
         await logPODetails(connection, poHeaderLogId, insertedDetails);
 
         await connection.commit();
+
+        // 9. Kirim Notifikasi ke Customer (Aplikasi & Email)
+        await createNotification({
+            title: 'Suggested Draft PO Created',
+            message: `A new suggested Draft PO ${poNumber} has been created for your review by PPIC.`,
+            recipientType: 'CUSTOMER',
+            recipientId: customer_id,
+            senderType: 'EMPLOYEE',
+            senderId: created_by || null,
+            link: '/po-list'
+        });
 
         res.json({
             success: true,

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { formatQty, formatDateTime } from '../../../utils/formatters';
+import { getStatusStyle } from '../../../utils/statusHelper';
 import PaginationControl from '../../common/PaginationControl';
 
 const ValidDataTab = ({ previewResults = [] }) => {
@@ -15,18 +16,10 @@ const ValidDataTab = ({ previewResults = [] }) => {
     );
 
     const renderAllocationStatusBadge = (status) => {
-        const isClosed = String(status || '').toLowerCase() === 'closed';
+        const currentStatus = status || 'Open';
         return (
-            <span style={{
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '10px',
-                fontWeight: 'bold',
-                backgroundColor: isClosed ? '#d1e7dd' : '#fff3cd',
-                color: isClosed ? '#0f5132' : '#664d03',
-                border: `1px solid ${isClosed ? '#badbcc' : '#ffecb5'}`
-            }}>
-                {status || 'Open'}
+            <span style={getStatusStyle(currentStatus)}>
+                {currentStatus}
             </span>
         );
     };

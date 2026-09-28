@@ -85,7 +85,7 @@ const Dashboard = () => {
             <div style={{ ...styles.card, marginBottom: '20px' }}>
                 <div style={styles.cardHeader}>
                     <h3 style={styles.cardTitle}>
-                        PO Quantity vs Production Output {trendMode === 'YTD' ? `(${selectedYear})` : `(${formatMonthLabel(selectedMonth)})`}
+                        PO Qty vs Production Output Qty {trendMode === 'YTD' ? `(${selectedYear})` : `(${formatMonthLabel(selectedMonth)})`}
                     </h3>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>

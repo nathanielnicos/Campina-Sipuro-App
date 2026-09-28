@@ -6,9 +6,10 @@ const { sendEmail } = require('./emailHelper');
  * 
  * @param {Object} params
  * @param {string} params.title - Notification title
- * @param {string} params.message - Notification body content
+ * @param {string} params.message - Notification body content for Web UI (Plain text)
+ * @param {string|null} params.htmlMessage - Optional HTML content specifically formatted for email body
  * @param {'EMPLOYEE'|'CUSTOMER'} params.recipientType - Target recipient entity
- * @param {string|number|null} params.recipientId - Specific Customer User ID / Employee ID (null if targeting department)
+ * @param {string|number|null} params.recipientId - Specific Customer ID / Customer User ID / Employee ID (null if targeting department)
  * @param {string|null} params.recipientDepartment - Target department if recipientType is 'EMPLOYEE' (e.g., 'PPIC')
  * @param {'EMPLOYEE'|'CUSTOMER'|null} params.senderType - Sender entity type
  * @param {string|number|null} params.senderId - Sender User ID
@@ -17,6 +18,7 @@ const { sendEmail } = require('./emailHelper');
 const createNotification = async ({
     title,
     message,
+    htmlMessage = null, // Opsional: khusus isi email HTML
     recipientType,
     recipientId = null,
     recipientDepartment = null,
@@ -25,7 +27,7 @@ const createNotification = async ({
     link = '/po-list'
 }) => {
     try {
-        // 1. Insert notification record into database
+        // 1. Insert PLAIN TEXT notification record into database for Web UI
         const query = `
             INSERT INTO sipuro_db.notifications 
             (title, message, recipient_type, recipient_id, recipient_department, sender_type, sender_id, link)
@@ -46,10 +48,12 @@ const createNotification = async ({
         let recipientEmails = [];
 
         if (recipientType === 'CUSTOMER' && recipientId) {
-            // Query using customer_user_id primary key from customer_users table
+            // Cek apakah recipientId dikirim sebagai customer_id (Tenant Level) atau customer_user_id (User Level)
             const [custRows] = await sipuroDb.query(
-                `SELECT email FROM sipuro_db.customer_users WHERE customer_user_id = ? AND email IS NOT NULL AND email != '' AND is_active = 1`,
-                [recipientId]
+                `SELECT email FROM sipuro_db.customer_users 
+                 WHERE (customer_id = ? OR customer_user_id = ?) 
+                   AND email IS NOT NULL AND email != '' AND is_active = 1`,
+                [recipientId, recipientId]
             );
             recipientEmails = custRows.map(row => row.email);
         } else if (recipientType === 'EMPLOYEE') {
@@ -76,10 +80,15 @@ const createNotification = async ({
             const fullLink = `${baseUrl}${link.startsWith('/') ? link : '/' + link}`;
 
             const emailSubject = `[SIPURO Notification] ${title}`;
+
+            // Menggunakan htmlMessage jika ada, jika tidak fallback ke message biasa
+            const emailBody = htmlMessage || `<p style="font-size: 15px; line-height: 1.6; color: #444;">${message}</p>`;
+
             const htmlContent = `
-                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 650px; border: 1px solid #e0e0e0; border-radius: 8px; margin: 0 auto;">
                     <h2 style="color: #0056b3; margin-top: 0;">${title}</h2>
-                    <p style="font-size: 15px; line-height: 1.6; color: #444;">${message}</p>
+                    
+                    ${emailBody}
                     
                     <div style="margin: 25px 0;">
                         <a href="${fullLink}" target="_blank" style="background-color: #0056b3; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">

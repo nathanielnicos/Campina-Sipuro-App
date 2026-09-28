@@ -84,13 +84,10 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
             <div style={{
                 backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '1000px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto'
             }}>
-                <h2>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {poId ? `Detail Purchase Order: ${poCode}` : 'Create New Purchase Order (PO)'}
                     {poId && poStatus && (
-                        <span style={{
-                            padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold',
-                            marginLeft: '10px', display: 'inline-block', ...getStatusStyle(poStatus)
-                        }}>
+                        <span style={getStatusStyle(poStatus)}>
                             {poStatus}
                         </span>
                     )}

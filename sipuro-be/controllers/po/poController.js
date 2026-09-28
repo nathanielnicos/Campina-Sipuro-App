@@ -1,6 +1,9 @@
 const poGetController = require('./poGetController');
-const poManageController = require('./poManageController');
+const poCreateController = require('./poCreateController');
+const poUpdateController = require('./poUpdateController');
+const poStatusController = require('./poStatusController');
 const poExportController = require('./poExportController');
+const poDetailCloseController = require('./poDetailCloseController');
 
 module.exports = {
     // PO Get
@@ -8,11 +11,16 @@ module.exports = {
     getPODetail: poGetController.getPODetail,
 
     // PO Manage
-    createPO: poManageController.createPO,
-    updatePO: poManageController.updatePO,
-    cancelPO: poManageController.cancelPO,
-    updatePOStatus: poManageController.updatePOStatus,
+    createPO: poCreateController.createPO,
+    updatePO: poUpdateController.updatePO,
+    cancelPO: poUpdateController.cancelPO,
+    updatePOStatus: poStatusController.updatePOStatus,
 
-    // Export Controller
+    // PO Export
     exportPoExcel: poExportController.exportPoExcel,
+
+    // PO Detail Close
+    requestClosePoDetails: poDetailCloseController.requestClosePoDetails,
+    approveClosePoDetails: poDetailCloseController.approveClosePoDetails,
+    rejectClosePoDetails: poDetailCloseController.rejectClosePoDetails
 };

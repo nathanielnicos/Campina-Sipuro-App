@@ -5,6 +5,7 @@ import {
     saveProductionPlan
 } from '../../services/productionPlanApi';
 import { getWibDate, getWibDateString } from '../../utils/dateHelper';
+import { useGlobalModal } from '../../context/ModalContext';
 
 // Helper menghitung ISO Week & Year murni berbasis WibDate
 const getIsoWeekInfo = (dateObj) => {
@@ -24,15 +25,12 @@ const getCurrentIsoWeek = () => {
 
 // Helper menggeser week secara presisi dan konsisten lintas tahun (100% ISO-8601)
 const shiftIsoWeek = (year, week, delta) => {
-    // Cari tanggal Kamis di minggu ke-1 ISO (selalu ada pada 4 Januari UTC)
     const simpleThursday = new Date(Date.UTC(year, 0, 4));
     const dayOfWeek = simpleThursday.getUTCDay() || 7;
 
-    // Cari tanggal Senin minggu ke-1 ISO
     const firstMonday = new Date(simpleThursday);
     firstMonday.setUTCDate(simpleThursday.getUTCDate() - (dayOfWeek - 1));
 
-    // Dapatkan tanggal Senin untuk (week - 1) + delta minggu
     const targetMonday = new Date(firstMonday);
     targetMonday.setUTCDate(firstMonday.getUTCDate() + (week - 1 + delta) * 7);
 
@@ -43,6 +41,9 @@ export const useProductionPlan = () => {
     const { year: currentYear, week: currentWeek } = getCurrentIsoWeek();
     const defaultStart = shiftIsoWeek(currentYear, currentWeek, 0);
     const defaultEnd = shiftIsoWeek(currentYear, currentWeek, 8);
+
+    // Modal Global Context
+    const { showConfirm, showAlert } = useGlobalModal();
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState([]);
@@ -121,7 +122,6 @@ export const useProductionPlan = () => {
                 let fetchedRevs = res.revisions || [];
 
                 if (!res.has_existing_plan || fetchedRevs.length === 0) {
-                    // Penentuan tanggal hari ini dalam format YYYY-MM-DD berbasis WIB
                     const todayStr = getWibDateString();
                     const emptyWeeksData = {};
                     (res.weeks || []).forEach(w => {
@@ -172,7 +172,7 @@ export const useProductionPlan = () => {
     };
 
     const closeModal = () => {
-        if (saving) return; // Prevent closing while saving in progress
+        if (saving) return;
         setIsModalOpen(false);
         setSelectedProduct(null);
         setRevisions([]);
@@ -180,13 +180,8 @@ export const useProductionPlan = () => {
         setHasExistingPlan(false);
     };
 
-    // Save Plan with confirmation & English alerts
-    const handleSave = async () => {
-        if (!selectedProduct) return;
-
-        const isConfirmed = window.confirm('Are you sure you want to save these Production Plan changes?');
-        if (!isConfirmed) return;
-
+    // Fungsi internal eksekusi API Simpan
+    const executeSave = async () => {
         setSaving(true);
         try {
             const payload = {
@@ -199,15 +194,40 @@ export const useProductionPlan = () => {
             if (res.success) {
                 closeModal();
                 loadSummary(pagination.currentPage, pagination.limit, search, startWeek, endWeek);
+                showAlert({
+                    type: 'success',
+                    title: 'Success',
+                    message: 'Production plan saved successfully!'
+                });
             } else {
-                alert(res.message || 'Failed to save production plan.');
+                showAlert({
+                    type: 'error',
+                    title: 'Failed',
+                    message: res.message || 'Failed to save production plan.'
+                });
             }
         } catch (err) {
             console.error('Error handleSave Production Plan:', err);
-            alert('An error occurred while saving the data.');
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'An error occurred while saving the data.'
+            });
         } finally {
             setSaving(false);
         }
+    };
+
+    // Save Plan dengan Modal Konfirmasi
+    const handleSave = () => {
+        if (!selectedProduct) return;
+
+        showConfirm({
+            title: 'Save Production Plan',
+            message: 'Are you sure you want to save these Production Plan changes?',
+            confirmText: 'Save Changes',
+            onConfirm: executeSave
+        });
     };
 
     return {

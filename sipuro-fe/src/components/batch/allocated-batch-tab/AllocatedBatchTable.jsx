@@ -16,8 +16,6 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
         error,
         searchQuery,
         batchStatus,
-        fromPlanDate, setFromPlanDate,
-        toPlanDate, setToPlanDate,
         fromActualDate, setFromActualDate,
         toActualDate, setToActualDate,
         fromCreatedDate, setFromCreatedDate,
@@ -65,8 +63,6 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
             <Filter
                 searchQuery={searchQuery}
                 batchStatus={batchStatus}
-                fromPlanDate={fromPlanDate}
-                toPlanDate={toPlanDate}
                 fromActualDate={fromActualDate}
                 toActualDate={toActualDate}
                 fromCreatedDate={fromCreatedDate}
@@ -75,8 +71,6 @@ const AllocatedBatchTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 exporting={exporting}
                 onSearchChange={handleSearchChange}
                 onStatusChange={handleStatusChange}
-                onFromPlanDateChange={setFromPlanDate}
-                onToPlanDateChange={setToPlanDate}
                 onFromActualDateChange={setFromActualDate}
                 onToActualDateChange={setToActualDate}
                 onFromCreatedDateChange={setFromCreatedDate}

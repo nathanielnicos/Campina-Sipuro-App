@@ -87,15 +87,7 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onUpdateStatus, on
                             </td>
                             {/* 4. Batch Status */}
                             <td rowSpan={allocations.length} style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'top', backgroundColor: '#fff' }}>
-                                <span style={{
-                                    ...getStatusStyle(row.batch_status),
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    fontWeight: 'bold',
-                                    fontSize: '11px',
-                                    whiteSpace: 'nowrap',
-                                    display: 'inline-block'
-                                }}>
+                                <span style={getStatusStyle(row.batch_status)}>
                                     {row.batch_status}
                                 </span>
                             </td>
@@ -115,15 +107,7 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onUpdateStatus, on
                     {/* 7. Allocation Status (Murni dari DB pba.status) */}
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                         {po.status !== '-' ? (
-                            <span style={{
-                                ...getStatusStyle(po.status),
-                                padding: '3px 8px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                whiteSpace: 'nowrap',
-                                display: 'inline-block'
-                            }}>
+                            <span style={getStatusStyle(po.status)}>
                                 {po.status}
                             </span>
                         ) : '-'}

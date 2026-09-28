@@ -7,6 +7,8 @@ const ConfirmCreatePOModal = ({
     customers,
     selectedCustomerId,
     setSelectedCustomerId,
+    description,
+    setDescription,
     onConfirm,
     loading
 }) => {
@@ -34,7 +36,8 @@ const ConfirmCreatePOModal = ({
                 width: '100%',
                 maxWidth: '600px',
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                boxSizing: 'border-box'
             }}>
                 {/* Header */}
                 <div style={{
@@ -48,7 +51,7 @@ const ConfirmCreatePOModal = ({
                 </div>
 
                 {/* Content */}
-                <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px', boxSizing: 'border-box' }}>
 
                     {/* Customer Selection */}
                     <div>
@@ -66,7 +69,8 @@ const ConfirmCreatePOModal = ({
                                 border: '1px solid #ced4da',
                                 fontSize: '13px',
                                 backgroundColor: loading ? '#e9ecef' : '#fff',
-                                cursor: loading ? 'not-allowed' : 'pointer'
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                boxSizing: 'border-box'
                             }}
                         >
                             {customers.map(c => (
@@ -77,12 +81,43 @@ const ConfirmCreatePOModal = ({
                         </select>
                     </div>
 
+                    {/* Description Textarea */}
+                    <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <label style={{ fontSize: '13px', fontWeight: '600', color: '#212529' }}>
+                                Description (Optional):
+                            </label>
+                            <span style={{ fontSize: '12px', color: '#6c757d' }}>
+                                {description ? description.length : 0}/50
+                            </span>
+                        </div>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            maxLength={50}
+                            disabled={loading}
+                            placeholder="Enter short description (max 50 chars)"
+                            style={{
+                                width: '100%',
+                                padding: '8px 12px',
+                                borderRadius: '4px',
+                                border: '1px solid #ced4da',
+                                fontSize: '13px',
+                                backgroundColor: loading ? '#e9ecef' : '#fff',
+                                cursor: loading ? 'not-allowed' : 'text',
+                                minHeight: '60px',
+                                resize: 'vertical',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                    </div>
+
                     {/* Product Summary */}
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#212529' }}>
                             Processed Products Summary:
                         </label>
-                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px', boxSizing: 'border-box' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                                 <thead>
                                     <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>

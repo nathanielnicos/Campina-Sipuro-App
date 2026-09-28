@@ -27,19 +27,7 @@ const PORow = ({ po, onSelectPODetail, onOpenPdfModal, user }) => {
                 </td>
             )}
             <td style={{ width: colX, padding: '12px 16px', textAlign: 'center' }}>
-                <span style={{
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    display: 'inline-block',
-                    width: '100%',
-                    maxWidth: '170px',
-                    textAlign: 'center',
-                    boxSizing: 'border-box',
-                    whiteSpace: 'nowrap',
-                    ...getStatusStyle(po.status)
-                }}>
+                <span style={getStatusStyle(po.status)}>
                     {po.status}
                 </span>
             </td>

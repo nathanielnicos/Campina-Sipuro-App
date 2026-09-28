@@ -13,8 +13,13 @@ const batchRoutes = require('./routes/batchRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const doRoutes = require('./routes/doRoutes');
 const productionSchedule = require('./routes/productionScheduleRoutes');
+const testRoutes = require('./routes/testRoutes'); // <-- Import testRoutes
 
 const app = express();
+
+// Import scheduler
+const { initPoPlanScheduler } = require('./jobs/poPlanScheduler');
+
 const PORT = process.env.PORT || 5000;
 
 // Middleware
@@ -38,10 +43,14 @@ app.use('/api/batch', batchRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/delivery-orders', doRoutes);
 app.use('/api/production-schedule', productionSchedule);
+app.use('/api/test', testRoutes);
 
 // Run Server
 app.listen(PORT, () => {
     console.log(`Express server running on port ${PORT}`);
+
+    // Jalankan inisialisasi Cron Job Scheduler
+    initPoPlanScheduler();
 });
 
 module.exports = app;

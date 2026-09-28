@@ -29,7 +29,7 @@ function Login({ onLoginSuccess }) {
       backgroundColor: '#fff'
     }}>
       <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>
-        {isRegistering ? 'New User Registration' : 'SIPURO System Login'}
+        {isRegistering ? 'New User Registration' : 'User Login'}
       </h2>
 
       {errorMsg && (

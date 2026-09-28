@@ -37,14 +37,17 @@ const logPODetails = async (connection, poHeaderLogId, detailLogs = []) => {
         item.old_base_qty || 0,
         item.new_base_qty || 0,
         item.old_total_price || 0.00,
-        item.new_total_price || 0.00
+        item.new_total_price || 0.00,
+        item.old_status || null,
+        item.new_status || null
     ]);
 
     await connection.query(
         `INSERT INTO po_detail_logs (
             po_header_log_id, po_detail_id, id_product,
             old_qty, new_qty, old_base_qty, new_base_qty,
-            old_total_price, new_total_price
+            old_total_price, new_total_price,
+            old_status, new_status
         ) VALUES ?`,
         [values]
     );

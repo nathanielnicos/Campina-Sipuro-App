@@ -6,17 +6,20 @@ const Filter = ({
     searchPo,
     fromCreatedDate,
     toCreatedDate,
+    statusFilter,
     onProductChange,
     onPoChange,
     onFromCreatedDateChange,
     onToCreatedDateChange,
+    onStatusFilterChange,
     onResetFilters
 }) => {
     const isFilterActive = Boolean(
         searchProduct ||
         searchPo ||
         fromCreatedDate ||
-        toCreatedDate
+        toCreatedDate ||
+        statusFilter
     );
 
     return (
@@ -27,7 +30,7 @@ const Filter = ({
             border: '1px solid #dee2e6',
             marginBottom: '20px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(5, 1fr)',
             gap: '12px',
             alignItems: 'end'
         }}>
@@ -64,6 +67,23 @@ const Filter = ({
                 onFromDateChange={onFromCreatedDateChange}
                 onToDateChange={onToCreatedDateChange}
             />
+
+            <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                    Status Item
+                </label>
+                <select
+                    value={statusFilter}
+                    onChange={onStatusFilterChange}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px', backgroundColor: '#fff' }}
+                >
+                    <option value="">All Status</option>
+                    <option value="Active">Active</option>
+                    <option value="Close Requested">Close Requested</option>
+                    <option value="Closed">Closed</option>
+                    <option value="Partially Closed">Partially Closed</option>
+                </select>
+            </div>
 
             <div>
                 <button

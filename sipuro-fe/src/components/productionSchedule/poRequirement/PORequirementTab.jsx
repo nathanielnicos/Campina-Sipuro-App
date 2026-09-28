@@ -26,6 +26,8 @@ const PORequirementTab = () => {
         customers,
         selectedCustomerId,
         setSelectedCustomerId,
+        description,         // Ambil description
+        setDescription,      // Ambil setter-nya
         handleConfirmSubmitPO,
         creatingPO
     } = usePORequirement();
@@ -249,6 +251,8 @@ const PORequirementTab = () => {
                 customers={customers}
                 selectedCustomerId={selectedCustomerId}
                 setSelectedCustomerId={setSelectedCustomerId}
+                description={description}       // Meneruskan description ke modal
+                setDescription={setDescription} // Meneruskan setter ke modal
                 onConfirm={handleConfirmSubmitPO}
                 loading={creatingPO}
             />

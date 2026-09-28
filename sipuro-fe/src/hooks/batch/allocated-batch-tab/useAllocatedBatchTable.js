@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchBatchMapping, exportBatchExcelApi, updateAllocationStatusApi, updateBatchNumberApi } from '../../../services/batchApi';
+import { useGlobalModal } from '../../../context/ModalContext';
 
 export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll) => {
+    // Modal Global Context
+    const { showConfirm, showAlert } = useGlobalModal();
+
     // State Data & API
     const [mappingList, setMappingList] = useState([]);
     const [poTolerance, setPoTolerance] = useState(null);
@@ -15,9 +19,7 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
     const [searchQuery, setSearchQuery] = useState('');
     const [batchStatus, setBatchStatus] = useState('');
 
-    // State 4 Tanggal Range
-    const [fromPlanDate, setFromPlanDate] = useState('');
-    const [toPlanDate, setToPlanDate] = useState('');
+    // State 3 Tanggal Range (Plan Date Dihapus)
     const [fromActualDate, setFromActualDate] = useState('');
     const [toActualDate, setToActualDate] = useState('');
     const [fromCreatedDate, setFromCreatedDate] = useState('');
@@ -48,7 +50,6 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
                 search: searchQuery,
                 batchStatus,
                 displayMode: viewMode === 'PO' ? 'BY_PO' : 'BY_BATCH',
-                fromPlanDate, toPlanDate,
                 fromActualDate, toActualDate,
                 fromCreatedDate, toCreatedDate,
                 sortKey,
@@ -77,7 +78,7 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         }
     }, [
         page, limit, searchQuery, batchStatus, viewMode,
-        fromPlanDate, toPlanDate, fromActualDate, toActualDate,
+        fromActualDate, toActualDate,
         fromCreatedDate, toCreatedDate,
         sortKey, sortOrder
     ]);
@@ -96,7 +97,7 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         }
     };
 
-    // Handlers Existing
+    // Handlers
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value);
         setPage(1);
@@ -116,8 +117,6 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
     const handleResetFilters = () => {
         setSearchQuery('');
         setBatchStatus('');
-        setFromPlanDate('');
-        setToPlanDate('');
         setFromActualDate('');
         setToActualDate('');
         setFromCreatedDate('');
@@ -133,44 +132,66 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
             search: searchQuery,
             batchStatus,
             displayMode: viewMode === 'PO' ? 'BY_PO' : 'BY_BATCH',
-            fromPlanDate, toPlanDate,
             fromActualDate, toActualDate,
             fromCreatedDate, toCreatedDate,
         });
         setExporting(false);
 
         if (!res.success) {
-            alert(res.message);
+            showAlert({
+                type: 'error',
+                title: 'Export Failed',
+                message: res.message || 'Failed to export Excel file.'
+            });
         }
     };
 
-    const handleUpdateStatus = async (allocationId, action) => {
-        const actionText = action === 'CANCEL' ? 'cancel' : 'force close';
-        const reason = window.prompt(`Are you sure you want to ${actionText} this batch allocation?\nEnter reason (optional):`);
-
-        if (reason === null) return;
-
+    // Internal execution function for updating allocation status
+    const executeUpdateStatus = async (allocationId, action, reason) => {
         setLoading(true);
         try {
             const res = await updateAllocationStatusApi(allocationId, { action, reason });
             if (res && res.success) {
-                alert(res.message || 'Allocation status updated successfully.');
+                showAlert({
+                    type: 'success',
+                    title: 'Success',
+                    message: res.message || 'Allocation status updated successfully.'
+                });
                 if (onRefreshAll) {
                     onRefreshAll();
                 } else {
                     loadData();
                 }
             } else {
-                alert('Failed: ' + (res?.message || 'Failed to update allocation status.'));
+                showAlert({
+                    type: 'error',
+                    title: 'Failed',
+                    message: res?.message || 'Failed to update allocation status.'
+                });
             }
         } catch (err) {
-            alert('A system error occurred while updating the status.');
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'A system error occurred while updating the status.'
+            });
         } finally {
             setLoading(false);
         }
     };
 
-    // --- Handlers Baru: Rename Batch ---
+    const handleUpdateStatus = (allocationId, action) => {
+        const actionText = action === 'CANCEL' ? 'cancel' : 'force close';
+
+        showConfirm({
+            title: `Update Status (${action})`,
+            message: `Are you sure you want to ${actionText} this batch allocation?`,
+            confirmText: 'Confirm',
+            onConfirm: () => executeUpdateStatus(allocationId, action, '')
+        });
+    };
+
+    // --- Handlers Rename Batch ---
     const handleOpenEditBatch = (batchRow) => {
         setSelectedBatch(batchRow);
         setIsEditModalOpen(true);
@@ -181,25 +202,43 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         setIsEditModalOpen(false);
     };
 
-    const handleSaveBatchNumber = async (batchId, newBatchNumber) => {
-        const confirmSave = window.confirm(`Are you sure you want to rename this batch number to "${newBatchNumber}"?`);
-        if (!confirmSave) return;
-
+    const executeSaveBatchNumber = async (batchId, newBatchNumber) => {
         setEditLoading(true);
         try {
             const res = await updateBatchNumberApi(batchId, { newBatchNumber });
             if (res && res.success) {
-                alert(res.message || 'Batch number successfully updated.');
+                showAlert({
+                    type: 'success',
+                    title: 'Success',
+                    message: res.message || 'Batch number successfully updated.'
+                });
                 handleCloseEditBatch();
                 loadData();
             } else {
-                alert(res?.message || 'Failed to update batch number.');
+                showAlert({
+                    type: 'error',
+                    title: 'Failed',
+                    message: res?.message || 'Failed to update batch number.'
+                });
             }
         } catch (err) {
-            alert('A system error occurred while updating batch number.');
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'A system error occurred while updating batch number.'
+            });
         } finally {
             setEditLoading(false);
         }
+    };
+
+    const handleSaveBatchNumber = (batchId, newBatchNumber) => {
+        showConfirm({
+            title: 'Rename Batch Number',
+            message: `Are you sure you want to rename this batch number to "${newBatchNumber}"?`,
+            confirmText: 'Rename',
+            onConfirm: () => executeSaveBatchNumber(batchId, newBatchNumber)
+        });
     };
 
     return {
@@ -209,8 +248,6 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         error,
         searchQuery,
         batchStatus,
-        fromPlanDate, setFromPlanDate,
-        toPlanDate, setToPlanDate,
         fromActualDate, setFromActualDate,
         toActualDate, setToActualDate,
         fromCreatedDate, setFromCreatedDate,

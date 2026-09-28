@@ -3,8 +3,6 @@ import DateRangePicker from '../../common/DateRangePicker';
 const Filter = ({
     searchQuery,
     batchStatus,
-    fromPlanDate,
-    toPlanDate,
     fromActualDate,
     toActualDate,
     fromCreatedDate,
@@ -22,7 +20,6 @@ const Filter = ({
 }) => {
     const isFilterActive = Boolean(
         searchQuery || batchStatus ||
-        fromPlanDate || toPlanDate ||
         fromActualDate || toActualDate ||
         fromCreatedDate || toCreatedDate
     );

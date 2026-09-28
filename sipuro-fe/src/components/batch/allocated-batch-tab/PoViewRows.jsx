@@ -109,15 +109,7 @@ export const PoViewRows = ({ mappingList, currentUserRole, poTolerance }) => {
 
                                 {/* 10. Allocation Status */}
                                 <td rowSpan={prodRowSpan} style={{ padding: '10px 14px', textAlign: 'center', verticalAlign: 'top', backgroundColor: '#fff' }}>
-                                    <span style={{
-                                        ...getStatusStyle(prodRow.status),
-                                        padding: '3px 8px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: 'bold',
-                                        whiteSpace: 'nowrap',
-                                        display: 'inline-block'
-                                    }}>
+                                    <span style={getStatusStyle(prodRow.status)}>
                                         {prodRow.status}
                                     </span>
                                 </td>

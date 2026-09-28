@@ -122,3 +122,51 @@ export const exportPoExcelApi = async (customerId, filters = {}) => {
         return { success: false, message: error.message };
     }
 };
+
+/**
+ * API FITUR CLOSE PO DETAIL ITEMS
+ */
+
+// 1. Customer mengajukan penutupan detail item
+export const requestClosePoDetailsApi = async (poHeaderId, poDetailIds, reason, requestedBy) => {
+    const res = await fetch(`${API_BASE_URL}/po/details/request-close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            po_header_id: poHeaderId,
+            po_detail_ids: poDetailIds,
+            reason,
+            requested_by: requestedBy
+        })
+    });
+    return await res.json();
+};
+
+// 2. PPIC menyetujui pengajuan penutupan detail item
+export const approveClosePoDetailsApi = async (poHeaderId, poDetailIds, approvedBy) => {
+    const res = await fetch(`${API_BASE_URL}/po/details/approve-close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            po_header_id: poHeaderId,
+            po_detail_ids: poDetailIds,
+            approved_by: approvedBy
+        })
+    });
+    return await res.json();
+};
+
+// 3. PPIC menolak pengajuan penutupan detail item
+export const rejectClosePoDetailsApi = async (poHeaderId, poDetailIds, rejectReason, rejectedBy) => {
+    const res = await fetch(`${API_BASE_URL}/po/details/reject-close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            po_header_id: poHeaderId,
+            po_detail_ids: poDetailIds,
+            reject_reason: rejectReason,
+            rejected_by: rejectedBy
+        })
+    });
+    return await res.json();
+};
