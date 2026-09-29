@@ -1,68 +1,18 @@
-import { useState } from 'react';
+import { useUploadPreviewModal } from '../../hooks/master/useUploadPreviewModal';
 
 const UploadPreviewModal = ({ title, previewData, onClose, onConfirm, isCommitting }) => {
-    const [activeTab, setActiveTab] = useState('ALL');
+    const {
+        activeTab,
+        setActiveTab,
+        summary,
+        filteredData,
+        hasChangesToSave,
+        handleSave,
+        getStatusBadgeProps,
+        getRowStyle
+    } = useUploadPreviewModal({ previewData, onConfirm });
 
     if (!previewData || !previewData.data) return null;
-
-    const { summary, data } = previewData;
-    const { total = 0, newCount = 0, updatedCount = 0, unchangedCount = 0, notFoundCount = 0 } = summary || {};
-
-    const hasChangesToSave = (newCount + updatedCount) > 0;
-
-    const filteredData = data.filter(item => {
-        if (activeTab === 'NEW') return item.status === 'NEW';
-        if (activeTab === 'UPDATED') return item.status === 'UPDATED';
-        if (activeTab === 'UNCHANGED') return item.status === 'UNCHANGED';
-        if (activeTab === 'NOT_FOUND') return item.status === 'NOT_FOUND';
-        return true;
-    });
-
-    const renderStatusBadge = (status) => {
-        const badgeBaseStyle = {
-            display: 'block',
-            width: '100%',
-            padding: '4px 0',
-            borderRadius: '4px',
-            fontSize: '10px',
-            fontWeight: 'bold',
-            textAlign: 'center',
-            boxSizing: 'border-box',
-            whiteSpace: 'nowrap',
-            lineHeight: '1.2'
-        };
-
-        switch (status) {
-            case 'NEW':
-                return <span style={{ ...badgeBaseStyle, backgroundColor: '#198754', color: '#fff' }}>NEW</span>;
-            case 'UPDATED':
-                return <span style={{ ...badgeBaseStyle, backgroundColor: '#fd7e14', color: '#fff' }}>UPDATED</span>;
-            case 'NOT_FOUND':
-                return <span style={{ ...badgeBaseStyle, backgroundColor: '#dc3545', color: '#fff' }}>SKU NOT FOUND</span>;
-            default:
-                return <span style={{ ...badgeBaseStyle, backgroundColor: '#6c757d', color: '#fff' }}>UNCHANGED</span>;
-        }
-    };
-
-    const renderRowStyle = (status) => {
-        switch (status) {
-            case 'NEW':
-                return { backgroundColor: '#e8f5e9' };
-            case 'UPDATED':
-                return { backgroundColor: '#fff8e1' };
-            case 'NOT_FOUND':
-                return { backgroundColor: '#ffebee' };
-            default:
-                return {};
-        }
-    };
-
-    const handleSave = () => {
-        const isConfirmed = window.confirm('Are you sure you want to save this data to the database?');
-        if (isConfirmed) {
-            onConfirm(data);
-        }
-    };
 
     return (
         <div style={{
@@ -109,38 +59,38 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm, isCommitti
                         onClick={() => setActiveTab('ALL')}
                         style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'ALL' ? '#0d6efd' : '#e9ecef', color: activeTab === 'ALL' ? '#fff' : '#495057' }}
                     >
-                        All ({total})
+                        All ({summary.total})
                     </button>
-                    {newCount > 0 && (
+                    {summary.newCount > 0 && (
                         <button
                             onClick={() => setActiveTab('NEW')}
                             style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'NEW' ? '#198754' : '#d1e7dd', color: activeTab === 'NEW' ? '#fff' : '#0f5132' }}
                         >
-                            New Data: {newCount}
+                            New Data: {summary.newCount}
                         </button>
                     )}
-                    {updatedCount > 0 && (
+                    {summary.updatedCount > 0 && (
                         <button
                             onClick={() => setActiveTab('UPDATED')}
                             style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'UPDATED' ? '#fd7e14' : '#ffe5d0', color: activeTab === 'UPDATED' ? '#fff' : '#a73a00' }}
                         >
-                            Updated Data: {updatedCount}
+                            Updated Data: {summary.updatedCount}
                         </button>
                     )}
-                    {unchangedCount > 0 && (
+                    {summary.unchangedCount > 0 && (
                         <button
                             onClick={() => setActiveTab('UNCHANGED')}
                             style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'UNCHANGED' ? '#6c757d' : '#e2e3e5', color: activeTab === 'UNCHANGED' ? '#fff' : '#41464b' }}
                         >
-                            Unchanged: {unchangedCount}
+                            Unchanged: {summary.unchangedCount}
                         </button>
                     )}
-                    {notFoundCount > 0 && (
+                    {summary.notFoundCount > 0 && (
                         <button
                             onClick={() => setActiveTab('NOT_FOUND')}
                             style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'NOT_FOUND' ? '#dc3545' : '#f8d7da', color: activeTab === 'NOT_FOUND' ? '#fff' : '#842029' }}
                         >
-                            SKU Not Found: {notFoundCount}
+                            SKU Not Found: {summary.notFoundCount}
                         </button>
                     )}
                 </div>
@@ -161,36 +111,39 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm, isCommitti
                                     <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>No data available in this category.</td>
                                 </tr>
                             ) : (
-                                filteredData.map((item, idx) => (
-                                    <tr key={idx} style={{ borderBottom: '1px solid #e9ecef', ...renderRowStyle(item.status) }}>
-                                        <td style={{ padding: '8px', verticalAlign: 'top', width: '130px' }}>
-                                            {renderStatusBadge(item.status)}
-                                        </td>
-                                        <td style={{ padding: '8px', fontWeight: 'bold', verticalAlign: 'top', wordBreak: 'break-word' }}>
-                                            {item.product_code}
-                                        </td>
-                                        <td style={{ padding: '8px', verticalAlign: 'top', wordBreak: 'break-word' }}>
-                                            {item.description || item.product_name}
-                                        </td>
-                                        <td style={{ padding: '8px', verticalAlign: 'top' }}>
-                                            {item.status === 'NOT_FOUND' ? (
-                                                <span style={{ color: '#dc3545', fontStyle: 'italic' }}>
-                                                    Product not registered in Product Master
-                                                </span>
-                                            ) : item.changes && item.changes.length > 0 ? (
-                                                <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                    {item.changes.map((ch, cIdx) => (
-                                                        <li key={cIdx} style={{ marginBottom: '2px' }}>
-                                                            <strong>{ch.field}:</strong> {ch.oldVal} &rarr; <strong>{ch.newVal}</strong>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                '-'
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
+                                filteredData.map((item, idx) => {
+                                    const badge = getStatusBadgeProps(item.status);
+                                    return (
+                                        <tr key={idx} style={{ borderBottom: '1px solid #e9ecef', ...getRowStyle(item.status) }}>
+                                            <td style={{ padding: '8px', verticalAlign: 'top', width: '130px' }}>
+                                                <span style={badge.style}>{badge.label}</span>
+                                            </td>
+                                            <td style={{ padding: '8px', fontWeight: 'bold', verticalAlign: 'top', wordBreak: 'break-word' }}>
+                                                {item.product_code}
+                                            </td>
+                                            <td style={{ padding: '8px', verticalAlign: 'top', wordBreak: 'break-word' }}>
+                                                {item.description || item.product_name}
+                                            </td>
+                                            <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                                                {item.status === 'NOT_FOUND' ? (
+                                                    <span style={{ color: '#dc3545', fontStyle: 'italic' }}>
+                                                        Product not registered in Product Master
+                                                    </span>
+                                                ) : item.changes && item.changes.length > 0 ? (
+                                                    <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                        {item.changes.map((ch, cIdx) => (
+                                                            <li key={cIdx} style={{ marginBottom: '2px' }}>
+                                                                <strong>{ch.field}:</strong> {ch.oldVal ?? '-'} &rarr; <strong>{ch.newVal ?? '-'}</strong>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                ) : (
+                                                    '-'
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

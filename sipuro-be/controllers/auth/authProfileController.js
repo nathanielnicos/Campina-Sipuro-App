@@ -52,56 +52,6 @@ exports.getProfile = async (req, res) => {
     }
 };
 
-exports.updateProfile = async (req, res) => {
-    try {
-        const { user_id, role, full_name, email, gender, birth_date } = req.body;
-
-        if (!user_id || !role) {
-            return res.status(400).json({ success: false, message: 'User ID and Role are required.' });
-        }
-
-        if (role === 'CUSTOMER') {
-            if (!full_name || !email) {
-                return res.status(400).json({ success: false, message: 'Full name and email are required.' });
-            }
-
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                return res.status(400).json({ success: false, message: 'Invalid email format.' });
-            }
-
-            await sipuroDb.query(
-                'UPDATE sipuro_db.customer_users SET full_name = ?, email = ? WHERE customer_user_id = ?',
-                [full_name, email, user_id]
-            );
-
-            return res.json({
-                success: true,
-                message: 'Profile updated successfully.',
-                data: { full_name, email }
-            });
-        } else {
-            if (!full_name || !gender || !birth_date) {
-                return res.status(400).json({ success: false, message: 'Full name, gender, and birth date are required.' });
-            }
-
-            await sipuroDb.query(
-                'UPDATE sipuro_db.employees SET full_name = ?, gender = ?, birth_date = ? WHERE id = ?',
-                [full_name, gender, birth_date, user_id]
-            );
-
-            return res.json({
-                success: true,
-                message: 'Profile updated successfully.',
-                data: { full_name, gender, birth_date }
-            });
-        }
-    } catch (error) {
-        console.error('Error updating profile:', error);
-        return res.status(500).json({ success: false, message: 'Failed to update profile.', error: error.message });
-    }
-};
-
 exports.changePassword = async (req, res) => {
     try {
         const { user_id, role, currentPassword, newPassword } = req.body;

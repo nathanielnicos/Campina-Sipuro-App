@@ -6,7 +6,6 @@ const ProfilePage = ({ currentUser }) => {
         isCustomer,
         loading,
         savingPassword,
-        message,
         formData,
         passData,
         setPassData,
@@ -19,19 +18,6 @@ const ProfilePage = ({ currentUser }) => {
 
     return (
         <div style={{ padding: '0 20px 20px 20px', fontFamily: 'sans-serif' }}>
-            {message.text && (
-                <div style={{
-                    padding: '10px 16px',
-                    borderRadius: '6px',
-                    marginBottom: '20px',
-                    backgroundColor: message.type === 'success' ? '#d1fae5' : '#fee2e2',
-                    color: message.type === 'success' ? '#065f46' : '#991b1b',
-                    fontSize: '14px'
-                }}>
-                    {message.text}
-                </div>
-            )}
-
             <div style={styles.gridTwo}>
                 {/* Section 1: Data Diri (Read-Only) */}
                 <div style={styles.card}>
@@ -136,7 +122,6 @@ const ProfilePage = ({ currentUser }) => {
                                 type="password"
                                 value={passData.currentPassword}
                                 onChange={(e) => setPassData({ ...passData, currentPassword: e.target.value })}
-                                required
                                 style={styles.input}
                             />
                         </div>
@@ -147,7 +132,6 @@ const ProfilePage = ({ currentUser }) => {
                                 type="password"
                                 value={passData.newPassword}
                                 onChange={(e) => setPassData({ ...passData, newPassword: e.target.value })}
-                                required
                                 style={styles.input}
                             />
                         </div>
@@ -158,7 +142,6 @@ const ProfilePage = ({ currentUser }) => {
                                 type="password"
                                 value={passData.confirmPassword}
                                 onChange={(e) => setPassData({ ...passData, confirmPassword: e.target.value })}
-                                required
                                 style={styles.input}
                             />
                         </div>

@@ -3,8 +3,12 @@ import {
     previewProductionApi,
     confirmProductionApi
 } from '../../../services/productionUploadApi';
+import { useGlobalModal } from '../../../context/ModalContext';
 
 export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
+    // Context Modal Global
+    const { showAlert, showConfirm } = useGlobalModal();
+
     const fileInputRef = useRef(null);
     const [uploading, setUploading] = useState(false);
 
@@ -26,7 +30,11 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
 
         const actualFile = fileInputRef.current && fileInputRef.current.files[0];
         if (!actualFile) {
-            alert('Please select an Excel file first!');
+            showAlert({
+                type: 'warning',
+                title: 'No File Selected',
+                message: 'Please select an Excel file first!'
+            });
             return;
         }
 
@@ -43,13 +51,64 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
                 setPreviewData(res.data);
                 setIsPreviewOpen(true);
             } else {
-                alert('Upload failed: ' + (res?.message || 'Failed to process file.'));
+                showAlert({
+                    type: 'error',
+                    title: 'Upload Failed',
+                    message: res?.message || 'Failed to process file.'
+                });
                 if (fileInputRef.current) fileInputRef.current.value = '';
             }
         } catch (err) {
             setUploading(false);
-            alert('An error occurred while uploading the file.');
+            showAlert({
+                type: 'error',
+                title: 'Upload Error',
+                message: 'An error occurred while uploading the file.'
+            });
             if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    // Fungsi internal untuk eksekusi penyimpan setelah konfirmasi disetujui
+    const executeConfirmSave = async (validNewDetails, duplicateStatusRows) => {
+        setSaving(true);
+
+        try {
+            const payload = {
+                processTimestamp: previewData.processTimestamp,
+                fileHash: previewData.fileHash,
+                fileName: previewData.fileName,
+                userId: currentUserId,
+                allocations: previewData.detailedAllocations,
+                newDetails: validNewDetails,
+                duplicateStatusUpdateRows: duplicateStatusRows
+            };
+
+            const res = await confirmProductionApi(payload);
+            setSaving(false);
+
+            if (res && res.success) {
+                showAlert({
+                    type: 'success',
+                    title: 'Success',
+                    message: res.message || 'Successfully saved!'
+                });
+                handleResetUploadState();
+                if (onSuccessSave) onSuccessSave();
+            } else {
+                showAlert({
+                    type: 'error',
+                    title: 'Save Failed',
+                    message: res?.message || 'An error occurred.'
+                });
+            }
+        } catch (err) {
+            setSaving(false);
+            showAlert({
+                type: 'error',
+                title: 'Save Error',
+                message: 'An error occurred while saving the data.'
+            });
         }
     };
 
@@ -74,7 +133,11 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
         const validCount = previewData.previewResults.length;
 
         if (validCount === 0) {
-            alert('No valid data available to save.');
+            showAlert({
+                type: 'warning',
+                title: 'No Data',
+                message: 'No valid data available to save.'
+            });
             return;
         }
 
@@ -82,35 +145,12 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
             ? `${previewData.warningMessage}\nAre you sure you want to re-save this production allocation?`
             : `Save ${validCount} valid row(s) to PO allocation?`;
 
-        if (!window.confirm(confirmMsg)) return;
-
-        setSaving(true);
-
-        try {
-            const payload = {
-                processTimestamp: previewData.processTimestamp,
-                fileHash: previewData.fileHash,
-                fileName: previewData.fileName,
-                userId: currentUserId,
-                allocations: previewData.detailedAllocations,
-                newDetails: validNewDetails,
-                duplicateStatusUpdateRows: duplicateStatusRows
-            };
-
-            const res = await confirmProductionApi(payload);
-            setSaving(false);
-
-            if (res && res.success) {
-                alert(res.message || 'Successfully saved!');
-                handleResetUploadState();
-                if (onSuccessSave) onSuccessSave();
-            } else {
-                alert('Save failed: ' + (res?.message || 'An error occurred.'));
-            }
-        } catch (err) {
-            setSaving(false);
-            alert('An error occurred while saving the data.');
-        }
+        showConfirm({
+            title: previewData.isReupload ? 'Re-save Confirmation' : 'Confirm Save Allocation',
+            message: confirmMsg,
+            confirmText: 'Save',
+            onConfirm: () => executeConfirmSave(validNewDetails, duplicateStatusRows)
+        });
     };
 
     const handleRejectPreview = () => {

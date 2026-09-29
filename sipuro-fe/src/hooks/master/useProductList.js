@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getProducts } from '../../services/superadminApi';
 import { previewProductsApi, commitProductsApi } from '../../services/masterUploadApi';
+import { useGlobalModal } from '../../context/ModalContext';
 
 export const useProductList = () => {
+    // Modal Global Context
+    const { showAlert } = useGlobalModal();
+
     const [products, setProducts] = useState([]);
     const [loadingData, setLoadingData] = useState(true);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -31,10 +35,15 @@ export const useProductList = () => {
             }
         } catch (err) {
             console.error('Gagal mengambil data produk:', err);
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'Failed to fetch product data from database.'
+            });
         } finally {
             setLoadingData(false);
         }
-    }, [currentPage, pageSize, search]);
+    }, [currentPage, pageSize, search, showAlert]);
 
     useEffect(() => {
         fetchProductsData();
@@ -52,7 +61,14 @@ export const useProductList = () => {
 
     const handlePreviewProducts = async (e) => {
         e.preventDefault();
-        if (!selectedFile) return alert('Please select an Excel file first.');
+        if (!selectedFile) {
+            return showAlert({
+                type: 'warning',
+                title: 'File Required',
+                message: 'Please select an Excel file first.'
+            });
+        }
+
         setUploading(true);
         try {
             const res = await previewProductsApi(selectedFile);
@@ -60,7 +76,12 @@ export const useProductList = () => {
                 setPreviewModal({ open: true, title: 'Master SKU Product List', data: res });
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to process Excel product preview.');
+            console.error('Error previewing products:', err);
+            showAlert({
+                type: 'error',
+                title: 'Preview Failed',
+                message: err.response?.data?.message || 'Failed to process Excel product preview.'
+            });
         } finally {
             setUploading(false);
         }
@@ -74,13 +95,28 @@ export const useProductList = () => {
 
             const res = await commitProductsApi(items, createdBy);
             if (res.success) {
-                alert(res.message);
+                showAlert({
+                    type: 'success',
+                    title: 'Success',
+                    message: res.message || 'Product data successfully saved to database.'
+                });
                 setPreviewModal({ open: false, title: '', data: null });
                 setSelectedFile(null);
                 fetchProductsData();
+            } else {
+                showAlert({
+                    type: 'error',
+                    title: 'Save Failed',
+                    message: res.message || 'Failed to save product data to database.'
+                });
             }
         } catch (err) {
-            alert('Failed to save data to database.');
+            console.error('Error committing products:', err);
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: err.response?.data?.message || 'Failed to save data to database.'
+            });
         }
     };
 

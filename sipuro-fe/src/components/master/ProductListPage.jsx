@@ -81,7 +81,6 @@ const ProductListPage = () => {
                         type="file"
                         accept=".xlsx, .xls"
                         onChange={(e) => setSelectedFile(e.target.files[0])}
-                        required
                         style={{ fontSize: '12px' }}
                     />
                     <button

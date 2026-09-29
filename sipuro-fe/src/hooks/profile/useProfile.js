@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { getProfile, updatePassword } from '../../services/profileApi';
+import { useGlobalModal } from '../../context/ModalContext';
 
 export const useProfile = ({ currentUser }) => {
+    const { showAlert } = useGlobalModal();
+
     const isCustomer = currentUser?.role === 'CUSTOMER';
     const userId = currentUser?.id;
     const userRole = currentUser?.role;
 
     const [loading, setLoading] = useState(true);
     const [savingPassword, setSavingPassword] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
 
     // Profile Form State
     const [formData, setFormData] = useState({
@@ -27,8 +29,6 @@ export const useProfile = ({ currentUser }) => {
         newPassword: '',
         confirmPassword: ''
     });
-
-    // File: useProfile.js
 
     useEffect(() => {
         const loadProfileData = async () => {
@@ -56,10 +56,34 @@ export const useProfile = ({ currentUser }) => {
 
     const handlePasswordSubmit = async (e) => {
         e.preventDefault();
-        setMessage({ type: '', text: '' });
 
+        // Validasi Field Kosong
+        if (!passData.currentPassword || !passData.newPassword || !passData.confirmPassword) {
+            showAlert({
+                type: 'warning',
+                title: 'Validation Error',
+                message: 'All password fields are required.'
+            });
+            return;
+        }
+
+        // Validasi Kesesuaian Password Baru
         if (passData.newPassword !== passData.confirmPassword) {
-            setMessage({ type: 'error', text: 'Konfirmasi kata sandi baru tidak cocok.' });
+            showAlert({
+                type: 'warning',
+                title: 'Validation Error',
+                message: 'New password and confirm password do not match.'
+            });
+            return;
+        }
+
+        // Validasi Panjang Password Minimum
+        if (passData.newPassword.length < 6) {
+            showAlert({
+                type: 'warning',
+                title: 'Validation Error',
+                message: 'New password must be at least 6 characters long.'
+            });
             return;
         }
 
@@ -73,10 +97,18 @@ export const useProfile = ({ currentUser }) => {
         setSavingPassword(false);
 
         if (res.success) {
-            setMessage({ type: 'success', text: 'Kata sandi berhasil diubah.' });
+            showAlert({
+                type: 'success',
+                title: 'Success',
+                message: 'Password changed successfully.'
+            });
             setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } else {
-            setMessage({ type: 'error', text: res.message || 'Gagal mengubah kata sandi.' });
+            showAlert({
+                type: 'danger',
+                title: 'Error',
+                message: res.message || 'Failed to change password.'
+            });
         }
     };
 
@@ -84,7 +116,6 @@ export const useProfile = ({ currentUser }) => {
         isCustomer,
         loading,
         savingPassword,
-        message,
         formData,
         passData,
         setPassData,

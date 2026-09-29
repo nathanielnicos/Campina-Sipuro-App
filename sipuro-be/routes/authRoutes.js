@@ -8,7 +8,6 @@ router.post('/register', authController.register);
 
 // Profile Routes (Menerima parameter user_id & role langsung)
 router.get('/profile', authController.getProfile);
-router.put('/profile', authController.updateProfile);
 router.put('/change-password', authController.changePassword);
 
 module.exports = router;

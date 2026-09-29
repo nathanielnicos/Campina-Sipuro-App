@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getPrices } from '../../services/superadminApi';
 import { previewPricesApi, commitPricesApi } from '../../services/masterUploadApi';
+import { useGlobalModal } from '../../context/ModalContext';
 
 export const usePriceList = () => {
+    // Modal Global Context
+    const { showAlert } = useGlobalModal();
+
     const [prices, setPrices] = useState([]);
     const [loadingData, setLoadingData] = useState(true);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -31,10 +35,15 @@ export const usePriceList = () => {
             }
         } catch (err) {
             console.error('Gagal mengambil data harga:', err);
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'Failed to fetch price data from database.'
+            });
         } finally {
             setLoadingData(false);
         }
-    }, [currentPage, pageSize, search]);
+    }, [currentPage, pageSize, search, showAlert]);
 
     useEffect(() => {
         fetchPricesData();
@@ -52,7 +61,14 @@ export const usePriceList = () => {
 
     const handlePreviewPrices = async (e) => {
         e.preventDefault();
-        if (!selectedFile) return alert('Please select an Excel file first.');
+        if (!selectedFile) {
+            return showAlert({
+                type: 'warning',
+                title: 'File Required',
+                message: 'Please select an Excel file first.'
+            });
+        }
+
         setUploading(true);
         try {
             const res = await previewPricesApi(selectedFile);
@@ -60,7 +76,12 @@ export const usePriceList = () => {
                 setPreviewModal({ open: true, title: 'Product Selling Price List', data: res });
             }
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to process Excel price preview.');
+            console.error('Error previewing prices:', err);
+            showAlert({
+                type: 'error',
+                title: 'Preview Failed',
+                message: err.response?.data?.message || 'Failed to process Excel price preview.'
+            });
         } finally {
             setUploading(false);
         }
@@ -74,13 +95,28 @@ export const usePriceList = () => {
 
             const res = await commitPricesApi(items, createdBy);
             if (res.success) {
-                alert(res.message);
+                showAlert({
+                    type: 'success',
+                    title: 'Success',
+                    message: res.message || 'Price list successfully saved to database.'
+                });
                 setPreviewModal({ open: false, title: '', data: null });
                 setSelectedFile(null);
                 fetchPricesData();
+            } else {
+                showAlert({
+                    type: 'error',
+                    title: 'Save Failed',
+                    message: res.message || 'Failed to save price data to database.'
+                });
             }
         } catch (err) {
-            alert('Failed to save data to database.');
+            console.error('Error committing prices:', err);
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: err.response?.data?.message || 'Failed to save data to database.'
+            });
         }
     };
 

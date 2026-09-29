@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getEmployees, toggleEmployeeStatus } from '../../services/superadminApi';
+import { useGlobalModal } from '../../context/ModalContext';
 
 export const useEmployeeList = () => {
+    // Modal Global Context
+    const { showConfirm, showAlert } = useGlobalModal();
+
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [updatingId, setUpdatingId] = useState(null);
@@ -28,10 +32,15 @@ export const useEmployeeList = () => {
             }
         } catch (err) {
             console.error('Gagal mengambil data karyawan:', err);
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'Failed to fetch employee data.'
+            });
         } finally {
             setLoading(false);
         }
-    }, [currentPage, pageSize, search]);
+    }, [currentPage, pageSize, search, showAlert]);
 
     useEffect(() => {
         fetchEmployeesData();
@@ -58,28 +67,51 @@ export const useEmployeeList = () => {
         setCurrentPage(1);
     };
 
-    const handleToggleStatus = async (emp) => {
-        const nextStatus = emp.is_suspended ? 0 : 1;
-        const confirmMsg = emp.is_suspended
-            ? `Activate employee account "${emp.full_name}"?`
-            : `Deactivate / Suspend employee account "${emp.full_name}"?`;
-
-        if (!window.confirm(confirmMsg)) return;
-
+    // Internal execution function for toggling employee status
+    const executeToggleStatus = async (emp, isActivating) => {
         try {
             setUpdatingId(emp.id);
-            const res = await toggleEmployeeStatus(emp.id, nextStatus === 1);
+            // Nilai is_suspended diset ke false jika isActivating true, dan set ke true jika isActivating false
+            const targetSuspendedState = !isActivating;
+
+            const res = await toggleEmployeeStatus(emp.id, targetSuspendedState);
             if (res.success) {
+                showAlert({
+                    type: 'success',
+                    title: 'Success',
+                    message: res.message || `Employee account successfully ${isActivating ? 'activated' : 'deactivated/suspended'}.`
+                });
                 fetchEmployeesData();
             } else {
-                alert(res.message || 'Failed to update employee status.');
+                showAlert({
+                    type: 'error',
+                    title: 'Update Failed',
+                    message: res.message || 'Failed to update employee status.'
+                });
             }
         } catch (err) {
             console.error('Error toggling status:', err);
-            alert('An error occurred while updating status.');
+            showAlert({
+                type: 'error',
+                title: 'Error',
+                message: 'An error occurred while updating employee status.'
+            });
         } finally {
             setUpdatingId(null);
         }
+    };
+
+    const handleToggleStatus = (emp) => {
+        const isActivating = Boolean(emp.is_suspended);
+        const actionTitle = isActivating ? 'Activate Employee' : 'Deactivate / Suspend Employee';
+        const actionText = isActivating ? 'activate' : 'deactivate / suspend';
+
+        showConfirm({
+            title: actionTitle,
+            message: `Are you sure you want to ${actionText} employee account "${emp.full_name}"?`,
+            confirmText: isActivating ? 'Activate' : 'Deactivate',
+            onConfirm: () => executeToggleStatus(emp, isActivating)
+        });
     };
 
     return {

@@ -260,13 +260,13 @@ exports.cancelPO = async (req, res) => {
 
         await connection.beginTransaction();
 
-        // Update Header
+        // 1. Update Header
         await connection.query(
             `UPDATE sipuro_db.po_headers SET status = 'Canceled', updated_by = ?, updated_at = ? WHERE po_header_id = ?`,
             [canceled_by || null, nowWib, id]
         );
 
-        // Update semua baris detail yang masih aktif menjadi 'Deleted'
+        // 2. Ambil hanya baris detail yang masih aktif (deleted_at IS NULL)
         const [activeDetails] = await connection.query(
             `SELECT po_detail_id, id_product, qty, base_qty, total_price, status 
              FROM sipuro_db.po_details 
@@ -274,13 +274,15 @@ exports.cancelPO = async (req, res) => {
             [id]
         );
 
+        // 3. Update status baris detail yang aktif menjadi 'Canceled' (tanpa mengisi deleted_at)
         if (activeDetails.length > 0) {
             await connection.query(
-                `UPDATE sipuro_db.po_details SET status = 'Deleted', deleted_at = ? WHERE po_header_id = ? AND deleted_at IS NULL`,
-                [nowWib, id]
+                `UPDATE sipuro_db.po_details SET status = 'Canceled' WHERE po_header_id = ? AND deleted_at IS NULL`,
+                [id]
             );
         }
 
+        // 4. Catat Log Audit Trail Header
         const poHeaderLogId = await logPOHeader(connection, {
             poHeaderId: id,
             actionType: 'CANCEL',
@@ -290,26 +292,26 @@ exports.cancelPO = async (req, res) => {
             reason: reason || null
         });
 
-        // Catat log detail jika ada item aktif yang dibatalkan
+        // 5. Catat Log Audit Trail Detail
         if (activeDetails.length > 0) {
             const cancelDetailLogs = activeDetails.map(item => ({
                 po_detail_id: item.po_detail_id,
                 id_product: item.id_product,
                 old_qty: item.qty,
-                new_qty: 0,
+                new_qty: item.qty,
                 old_base_qty: item.base_qty,
-                new_base_qty: 0,
+                new_base_qty: item.base_qty,
                 old_total_price: item.total_price,
-                new_total_price: 0,
+                new_total_price: item.total_price,
                 old_status: item.status || 'Active',
-                new_status: 'Deleted'
+                new_status: 'Canceled'
             }));
             await logPODetails(connection, poHeaderLogId, cancelDetailLogs);
         }
 
         await connection.commit();
 
-        // Notifikasi ke PPIC hanya dikirim jika PO yang dibatalkan sebelumnya sudah di-submit ke PPIC
+        // 6. Notifikasi ke PPIC (jika dipesan/dipublish sebelumnya)
         if (poData.status === 'Waiting for Confirmation') {
             await createNotification({
                 title: 'PO Canceled',

@@ -14,18 +14,7 @@ export const getProfile = async (userId, role) => {
     }
 };
 
-// 2. Update data profil dengan menyisipkan user_id & role ke payload
-export const updateProfile = async (profileData) => {
-    try {
-        const response = await axios.put(`${API_BASE_URL}/profile`, profileData);
-        return response.data;
-    } catch (error) {
-        console.error('Error updating profile:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal memperbarui profil.' };
-    }
-};
-
-// 3. Update password dengan menyisipkan user_id & role ke payload
+// 2. Update password dengan menyisipkan user_id & role ke payload
 export const updatePassword = async (passwordData) => {
     try {
         const response = await axios.put(`${API_BASE_URL}/change-password`, passwordData);
