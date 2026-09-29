@@ -1,5 +1,4 @@
 const {
-    getPOTolerance,
     refreshPOStatus,
     refreshBatchStatus,
     refreshPODetailFulfilledQty,
@@ -48,10 +47,6 @@ const commitProductionAllocationTransaction = async (connection, {
     detailedAllocations = []
 }) => {
     const currentUserId = userId || null;
-
-    // Ambil nilai toleransi PO (misal 0.90 untuk 90%)
-    const poToleranceRatio = await getPOTolerance(connection);
-    const poTolerancePercent = poToleranceRatio * 100;
 
     // 1. Insert log upload file produksi
     const [uploadLogResult] = await connection.query(
@@ -237,7 +232,7 @@ const commitProductionAllocationTransaction = async (connection, {
         // A. Refresh total fulfilled_qty di po_details
         await refreshPODetailFulfilledQty(connection, pdId);
 
-        // B. Cek persentase pemenuhan Qty vs Toleransi PO
+        // B. Cek pemenuhan Qty PO
         const [[poDetailInfo]] = await connection.query(
             `SELECT base_qty, fulfilled_qty, po_header_id FROM po_details WHERE po_detail_id = ?`,
             [pdId]
@@ -250,10 +245,9 @@ const commitProductionAllocationTransaction = async (connection, {
 
             const baseQtyNum = Number(poDetailInfo.base_qty) || 0;
             const fulfilledQtyNum = Number(poDetailInfo.fulfilled_qty) || 0;
-            const fulfillmentPercent = baseQtyNum > 0 ? (fulfilledQtyNum / baseQtyNum) * 100 : 0;
 
-            // Tentukan target status alokasi sistem berdasarkan toleransi
-            const targetSystemStatus = fulfillmentPercent >= poTolerancePercent ? 'Closed' : 'Open';
+            // Tentukan target status alokasi murni 100% terpenuhi
+            const targetSystemStatus = fulfilledQtyNum >= baseQtyNum ? 'Closed' : 'Open';
 
             // Update status dua arah untuk alokasi otomatis (abaikan yang Force Closed / Canceled manual)
             await connection.query(

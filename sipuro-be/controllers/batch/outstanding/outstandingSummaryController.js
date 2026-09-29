@@ -1,8 +1,7 @@
 const { sipuroDb } = require('../../../config/db');
-const { getPOTolerance } = require('../../../helpers/batchHelper');
 
 /**
- * Mengambil daftar produk dan PO terkait yang masih outstanding (belum terpenuhi sesuai toleransi PO)
+ * Mengambil daftar produk dan PO terkait yang masih outstanding
  */
 exports.getOutstandingSummary = async (req, res) => {
     try {
@@ -20,16 +19,13 @@ exports.getOutstandingSummary = async (req, res) => {
             sortOrder
         } = req.query;
 
-        // Ambil toleransi PO
-        const poTolerance = await getPOTolerance(sipuroDb);
-
         // Rumus kondisi outstanding & filter hanya PO berstatus Approved
         let whereClauses = [
             `d.deleted_at IS NULL`,
             `h.status = 'Approved'`,
-            `d.fulfilled_qty < (d.base_qty * ?)`
+            `d.fulfilled_qty < d.base_qty`
         ];
-        let queryParams = [poTolerance];
+        let queryParams = [];
 
         // Filter spesifik berdasarkan status item po_details jika dikirimkan oleh client
         if (status) {

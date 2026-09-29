@@ -1,6 +1,5 @@
 const cron = require('node-cron');
 const { sipuroDb } = require('../config/db');
-const { getPOTolerance } = require('../helpers/batchHelper');
 const { getWibDate } = require('../helpers/dateHelper');
 const { getWeekInfoFromDate, generateWeekRange } = require('../helpers/weekHelper');
 const { createNotification } = require('../helpers/notificationHelper');
@@ -12,8 +11,6 @@ const { createNotification } = require('../helpers/notificationHelper');
 async function checkPoVsProductionPlan() {
     console.log('[Scheduler] Running PO vs Production Plan evaluation per Customer...');
     try {
-        const poTolerance = await getPOTolerance(sipuroDb);
-
         // 1. Get 17 rolling weeks (current week + 16 weeks ahead = ~4 months)
         const todayWib = getWibDate();
         const currentWeekInfo = getWeekInfoFromDate(todayWib);
@@ -41,7 +38,7 @@ async function checkPoVsProductionPlan() {
                 WHERE d.deleted_at IS NULL
                   AND d.status = 'Active'
                   AND h_inner.status = 'Approved'
-                  AND d.fulfilled_qty < (d.base_qty * ?)
+                  AND d.fulfilled_qty < d.base_qty
                 GROUP BY d.id_product, h_inner.customer_id
             ) po_summary ON p.id_product = po_summary.id_product
             JOIN sipuro_db.po_headers h ON h.customer_id = po_summary.customer_id
@@ -60,7 +57,7 @@ async function checkPoVsProductionPlan() {
             GROUP BY h.customer_id, p.id_product, p.product_code, p.product_name, po_summary.total_po_outstanding, plan_summary.total_plan_qty;
         `;
 
-        const queryParams = [poTolerance, formattedWeekKeys.length > 0 ? formattedWeekKeys : ['']];
+        const queryParams = [formattedWeekKeys.length > 0 ? formattedWeekKeys : ['']];
         const [rows] = await sipuroDb.query(query, queryParams);
 
         // 3. Group products with issues by customer_id

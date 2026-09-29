@@ -1,5 +1,4 @@
 const { sipuroDb } = require('../../../config/db');
-const { getPOTolerance } = require('../../../helpers/batchHelper');
 const { getDefaultRollingWeeks, generateWeekRange, getStartDateOfISOWeek } = require('../../../helpers/weekHelper');
 
 const parseWeekString = (weekStr) => {
@@ -42,7 +41,6 @@ exports.getPORequirementSummary = async (req, res) => {
         const { search, start_week, end_week } = req.query;
 
         const weekList = getWeeksListBetween(start_week, end_week);
-        const poTolerance = await getPOTolerance(sipuroDb);
 
         let productWhereClauses = ['p.is_active = 1'];
         let productQueryParams = [];
@@ -71,7 +69,7 @@ exports.getPORequirementSummary = async (req, res) => {
                 JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
                 WHERE d.deleted_at IS NULL
                   AND h.status = 'Approved'
-                  AND d.fulfilled_qty < (d.base_qty * ?)
+                  AND d.fulfilled_qty < d.base_qty
                 GROUP BY d.id_product
             ) po_summary ON p.id_product = po_summary.id_product
             LEFT JOIN (
@@ -90,7 +88,7 @@ exports.getPORequirementSummary = async (req, res) => {
         `;
 
         const formattedWeekKeys = weekList.map(w => `${w.year}-${String(w.week_number).padStart(2, '0')}`);
-        const queryParams = [poTolerance, formattedWeekKeys.length > 0 ? formattedWeekKeys : [''], ...productQueryParams];
+        const queryParams = [formattedWeekKeys.length > 0 ? formattedWeekKeys : [''], ...productQueryParams];
 
         const [rows] = await sipuroDb.query(mainQuery, queryParams);
 
@@ -136,7 +134,6 @@ exports.getPORequirementDetail = async (req, res) => {
         const { start_week, end_week } = req.query;
 
         const weekList = getWeeksListBetween(start_week, end_week);
-        const poTolerance = await getPOTolerance(sipuroDb);
 
         const [prodRows] = await sipuroDb.query(
             `SELECT id_product, product_code, product_name, base_uom FROM sipuro_db.products WHERE id_product = ?`,
@@ -161,10 +158,10 @@ exports.getPORequirementDetail = async (req, res) => {
             WHERE d.id_product = ?
               AND d.deleted_at IS NULL
               AND h.status = 'Approved'
-              AND d.fulfilled_qty < (d.base_qty * ?)
+              AND d.fulfilled_qty < d.base_qty
             ORDER BY h.created_at ASC;
         `;
-        const [poList] = await sipuroDb.query(poQuery, [id_product, poTolerance]);
+        const [poList] = await sipuroDb.query(poQuery, [id_product]);
 
         const planQuery = `
             SELECT 

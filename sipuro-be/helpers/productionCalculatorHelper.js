@@ -5,11 +5,14 @@ const calculateFifoAllocation = (
     rawRows = [],
     existingHashes = [],
     openPoDetails = [],
-    allProducts = [],
-    poTolerance = 1.0
+    allProducts = []
 ) => {
-    if (poTolerance === undefined || poTolerance === null) {
-        throw new Error('The poTolerance value is required from the company_profile database.');
+    // 0. Validasi Kriteria 3: Deteksi status 'Close Requested' pada po_details
+    const closeRequestedPo = openPoDetails.find(po => po.detail_status === 'Close Requested');
+    if (closeRequestedPo) {
+        throw new Error(
+            `Allocation process blocked. PO item (${closeRequestedPo.po_number}) has a 'Close Requested' status. Please complete the approval process first.`
+        );
     }
 
     const hashSet = new Set(existingHashes);
@@ -104,25 +107,26 @@ const calculateFifoAllocation = (
         return new Date(a.actualCompletedDatetime) - new Date(b.actualCompletedDatetime);
     });
 
-    // 3. Initialize dynamic PO state tracker
+    // 3. Initialize dynamic PO state tracker (Hanya memproses po_details dengan status 'Active')
     const poStateMap = new Map();
-    openPoDetails.forEach((po) => {
-        const baseQty = Number(po.base_qty) || 0;
-        const fulfilledQty = Number(po.fulfilled_qty) || 0;
-        poStateMap.set(po.po_detail_id, {
-            poDetailId: po.po_detail_id,
-            poHeaderId: po.po_header_id,
-            poNumber: po.po_number,
-            idProduct: po.id_product,
-            productCode: po.product_code,
-            productName: po.product_name,
-            createdAt: po.created_at,
-            baseQty: baseQty,
-            currentFulfilledQty: fulfilledQty,
-            // Murni mengacu pada baseQty untuk alokasi fisik tanpa perkalian toleransi
-            targetRequiredQty: baseQty
+    openPoDetails
+        .filter(po => po.detail_status === 'Active')
+        .forEach((po) => {
+            const baseQty = Number(po.base_qty) || 0;
+            const fulfilledQty = Number(po.fulfilled_qty) || 0;
+            poStateMap.set(po.po_detail_id, {
+                poDetailId: po.po_detail_id,
+                poHeaderId: po.po_header_id,
+                poNumber: po.po_number,
+                idProduct: po.id_product,
+                productCode: po.product_code,
+                productName: po.product_name,
+                createdAt: po.created_at,
+                baseQty: baseQty,
+                currentFulfilledQty: fulfilledQty,
+                targetRequiredQty: baseQty
+            });
         });
-    });
 
     const previewResults = [];
     const detailedAllocations = [];
@@ -156,54 +160,57 @@ const calculateFifoAllocation = (
         let remainingExcelQty = excelItem.totalQtyOutput;
         const batchAllocations = [];
 
-        candidatePoList.forEach((poState) => {
-            if (remainingExcelQty <= 0) return;
+        // Alokasi FIFO hanya dijalankan jika totalQtyOutput positif
+        if (remainingExcelQty > 0) {
+            candidatePoList.forEach((poState) => {
+                if (remainingExcelQty <= 0) return;
 
-            // Sisa kebutuhan PO sampai memenuhi 100% baseQty
-            const neededQty = poState.targetRequiredQty - poState.currentFulfilledQty;
+                // Sisa kebutuhan PO sampai memenuhi 100% baseQty
+                const neededQty = poState.targetRequiredQty - poState.currentFulfilledQty;
 
-            if (neededQty > 0) {
-                const qtyToAdd = Math.min(remainingExcelQty, neededQty);
+                if (neededQty > 0) {
+                    const qtyToAdd = Math.min(remainingExcelQty, neededQty);
 
-                if (qtyToAdd > 0) {
-                    const previousFulfilled = poState.currentFulfilledQty;
-                    const newFulfilled = previousFulfilled + qtyToAdd;
+                    if (qtyToAdd > 0) {
+                        const previousFulfilled = poState.currentFulfilledQty;
+                        const newFulfilled = previousFulfilled + qtyToAdd;
 
-                    poState.currentFulfilledQty = newFulfilled;
+                        poState.currentFulfilledQty = newFulfilled;
 
-                    const poRatio = poState.baseQty > 0 ? (newFulfilled / poState.baseQty) : 0;
+                        const poRatio = poState.baseQty > 0 ? (newFulfilled / poState.baseQty) : 0;
 
-                    // Evaluasi toleransi untuk penentuan status po_batch_allocations
-                    const isClosedByTolerance = poRatio >= poTolerance;
-                    const allocationStatus = isClosedByTolerance ? 'Closed' : 'Open';
+                        // Kriteria 1: Auto-Close hanya jika terpenuhi >= 100%
+                        const isFullyFulfilled = newFulfilled >= poState.baseQty;
+                        const allocationStatus = isFullyFulfilled ? 'Closed' : 'Open';
 
-                    batchAllocations.push({
-                        poDetailId: poState.poDetailId,
-                        poNumber: poState.poNumber,
-                        poQty: poState.baseQty,
-                        previousFulfilledQty: previousFulfilled,
-                        addedQty: qtyToAdd,
-                        newFulfilledQty: newFulfilled,
-                        fulfillmentPercentage: (poRatio * 100).toFixed(1),
-                        status: allocationStatus
-                    });
+                        batchAllocations.push({
+                            poDetailId: poState.poDetailId,
+                            poNumber: poState.poNumber,
+                            poQty: poState.baseQty,
+                            previousFulfilledQty: previousFulfilled,
+                            addedQty: qtyToAdd,
+                            newFulfilledQty: newFulfilled,
+                            fulfillmentPercentage: (poRatio * 100).toFixed(1),
+                            status: allocationStatus
+                        });
 
-                    detailedAllocations.push({
-                        poDetailId: poState.poDetailId,
-                        batchNumber: excelItem.batchNumber,
-                        productCode: excelItem.itemCode,
-                        idProduct: idProduct,
-                        productName: productName,
-                        fulfilledQty: newFulfilled,
-                        addedQty: qtyToAdd,
-                        rowStatus: allocationStatus,
-                        actDate: excelItem.actualStartDatetime ? excelItem.actualStartDatetime.split(' ')[0] : null
-                    });
+                        detailedAllocations.push({
+                            poDetailId: poState.poDetailId,
+                            batchNumber: excelItem.batchNumber,
+                            productCode: excelItem.itemCode,
+                            idProduct: idProduct,
+                            productName: productName,
+                            fulfilledQty: newFulfilled,
+                            addedQty: qtyToAdd,
+                            rowStatus: allocationStatus,
+                            actDate: excelItem.actualStartDatetime ? excelItem.actualStartDatetime.split(' ')[0] : null
+                        });
 
-                    remainingExcelQty -= qtyToAdd;
+                        remainingExcelQty -= qtyToAdd;
+                    }
                 }
-            }
-        });
+            });
+        }
 
         if (batchAllocations.length > 0) {
             previewResults.push({
@@ -217,9 +224,9 @@ const calculateFifoAllocation = (
             });
         }
 
-        // Jika semua PO yang ada sudah terpenuhi hingga 100% baseQty atau tidak ada PO yang lolos filter tanggal,
-        // sisa Qty tersebut dialihkan ke unallocatedRows
-        if (remainingExcelQty > 0) {
+        // Kriteria 4: Sisa produksi (baik positif maupun minus) yang tidak dialokasikan ke PO
+        // akan dimasukkan ke unallocatedRows untuk ditampilkan pada modal preview
+        if (remainingExcelQty !== 0) {
             const sourceRawRow = categorizedDetails.newRows.find(
                 r => r.batchNumber === excelItem.batchNumber && r.itemCode === excelItem.itemCode
             ) || {};

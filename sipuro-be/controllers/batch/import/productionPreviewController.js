@@ -1,7 +1,6 @@
 const { sipuroDb: db } = require('../../../config/db');
 const { parseProductionExcel } = require('../../../helpers/productionParserHelper');
 const { calculateFifoAllocation } = require('../../../helpers/productionCalculatorHelper');
-const { getPOTolerance } = require('../../../helpers/batchHelper');
 
 /**
  * Preview Upload Excel Production (PPIC) - Automatic FIFO based on po_headers.created_at ASC
@@ -27,6 +26,7 @@ exports.previewExcelUpload = async (req, res) => {
         const existingHashes = existingHashRows ? existingHashRows.map(row => row.row_hash) : [];
 
         // Fetch active PO details eligible for allocation (JOIN po_details -> po_headers -> products)
+        // Menarik pd.status AS detail_status dan memfilter status Active & Close Requested
         const [openPoDetails] = await db.query(`
             SELECT 
                 pd.po_detail_id,
@@ -34,6 +34,7 @@ exports.previewExcelUpload = async (req, res) => {
                 pd.id_product,
                 pd.base_qty,
                 pd.fulfilled_qty,
+                pd.status AS detail_status,
                 ph.po_number,
                 ph.created_at,
                 ph.status AS header_status,
@@ -44,19 +45,18 @@ exports.previewExcelUpload = async (req, res) => {
             JOIN products p ON pd.id_product = p.id_product
             WHERE pd.deleted_at IS NULL 
               AND ph.status NOT IN ('Canceled', 'Closed', 'Force Closed')
+              AND pd.status IN ('Active', 'Close Requested')
             ORDER BY ph.created_at ASC
         `);
 
         const [allProducts] = await db.query('SELECT id_product, product_code, product_name FROM products');
-        const poTolerance = await getPOTolerance(db);
 
         // Panggil helper
         const calculationResult = calculateFifoAllocation(
             rawRows,
             existingHashes,
             openPoDetails || [],
-            allProducts || [],
-            poTolerance
+            allProducts || []
         );
 
         // Spread seluruh hasil helper agar array raw data (unallocatedRows, duplicateRows, dll) 
