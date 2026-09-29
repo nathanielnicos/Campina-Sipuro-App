@@ -14,6 +14,20 @@ const calculateFifoAllocation = (
 
     const hashSet = new Set(existingHashes);
 
+    // Helper sederhana untuk memformat Date/String ke format YYYY-MM-DD
+    const formatDateOnly = (dateVal) => {
+        if (!dateVal) return null;
+        if (typeof dateVal === 'string') {
+            return dateVal.split('T')[0].split(' ')[0];
+        }
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return null;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     // Semua kategori raw data ditampung dalam objek yang sama
     const categorizedDetails = {
         newRows: [],
@@ -113,14 +127,30 @@ const calculateFifoAllocation = (
     const previewResults = [];
     const detailedAllocations = [];
 
-    // 4. Perform FIFO Allocation
+    // 4. Perform FIFO Allocation with Date Filter Validation
     sortedBatchItems.forEach((excelItem) => {
         const matchedProduct = allProducts.find(p => p.product_code === excelItem.itemCode);
         const productName = matchedProduct ? matchedProduct.product_name : '';
         const idProduct = matchedProduct ? matchedProduct.id_product : null;
 
+        // Ambil format tanggal (YYYY-MM-DD) dari tanggal start & completed batch
+        const batchStartDate = formatDateOnly(excelItem.actualStartDatetime);
+        const batchCompletedDate = formatDateOnly(excelItem.actualCompletedDatetime);
+
         const candidatePoList = Array.from(poStateMap.values())
-            .filter(po => po.productCode === excelItem.itemCode)
+            .filter(po => {
+                // 1. Filter Produk
+                if (po.productCode !== excelItem.itemCode) return false;
+
+                // 2. Filter Tanggal: Tanggal Start & Completed Batch harus >= Tanggal Create PO (YYYY-MM-DD)
+                const poCreatedDate = formatDateOnly(po.createdAt);
+                if (poCreatedDate) {
+                    if (batchStartDate && batchStartDate < poCreatedDate) return false;
+                    if (batchCompletedDate && batchCompletedDate < poCreatedDate) return false;
+                }
+
+                return true;
+            })
             .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
         let remainingExcelQty = excelItem.totalQtyOutput;
@@ -187,7 +217,7 @@ const calculateFifoAllocation = (
             });
         }
 
-        // Jika semua PO yang ada sudah terpenuhi hingga 100% baseQty dan masih ada sisa Qty,
+        // Jika semua PO yang ada sudah terpenuhi hingga 100% baseQty atau tidak ada PO yang lolos filter tanggal,
         // sisa Qty tersebut dialihkan ke unallocatedRows
         if (remainingExcelQty > 0) {
             const sourceRawRow = categorizedDetails.newRows.find(
