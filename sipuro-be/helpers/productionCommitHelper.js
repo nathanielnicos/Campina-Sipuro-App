@@ -180,8 +180,8 @@ const commitProductionAllocationTransaction = async (connection, {
                 allocation_id: existingAlloc.id,
                 po_detail_id: poDetailId,
                 id_batch: batchId,
-                old_fulfilled_qty: oldAllocatedQty,
-                new_fulfilled_qty: newAllocatedQty,
+                old_allocated_qty: oldAllocatedQty,
+                new_allocated_qty: newAllocatedQty,
                 old_status: existingAlloc.status,
                 new_status: finalStatus,
                 created_by: currentUserId
@@ -195,8 +195,8 @@ const commitProductionAllocationTransaction = async (connection, {
             const newAllocatedQty = Number(addedQty);
 
             const [insertAlloc] = await connection.query(
-                `INSERT INTO po_batch_allocations (po_detail_id, id_batch, allocated_qty, fulfilled_qty, status, created_by)
-                 VALUES (?, ?, ?, 0, ?, ?)`,
+                `INSERT INTO po_batch_allocations (po_detail_id, id_batch, allocated_qty, status, created_by)
+                 VALUES (?, ?, ?, ?, ?)`,
                 [poDetailId, batchId, newAllocatedQty, rowStatus, currentUserId]
             );
 
@@ -205,7 +205,7 @@ const commitProductionAllocationTransaction = async (connection, {
                 allocation_id: insertAlloc.insertId,
                 po_detail_id: poDetailId,
                 id_batch: batchId,
-                fulfilled_qty: newAllocatedQty,
+                allocated_qty: newAllocatedQty,
                 status: rowStatus,
                 created_by: currentUserId
             });

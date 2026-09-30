@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchBatchMapping, exportBatchExcelApi, updateAllocationStatusApi, updateBatchNumberApi } from '../../../services/batchApi';
+import {
+    fetchBatchMapping,
+    exportBatchExcelApi,
+    updateAllocationStatusApi,
+    updateAllocationQtyApi
+} from '../../../services/batchApi';
 import { useGlobalModal } from '../../../context/ModalContext';
+import { formatQty } from '../../../utils/formatters';
 
 export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll) => {
     // Modal Global Context
@@ -19,7 +25,7 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
     const [searchQuery, setSearchQuery] = useState('');
     const [batchStatus, setBatchStatus] = useState('');
 
-    // State 3 Tanggal Range (Plan Date Dihapus)
+    // State Tanggal Range
     const [fromActualDate, setFromActualDate] = useState('');
     const [toActualDate, setToActualDate] = useState('');
     const [fromCreatedDate, setFromCreatedDate] = useState('');
@@ -36,9 +42,9 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
 
     const [exporting, setExporting] = useState(false);
 
-    // --- State Baru: Modal Rename Batch ---
+    // --- State Modal Edit Allocated Qty ---
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [selectedBatch, setSelectedBatch] = useState(null);
+    const [selectedAllocation, setSelectedAllocation] = useState(null);
     const [editLoading, setEditLoading] = useState(false);
 
     // Fetch Data dari API
@@ -87,7 +93,7 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         loadData();
     }, [loadData, reloadTrigger]);
 
-    // Handler pergantian View Mode (Reset Page & Sort)
+    // Handler pergantian View Mode
     const handleViewModeChange = (newMode) => {
         if (newMode !== viewMode) {
             setViewMode(newMode);
@@ -97,7 +103,7 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         }
     };
 
-    // Handlers
+    // Handlers Filter & Sort
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value);
         setPage(1);
@@ -146,16 +152,21 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         }
     };
 
-    // Internal execution function for updating allocation status
-    const executeUpdateStatus = async (allocationId, action, reason) => {
+    // Handler Force Close Allocation Status
+    const executeForceClose = async (allocationId, reason = '') => {
         setLoading(true);
         try {
-            const res = await updateAllocationStatusApi(allocationId, { action, reason });
+            const userId = currentUser?.id || null;
+            const res = await updateAllocationStatusApi(allocationId, {
+                action: 'FORCE_CLOSE',
+                reason,
+                userId
+            });
             if (res && res.success) {
                 showAlert({
                     type: 'success',
                     title: 'Success',
-                    message: res.message || 'Allocation status updated successfully.'
+                    message: res.message || 'Allocation status force closed successfully.'
                 });
                 if (onRefreshAll) {
                     onRefreshAll();
@@ -166,78 +177,85 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
                 showAlert({
                     type: 'error',
                     title: 'Failed',
-                    message: res?.message || 'Failed to update allocation status.'
+                    message: res?.message || 'Failed to force close allocation status.'
                 });
             }
         } catch (err) {
             showAlert({
                 type: 'error',
                 title: 'Error',
-                message: 'A system error occurred while updating the status.'
+                message: 'A system error occurred while updating allocation status.'
             });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleUpdateStatus = (allocationId, action) => {
-        const actionText = action === 'CANCEL' ? 'cancel' : 'force close';
-
+    const handleForceClose = (allocationId) => {
         showConfirm({
-            title: `Update Status (${action})`,
-            message: `Are you sure you want to ${actionText} this batch allocation?`,
-            confirmText: 'Confirm',
-            onConfirm: () => executeUpdateStatus(allocationId, action, '')
+            title: 'Force Close Allocation',
+            message: 'Are you sure you want to force close this batch allocation?',
+            confirmText: 'Confirm Force Close',
+            onConfirm: () => executeForceClose(allocationId, '')
         });
     };
 
-    // --- Handlers Rename Batch ---
-    const handleOpenEditBatch = (batchRow) => {
-        setSelectedBatch(batchRow);
+    // --- Handlers Edit Allocated Qty ---
+    const handleOpenEditQty = (allocationRow) => {
+        setSelectedAllocation(allocationRow);
         setIsEditModalOpen(true);
     };
 
-    const handleCloseEditBatch = () => {
-        setSelectedBatch(null);
+    const handleCloseEditQty = () => {
+        setSelectedAllocation(null);
         setIsEditModalOpen(false);
     };
 
-    const executeSaveBatchNumber = async (batchId, newBatchNumber) => {
+    const executeSaveQty = async (allocationId, newAllocatedQty, reason = '') => {
         setEditLoading(true);
         try {
-            const res = await updateBatchNumberApi(batchId, { newBatchNumber });
+            const userId = currentUser?.id || null;
+            const res = await updateAllocationQtyApi(allocationId, {
+                newAllocatedQty,
+                reason,
+                userId
+            });
             if (res && res.success) {
                 showAlert({
                     type: 'success',
                     title: 'Success',
-                    message: res.message || 'Batch number successfully updated.'
+                    message: res.message || 'Allocated quantity updated successfully.'
                 });
-                handleCloseEditBatch();
-                loadData();
+                handleCloseEditQty();
+                if (onRefreshAll) {
+                    onRefreshAll();
+                } else {
+                    loadData();
+                }
             } else {
                 showAlert({
                     type: 'error',
                     title: 'Failed',
-                    message: res?.message || 'Failed to update batch number.'
+                    message: res?.message || 'Failed to update allocated quantity.'
                 });
             }
         } catch (err) {
             showAlert({
                 type: 'error',
                 title: 'Error',
-                message: 'A system error occurred while updating batch number.'
+                message: 'A system error occurred while updating allocated quantity.'
             });
         } finally {
             setEditLoading(false);
         }
     };
 
-    const handleSaveBatchNumber = (batchId, newBatchNumber) => {
+    const handleSaveQty = (allocationId, newAllocatedQty, reason) => {
         showConfirm({
-            title: 'Rename Batch Number',
-            message: `Are you sure you want to rename this batch number to "${newBatchNumber}"?`,
-            confirmText: 'Rename',
-            onConfirm: () => executeSaveBatchNumber(batchId, newBatchNumber)
+            title: 'Update Allocated Quantity',
+            message: `Are you sure you want to update allocated quantity to ${formatQty(newAllocatedQty)}?`,
+            confirmText: 'Save Changes',
+            onConfirm: () => executeSaveQty(allocationId, newAllocatedQty, reason)
         });
     };
 
@@ -265,14 +283,16 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         handleSort,
         handleResetFilters,
         handleExportExcel,
-        handleUpdateStatus,
+        handleForceClose,
 
-        // Expose state & handler modal
+        // Expose state & handler modal edit Qty
         isEditModalOpen,
-        selectedBatch,
+        selectedAllocation,
         editLoading,
-        handleOpenEditBatch,
-        handleCloseEditBatch,
-        handleSaveBatchNumber
+        handleOpenEditQty,
+        handleCloseEditQty,
+        handleSaveQty
     };
 };
+
+export default useAllocatedBatchTable;

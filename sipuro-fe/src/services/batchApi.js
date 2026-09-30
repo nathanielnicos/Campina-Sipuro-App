@@ -116,16 +116,17 @@ export const updateAllocationStatusApi = async (allocationId, payload) => {
     }
 };
 
-// Rename Batch Number
-export const updateBatchNumberApi = async (batchId, payload) => {
+// Update Allocation Quantity
+export const updateAllocationQtyApi = async (allocationId, payload) => {
     try {
-        const response = await axios.patch(`${API_BASE_URL}/batch/${batchId}/rename`, payload);
+        const response = await axios.patch(`${API_BASE_URL}/batch/allocation/${allocationId}/qty`, payload);
         return response.data;
     } catch (error) {
-        console.error('Error updating batch number:', error);
+        console.error('Error updating allocation quantity:', error);
         return {
             success: false,
-            message: error.response?.data?.message || 'Failed to update batch number.'
+            message: error.response?.data?.message || 'Failed to update allocation quantity.'
         };
     }
 };
+

@@ -19,7 +19,7 @@ const formatDateTime = (dateStr) => {
     return `${day} ${month} ${year} ${hours}:${minutes}:${seconds}`;
 };
 
-export const BatchViewRows = ({ mappingList, currentUserRole, onUpdateStatus, onOpenEditBatch, loading }) => {
+export const BatchViewRows = ({ mappingList, currentUserRole, onForceClose, onOpenEditQty, loading }) => {
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>
@@ -35,13 +35,12 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onUpdateStatus, on
             ? row.po_allocations
             : [{ po_number: '-', allocated_qty: row.total_allocated_qty, status: '-' }];
 
-        const canEditBatch = currentUserRole !== 'CUSTOMER' && row.batch_status === 'Open';
-
         const startFormatted = formatDateTime(row.actual_production_date);
         const endFormatted = formatDateTime(row.actual_completed_date);
 
         return allocations.map((po, idx) => {
             const target = Number(po.allocated_qty) || 0;
+            const canEditQty = currentUserRole !== 'CUSTOMER' && po.status === 'Open' && po.allocation_id;
 
             return (
                 <tr key={`${row.id_batch}-${po.allocation_id || idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
@@ -49,26 +48,7 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onUpdateStatus, on
                         <>
                             {/* 1. Batch Number */}
                             <td rowSpan={allocations.length} style={{ padding: '12px 14px', verticalAlign: 'top', backgroundColor: '#fff', whiteSpace: 'nowrap' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <strong>{row.batch_number}</strong>
-                                    {canEditBatch && (
-                                        <button
-                                            type="button"
-                                            onClick={() => onOpenEditBatch(row)}
-                                            title="Edit Batch Number"
-                                            style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                                fontSize: '12px',
-                                                padding: '2px 4px',
-                                                color: '#0d6efd'
-                                            }}
-                                        >
-                                            ✏️
-                                        </button>
-                                    )}
-                                </div>
+                                <strong>{row.batch_number}</strong>
                             </td>
                             {/* 2. Product */}
                             <td rowSpan={allocations.length} style={{ padding: '12px 14px', verticalAlign: 'top', backgroundColor: '#fff', minWidth: '240px' }}>
@@ -99,12 +79,31 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onUpdateStatus, on
                         {po.po_number}
                     </td>
 
-                    {/* 6. Allocated Qty (Pcs) */}
+                    {/* 6. Allocated Qty (Pcs) - Tombol pensil di depan angka */}
                     <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {formatQty(target)}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                            {canEditQty && (
+                                <button
+                                    type="button"
+                                    onClick={() => onOpenEditQty(po)}
+                                    title="Edit Allocated Quantity"
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        padding: '2px 4px',
+                                        color: '#0d6efd'
+                                    }}
+                                >
+                                    ✏️
+                                </button>
+                            )}
+                            <span>{formatQty(target)}</span>
+                        </div>
                     </td>
 
-                    {/* 7. Allocation Status (Murni dari DB pba.status) */}
+                    {/* 7. Allocation Status */}
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                         {po.status !== '-' ? (
                             <span style={getStatusStyle(po.status)}>
@@ -118,9 +117,8 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onUpdateStatus, on
                         <AllocationActionButton
                             status={po.status}
                             allocationId={po.allocation_id}
-                            fulfilledQty={po.allocated_qty}
                             currentUserRole={currentUserRole}
-                            onUpdateStatus={onUpdateStatus}
+                            onForceClose={onForceClose}
                             loading={loading}
                         />
                     </td>

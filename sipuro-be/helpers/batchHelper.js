@@ -2,7 +2,7 @@ const { sipuroDb: db } = require('../config/db');
 const { logPOHeader } = require('./poLogHelper');
 
 /**
- * Mengambil nilai toleransi PO dari database
+ * Mengambil nilai toleransi PO dari database (untuk kebutuhan Frontend)
  */
 async function getPOTolerance(dbOrConn) {
     const client = dbOrConn || db;
@@ -18,7 +18,7 @@ async function getPOTolerance(dbOrConn) {
 }
 
 /**
- * Helper untuk menghitung & memperbarui status po_headers secara presisi
+ * Helper untuk menghitung & memperbarui status po_headers secara presisi (Murni 100%)
  */
 async function refreshPOStatus(connection, poHeaderId) {
     const [[currentPO]] = await connection.query(
@@ -28,10 +28,6 @@ async function refreshPOStatus(connection, poHeaderId) {
 
     if (!currentPO) return;
     const oldStatus = currentPO.status;
-
-    // Ambil toleransi PO
-    const poToleranceRatio = await getPOTolerance(connection);
-    const poTolerancePercent = poToleranceRatio * 100;
 
     // A. Cek Ketercukupan Kuantitas Alokasi vs Base Qty Per Detail PO
     const [qtyCheck] = await connection.query(`
@@ -51,10 +47,9 @@ async function refreshPOStatus(connection, poHeaderId) {
     for (const item of qtyCheck) {
         const baseQtyNum = Number(item.base_qty) || 0;
         const allocatedQtyNum = Number(item.total_allocated_qty) || 0;
-        const fulfillmentPercent = baseQtyNum > 0 ? (allocatedQtyNum / baseQtyNum) * 100 : 0;
 
-        // Jika persentase alokasi belum mencapai toleransi, PO dianggap belum sepenuhnya teralokasi
-        if (fulfillmentPercent < poTolerancePercent) {
+        // Harus memenuhi atau melebihi baseQty (100%)
+        if (allocatedQtyNum < baseQtyNum) {
             isFullyAssigned = false;
             break;
         }
@@ -65,8 +60,7 @@ async function refreshPOStatus(connection, poHeaderId) {
     if (!isFullyAssigned) {
         targetStatus = 'Approved';
     } else {
-        // Jika ketercukupan kuantitas sudah memenuhi toleransi,
-        // cek apakah masih ada alokasi aktif berstatus 'Open'
+        // Jika ketercukupan kuantitas sudah 100%, cek apakah masih ada alokasi aktif berstatus 'Open'
         const [openAllocations] = await connection.query(`
             SELECT pba.id
             FROM sipuro_db.po_batch_allocations pba

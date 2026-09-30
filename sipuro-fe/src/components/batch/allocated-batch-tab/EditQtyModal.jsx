@@ -1,20 +1,50 @@
 import { useState, useEffect } from 'react';
 
-export const EditBatchModal = ({ isOpen, onClose, batchData, onSubmit, loading }) => {
-    const [newBatchNumber, setNewBatchNumber] = useState('');
+// Helper Format Pemisah Ribuan (1000 -> 1.000)
+const formatThousand = (val) => {
+    if (val === null || val === undefined || val === '') return '';
+    const cleanStr = String(val).replace(/\D/g, '');
+    if (!cleanStr) return '';
+    return Number(cleanStr).toLocaleString('id-ID');
+};
+
+// Helper Unformat Pemisah Ribuan (1.000 -> 1000)
+const unformatThousand = (val) => {
+    if (!val) return '';
+    return String(val).replace(/\./g, '').replace(/,/g, '');
+};
+
+export const EditQtyModal = ({ isOpen, onClose, allocationData, onSubmit, loading }) => {
+    const [displayQty, setDisplayQty] = useState('');
+    const [reason, setReason] = useState('');
 
     useEffect(() => {
-        if (batchData) {
-            setNewBatchNumber(batchData.batch_number || '');
+        if (allocationData) {
+            setDisplayQty(formatThousand(allocationData.allocated_qty));
+            setReason('');
         }
-    }, [batchData]);
+    }, [allocationData]);
 
-    if (!isOpen || !batchData) return null;
+    if (!isOpen || !allocationData) return null;
+
+    const handleQtyChange = (e) => {
+        const rawValue = e.target.value;
+        const formatted = formatThousand(rawValue);
+        setDisplayQty(formatted);
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit(batchData.id_batch, newBatchNumber);
+        const rawNumericStr = unformatThousand(displayQty);
+        const parsedQty = Number(rawNumericStr);
+
+        if (isNaN(parsedQty) || parsedQty < 0 || rawNumericStr === '') return;
+
+        onSubmit(allocationData.allocation_id, parsedQty, reason);
     };
+
+    const rawNumeric = Number(unformatThousand(displayQty));
+    const isValid = displayQty.trim() !== '' && !isNaN(rawNumeric) && rawNumeric >= 0;
 
     return (
         <div style={{
@@ -38,17 +68,18 @@ export const EditBatchModal = ({ isOpen, onClose, batchData, onSubmit, loading }
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
             }}>
                 <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', color: '#212529' }}>
-                    Rename Batch Number
+                    Edit Allocated Quantity
                 </h3>
 
                 <form onSubmit={handleSubmit}>
+                    {/* Info PO Number */}
                     <div style={{ marginBottom: '12px' }}>
                         <label style={{ fontSize: '12px', color: '#6c757d', display: 'block', marginBottom: '4px' }}>
-                            Product
+                            PO Number
                         </label>
                         <input
                             type="text"
-                            value={batchData.product_name ? `${batchData.product_code || ''} - ${batchData.product_name}` : '-'}
+                            value={allocationData.po_number || '-'}
                             disabled
                             style={{
                                 width: '100%',
@@ -62,15 +93,16 @@ export const EditBatchModal = ({ isOpen, onClose, batchData, onSubmit, loading }
                         />
                     </div>
 
-                    <div style={{ marginBottom: '20px' }}>
+                    {/* New Allocated Qty */}
+                    <div style={{ marginBottom: '12px' }}>
                         <label style={{ fontSize: '12px', color: '#212529', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                            New Batch Number <span style={{ color: '#dc3545' }}>*</span>
+                            New Allocated Qty (Pcs) <span style={{ color: '#dc3545' }}>*</span>
                         </label>
                         <input
                             type="text"
-                            value={newBatchNumber}
-                            onChange={(e) => setNewBatchNumber(e.target.value)}
-                            placeholder="Enter new batch number"
+                            value={displayQty}
+                            onChange={handleQtyChange}
+                            placeholder="Enter new quantity (e.g. 1.000)"
                             required
                             style={{
                                 width: '100%',
@@ -79,6 +111,28 @@ export const EditBatchModal = ({ isOpen, onClose, batchData, onSubmit, loading }
                                 borderRadius: '4px',
                                 fontSize: '14px',
                                 boxSizing: 'border-box'
+                            }}
+                        />
+                    </div>
+
+                    {/* Reason for Change */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ fontSize: '12px', color: '#6c757d', display: 'block', marginBottom: '4px' }}>
+                            Reason for Change (Optional)
+                        </label>
+                        <textarea
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            placeholder="Reason for editing quantity..."
+                            rows="3"
+                            style={{
+                                width: '100%',
+                                padding: '8px 12px',
+                                border: '1px solid #ced4da',
+                                borderRadius: '4px',
+                                fontSize: '14px',
+                                boxSizing: 'border-box',
+                                resize: 'vertical'
                             }}
                         />
                     </div>
@@ -103,16 +157,16 @@ export const EditBatchModal = ({ isOpen, onClose, batchData, onSubmit, loading }
                         </button>
                         <button
                             type="submit"
-                            disabled={loading || !newBatchNumber.trim()}
+                            disabled={loading || !isValid}
                             style={{
                                 padding: '8px 16px',
                                 border: 'none',
-                                backgroundColor: loading || !newBatchNumber.trim() ? '#6c757d' : '#0d6efd',
+                                backgroundColor: loading || !isValid ? '#6c757d' : '#0d6efd',
                                 color: '#fff',
                                 borderRadius: '4px',
-                                cursor: loading || !newBatchNumber.trim() ? 'not-allowed' : 'pointer',
+                                cursor: loading || !isValid ? 'not-allowed' : 'pointer',
                                 fontWeight: 'bold',
-                                opacity: loading || !newBatchNumber.trim() ? 0.65 : 1
+                                opacity: loading || !isValid ? 0.65 : 1
                             }}
                         >
                             {loading ? 'Saving...' : 'Save Changes'}
@@ -124,4 +178,4 @@ export const EditBatchModal = ({ isOpen, onClose, batchData, onSubmit, loading }
     );
 };
 
-export default EditBatchModal;
+export default EditQtyModal;

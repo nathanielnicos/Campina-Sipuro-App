@@ -16,6 +16,6 @@ router.get('/batch-mapping', batchController.getAllocatedBatchMapping);
 router.post('/production/preview', upload.single('file'), batchController.previewExcelUpload);
 router.post('/production/commit', batchController.commitExcelAllocation);
 router.patch('/allocation/:allocationId/status', batchController.updateAllocationStatus);
-router.patch('/:batchId/rename', batchController.updateBatchNumber);
+router.patch('/allocation/:allocationId/qty', batchController.updateAllocationQty);
 
 module.exports = router;
