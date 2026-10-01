@@ -1,18 +1,5 @@
 import { useState, useEffect } from 'react';
-
-// Helper Format Pemisah Ribuan (1000 -> 1.000)
-const formatThousand = (val) => {
-    if (val === null || val === undefined || val === '') return '';
-    const cleanStr = String(val).replace(/\D/g, '');
-    if (!cleanStr) return '';
-    return Number(cleanStr).toLocaleString('id-ID');
-};
-
-// Helper Unformat Pemisah Ribuan (1.000 -> 1000)
-const unformatThousand = (val) => {
-    if (!val) return '';
-    return String(val).replace(/\./g, '').replace(/,/g, '');
-};
+import { formatThousand, unformatThousand } from '../../../utils/formatters';
 
 export const EditQtyModal = ({ isOpen, onClose, allocationData, onSubmit, loading }) => {
     const [displayQty, setDisplayQty] = useState('');
@@ -28,8 +15,7 @@ export const EditQtyModal = ({ isOpen, onClose, allocationData, onSubmit, loadin
     if (!isOpen || !allocationData) return null;
 
     const handleQtyChange = (e) => {
-        const rawValue = e.target.value;
-        const formatted = formatThousand(rawValue);
+        const formatted = formatThousand(e.target.value);
         setDisplayQty(formatted);
     };
 

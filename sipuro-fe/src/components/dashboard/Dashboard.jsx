@@ -13,6 +13,8 @@ import {
 } from 'chart.js';
 import { Line, Bar, Pie } from 'react-chartjs-2';
 import { useDashboard } from '../../hooks/dashboard/useDashboard';
+import { formatQty } from '../../utils/formatters';
+import { MONTHS_EN } from '../../utils/dateHelper';
 
 ChartJS.register(
     CategoryScale,
@@ -32,13 +34,9 @@ const formatMonthLabel = (monthStr) => {
     const [year, month] = monthStr.split('-');
     if (!year || !month) return monthStr;
 
-    const months = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
     const monthIndex = parseInt(month, 10) - 1;
-    return `${months[monthIndex] || month} ${year}`;
+    const monthName = MONTHS_EN[monthIndex] || month;
+    return `${monthName} ${year}`;
 };
 
 const Dashboard = () => {
@@ -193,7 +191,7 @@ const Dashboard = () => {
                                 legend: { position: 'top' },
                                 tooltip: {
                                     callbacks: {
-                                        label: (context) => `${context.dataset.label}: ${context.parsed.y.toLocaleString('id-ID')} Pcs`
+                                        label: (context) => `${context.dataset.label}: ${formatQty(context.parsed.y)} Pcs`
                                     }
                                 }
                             },
@@ -298,7 +296,7 @@ const Dashboard = () => {
                                                 const idx = tooltipItems[0].dataIndex;
                                                 return stats.topProducts[idx]?.product_name || tooltipItems[0].label;
                                             },
-                                            label: (context) => `Total PO Qty: ${context.parsed.y.toLocaleString('id-ID')} Pcs`
+                                            label: (context) => `Total PO Qty: ${formatQty(context.parsed.y)} Pcs`
                                         }
                                     }
                                 },

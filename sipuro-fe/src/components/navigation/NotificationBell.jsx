@@ -1,5 +1,5 @@
 import { useNotifications } from '../../hooks/notification/useNotifications';
-import { formatDateTime } from '../../utils/formatters';
+import { formatDateTime } from '../../utils/dateHelper';
 
 const NotificationBell = ({ onNewPoDetected, user, setActiveTab, setShowPoBanner }) => {
     const {

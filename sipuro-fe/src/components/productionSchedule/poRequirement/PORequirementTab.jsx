@@ -1,7 +1,7 @@
 import { usePORequirement } from '../../../hooks/productionSchedule/usePORequirement';
 import PORequirementDetailModal from './PORequirementDetailModal';
 import ConfirmCreatePOModal from './ConfirmCreatePOModal';
-import { formatQty } from '../../../utils/formatters';
+import { formatQty, formatThousand, unformatThousand } from '../../../utils/formatters';
 
 const PORequirementTab = () => {
     const {
@@ -173,8 +173,8 @@ const PORequirementTab = () => {
                                         <td style={{ padding: '8px 12px', textAlign: 'center', borderRight: '1px solid #dee2e6' }}>
                                             <input
                                                 type="text"
-                                                value={row.required_po_qty ? Number(row.required_po_qty).toLocaleString('id-ID') : ''}
-                                                onChange={(e) => handleRequiredQtyChange(row.id_product, e.target.value)}
+                                                value={formatThousand(row.required_po_qty)}
+                                                onChange={(e) => handleRequiredQtyChange(row.id_product, unformatThousand(e.target.value))}
                                                 placeholder="0"
                                                 style={{
                                                     width: '120px',

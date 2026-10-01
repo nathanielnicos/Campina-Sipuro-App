@@ -1,4 +1,6 @@
-import { formatDate } from '../../../utils/formatters'
+import React from 'react';
+import { formatDate } from '../../../utils/dateHelper';
+import { formatQty } from '../../../utils/formatters';
 
 const PORequirementDetailModal = ({
     isOpen,
@@ -105,7 +107,7 @@ const PORequirementDetailModal = ({
                                             <tr style={{ borderBottom: '1px solid #dee2e6' }}>
                                                 {modalData.weeks?.map((w) => (
                                                     <td key={`${w.year}_${w.week_number}`} style={{ padding: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', backgroundColor: '#fdfdfd', borderRight: '1px solid #dee2e6' }}>
-                                                        {Number(w.plan_qty || 0).toLocaleString('id-ID')}
+                                                        {formatQty(w.plan_qty)}
                                                     </td>
                                                 ))}
                                             </tr>
@@ -128,7 +130,7 @@ const PORequirementDetailModal = ({
                                                                             {poItem.po_number}
                                                                         </div>
                                                                         <div style={{ color: '#0d6efd', fontWeight: '600', marginTop: '2px' }}>
-                                                                            {Number(poItem.allocated_qty).toLocaleString('id-ID')} Pcs
+                                                                            {formatQty(poItem.allocated_qty)} Pcs
                                                                         </div>
                                                                     </div>
                                                                 ))}
@@ -144,7 +146,7 @@ const PORequirementDetailModal = ({
                                                                         fontSize: '10px',
                                                                         fontWeight: '600'
                                                                     }}>
-                                                                        Uncovered: {Number(w.uncovered_qty).toLocaleString('id-ID')}
+                                                                        Uncovered: {formatQty(w.uncovered_qty)}
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -206,10 +208,10 @@ const PORequirementDetailModal = ({
                                                             {formatDate(po.created_date)}
                                                         </td>
                                                         <td style={{ padding: '10px 12px', textAlign: 'right', borderRight: '1px solid #dee2e6' }}>
-                                                            {Number(po.required_qty || 0).toLocaleString('id-ID')}
+                                                            {formatQty(po.required_qty)}
                                                         </td>
                                                         <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 'bold', color: '#dc3545' }}>
-                                                            {Number(po.remaining_qty || 0).toLocaleString('id-ID')}
+                                                            {formatQty(po.remaining_qty)}
                                                         </td>
                                                     </tr>
                                                 ))

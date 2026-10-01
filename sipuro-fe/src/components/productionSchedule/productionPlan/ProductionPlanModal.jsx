@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { formatQty } from '../../../utils/formatters';
+import { formatQty, unformatThousand } from '../../../utils/formatters';
 import { getWibDateString, getWibFormattedLabel } from '../../../utils/dateHelper';
 
 const ProductionPlanModal = ({
@@ -18,13 +18,6 @@ const ProductionPlanModal = ({
     saving,
     onSave
 }) => {
-    // Helper Unformat Thousand Separator
-    const parseNumberOnly = (val) => {
-        if (typeof val === 'number') return val;
-        const cleaned = String(val || '').replace(/\D/g, '');
-        return cleaned ? parseInt(cleaned, 10) : 0;
-    };
-
     // Indeks revisi terakhir sebelum Campina's Plan
     const lastRevIndex = useMemo(() => {
         if (revisions.length <= 1) return 0;
@@ -63,7 +56,8 @@ const ProductionPlanModal = ({
 
     // Handle Perubahan Input Cell Qty
     const handleCellChange = (revIndex, weekKey, rawInputValue) => {
-        const numValue = parseNumberOnly(rawInputValue);
+        const rawCleanedStr = unformatThousand(rawInputValue);
+        const numValue = rawCleanedStr ? parseInt(rawCleanedStr, 10) : 0;
         const updatedRevs = [...revisions];
 
         // 1. Update sel yang diketik

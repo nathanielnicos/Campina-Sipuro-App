@@ -1,4 +1,5 @@
-import { formatDate, formatGender } from "../../utils/formatters";
+import { formatGender } from "../../utils/formatters";
+import { formatDate } from "../../utils/dateHelper";
 import { useProfile } from "../../hooks/profile/useProfile";
 
 const ProfilePage = ({ currentUser }) => {

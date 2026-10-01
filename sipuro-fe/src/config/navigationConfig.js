@@ -40,6 +40,11 @@ export const getNavItemsByUser = (user) => {
     // 2. Akses untuk Superadmin (Wajib role SUPERADMIN, department bebas)
     if (userRole === 'SUPERADMIN') {
         return [
+            NAV_ITEMS.PPIC_DASHBOARD,
+            NAV_ITEMS.PO_LIST,
+            NAV_ITEMS.PPIC_BATCH,
+            NAV_ITEMS.PPIC_PRODUCTION_SCHEDULE,
+            NAV_ITEMS.DELIVERY_ORDER,
             NAV_ITEMS.SA_EMPLOYEES,
             NAV_ITEMS.SA_CUSTOMERS,
             NAV_ITEMS.SA_PRODUCTS,

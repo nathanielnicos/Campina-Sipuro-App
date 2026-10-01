@@ -3,6 +3,7 @@ import { getDashboardStats } from '../../services/dashboardApi';
 import { fetchProducts } from '../../services/poApi';
 import { getStatusStyle } from '../../utils/statusHelper';
 import { getWibDate } from '../../utils/dateHelper';
+import useOnClickOutside from '../../hooks/useOnClickOutside';
 
 export const useDashboard = () => {
     const [stats, setStats] = useState(null);
@@ -16,6 +17,14 @@ export const useDashboard = () => {
     const [searchInput, setSearchInput] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
+
+    // Menggunakan custom hook useOnClickOutside
+    useOnClickOutside(dropdownRef, () => {
+        if (isDropdownOpen) {
+            setIsDropdownOpen(false);
+            setSearchInput('');
+        }
+    });
 
     // State untuk Picker Grafik Baris 1 - Menggunakan WibDate
     const nowWib = getWibDate();
@@ -41,18 +50,6 @@ export const useDashboard = () => {
             }
         };
         loadProducts();
-    }, []);
-
-    // Close Dropdown saat klik di luar
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsDropdownOpen(false);
-                setSearchInput('');
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     // Load Data Statistik Setiap Filter Berubah

@@ -6,6 +6,7 @@ import {
     createDraftPO
 } from '../../services/poRequirementApi';
 import { useGlobalModal } from '../../context/ModalContext';
+import { unformatThousand } from '../../utils/formatters';
 
 export const usePORequirement = () => {
     // Modal Global Context
@@ -63,9 +64,9 @@ export const usePORequirement = () => {
         return () => clearTimeout(timer);
     }, [loadPORequirementSummary]);
 
-    // Handler untuk membersihkan pemisah ribuan
+    // Handler untuk membersihkan pemisah ribuan menggunakan unformatThousand
     const handleRequiredQtyChange = (id_product, value) => {
-        const cleanVal = value.replace(/\D/g, '');
+        const cleanVal = unformatThousand(value);
         const numericVal = cleanVal === '' ? 0 : parseInt(cleanVal, 10);
 
         setData(prevData =>

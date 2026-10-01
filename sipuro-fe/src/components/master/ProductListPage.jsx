@@ -1,13 +1,7 @@
 import { useProductList } from '../../hooks/master/useProductList';
 import UploadPreviewModal from './UploadPreviewModal';
 import PaginationControl from '../common/PaginationControl';
-
-const formatDecimal = (val) => {
-    if (val === null || val === undefined || val === '' || val === '-') return '-';
-    const num = Number(val);
-    if (isNaN(num)) return '-';
-    return num.toLocaleString('id-ID');
-};
+import { formatQty } from '../../utils/formatters';
 
 const ProductListPage = () => {
     const {
@@ -132,8 +126,8 @@ const ProductListPage = () => {
                                             <td style={{ padding: '10px' }}>{p.base_uom}</td>
                                             <td style={{ padding: '10px' }}>{p.pcs_per_ctn}</td>
                                             <td style={{ padding: '10px' }}>{p.ctn_per_plt}</td>
-                                            <td style={{ padding: '10px' }}>{formatDecimal(p.ml_per_pcs)}</td>
-                                            <td style={{ padding: '10px' }}>{formatDecimal(p.kg_per_pcs)}</td>
+                                            <td style={{ padding: '10px' }}>{formatQty(p.ml_per_pcs)}</td>
+                                            <td style={{ padding: '10px' }}>{formatQty(p.kg_per_pcs)}</td>
                                         </tr>
                                     ))
                                 )}

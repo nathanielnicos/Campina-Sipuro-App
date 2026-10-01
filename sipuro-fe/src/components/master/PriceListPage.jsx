@@ -1,7 +1,8 @@
 import { usePriceList } from '../../hooks/master/usePriceList';
 import UploadPreviewModal from './UploadPreviewModal';
 import PaginationControl from '../common/PaginationControl';
-import { formatDate } from '../../utils/formatters';
+import { formatDate } from '../../utils/dateHelper';
+import { formatCurrency } from '../../utils/formatters';
 
 const PriceListPage = () => {
     const {
@@ -121,7 +122,7 @@ const PriceListPage = () => {
                                         <tr key={pr.price_id} style={{ borderBottom: '1px solid #e9ecef' }}>
                                             <td style={{ padding: '10px', fontWeight: 'bold' }}>{pr.product_code || '-'}</td>
                                             <td style={{ padding: '10px' }}>{pr.product_name || '-'}</td>
-                                            <td style={{ padding: '10px' }}>Rp {Number(pr.price).toLocaleString('id-ID')}</td>
+                                            <td style={{ padding: '10px' }}>{formatCurrency(pr.price)}</td>
                                             <td style={{ padding: '10px' }}>{formatDate(pr.start_date)}</td>
                                             <td style={{ padding: '10px' }}>{pr.end_date ? formatDate(pr.end_date) : 'Ongoing'}</td>
                                         </tr>

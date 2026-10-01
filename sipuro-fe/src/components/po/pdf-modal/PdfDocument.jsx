@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
-import { formatCurrency, formatDate, formatQty } from '../../../utils/formatters';
+import { formatCurrency, formatQty } from '../../../utils/formatters';
+import { formatDate } from '../../../utils/dateHelper';
 
 const PdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
     const header = poData?.header || {};

@@ -43,7 +43,7 @@ const Header = ({
                             color: activeTab === 'summary' ? '#0d6efd' : '#6c757d'
                         }}
                     >
-                        Outstanding
+                        Outstanding PO
                     </button>
                     <button
                         onClick={() => onTabChange('mapping')}

@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import useOnClickOutside from '../../hooks/useOnClickOutside';
+import { formatDate } from '../../utils/dateHelper';
 
 const DateRangePicker = ({
     label = 'Date Range',
@@ -12,17 +14,27 @@ const DateRangePicker = ({
     const [tempTo, setTempTo] = useState(toDate || '');
     const containerRef = useRef(null);
 
+    // Close dropdown saat mengklik di luar komponen
+    useOnClickOutside(containerRef, () => {
+        if (isOpen) {
+            setIsOpen(false);
+        }
+    });
+
     // Sinkronkan state temporary saat props dari luar berubah (misal saat tombol Reset Filters diklik)
     useEffect(() => {
         setTempFrom(fromDate || '');
         setTempTo(toDate || '');
     }, [fromDate, toDate]);
 
-    // Format tampilan teks pada input tunggal
+    // Format tampilan teks pada input tunggal menggunakan formatDate
     const getDisplayText = () => {
-        if (fromDate && toDate) return `${fromDate}  →  ${toDate}`;
-        if (fromDate) return `${fromDate}  →  ...`;
-        if (toDate) return `...  →  ${toDate}`;
+        const formattedFrom = fromDate ? formatDate(fromDate) : '';
+        const formattedTo = toDate ? formatDate(toDate) : '';
+
+        if (formattedFrom && formattedTo) return `${formattedFrom}  →  ${formattedTo}`;
+        if (formattedFrom) return `${formattedFrom}  →  ...`;
+        if (formattedTo) return `...  →  ${formattedTo}`;
         return '';
     };
 
@@ -34,17 +46,6 @@ const DateRangePicker = ({
         }
         setIsOpen(!isOpen);
     };
-
-    // Close dropdown saat mengklik di luar komponen
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
     // Jalankan filter utama hanya saat tombol Apply diklik
     const handleApply = () => {

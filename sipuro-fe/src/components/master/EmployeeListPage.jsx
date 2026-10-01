@@ -1,6 +1,7 @@
 import { useEmployeeList } from '../../hooks/master/useEmployeeList';
 import PaginationControl from '../common/PaginationControl';
-import { formatDate, formatGender } from '../../utils/formatters';
+import { formatGender } from '../../utils/formatters';
+import { formatDate } from '../../utils/dateHelper';
 
 const EmployeeListPage = () => {
     const {

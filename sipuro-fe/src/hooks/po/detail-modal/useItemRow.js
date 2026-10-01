@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { unformatThousand } from '../../../utils/formatters';
 
 const generateUniqueId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -123,8 +124,9 @@ export const useItemRow = ({ rawPoItems = [], products = [], isCustomer = true }
         setOpenDropdown(null);
     };
 
+    // Handler Qty menggunakan unformatThousand dari utils/formatters
     const handleQtyChange = (index, rawValue) => {
-        const cleanNumber = String(rawValue).replace(/\./g, '').replace(/\D/g, '');
+        const cleanNumber = unformatThousand(rawValue);
         const qty = parseInt(cleanNumber, 10) || 0;
 
         const updatedItems = [...items];

@@ -1,5 +1,6 @@
 import { getStatusStyle } from '../../../utils/statusHelper';
-import { formatDate, formatQty } from '../../../utils/formatters';
+import { formatQty } from '../../../utils/formatters';
+import { formatDate } from '../../../utils/dateHelper';
 
 export const PoViewRows = ({ mappingList, currentUserRole, poTolerance }) => {
     if (!mappingList || mappingList.length === 0) {

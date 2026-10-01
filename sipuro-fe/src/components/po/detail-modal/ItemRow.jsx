@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { formatCurrency, formatQty } from '../../../utils/formatters';
+import { useRef } from 'react';
+import { formatCurrency, formatQty, unformatThousand } from '../../../utils/formatters';
+import useOnClickOutside from '../../../hooks/useOnClickOutside';
 
 const ItemRow = ({
     index,
@@ -20,20 +21,12 @@ const ItemRow = ({
     const isCustomer = userRole === 'CUSTOMER';
     const dropdownRef = useRef(null);
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                if (openDropdown === index && onCloseDropdown) {
-                    onCloseDropdown();
-                }
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [openDropdown, index, onCloseDropdown]);
+    // Menggunakan custom hook useOnClickOutside
+    useOnClickOutside(dropdownRef, () => {
+        if (openDropdown === index && onCloseDropdown) {
+            onCloseDropdown();
+        }
+    });
 
     const actionButtonStyle = {
         padding: '6px 12px',
@@ -68,7 +61,7 @@ const ItemRow = ({
     });
 
     const handleQtyInputChange = (e) => {
-        const rawValue = e.target.value.replace(/\D/g, '');
+        const rawValue = unformatThousand(e.target.value);
         onQtyChange(index, rawValue);
     };
 

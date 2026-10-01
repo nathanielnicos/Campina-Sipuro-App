@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getUnreadCount, getNotifications, markAllAsRead } from '../../services/notificationApi';
 import { getNavItemsByUser } from '../../config/navigationConfig';
+import useOnClickOutside from '../../hooks/useOnClickOutside';
 
 export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowPoBanner }) => {
     const [unreadCount, setUnreadCount] = useState(0);
@@ -12,6 +13,13 @@ export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowP
     const userRole = user?.role;
     const userId = user?.id;
     const userDepartment = user?.department;
+
+    // Click Outside Listener menggunakan custom hook useOnClickOutside
+    useOnClickOutside(dropdownRef, () => {
+        if (isOpen) {
+            setIsOpen(false);
+        }
+    });
 
     // Polling & Visibility Listener
     useEffect(() => {
@@ -52,17 +60,6 @@ export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowP
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [isOpen, unreadCount, onNewPoDetected, userRole, userId, userDepartment]);
-
-    // Click Outside Listener
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
     // Toggle Dropdown Menu
     const toggleDropdown = async () => {

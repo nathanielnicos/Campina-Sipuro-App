@@ -1,4 +1,4 @@
-import React from 'react';
+import { formatQty } from '../../../utils/formatters';
 
 const ConfirmCreatePOModal = ({
     isOpen,
@@ -132,7 +132,7 @@ const ConfirmCreatePOModal = ({
                                                 {item.product_code} - {item.product_name}
                                             </td>
                                             <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 'bold', color: '#212529' }}>
-                                                {Number(item.required_po_qty).toLocaleString('id-ID')}
+                                                {formatQty(item.required_po_qty)}
                                             </td>
                                         </tr>
                                     ))}
