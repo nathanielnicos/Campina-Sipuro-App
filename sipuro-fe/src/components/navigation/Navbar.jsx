@@ -1,4 +1,3 @@
-import React from 'react';
 import NotificationBell from './NotificationBell';
 import { getNavItemsByUser } from '../../config/navigationConfig';
 
@@ -95,7 +94,8 @@ const styles = {
         borderRadius: '8px',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
         gap: '16px',
-        overflow: 'hidden'
+        position: 'relative',
+        overflow: 'visible' // Memastikan popover/balon tidak terpotong
     },
     menuWrapperWithFade: {
         flex: 1,
@@ -117,7 +117,9 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '16px',
-        flexShrink: 0
+        flexShrink: 0,
+        position: 'relative',
+        zIndex: 50 // Memastikan area kanan & balon notifikasi melayang di atas konten lain
     },
     userInfo: { fontSize: '13px', textAlign: 'right' },
     userCode: { color: '#94a3b8', fontSize: '12px' },
