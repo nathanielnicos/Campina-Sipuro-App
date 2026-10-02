@@ -115,6 +115,16 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
     const handleConfirmSave = async () => {
         if (!previewData) return;
 
+        // Guard Tambahan: Jika file reupload, hentikan proses simpan
+        if (previewData.isReupload) {
+            showAlert({
+                type: 'warning',
+                title: 'Cannot Save',
+                message: previewData.warningMessage || 'This file has already been uploaded previously.'
+            });
+            return;
+        }
+
         // Strictly extract newRows and unallocatedRows without OR fallbacks
         const rawNewRows = previewData.newRows;
         const unallocatedRows = previewData.unallocatedRows;
@@ -141,13 +151,9 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
             return;
         }
 
-        const confirmMsg = previewData.isReupload
-            ? `${previewData.warningMessage}\nAre you sure you want to re-save this production allocation?`
-            : `Save ${validCount} valid row(s) to PO allocation?`;
-
         showConfirm({
-            title: previewData.isReupload ? 'Re-save Confirmation' : 'Confirm Save Allocation',
-            message: confirmMsg,
+            title: 'Confirm Save Allocation',
+            message: `Save ${validCount} valid row(s) to PO allocation?`,
             confirmText: 'Save',
             onConfirm: () => executeConfirmSave(validNewDetails, duplicateStatusRows)
         });

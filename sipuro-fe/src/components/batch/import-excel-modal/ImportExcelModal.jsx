@@ -138,6 +138,22 @@ const ImportExcelModal = ({
                         />
                     </div>
 
+                    {/* Warning Banner Khusus Jika File Sudah Pernah Di-upload */}
+                    {parsedData.isReupload && (
+                        <div style={{
+                            backgroundColor: '#f8d7da',
+                            color: '#842029',
+                            border: '1px solid #f5c2c7',
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            marginBottom: '16px',
+                            fontSize: '13px',
+                            fontWeight: 'bold'
+                        }}>
+                            ⚠️ {parsedData.warningMessage || 'This file has already been uploaded previously. Saving is disabled.'}
+                        </div>
+                    )}
+
                     <div style={{
                         backgroundColor: currentConfig.alertBg,
                         color: currentConfig.alertColor,
@@ -221,15 +237,15 @@ const ImportExcelModal = ({
                     <button
                         type="button"
                         onClick={onConfirmImport}
-                        disabled={loading || (!summary.newCount || summary.newCount === 0)}
+                        disabled={loading || parsedData.isReupload || (!summary.newCount || summary.newCount === 0)}
                         style={{
                             padding: '8px 16px',
                             backgroundColor: '#0d6efd',
                             color: '#fff',
                             border: 'none',
                             borderRadius: '4px',
-                            cursor: (loading || (!summary.newCount || summary.newCount === 0)) ? 'not-allowed' : 'pointer',
-                            opacity: (loading || (!summary.newCount || summary.newCount === 0)) ? 0.6 : 1,
+                            cursor: (loading || parsedData.isReupload || (!summary.newCount || summary.newCount === 0)) ? 'not-allowed' : 'pointer',
+                            opacity: (loading || parsedData.isReupload || (!summary.newCount || summary.newCount === 0)) ? 0.6 : 1,
                             fontWeight: 'bold',
                             fontSize: '14px'
                         }}

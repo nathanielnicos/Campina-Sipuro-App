@@ -19,16 +19,31 @@ exports.commitExcelAllocation = async (req, res) => {
 
     // Unallocated diabaikan, validasi hanya fokus pada data valid/alokasi
     const hasData = allocations.length > 0 || newDetails.length > 0 || detailedAllocations.length > 0;
-    
+
     if (!processTimestamp || !hasData) {
-        return res.status(400).json({ 
-            success: false, 
-            message: 'Allocation payload cannot be empty or invalid.' 
+        return res.status(400).json({
+            success: false,
+            message: 'Allocation payload cannot be empty or invalid.'
         });
     }
 
+    // Early Validation: Check if fileHash has already been processed in DB
+    if (fileHash) {
+        const [existingLogs] = await db.query(
+            'SELECT id FROM production_upload_logs WHERE file_hash = ? LIMIT 1',
+            [fileHash]
+        );
+
+        if (existingLogs && existingLogs.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'This allocation file has already been committed previously.'
+            });
+        }
+    }
+
     const connection = await db.getConnection();
-    
+
     try {
         await connection.beginTransaction();
 
@@ -44,8 +59,8 @@ exports.commitExcelAllocation = async (req, res) => {
 
         await connection.commit();
 
-        return res.json({ 
-            success: true, 
+        return res.json({
+            success: true,
             message: 'Production allocation successfully saved to database.',
             data: result || null
         });
@@ -53,10 +68,10 @@ exports.commitExcelAllocation = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error('Commit Production Allocation Error:', error);
-        
-        return res.status(500).json({ 
-            success: false, 
-            message: 'Failed to save production allocation: ' + error.message 
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to save production allocation: ' + error.message
         });
     } finally {
         connection.release();
