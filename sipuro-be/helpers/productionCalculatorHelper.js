@@ -31,6 +31,14 @@ const calculateFifoAllocation = (
         return `${year}-${month}-${day}`;
     };
 
+    // Helper untuk konversi aman datetime string/Date ke nilai timestamp angka (ms)
+    const parseTimestamp = (dateVal) => {
+        if (!dateVal) return null;
+        const dt = new Date(dateVal);
+        const time = dt.getTime();
+        return isNaN(time) ? null : time;
+    };
+
     // Semua kategori raw data ditampung dalam objek yang sama
     const categorizedDetails = {
         newRows: [],
@@ -100,11 +108,30 @@ const calculateFifoAllocation = (
         }
     });
 
-    // 2. Sort valid batch aggregates by actualCompletedDatetime ASC
+    // 2. Sort valid batch aggregates:
+    //    a. actualStartDatetime ASC (Opsi A: Prioritas FIFO berdasarkan tanggal mulai produksi)
+    //    b. actualCompletedDatetime ASC (jika tanggal mulai sama)
+    //    c. batchNumber ASC (tie-breaker alfabetis)
     const sortedBatchItems = Object.values(newItemsAggregated).sort((a, b) => {
-        if (!a.actualCompletedDatetime) return -1;
-        if (!b.actualCompletedDatetime) return 1;
-        return new Date(a.actualCompletedDatetime) - new Date(b.actualCompletedDatetime);
+        const startA = parseTimestamp(a.actualStartDatetime);
+        const startB = parseTimestamp(b.actualStartDatetime);
+
+        if (startA !== null && startB !== null && startA !== startB) {
+            return startA - startB;
+        }
+        if (startA === null && startB !== null) return 1;
+        if (startA !== null && startB === null) return -1;
+
+        const completeA = parseTimestamp(a.actualCompletedDatetime);
+        const completeB = parseTimestamp(b.actualCompletedDatetime);
+
+        if (completeA !== null && completeB !== null && completeA !== completeB) {
+            return completeA - completeB;
+        }
+        if (completeA === null && completeB !== null) return 1;
+        if (completeA !== null && completeB === null) return -1;
+
+        return String(a.batchNumber).localeCompare(String(b.batchNumber));
     });
 
     // 3. Initialize dynamic PO state tracker (Hanya memproses po_details dengan status 'Active')
