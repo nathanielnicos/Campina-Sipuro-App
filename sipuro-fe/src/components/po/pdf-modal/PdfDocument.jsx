@@ -1,21 +1,9 @@
 import { forwardRef } from 'react';
 import { formatCurrency, formatQty } from '../../../utils/formatters';
-import { formatDate } from '../../../utils/dateHelper';
+import { formatDate, formatDateTime } from '../../../utils/dateHelper';
 
 const PdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
     const header = poData?.header || {};
-
-    const formatDateTime = (dateStr) => {
-        if (!dateStr) return '-';
-        const d = new Date(dateStr);
-        return d.toLocaleString('id-ID', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
 
     return (
         <div
