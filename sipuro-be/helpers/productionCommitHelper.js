@@ -224,9 +224,12 @@ const commitProductionAllocationTransaction = async (connection, {
         await updateBatchProductionDates(connection, bNo, currentUserId);
     }
 
-    // 6. Recalculate fulfilled_qty pada po_details & Evaluasi Evaluasi Dua Arah Status Alokasi
-    const poDetailIds = [...new Set(sourceAllocations.map(a => a.poDetailId || a.po_detail_id).filter(Boolean))];
+    // Set untuk menampung SELURUH ID Batch & Header PO yang perlu di-refresh statusnya
+    const batchIdsToRefresh = new Set([...batchIdMap.values()].filter(Boolean));
     const poHeaderIds = new Set();
+
+    // 6. Recalculate fulfilled_qty pada po_details & Evaluasi Dua Arah Status Alokasi
+    const poDetailIds = [...new Set(sourceAllocations.map(a => a.poDetailId || a.po_detail_id).filter(Boolean))];
 
     for (const pdId of poDetailIds) {
         // A. Refresh total fulfilled_qty di po_details
@@ -246,8 +249,19 @@ const commitProductionAllocationTransaction = async (connection, {
             const baseQtyNum = Number(poDetailInfo.base_qty) || 0;
             const fulfilledQtyNum = Number(poDetailInfo.fulfilled_qty) || 0;
 
-            // Tentukan target status alokasi murni 100% terpenuhi
-            const targetSystemStatus = fulfilledQtyNum >= baseQtyNum ? 'Closed' : 'Open';
+            // Tentukan target status alokasi: 'Closed' HANYA JIKA fulfilled_qty === base_qty
+            const targetSystemStatus = (fulfilledQtyNum === baseQtyNum) ? 'Closed' : 'Open';
+
+            // Kumpulkan SELURUH batch_id yang terikat dengan po_detail ini untuk memastikan batch lama ikut di-refresh
+            const [relatedAllocations] = await connection.query(
+                `SELECT id_batch FROM po_batch_allocations WHERE po_detail_id = ?`,
+                [pdId]
+            );
+            relatedAllocations.forEach(alloc => {
+                if (alloc.id_batch) {
+                    batchIdsToRefresh.add(alloc.id_batch);
+                }
+            });
 
             // Update status dua arah untuk alokasi otomatis (abaikan yang Force Closed / Canceled manual)
             await connection.query(
@@ -259,8 +273,7 @@ const commitProductionAllocationTransaction = async (connection, {
         }
     }
 
-    // 7. Refresh status Induk Batch (batches)
-    const batchIdsToRefresh = new Set([...batchIdMap.values()]);
+    // 7. Refresh status Induk Batch (batches) untuk SEMUA ID batch yang terpengaruh
     for (const bId of batchIdsToRefresh) {
         if (bId) await refreshBatchStatus(connection, bId);
     }

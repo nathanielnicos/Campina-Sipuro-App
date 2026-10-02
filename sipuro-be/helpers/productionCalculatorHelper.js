@@ -179,8 +179,8 @@ const calculateFifoAllocation = (
 
                         const poRatio = poState.baseQty > 0 ? (newFulfilled / poState.baseQty) : 0;
 
-                        // Kriteria 1: Auto-Close hanya jika terpenuhi >= 100%
-                        const isFullyFulfilled = newFulfilled >= poState.baseQty;
+                        // Kriteria: Auto-Close HANYA JIKA terpenuhi 100% persis (newFulfilled === poState.baseQty)
+                        const isFullyFulfilled = (newFulfilled === poState.baseQty);
                         const allocationStatus = isFullyFulfilled ? 'Closed' : 'Open';
 
                         batchAllocations.push({
