@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const ModalContext = createContext(null);
 
@@ -145,19 +145,26 @@ export const ModalProvider = ({ children }) => {
                                         setPromptValue(e.target.value);
                                         setPromptError('');
                                     }}
+                                    maxLength={confirmState.maxLength}
                                     rows={3}
                                     placeholder="Enter details here..."
                                     style={{
                                         width: '100%', padding: '8px 12px', borderRadius: '4px',
                                         border: promptError ? '1px solid #dc3545' : '1px solid #ced4da',
-                                        fontSize: '13px', boxSizing: 'border-box', outline: 'none'
+                                        fontSize: '13px', boxSizing: 'border-box', outline: 'none',
+                                        resize: 'vertical'
                                     }}
                                 />
-                                {promptError && (
-                                    <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>
-                                        {promptError}
-                                    </div>
-                                )}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                    {promptError ? (
+                                        <div style={{ color: '#dc3545', fontSize: '12px' }}>
+                                            {promptError}
+                                        </div>
+                                    ) : <div />}
+                                    <span style={{ color: '#6c757d', fontSize: '11px' }}>
+                                        {promptValue.length}/{confirmState.maxLength}
+                                    </span>
+                                </div>
                             </div>
                         )}
 

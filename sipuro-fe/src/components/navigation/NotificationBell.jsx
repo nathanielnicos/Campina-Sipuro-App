@@ -1,7 +1,7 @@
 import { useNotifications } from '../../hooks/notification/useNotifications';
 import { formatDateTime } from '../../utils/dateHelper';
 
-const NotificationBell = ({ onNewPoDetected, user, setActiveTab, setShowPoBanner }) => {
+const NotificationBell = ({ onNewPoDetected, user, setActiveTab, setShowBanner }) => {
     const {
         unreadCount,
         notifications,
@@ -11,7 +11,7 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab, setShowPoBanner
         dropdownRef,
         toggleDropdown,
         handleItemClick
-    } = useNotifications({ user, onNewPoDetected, setActiveTab, setShowPoBanner });
+    } = useNotifications({ user, onNewPoDetected, setActiveTab, setShowBanner });
 
     return (
         <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>

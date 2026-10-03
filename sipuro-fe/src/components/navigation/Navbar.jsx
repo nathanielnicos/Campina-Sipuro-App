@@ -1,7 +1,7 @@
 import NotificationBell from './NotificationBell';
 import { getNavItemsByUser } from '../../config/navigationConfig';
 
-const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) => {
+const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowBanner }) => {
     const getButtonStyle = (tabName) => ({
         padding: '8px 16px',
         textAlign: 'center',
@@ -57,10 +57,13 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowPoBanner }) =>
                 <NotificationBell
                     user={user}
                     setActiveTab={setActiveTab}
-                    setShowPoBanner={setShowPoBanner}
-                    onNewPoDetected={(latestMessage) => {
-                        if (setShowPoBanner) {
-                            setShowPoBanner(true, latestMessage);
+                    setShowBanner={setShowBanner}
+                    onNewPoDetected={(notifData) => {
+                        if (setShowBanner) {
+                            // Menyeleksi apakah notifData berupa objek atau string
+                            const message = typeof notifData === 'object' ? notifData.message : notifData;
+                            const link = typeof notifData === 'object' ? notifData.link : null;
+                            setShowBanner(true, message, link);
                         }
                     }}
                 />

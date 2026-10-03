@@ -1,4 +1,4 @@
-const NotificationBanner = ({ show, message, onRefresh }) => {
+const GlobalNotificationBanner = ({ show, message, onRefresh }) => {
     if (!show) return null;
 
     return (
@@ -14,7 +14,7 @@ const NotificationBanner = ({ show, message, onRefresh }) => {
             fontSize: '13px',
             color: '#1864ab'
         }}>
-            <span>💡 {message || 'There is a new PO update available.'}</span>
+            <span>💡 {message || 'There is a new update available.'}</span>
             <button
                 type="button"
                 onClick={onRefresh}
@@ -29,10 +29,10 @@ const NotificationBanner = ({ show, message, onRefresh }) => {
                     fontSize: '12px'
                 }}
             >
-                Show Latest Data
+                View Details
             </button>
         </div>
     );
 };
 
-export default NotificationBanner;
+export default GlobalNotificationBanner;

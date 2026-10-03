@@ -3,7 +3,7 @@ import { getUnreadCount, getNotifications, markAllAsRead } from '../../services/
 import { getNavItemsByUser } from '../../config/navigationConfig';
 import useOnClickOutside from '../../hooks/useOnClickOutside';
 
-export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowPoBanner }) => {
+export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowBanner }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -33,7 +33,10 @@ export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowP
                 if (currentCount > unreadCount && onNewPoDetected) {
                     const listRes = await getNotifications(userRole, userId, userDepartment);
                     const latestNotif = listRes?.data?.[0];
-                    onNewPoDetected(latestNotif?.message || 'There is a new PO update available.');
+                    onNewPoDetected({
+                        message: latestNotif?.message || 'There is a new update available.',
+                        link: latestNotif?.link || null
+                    });
                 }
 
                 setUnreadCount(currentCount);
@@ -77,8 +80,8 @@ export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowP
 
     // Handle Click Notification Item
     const handleItemClick = async (item) => {
-        if (setShowPoBanner) {
-            setShowPoBanner(false);
+        if (setShowBanner) {
+            setShowBanner(false);
         }
 
         setUnreadCount(0);

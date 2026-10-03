@@ -163,7 +163,7 @@ export const useActions = ({ poId, currentUser, onSuccess }) => {
                 title: 'Reject PO',
                 message: 'Please enter the reason for rejecting this Purchase Order:',
                 type: 'prompt',
-                inputLabel: 'Rejection Reason (Max 50 chars)',
+                inputLabel: 'Rejection Reason',
                 maxLength: 50,
                 isDanger: true,
                 confirmText: 'Reject PO',

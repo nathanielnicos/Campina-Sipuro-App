@@ -1,4 +1,3 @@
-import React from 'react';
 import PaginationControl from '../../common/PaginationControl';
 import SortableHeader from '../../common/SortableHeader';
 import Filter from './Filter';
@@ -242,6 +241,7 @@ const OutstandingTable = ({ reloadTrigger, currentUser }) => {
                                     onChange={(e) => setActionReason(e.target.value)}
                                     disabled={actionLoading}
                                     placeholder="Enter your reason here..."
+                                    maxLength={50}
                                     rows={3}
                                     style={{
                                         width: '100%',
@@ -253,7 +253,14 @@ const OutstandingTable = ({ reloadTrigger, currentUser }) => {
                                         resize: 'vertical'
                                     }}
                                 />
-                                {reasonError && <div style={{ color: '#dc3545', fontSize: '11px', marginTop: '4px' }}>{reasonError}</div>}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                                    {reasonError ? (
+                                        <span style={{ color: '#dc3545', fontSize: '11px' }}>{reasonError}</span>
+                                    ) : <span />}
+                                    <span style={{ color: '#6c757d', fontSize: '11px' }}>
+                                        {actionReason.length}/50
+                                    </span>
+                                </div>
                             </div>
                         )}
 

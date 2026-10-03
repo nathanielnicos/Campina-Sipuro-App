@@ -13,9 +13,9 @@ exports.updatePOStatus = async (req, res) => {
         const { status, notes, updated_by } = req.body;
         if (!status) return res.status(400).json({ success: false, message: 'Status is required.' });
 
-        const safeNotes = notes ? notes.trim().slice(0, 50) : null;
+        const cleanedReason = notes ? notes.trim().slice(0, 50) : null;
 
-        if (status === 'Rejected' && !safeNotes) {
+        if (status === 'Rejected' && !cleanedReason) {
             return res.status(400).json({ success: false, message: 'Rejection reason is required (maximum 50 characters).' });
         }
 
@@ -38,7 +38,7 @@ exports.updatePOStatus = async (req, res) => {
             `UPDATE sipuro_db.po_headers 
              SET status = ?, rejection_reason = ?, confirmed_by = ?, confirmed_at = ?, updated_at = ? 
              WHERE po_header_id = ?`,
-            [status, safeNotes, updated_by || null, nowWib, nowWib, id]
+            [status, cleanedReason, updated_by || null, nowWib, nowWib, id]
         );
 
         await logPOHeader(connection, {
@@ -47,7 +47,7 @@ exports.updatePOStatus = async (req, res) => {
             oldStatus: targetPo.status,
             newStatus: status,
             actionBy: updated_by || null,
-            reason: safeNotes
+            reason: cleanedReason
         });
 
         await connection.commit();
@@ -58,7 +58,7 @@ exports.updatePOStatus = async (req, res) => {
 
         await createNotification({
             title: notifTitle,
-            message: `${targetPo.po_number} has been ${actionText} by PPIC.${safeNotes ? ` Notes: ${safeNotes}` : ''}`,
+            message: `${targetPo.po_number} has been ${actionText} by PPIC.${cleanedReason ? ` Reason: "${cleanedReason}"` : ''}`,
             recipientType: 'CUSTOMER',
             recipientId: targetPo.customer_id,
             senderType: 'EMPLOYEE',

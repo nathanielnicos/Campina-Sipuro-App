@@ -16,8 +16,10 @@ exports.requestClosePoDetails = async (req, res) => {
             return res.status(400).json({ success: false, message: 'PO Header ID and selected detail items are required.' });
         }
 
-        if (!reason || !reason.trim()) {
-            return res.status(400).json({ success: false, message: 'Reason for close request is required.' });
+        const cleanedReason = reason ? reason.trim().slice(0, 50) : '';
+
+        if (!cleanedReason) {
+            return res.status(400).json({ success: false, message: 'Reason for close request is required (maximum 50 characters).' });
         }
 
         // 1. Ambil data PO Header untuk verifikasi dan notifikasi
@@ -55,7 +57,7 @@ exports.requestClosePoDetails = async (req, res) => {
             `UPDATE sipuro_db.po_details 
              SET status = 'Close Requested', notes = ? 
              WHERE po_detail_id IN (?)`,
-            [reason.trim(), validIds]
+            [cleanedReason, validIds]
         );
 
         // 4. Catat Audit Log
@@ -65,7 +67,7 @@ exports.requestClosePoDetails = async (req, res) => {
             oldStatus: null,
             newStatus: null,
             actionBy: requested_by || poData.customer_id,
-            reason: reason.trim()
+            reason: cleanedReason
         });
 
         const detailLogs = validDetails.map(item => ({
@@ -88,7 +90,7 @@ exports.requestClosePoDetails = async (req, res) => {
         // 5. Kirim Notifikasi ke Tim PPIC
         await createNotification({
             title: 'PO Item Close Requested',
-            message: `${poData.company_name || 'Customer'} requested to close ${validIds.length} item(s) on ${poData.po_number}.`,
+            message: `${poData.company_name || 'Customer'} requested to close ${validIds.length} item(s) on ${poData.po_number}. Reason: "${cleanedReason}"`,
             recipientType: 'EMPLOYEE',
             recipientDepartment: 'PPIC',
             senderType: 'CUSTOMER',
@@ -218,7 +220,7 @@ exports.approveClosePoDetails = async (req, res) => {
 exports.rejectClosePoDetails = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
-        const { po_header_id, po_detail_ids, reject_reason, rejected_by } = req.body;
+        const { po_header_id, po_detail_ids, rejected_by } = req.body;
 
         if (!po_header_id || !po_detail_ids || !Array.isArray(po_detail_ids) || po_detail_ids.length === 0) {
             return res.status(400).json({ success: false, message: 'PO Header ID and selected detail items are required.' });
@@ -263,7 +265,7 @@ exports.rejectClosePoDetails = async (req, res) => {
             oldStatus: null,
             newStatus: null,
             actionBy: rejected_by || null,
-            reason: reject_reason || null
+            reason: null
         });
 
         const detailLogs = requestedDetails.map(item => ({
@@ -284,10 +286,9 @@ exports.rejectClosePoDetails = async (req, res) => {
         await connection.commit();
 
         // 5. Notifikasi Penolakan ke Customer
-        const reasonText = reject_reason ? ` Reason: "${reject_reason}"` : '';
         await createNotification({
             title: 'PO Item Close Request Rejected',
-            message: `Your close request for ${validIds.length} item(s) on ${poData.po_number} was rejected by PPIC.${reasonText}`,
+            message: `Your close request for ${validIds.length} item(s) on ${poData.po_number} was rejected by PPIC.`,
             recipientType: 'CUSTOMER',
             recipientId: poData.customer_id,
             senderType: 'EMPLOYEE',

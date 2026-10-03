@@ -157,14 +157,13 @@ export const approveClosePoDetailsApi = async (poHeaderId, poDetailIds, approved
 };
 
 // 3. PPIC menolak pengajuan penutupan detail item
-export const rejectClosePoDetailsApi = async (poHeaderId, poDetailIds, rejectReason, rejectedBy) => {
+export const rejectClosePoDetailsApi = async (poHeaderId, poDetailIds, rejectedBy) => {
     const res = await fetch(`${API_BASE_URL}/po/details/reject-close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             po_header_id: poHeaderId,
             po_detail_ids: poDetailIds,
-            reject_reason: rejectReason,
             rejected_by: rejectedBy
         })
     });

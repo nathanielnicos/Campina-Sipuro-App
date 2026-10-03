@@ -15,7 +15,7 @@ import ProfilePage from './components/profile/ProfilePage';
 
 import Login from './components/auth/Login';
 import Navbar from './components/navigation/Navbar';
-import NotificationBanner from './components/navigation/NotificationBanner';
+import GlobalNotificationBanner from './components/navigation/GlobalNotificationBanner';
 import { markAllAsRead } from './services/notificationApi';
 import { getNavItemsByUser } from './config/navigationConfig';
 
@@ -33,8 +33,9 @@ function MainApp() {
   const { showAlert } = useGlobalModal();
 
   // Global banner states
-  const [showPoBanner, setShowPoBanner] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
   const [bannerMessage, setBannerMessage] = useState('');
+  const [bannerTargetLink, setBannerTargetLink] = useState(null);
 
   // Membungkus getDefaultTab dalam useCallback agar aman dijadikan dependency
   const getDefaultTab = useCallback((userData) => {
@@ -127,7 +128,7 @@ function MainApp() {
   };
 
   const handleBannerRefresh = async () => {
-    setShowPoBanner(false);
+    setShowBanner(false);
 
     // Tandai semua notifikasi milik role/user sebagai dibaca saat menekan tombol banner
     if (user) {
@@ -140,7 +141,16 @@ function MainApp() {
       }
     }
 
-    setActiveTab('po-list');
+    // Arahkan tab sesuai target link notifikasi (jika ada)
+    if (bannerTargetLink) {
+      const cleanedTab = bannerTargetLink.replace(/^\/+|\/+$/g, '');
+      if (cleanedTab) {
+        setActiveTab(cleanedTab);
+      }
+    } else {
+      setActiveTab('po-list'); // Fallback jika tidak ada link spesifik
+    }
+
     setRefreshKey((prev) => prev + 1);
   };
 
@@ -155,15 +165,16 @@ function MainApp() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogout={handleLogout}
-        setShowPoBanner={(status, message) => {
-          setShowPoBanner(status);
+        setShowBanner={(status, message, link) => {
+          setShowBanner(status);
           if (message) setBannerMessage(message);
+          setBannerTargetLink(link || null);
         }}
       />
 
       {/* Global Notification Banner */}
-      <NotificationBanner
-        show={showPoBanner}
+      <GlobalNotificationBanner
+        show={showBanner}
         message={bannerMessage}
         onRefresh={handleBannerRefresh}
       />
