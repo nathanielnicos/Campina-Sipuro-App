@@ -1,27 +1,31 @@
 import { useState, useEffect, useRef } from 'react';
-import { getUnreadCount, getNotifications, markAllAsRead } from '../../services/notificationApi';
-import { getNavItemsByUser } from '../../config/navigationConfig';
+import { useNavigate } from 'react-router-dom';
+import { getUnreadCount, getNotifications, markAsRead, markAllAsRead } from '../../services/notificationApi';
 import useOnClickOutside from '../../hooks/useOnClickOutside';
 
-export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowBanner }) => {
+export const useNotifications = ({ user, onNewPoDetected, setShowBanner }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [hoveredId, setHoveredId] = useState(null);
+
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+
     const dropdownRef = useRef(null);
+    const navigate = useNavigate();
 
     const userRole = user?.role;
     const userId = user?.id;
     const userDepartment = user?.department;
 
-    // Click Outside Listener menggunakan custom hook useOnClickOutside
     useOnClickOutside(dropdownRef, () => {
         if (isOpen) {
             setIsOpen(false);
         }
     });
 
-    // Polling & Visibility Listener
     useEffect(() => {
         const fetchNotificationData = async () => {
             if (document.hidden) return;
@@ -31,19 +35,17 @@ export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowB
                 const currentCount = countRes?.count || 0;
 
                 if (currentCount > unreadCount && onNewPoDetected) {
-                    const listRes = await getNotifications(userRole, userId, userDepartment);
+                    const listRes = await getNotifications(userRole, userId, userDepartment, 1, 10);
                     const latestNotif = listRes?.data?.[0];
-                    onNewPoDetected({
-                        message: latestNotif?.message || 'There is a new update available.',
-                        link: latestNotif?.link || null
-                    });
+                    onNewPoDetected(latestNotif);
                 }
 
                 setUnreadCount(currentCount);
 
-                if (isOpen) {
-                    const listRes = await getNotifications(userRole, userId, userDepartment);
+                if (isOpen && page === 1) {
+                    const listRes = await getNotifications(userRole, userId, userDepartment, 1, 10);
                     setNotifications(listRes?.data || []);
+                    setHasMore(listRes?.pagination?.hasMore || false);
                 }
             } catch (error) {
                 console.error('Error polling notification:', error);
@@ -62,58 +64,75 @@ export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowB
             clearInterval(interval);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [isOpen, unreadCount, onNewPoDetected, userRole, userId, userDepartment]);
+    }, [isOpen, page, unreadCount, onNewPoDetected, userRole, userId, userDepartment]);
 
-    // Toggle Dropdown Menu
     const toggleDropdown = async () => {
         const nextState = !isOpen;
         setIsOpen(nextState);
         if (nextState) {
             try {
-                const listRes = await getNotifications(userRole, userId, userDepartment);
+                setPage(1);
+                const listRes = await getNotifications(userRole, userId, userDepartment, 1, 10);
                 setNotifications(listRes?.data || []);
+                setHasMore(listRes?.pagination?.hasMore || false);
             } catch (err) {
                 console.error(err);
             }
         }
     };
 
-    // Handle Click Notification Item
+    const handleLoadMore = async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        const nextPage = page + 1;
+        try {
+            const listRes = await getNotifications(userRole, userId, userDepartment, nextPage, 10);
+            const newItems = listRes?.data || [];
+            setNotifications((prev) => [...prev, ...newItems]);
+            setPage(nextPage);
+            setHasMore(listRes?.pagination?.hasMore || false);
+        } catch (err) {
+            console.error('Failed to load more notifications:', err);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
     const handleItemClick = async (item) => {
-        if (setShowBanner) {
-            setShowBanner(false);
+        if (setShowBanner) setShowBanner(false);
+
+        if (!item.is_read) {
+            setUnreadCount((prev) => Math.max(0, prev - 1));
+            setNotifications((prev) =>
+                prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n))
+            );
+            try {
+                await markAsRead(item.id);
+            } catch (err) {
+                console.error('Failed to mark item as read:', err);
+            }
         }
 
+        if (item.link) {
+            const urlParts = item.link.split('?');
+            const pathPart = urlParts[0].startsWith('/') ? urlParts[0] : `/${urlParts[0]}`;
+            const queryString = urlParts[1] ? `?${urlParts[1]}` : '';
+
+            navigate(`${pathPart}${queryString}`);
+        }
+
+        setIsOpen(false);
+    };
+
+    const handleMarkAllAsRead = async () => {
         setUnreadCount(0);
-        setNotifications((prev) =>
-            prev.map((n) => ({ ...n, is_read: true }))
-        );
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
 
         try {
             await markAllAsRead(userRole, userId, userDepartment);
         } catch (err) {
-            console.error('Failed to mark all as read from backend:', err);
+            console.error('Failed to mark all as read:', err);
         }
-
-        let targetTab = null;
-
-        if (item.link) {
-            const cleanedLink = item.link.replace(/^\//, '');
-            if (cleanedLink) targetTab = cleanedLink;
-        }
-
-        if (!targetTab) {
-            const roleMenus = getNavItemsByUser(user);
-            if (roleMenus.length > 0) {
-                targetTab = roleMenus[0].id;
-            }
-        }
-
-        if (targetTab && setActiveTab) {
-            setActiveTab(targetTab);
-        }
-
-        setIsOpen(false);
     };
 
     return {
@@ -121,9 +140,13 @@ export const useNotifications = ({ user, onNewPoDetected, setActiveTab, setShowB
         notifications,
         isOpen,
         hoveredId,
+        hasMore,
+        loadingMore,
         setHoveredId,
         dropdownRef,
         toggleDropdown,
-        handleItemClick
+        handleItemClick,
+        handleLoadMore,
+        handleMarkAllAsRead
     };
 };

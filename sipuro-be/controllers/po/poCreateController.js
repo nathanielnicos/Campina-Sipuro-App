@@ -167,7 +167,7 @@ exports.createPO = async (req, res) => {
                 recipientDepartment: 'PPIC',
                 senderType: 'CUSTOMER',
                 senderId: customer_id,
-                link: '/po-list'
+                link: '/po-list?search=' + encodeURIComponent(poNumber)
             });
         }
 

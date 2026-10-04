@@ -1,29 +1,35 @@
+import { useNavigate, useLocation } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import { getNavItemsByUser } from '../../config/navigationConfig';
 
-const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowBanner }) => {
-    const getButtonStyle = (tabName) => ({
-        padding: '8px 16px',
-        textAlign: 'center',
-        cursor: 'pointer',
-        backgroundColor: activeTab === tabName ? '#3b82f6' : '#334155',
-        color: activeTab === tabName ? '#ffffff' : '#94a3b8',
-        border: 'none',
-        borderRadius: '8px',
-        fontWeight: 'bold',
-        fontSize: '13px',
-        whiteSpace: 'nowrap',
-        flexShrink: 0,
-        transition: 'all 0.2s'
-    });
+const Navbar = ({ user, onLogout, setShowBanner }) => {
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const userMenu = getNavItemsByUser(user);
     const displayName = user?.name || 'No Name';
     const displayCode = user?.code || 'No Code';
 
+    const getButtonStyle = (path) => {
+        const isActive = location.pathname === path;
+        return {
+            padding: '8px 16px',
+            textAlign: 'center',
+            cursor: 'pointer',
+            backgroundColor: isActive ? '#3b82f6' : '#334155',
+            color: isActive ? '#ffffff' : '#94a3b8',
+            border: 'none',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            fontSize: '13px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            transition: 'all 0.2s'
+        };
+    };
+
     return (
         <div style={styles.container}>
-            {/* Tag style bawaan untuk menyembunyikan scrollbar di Firefox, IE/Edge, & Webkit (Chrome/Safari) */}
             <style>
                 {`
                     .hide-scrollbar::-webkit-scrollbar {
@@ -36,15 +42,14 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowBanner }) => {
                 `}
             </style>
 
-            {/* Wrapper utama menu dengan efek Gradient Fade Mask di sisi kanan */}
             <div style={styles.menuWrapperWithFade}>
                 <div className="hide-scrollbar" style={styles.menuScrollContainer}>
                     {userMenu.map((menu) => (
                         <button
                             key={menu.id}
                             type="button"
-                            onClick={() => setActiveTab(menu.id)}
-                            style={getButtonStyle(menu.id)}
+                            onClick={() => navigate(menu.path)}
+                            style={getButtonStyle(menu.path)}
                         >
                             {menu.label}
                         </button>
@@ -52,25 +57,20 @@ const Navbar = ({ user, activeTab, setActiveTab, onLogout, setShowBanner }) => {
                 </div>
             </div>
 
-            {/* Area Profil, Notifikasi, & Logout (Fixed/Terpisah di Sisi Kanan) */}
             <div style={styles.rightActionArea}>
                 <NotificationBell
                     user={user}
-                    setActiveTab={setActiveTab}
                     setShowBanner={setShowBanner}
-                    onNewPoDetected={(notifData) => {
+                    onNewPoDetected={(notif) => {
                         if (setShowBanner) {
-                            // Menyeleksi apakah notifData berupa objek atau string
-                            const message = typeof notifData === 'object' ? notifData.message : notifData;
-                            const link = typeof notifData === 'object' ? notifData.link : null;
-                            setShowBanner(true, message, link);
+                            setShowBanner(true, notif);
                         }
                     }}
                 />
 
                 <div
                     style={{ ...styles.userInfo, cursor: 'pointer' }}
-                    onClick={() => setActiveTab('profile')}
+                    onClick={() => navigate('/profile')}
                     title="Click to view profile"
                 >
                     <strong>{displayName}</strong><br />
@@ -98,13 +98,12 @@ const styles = {
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
         gap: '16px',
         position: 'relative',
-        overflow: 'visible' // Memastikan popover/balon tidak terpotong
+        overflow: 'visible'
     },
     menuWrapperWithFade: {
         flex: 1,
         minWidth: 0,
         position: 'relative',
-        // Masking efek fade transparan di ujung kanan menu
         WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%)',
         maskImage: 'linear-gradient(to right, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%)'
     },
@@ -122,7 +121,7 @@ const styles = {
         gap: '16px',
         flexShrink: 0,
         position: 'relative',
-        zIndex: 50 // Memastikan area kanan & balon notifikasi melayang di atas konten lain
+        zIndex: 50
     },
     userInfo: { fontSize: '13px', textAlign: 'right' },
     userCode: { color: '#94a3b8', fontSize: '12px' },

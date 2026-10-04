@@ -156,7 +156,7 @@ async function checkPoVsProductionPlan() {
                 recipientType: 'CUSTOMER',
                 recipientId: Number(customerId),
                 senderType: 'SYSTEM',
-                link: '/po-requirement'
+                link: null
             });
 
             sentEmailCount++;

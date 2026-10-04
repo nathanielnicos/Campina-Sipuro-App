@@ -189,7 +189,7 @@ exports.createDraftPO = async (req, res) => {
             recipientId: customer_id,
             senderType: 'EMPLOYEE',
             senderId: created_by || null,
-            link: '/po-list'
+            link: '/po-list?search=' + encodeURIComponent(poNumber)
         });
 
         res.json({

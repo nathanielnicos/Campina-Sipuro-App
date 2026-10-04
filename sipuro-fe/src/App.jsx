@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import POPage from './components/po/page/POPage';
 import DetailModal from './components/po/detail-modal/DetailModal';
 import BatchPage from './components/batch/page/BatchPage';
@@ -16,49 +17,23 @@ import ProfilePage from './components/profile/ProfilePage';
 import Login from './components/auth/Login';
 import Navbar from './components/navigation/Navbar';
 import GlobalNotificationBanner from './components/navigation/GlobalNotificationBanner';
-import { markAllAsRead } from './services/notificationApi';
+import { markAsRead } from './services/notificationApi';
 import { getNavItemsByUser } from './config/navigationConfig';
 
-// Import ModalProvider & custom hook-nya
 import { ModalProvider, useGlobalModal } from './context/ModalContext';
 
 function MainApp() {
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('po-list');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPoId, setSelectedPoId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Akses showAlert dari Global Modal Context
+  const navigate = useNavigate();
+
   const { showAlert } = useGlobalModal();
 
-  // Global banner states
   const [showBanner, setShowBanner] = useState(false);
-  const [bannerMessage, setBannerMessage] = useState('');
-  const [bannerTargetLink, setBannerTargetLink] = useState(null);
-
-  // Membungkus getDefaultTab dalam useCallback agar aman dijadikan dependency
-  const getDefaultTab = useCallback((userData) => {
-    if (!userData) return 'po-list';
-    const userMenus = getNavItemsByUser(userData);
-    return userMenus && userMenus.length > 0 ? userMenus[0].id : 'po-list';
-  }, []);
-
-  // Membaca path dari URL browser (misal: /po-list)
-  const getInitialTab = useCallback((userData) => {
-    const path = window.location.pathname.replace(/^\/+|\/+$/g, ''); // Menghapus tanda '/'
-
-    // Jika path di URL cocok dengan tab yang valid
-    if (path === 'po-list') return 'po-list';
-    if (path === 'delivery-order') return 'delivery-order';
-    if (path === 'ppic-dashboard') return 'ppic-dashboard';
-    if (path === 'ppic-batch') return 'ppic-batch';
-    if (path === 'ppic-production-schedule') return 'ppic-production-schedule';
-    if (path === 'profile') return 'profile';
-
-    // Jika tidak ada di URL, gunakan tab pertama sesuai role user
-    return getDefaultTab(userData);
-  }, [getDefaultTab]);
+  const [bannerNotif, setBannerNotif] = useState(null);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('sipuro_user');
@@ -66,25 +41,22 @@ function MainApp() {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
-        // Ganti getDefaultTab dengan getInitialTab
-        setActiveTab(getInitialTab(parsedUser));
       } catch (e) {
         console.error('Failed to parse saved user:', e);
       }
     }
-  }, [getInitialTab]);
+  }, []);
 
-  // Mengupdate URL di address bar browser saat activeTab berubah
-  useEffect(() => {
-    if (user && activeTab) {
-      window.history.pushState(null, '', `/${activeTab}`);
-    }
-  }, [activeTab, user]);
+  const getDefaultPath = (userData) => {
+    if (!userData) return '/po-list';
+    const userMenus = getNavItemsByUser(userData);
+    return userMenus && userMenus.length > 0 ? userMenus[0].path : '/po-list';
+  };
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem('sipuro_user', JSON.stringify(userData));
-    setActiveTab(getDefaultTab(userData));
+    navigate(getDefaultPath(userData));
   };
 
   const handleUserUpdated = (updatedUserData) => {
@@ -96,6 +68,7 @@ function MainApp() {
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('sipuro_user');
+    navigate('/login');
   };
 
   const handleOpenCreate = () => {
@@ -130,25 +103,23 @@ function MainApp() {
   const handleBannerRefresh = async () => {
     setShowBanner(false);
 
-    // Tandai semua notifikasi milik role/user sebagai dibaca saat menekan tombol banner
-    if (user) {
+    // Tandai hanya notifikasi banner ini yang dibaca jika ID-nya ada
+    if (bannerNotif?.id) {
       try {
-        const userId = user?.id;
-        const userDepartment = user?.department;
-        await markAllAsRead(user.role, userId, userDepartment);
+        await markAsRead(bannerNotif.id);
       } catch (err) {
-        console.error('Failed to mark all as read from banner:', err);
+        console.error('Failed to mark notification as read from banner:', err);
       }
     }
 
-    // Arahkan tab sesuai target link notifikasi (jika ada)
-    if (bannerTargetLink) {
-      const cleanedTab = bannerTargetLink.replace(/^\/+|\/+$/g, '');
-      if (cleanedTab) {
-        setActiveTab(cleanedTab);
-      }
-    } else {
-      setActiveTab('po-list'); // Fallback jika tidak ada link spesifik
+    // Navigasi dengan aman menggunakan Optional Chaining (?.)
+    if (bannerNotif?.link) {
+      // Mendukung link relatif/query string yang sama seperti di handleItemClick
+      const urlParts = bannerNotif.link.split('?');
+      const pathPart = urlParts[0].startsWith('/') ? urlParts[0] : `/${urlParts[0]}`;
+      const queryString = urlParts[1] ? `?${urlParts[1]}` : '';
+
+      navigate(`${pathPart}${queryString}`);
     }
 
     setRefreshKey((prev) => prev + 1);
@@ -158,53 +129,52 @@ function MainApp() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
+  const defaultRedirect = getDefaultPath(user);
+
   return (
     <div className="App" style={{ padding: '20px' }}>
       <Navbar
         user={user}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         onLogout={handleLogout}
-        setShowBanner={(status, message, link) => {
+        setShowBanner={(status, notif) => {
           setShowBanner(status);
-          if (message) setBannerMessage(message);
-          setBannerTargetLink(link || null);
+          if (notif) setBannerNotif(notif);
         }}
       />
 
-      {/* Global Notification Banner */}
       <GlobalNotificationBanner
         show={showBanner}
-        message={bannerMessage}
+        message={bannerNotif?.message || 'There is new notification.'}
         onRefresh={handleBannerRefresh}
       />
 
-      {activeTab === 'sa-employees' && <EmployeeListPage />}
-      {activeTab === 'sa-customers' && <CustomerUserListPage />}
-      {activeTab === 'sa-products' && <ProductListPage />}
-      {activeTab === 'sa-prices' && <PriceListPage />}
+      <Routes>
+        <Route path="/" element={<Navigate to={defaultRedirect} replace />} />
+        <Route path="/po-list" element={
+          <POPage
+            key={refreshKey}
+            customerId={user.role === 'CUSTOMER' ? user.customer_id : null}
+            user={user}
+            onCreateNewPO={handleOpenCreate}
+            onSelectPODetail={handleSelectPODetail}
+          />
+        } />
+        <Route path="/ppic-dashboard" element={<Dashboard />} />
+        <Route path="/ppic-batch" element={<BatchPage currentUser={user} />} />
+        <Route path="/ppic-production-schedule" element={<ProductionSchedulePage />} />
+        <Route path="/delivery-order" element={<DOPage />} />
 
-      {activeTab === 'ppic-dashboard' && <Dashboard />}
-      {activeTab === 'ppic-batch' && <BatchPage currentUser={user} />}
-      {activeTab === 'ppic-production-schedule' && <ProductionSchedulePage />}
-      {activeTab === 'delivery-order' && <DOPage />}
+        <Route path="/sa-employees" element={<EmployeeListPage />} />
+        <Route path="/sa-customers" element={<CustomerUserListPage />} />
+        <Route path="/sa-products" element={<ProductListPage />} />
+        <Route path="/sa-prices" element={<PriceListPage />} />
 
-      {activeTab === 'po-list' && (
-        <POPage
-          key={refreshKey}
-          customerId={user.role === 'CUSTOMER' ? user.customer_id : null}
-          user={user}
-          onCreateNewPO={handleOpenCreate}
-          onSelectPODetail={handleSelectPODetail}
-        />
-      )}
+        <Route path="/profile" element={
+          <ProfilePage currentUser={user} onUserUpdated={handleUserUpdated} />
+        } />
 
-      {activeTab === 'profile' && (
-        <ProfilePage
-          currentUser={user}
-          onUserUpdated={handleUserUpdated}
-        />
-      )}
+        <Route path="*" element={<Navigate to={defaultRedirect} replace />} />
+      </Routes>
 
       {showCreateModal && (
         <DetailModal
@@ -218,13 +188,10 @@ function MainApp() {
   );
 }
 
-// Wrapper utama dengan ModalProvider
-function App() {
+export default function App() {
   return (
     <ModalProvider>
       <MainApp />
     </ModalProvider>
   );
 }
-
-export default App;

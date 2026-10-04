@@ -1,17 +1,21 @@
 import { useNotifications } from '../../hooks/notification/useNotifications';
 import { formatDateTime } from '../../utils/dateHelper';
 
-const NotificationBell = ({ onNewPoDetected, user, setActiveTab, setShowBanner }) => {
+const NotificationBell = ({ onNewPoDetected, user, setShowBanner }) => {
     const {
         unreadCount,
         notifications,
         isOpen,
         hoveredId,
+        hasMore,
+        loadingMore,
         setHoveredId,
         dropdownRef,
         toggleDropdown,
-        handleItemClick
-    } = useNotifications({ user, onNewPoDetected, setActiveTab, setShowBanner });
+        handleItemClick,
+        handleLoadMore,
+        handleMarkAllAsRead
+    } = useNotifications({ user, onNewPoDetected, setShowBanner });
 
     return (
         <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
@@ -76,11 +80,25 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab, setShowBanner }
                         alignItems: 'center'
                     }}>
                         <span>Notifications</span>
-                        {unreadCount > 0 && (
-                            <span style={{ fontSize: '11px', backgroundColor: '#eff6ff', color: '#3b82f6', padding: '2px 8px', borderRadius: '12px' }}>
-                                {unreadCount} new
-                            </span>
-                        )}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            {unreadCount > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleMarkAllAsRead}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#3b82f6',
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        fontWeight: '600',
+                                        padding: 0
+                                    }}
+                                >
+                                    Mark all as read
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
@@ -89,65 +107,87 @@ const NotificationBell = ({ onNewPoDetected, user, setActiveTab, setShowBanner }
                                 No notifications available.
                             </div>
                         ) : (
-                            notifications.map((item) => {
-                                const isHovered = hoveredId === item.id;
-                                return (
-                                    <div
-                                        key={item.id}
-                                        onClick={() => handleItemClick(item)}
-                                        onMouseEnter={() => setHoveredId(item.id)}
-                                        onMouseLeave={() => setHoveredId(null)}
-                                        style={{
-                                            padding: '12px 16px',
-                                            borderBottom: '1px solid #f8fafc',
-                                            backgroundColor: isHovered
-                                                ? '#f1f5f9'
-                                                : item.is_read ? '#ffffff' : '#f8fafc',
-                                            cursor: 'pointer',
-                                            transition: 'background-color 0.15s ease',
-                                            display: 'flex',
-                                            gap: '10px',
-                                            alignItems: 'flex-start'
-                                        }}
-                                    >
-                                        <div style={{ width: '8px', paddingTop: '4px' }}>
-                                            {!item.is_read && (
-                                                <span style={{
-                                                    display: 'inline-block',
-                                                    width: '7px',
-                                                    height: '7px',
-                                                    backgroundColor: '#3b82f6',
-                                                    borderRadius: '50%'
-                                                }} />
-                                            )}
-                                        </div>
-
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{
+                            <>
+                                {notifications.map((item) => {
+                                    const isHovered = hoveredId === item.id;
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            onClick={() => handleItemClick(item)}
+                                            onMouseEnter={() => setHoveredId(item.id)}
+                                            onMouseLeave={() => setHoveredId(null)}
+                                            style={{
+                                                padding: '12px 16px',
+                                                borderBottom: '1px solid #f8fafc',
+                                                backgroundColor: isHovered
+                                                    ? '#f1f5f9'
+                                                    : item.is_read ? '#ffffff' : '#f8fafc',
+                                                cursor: 'pointer',
+                                                transition: 'background-color 0.15s ease',
                                                 display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'baseline',
-                                                marginBottom: '2px'
-                                            }}>
-                                                <span style={{
-                                                    fontWeight: item.is_read ? '600' : '700',
-                                                    color: '#1e293b',
-                                                    fontSize: '13px'
-                                                }}>
-                                                    {item.title}
-                                                </span>
-                                                <span style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap', marginLeft: '8px' }}>
-                                                    {formatDateTime(item.created_at)}
-                                                </span>
+                                                gap: '10px',
+                                                alignItems: 'flex-start'
+                                            }}
+                                        >
+                                            <div style={{ width: '8px', paddingTop: '4px' }}>
+                                                {!item.is_read && (
+                                                    <span style={{
+                                                        display: 'inline-block',
+                                                        width: '7px',
+                                                        height: '7px',
+                                                        backgroundColor: '#3b82f6',
+                                                        borderRadius: '50%'
+                                                    }} />
+                                                )}
                                             </div>
 
-                                            <div style={{ color: '#64748b', fontSize: '12px', lineHeight: '1.4' }}>
-                                                {item.message}
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'baseline',
+                                                    marginBottom: '2px'
+                                                }}>
+                                                    <span style={{
+                                                        fontWeight: item.is_read ? '600' : '700',
+                                                        color: '#1e293b',
+                                                        fontSize: '13px'
+                                                    }}>
+                                                        {item.title}
+                                                    </span>
+                                                    <span style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                                                        {formatDateTime(item.created_at)}
+                                                    </span>
+                                                </div>
+
+                                                <div style={{ color: '#64748b', fontSize: '12px', lineHeight: '1.4' }}>
+                                                    {item.message}
+                                                </div>
                                             </div>
                                         </div>
+                                    );
+                                })}
+
+                                {hasMore && (
+                                    <div style={{ padding: '10px', textAlign: 'center', borderTop: '1px solid #f1f5f9' }}>
+                                        <button
+                                            type="button"
+                                            onClick={handleLoadMore}
+                                            disabled={loadingMore}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: '#3b82f6',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold',
+                                                cursor: loadingMore ? 'not-allowed' : 'pointer'
+                                            }}
+                                        >
+                                            {loadingMore ? 'Loading...' : 'Load More (+10)'}
+                                        </button>
                                     </div>
-                                );
-                            })
+                                )}
+                            </>
                         )}
                     </div>
                 </div>

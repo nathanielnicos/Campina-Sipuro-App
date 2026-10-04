@@ -35,11 +35,12 @@ exports.requestClosePoDetails = async (req, res) => {
         }
         const poData = headerRows[0];
 
-        // 2. Ambil detail item yang valid (Status 'Active' dan belum soft delete)
+        // 2. Ambil detail item yang valid beserta nama & kode produk (Status 'Active' dan belum soft delete)
         const [validDetails] = await connection.query(
-            `SELECT po_detail_id, id_product, qty, base_qty, fulfilled_qty, total_price, status 
-             FROM sipuro_db.po_details 
-             WHERE po_header_id = ? AND po_detail_id IN (?) AND deleted_at IS NULL AND status = 'Active'`,
+            `SELECT d.po_detail_id, d.id_product, d.qty, d.base_qty, d.fulfilled_qty, d.total_price, d.status, p.product_name, p.product_code
+             FROM sipuro_db.po_details d
+             LEFT JOIN sipuro_db.products p ON d.id_product = p.id_product
+             WHERE d.po_header_id = ? AND d.po_detail_id IN (?) AND d.deleted_at IS NULL AND d.status = 'Active'`,
             [po_header_id, po_detail_ids]
         );
 
@@ -47,7 +48,6 @@ exports.requestClosePoDetails = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No eligible Active items found to request close.' });
         }
 
-        const nowWib = getWibDateTimeString();
         const validIds = validDetails.map(d => d.po_detail_id);
 
         await connection.beginTransaction();
@@ -88,14 +88,18 @@ exports.requestClosePoDetails = async (req, res) => {
         await connection.commit();
 
         // 5. Kirim Notifikasi ke Tim PPIC
+        const targetItem = validDetails[0];
+        const productName = targetItem?.product_name || 'Item';
+        const productCode = targetItem?.product_code || '';
+
         await createNotification({
             title: 'PO Item Close Requested',
-            message: `${poData.company_name || 'Customer'} requested to close ${validIds.length} item(s) on ${poData.po_number}. Reason: "${cleanedReason}"`,
+            message: `${poData.company_name || 'Customer'} requested to close item "${productName}" on ${poData.po_number}. Reason: "${cleanedReason}"`,
             recipientType: 'EMPLOYEE',
             recipientDepartment: 'PPIC',
             senderType: 'CUSTOMER',
             senderId: requested_by || poData.customer_id,
-            link: '/ppic-batch'
+            link: `/ppic-batch?po=${encodeURIComponent(poData.po_number)}&product=${encodeURIComponent(productCode)}`
         });
 
         res.json({
@@ -135,11 +139,12 @@ exports.approveClosePoDetails = async (req, res) => {
         }
         const poData = headerRows[0];
 
-        // 2. Ambil detail item berstatus 'Close Requested'
+        // 2. Ambil detail item beserta nama & kode produk berstatus 'Close Requested'
         const [requestedDetails] = await connection.query(
-            `SELECT po_detail_id, id_product, qty, base_qty, fulfilled_qty, total_price, status 
-             FROM sipuro_db.po_details 
-             WHERE po_header_id = ? AND po_detail_id IN (?) AND deleted_at IS NULL AND status = 'Close Requested'`,
+            `SELECT d.po_detail_id, d.id_product, d.qty, d.base_qty, d.fulfilled_qty, d.total_price, d.status, p.product_name, p.product_code
+             FROM sipuro_db.po_details d
+             LEFT JOIN sipuro_db.products p ON d.id_product = p.id_product
+             WHERE d.po_header_id = ? AND d.po_detail_id IN (?) AND d.deleted_at IS NULL AND d.status = 'Close Requested'`,
             [po_header_id, po_detail_ids]
         );
 
@@ -189,14 +194,18 @@ exports.approveClosePoDetails = async (req, res) => {
         await connection.commit();
 
         // 5. Notifikasi Balik ke Customer
+        const targetItem = requestedDetails[0];
+        const productName = targetItem?.product_name || 'Item';
+        const productCode = targetItem?.product_code || '';
+
         await createNotification({
             title: 'PO Item Close Approved',
-            message: `Your close request for ${requestedDetails.length} item(s) on ${poData.po_number} has been approved by PPIC.`,
+            message: `Your close request for item "${productName}" on ${poData.po_number} has been approved by PPIC.`,
             recipientType: 'CUSTOMER',
             recipientId: poData.customer_id,
             senderType: 'EMPLOYEE',
             senderId: approved_by || null,
-            link: '/ppic-batch'
+            link: `/ppic-batch?po=${encodeURIComponent(poData.po_number)}&product=${encodeURIComponent(productCode)}`
         });
 
         res.json({
@@ -236,11 +245,12 @@ exports.rejectClosePoDetails = async (req, res) => {
         }
         const poData = headerRows[0];
 
-        // 2. Ambil detail item berstatus 'Close Requested'
+        // 2. Ambil detail item beserta nama & kode produk berstatus 'Close Requested'
         const [requestedDetails] = await connection.query(
-            `SELECT po_detail_id, id_product, qty, base_qty, total_price, status 
-             FROM sipuro_db.po_details 
-             WHERE po_header_id = ? AND po_detail_id IN (?) AND deleted_at IS NULL AND status = 'Close Requested'`,
+            `SELECT d.po_detail_id, d.id_product, d.qty, d.base_qty, d.total_price, d.status, p.product_name, p.product_code
+             FROM sipuro_db.po_details d
+             LEFT JOIN sipuro_db.products p ON d.id_product = p.id_product
+             WHERE d.po_header_id = ? AND d.po_detail_id IN (?) AND d.deleted_at IS NULL AND d.status = 'Close Requested'`,
             [po_header_id, po_detail_ids]
         );
 
@@ -286,14 +296,18 @@ exports.rejectClosePoDetails = async (req, res) => {
         await connection.commit();
 
         // 5. Notifikasi Penolakan ke Customer
+        const targetItem = requestedDetails[0];
+        const productName = targetItem?.product_name || 'Item';
+        const productCode = targetItem?.product_code || '';
+
         await createNotification({
             title: 'PO Item Close Request Rejected',
-            message: `Your close request for ${validIds.length} item(s) on ${poData.po_number} was rejected by PPIC.`,
+            message: `Your close request for item "${productName}" on ${poData.po_number} was rejected by PPIC.`,
             recipientType: 'CUSTOMER',
             recipientId: poData.customer_id,
             senderType: 'EMPLOYEE',
             senderId: rejected_by || null,
-            link: '/ppic-batch'
+            link: `/ppic-batch?po=${encodeURIComponent(poData.po_number)}&product=${encodeURIComponent(productCode)}`
         });
 
         res.json({

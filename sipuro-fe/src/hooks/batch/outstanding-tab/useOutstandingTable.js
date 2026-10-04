@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { fetchOutstandingSummary } from '../../../services/batchApi';
 import {
     requestClosePoDetailsApi,
@@ -14,8 +15,13 @@ export const useOutstandingTable = (reloadTrigger, currentUser) => {
     const [successMessage, setSuccessMessage] = useState('');
 
     // State Filter & Sorting
-    const [searchProduct, setSearchProduct] = useState('');
-    const [searchPo, setSearchPo] = useState('');
+    const [searchParams] = useSearchParams();
+
+    const initialProduct = searchParams.get('product') || '';
+    const initialPo = searchParams.get('po') || searchParams.get('search') || '';
+
+    const [searchProduct, setSearchProduct] = useState(initialProduct);
+    const [searchPo, setSearchPo] = useState(initialPo);
     const [fromCreatedDate, setFromCreatedDate] = useState('');
     const [toCreatedDate, setToCreatedDate] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -87,6 +93,15 @@ export const useOutstandingTable = (reloadTrigger, currentUser) => {
     useEffect(() => {
         loadData();
     }, [loadData, reloadTrigger]);
+
+    // Sinkronisasi jika query URL berubah saat halaman Outstanding sedang aktif
+    useEffect(() => {
+        const urlProduct = searchParams.get('product') || '';
+        const urlPo = searchParams.get('po') || searchParams.get('search') || '';
+
+        setSearchProduct(prev => (prev !== urlProduct ? urlProduct : prev));
+        setSearchPo(prev => (prev !== urlPo ? urlPo : prev));
+    }, [searchParams]);
 
     // Handlers Filter Input
     const handleProductChange = (e) => {

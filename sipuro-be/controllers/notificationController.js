@@ -38,14 +38,20 @@ exports.getUnreadCount = async (req, res) => {
     }
 };
 
-// Mengambil 10 notifikasi terbaru
+// Mengambil notifikasi terbaru dengan dukungan pagination / load more
 exports.getNotifications = async (req, res) => {
     try {
         const { role, userId, department } = req.query;
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
         const isCustomer = role && role.toLowerCase() === 'customer';
 
         let query = '';
+        let countQuery = '';
         let params = [];
+        let countParams = [];
 
         if (isCustomer) {
             query = `
@@ -54,9 +60,17 @@ exports.getNotifications = async (req, res) => {
                 WHERE recipient_type = 'CUSTOMER' 
                   AND recipient_id = ?
                 ORDER BY created_at DESC 
-                LIMIT 10
+                LIMIT ? OFFSET ?
             `;
-            params = [userId];
+            params = [userId, limit, offset];
+
+            countQuery = `
+                SELECT COUNT(*) AS total 
+                FROM sipuro_db.notifications 
+                WHERE recipient_type = 'CUSTOMER' 
+                  AND recipient_id = ?
+            `;
+            countParams = [userId];
         } else {
             const cleanDepartment = department ? department.trim() : null;
 
@@ -66,13 +80,34 @@ exports.getNotifications = async (req, res) => {
                 WHERE recipient_type = 'EMPLOYEE' 
                 AND (recipient_id = ? OR recipient_department = ?)
                 ORDER BY created_at DESC 
-                LIMIT 10
+                LIMIT ? OFFSET ?
             `;
-            params = [userId, cleanDepartment];
+            params = [userId, cleanDepartment, limit, offset];
+
+            countQuery = `
+                SELECT COUNT(*) AS total 
+                FROM sipuro_db.notifications 
+                WHERE recipient_type = 'EMPLOYEE' 
+                AND (recipient_id = ? OR recipient_department = ?)
+            `;
+            countParams = [userId, cleanDepartment];
         }
 
         const [rows] = await sipuroDb.query(query, params);
-        return res.json({ data: rows });
+        const [countRows] = await sipuroDb.query(countQuery, countParams);
+
+        const totalData = countRows[0].total;
+        const hasMore = offset + rows.length < totalData;
+
+        return res.json({
+            data: rows,
+            pagination: {
+                page,
+                limit,
+                totalData,
+                hasMore
+            }
+        });
     } catch (error) {
         return res.status(500).json({ message: 'Server error', error: error.message });
     }

@@ -13,11 +13,13 @@ export const getUnreadCount = async (role, userId, department) => {
     return await res.json();
 };
 
-export const getNotifications = async (role, userId, department) => {
+export const getNotifications = async (role, userId, department, page = 1, limit = 10) => {
     const params = new URLSearchParams();
     if (role) params.append('role', role);
     if (userId) params.append('userId', userId);
     if (department) params.append('department', department);
+    params.append('page', page);
+    params.append('limit', limit);
 
     const query = params.toString() ? `?${params.toString()}` : '';
     const res = await fetch(`${BASE_URL}${query}`);
