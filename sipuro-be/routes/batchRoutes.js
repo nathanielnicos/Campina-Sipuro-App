@@ -11,6 +11,7 @@ router.get('/outstanding-summary', batchController.getOutstandingSummary);
 router.get('/batch-mapping', batchController.getAllocatedBatchMapping);
 
 // 2. RUTE DINAMIS (GET dengan Parameter)
+router.get('/allocation-logs/:allocationId', batchController.getAllocationHistory);
 
 // 3. RUTE ACTION / MUTASI (POST)
 router.post('/production/preview', upload.single('file'), batchController.previewExcelUpload);

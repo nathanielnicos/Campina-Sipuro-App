@@ -24,7 +24,24 @@ exports.updateAllocationQty = async (req, res) => {
         const { newAllocatedQty, reason, userId: bodyUserId } = req.body;
         const userId = bodyUserId || (req.user ? req.user.id : null);
 
-        if (newAllocatedQty === undefined || newAllocatedQty === null || isNaN(newAllocatedQty) || Number(newAllocatedQty) < 0) {
+        // Validasi allocationId
+        if (!allocationId || isNaN(allocationId)) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: 'A valid Allocation ID is required.'
+            });
+        }
+
+        // Validasi newAllocatedQty yang lebih ketat
+        if (
+            newAllocatedQty === undefined ||
+            newAllocatedQty === null ||
+            typeof newAllocatedQty === 'boolean' ||
+            String(newAllocatedQty).trim() === '' ||
+            isNaN(newAllocatedQty) ||
+            Number(newAllocatedQty) < 0
+        ) {
             await connection.rollback();
             return res.status(400).json({
                 success: false,
@@ -60,6 +77,7 @@ exports.updateAllocationQty = async (req, res) => {
         const oldAllocatedQty = Number(allocation.allocated_qty) || 0;
         const currentStatus = allocation.allocation_status;
 
+        // Cegah perubahan jika alokasi sudah Canceled
         if (currentStatus === 'Canceled') {
             await connection.rollback();
             return res.status(400).json({
@@ -79,7 +97,17 @@ exports.updateAllocationQty = async (req, res) => {
         const newTotalPoAllocation = totalOthers + parsedNewQty;
         const baseQty = Number(allocation.base_qty) || 0;
 
-        // Status auto evaluation (Ignore if manually Force Closed)
+        // Penjagaan: Mencegah total alokasi melebihi base_qty item PO
+        if (newTotalPoAllocation > baseQty) {
+            await connection.rollback();
+            const maxAllowedForThisAllocation = Math.max(0, baseQty - totalOthers);
+            return res.status(400).json({
+                success: false,
+                message: `Total allocated quantity cannot exceed PO base quantity (${formatThousand(baseQty)}). Maximum allowed for this allocation is ${formatThousand(maxAllowedForThisAllocation)}.`
+            });
+        }
+
+        // Evaluasi ulang status hanya jika status awal adalah 'Open' atau 'Closed'
         let newStatus = currentStatus;
         if (currentStatus === 'Open' || currentStatus === 'Closed') {
             newStatus = newTotalPoAllocation >= baseQty ? 'Closed' : 'Open';
@@ -136,7 +164,7 @@ exports.updateAllocationQty = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Internal server error while updating allocated quantity.',
-            error: error.message
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
         });
     } finally {
         connection.release();

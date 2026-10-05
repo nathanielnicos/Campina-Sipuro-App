@@ -3,10 +3,13 @@ import { formatQty } from '../../../utils/formatters';
 import { formatDate } from '../../../utils/dateHelper';
 
 export const PoViewRows = ({ mappingList, currentUserRole, poTolerance }) => {
+    // Menyesuaikan total kolom berdasarkan role (10 untuk non-customer, 8 untuk customer)
+    const totalCols = currentUserRole === 'CUSTOMER' ? 8 : 10;
+
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>
-                <td colSpan="10" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                <td colSpan={totalCols} style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                     No PO mapping data available.
                 </td>
             </tr>

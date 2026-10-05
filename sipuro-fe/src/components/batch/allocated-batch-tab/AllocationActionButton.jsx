@@ -5,23 +5,28 @@ export const AllocationActionButton = ({
     onForceClose,
     loading
 }) => {
-    if (currentUserRole === 'CUSTOMER' || status !== 'Open' || !allocationId) return '-';
+    // Sembunyikan hanya jika role adalah CUSTOMER
+    if (currentUserRole === 'CUSTOMER') return null;
+
+    const isOpen = status === 'Open' && Boolean(allocationId);
+    const isDisabled = !isOpen || loading;
 
     return (
         <button
             type="button"
-            onClick={() => onForceClose(allocationId)}
-            disabled={loading}
+            onClick={() => isOpen && onForceClose && onForceClose(allocationId)}
+            disabled={isDisabled}
+            title={isOpen ? 'Force Close Allocation' : `Allocation status is ${status || 'Closed'}`}
             style={{
                 padding: '4px 8px',
-                backgroundColor: loading ? '#6c757d' : '#fd7e14',
+                backgroundColor: isDisabled ? '#ced4da' : '#fd7e14',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '4px',
                 fontSize: '11px',
                 fontWeight: 'bold',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.65 : 1
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.65 : isDisabled ? 0.75 : 1
             }}
         >
             {loading ? 'Processing...' : 'Force Close'}

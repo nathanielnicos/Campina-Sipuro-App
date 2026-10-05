@@ -130,3 +130,18 @@ export const updateAllocationQtyApi = async (allocationId, payload) => {
     }
 };
 
+// Fetch Allocation Log History
+export const fetchAllocationLogsApi = async (allocationId, page = 1, limit = 10) => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/batch/allocation-logs/${allocationId}`, {
+            params: { page, limit }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching allocation logs:', error);
+        return {
+            success: false,
+            message: error.response?.data?.message || 'Failed to fetch allocation log history.'
+        };
+    }
+};

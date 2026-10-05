@@ -1,4 +1,7 @@
 const ViewModeSwitcher = ({ viewMode, onViewModeChange, currentUserRole }) => {
+    const isBatchMode = viewMode === 'BATCH' || viewMode === 'BY_BATCH';
+    const isPoMode = viewMode === 'PO' || viewMode === 'BY_PO';
+
     return (
         <div style={{
             display: 'flex',
@@ -24,8 +27,8 @@ const ViewModeSwitcher = ({ viewMode, onViewModeChange, currentUserRole }) => {
                             fontSize: '12px',
                             fontWeight: 'bold',
                             cursor: 'pointer',
-                            backgroundColor: viewMode === 'BATCH' ? '#0d6efd' : 'transparent',
-                            color: viewMode === 'BATCH' ? '#fff' : '#6c757d',
+                            backgroundColor: isBatchMode ? '#0d6efd' : 'transparent',
+                            color: isBatchMode ? '#fff' : '#6c757d',
                             transition: 'all 0.2s'
                         }}
                     >
@@ -42,8 +45,8 @@ const ViewModeSwitcher = ({ viewMode, onViewModeChange, currentUserRole }) => {
                         fontSize: '12px',
                         fontWeight: 'bold',
                         cursor: 'pointer',
-                        backgroundColor: viewMode === 'PO' ? '#0d6efd' : 'transparent',
-                        color: viewMode === 'PO' ? '#fff' : '#6c757d',
+                        backgroundColor: isPoMode ? '#0d6efd' : 'transparent',
+                        color: isPoMode ? '#fff' : '#6c757d',
                         transition: 'all 0.2s'
                     }}
                 >

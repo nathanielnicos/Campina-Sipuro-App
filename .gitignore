@@ -12,3 +12,10 @@
 # Logs & System files
 *.log
 .DS_Store
+
+# Vercel & Cache
+.vercel
+.cache/
+
+# Coverage reports (jika ada unit test)
+coverage/

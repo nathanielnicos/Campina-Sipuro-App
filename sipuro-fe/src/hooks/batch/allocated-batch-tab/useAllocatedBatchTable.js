@@ -1,63 +1,45 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-    fetchBatchMapping,
-    exportBatchExcelApi,
-    updateAllocationStatusApi,
-    updateAllocationQtyApi
-} from '../../../services/batchApi';
+import { fetchBatchMapping, updateAllocationStatusApi } from '../../../services/batchApi';
 import { useGlobalModal } from '../../../context/ModalContext';
-import { formatQty } from '../../../utils/formatters';
 
-export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll) => {
-    // Modal Global Context
+export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll, filterState, viewMode) => {
     const { showConfirm, showAlert } = useGlobalModal();
 
-    // State Data & API
+    // Data State
     const [mappingList, setMappingList] = useState([]);
     const [poTolerance, setPoTolerance] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // State View Mode
-    const [viewMode, setViewMode] = useState(currentUser?.role === 'CUSTOMER' ? 'PO' : 'BATCH');
-
-    // State Filter
-    const [searchQuery, setSearchQuery] = useState('');
-    const [batchStatus, setBatchStatus] = useState('');
-
-    // State Tanggal Range
-    const [fromActualDate, setFromActualDate] = useState('');
-    const [toActualDate, setToActualDate] = useState('');
-    const [fromCreatedDate, setFromCreatedDate] = useState('');
-    const [toCreatedDate, setToCreatedDate] = useState('');
-
-    // State Sorting
+    // Sorting State
     const [sortKey, setSortKey] = useState('');
     const [sortOrder, setSortOrder] = useState('ASC');
 
-    // State Pagination
+    // Pagination State
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
-    const [exporting, setExporting] = useState(false);
+    // Destructure filter values secara individual untuk mencegah infinite re-render
+    const searchQuery = filterState?.searchQuery || '';
+    const batchStatus = filterState?.batchStatus || '';
+    const fromActualDate = filterState?.fromActualDate || '';
+    const toActualDate = filterState?.toActualDate || '';
+    const fromCreatedDate = filterState?.fromCreatedDate || '';
+    const toCreatedDate = filterState?.toCreatedDate || '';
 
-    // --- State Modal Edit Allocated Qty ---
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [selectedAllocation, setSelectedAllocation] = useState(null);
-    const [editLoading, setEditLoading] = useState(false);
-
-    // Fetch Data dari API
     const loadData = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
             const filters = {
                 search: searchQuery,
-                batchStatus,
+                batchStatus: batchStatus,
                 displayMode: viewMode === 'PO' ? 'BY_PO' : 'BY_BATCH',
-                fromActualDate, toActualDate,
-                fromCreatedDate, toCreatedDate,
+                fromActualDate,
+                toActualDate,
+                fromCreatedDate,
+                toCreatedDate,
                 sortKey,
                 sortOrder
             };
@@ -83,36 +65,21 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
             setLoading(false);
         }
     }, [
-        page, limit, searchQuery, batchStatus, viewMode,
-        fromActualDate, toActualDate,
-        fromCreatedDate, toCreatedDate,
-        sortKey, sortOrder
+        page, limit, viewMode, sortKey, sortOrder,
+        searchQuery, batchStatus, fromActualDate, toActualDate,
+        fromCreatedDate, toCreatedDate
     ]);
 
     useEffect(() => {
         loadData();
     }, [loadData, reloadTrigger]);
 
-    // Handler pergantian View Mode
-    const handleViewModeChange = (newMode) => {
-        if (newMode !== viewMode) {
-            setViewMode(newMode);
-            setSortKey('');
-            setSortOrder('ASC');
-            setPage(1);
-        }
-    };
-
-    // Handlers Filter & Sort
-    const handleSearchChange = (e) => {
-        setSearchQuery(e.target.value);
+    // Reset pagination dan sorting saat viewMode berpindah
+    useEffect(() => {
         setPage(1);
-    };
-
-    const handleStatusChange = (e) => {
-        setBatchStatus(e.target.value);
-        setPage(1);
-    };
+        setSortKey('');
+        setSortOrder('ASC');
+    }, [viewMode]);
 
     const handleSort = (key, order) => {
         setSortKey(key);
@@ -120,39 +87,13 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         setPage(1);
     };
 
-    const handleResetFilters = () => {
-        setSearchQuery('');
-        setBatchStatus('');
-        setFromActualDate('');
-        setToActualDate('');
-        setFromCreatedDate('');
-        setToCreatedDate('');
+    const resetSortingAndPage = () => {
         setSortKey('');
         setSortOrder('ASC');
         setPage(1);
     };
 
-    const handleExportExcel = async () => {
-        setExporting(true);
-        const res = await exportBatchExcelApi({
-            search: searchQuery,
-            batchStatus,
-            displayMode: viewMode === 'PO' ? 'BY_PO' : 'BY_BATCH',
-            fromActualDate, toActualDate,
-            fromCreatedDate, toCreatedDate,
-        });
-        setExporting(false);
-
-        if (!res.success) {
-            showAlert({
-                type: 'error',
-                title: 'Export Failed',
-                message: res.message || 'Failed to export Excel file.'
-            });
-        }
-    };
-
-    // Handler Force Close Allocation Status
+    // Force Close Allocation
     const executeForceClose = async (allocationId, reason = '') => {
         setLoading(true);
         try {
@@ -200,98 +141,22 @@ export const useAllocatedBatchTable = (currentUser, reloadTrigger, onRefreshAll)
         });
     };
 
-    // --- Handlers Edit Allocated Qty ---
-    const handleOpenEditQty = (allocationRow) => {
-        setSelectedAllocation(allocationRow);
-        setIsEditModalOpen(true);
-    };
-
-    const handleCloseEditQty = () => {
-        setSelectedAllocation(null);
-        setIsEditModalOpen(false);
-    };
-
-    const executeSaveQty = async (allocationId, newAllocatedQty, reason = '') => {
-        setEditLoading(true);
-        try {
-            const userId = currentUser?.id || null;
-            const res = await updateAllocationQtyApi(allocationId, {
-                newAllocatedQty,
-                reason,
-                userId
-            });
-            if (res && res.success) {
-                showAlert({
-                    type: 'success',
-                    title: 'Success',
-                    message: res.message || 'Allocated quantity updated successfully.'
-                });
-                handleCloseEditQty();
-                if (onRefreshAll) {
-                    onRefreshAll();
-                } else {
-                    loadData();
-                }
-            } else {
-                showAlert({
-                    type: 'error',
-                    title: 'Failed',
-                    message: res?.message || 'Failed to update allocated quantity.'
-                });
-            }
-        } catch (err) {
-            showAlert({
-                type: 'error',
-                title: 'Error',
-                message: 'A system error occurred while updating allocated quantity.'
-            });
-        } finally {
-            setEditLoading(false);
-        }
-    };
-
-    const handleSaveQty = (allocationId, newAllocatedQty, reason) => {
-        showConfirm({
-            title: 'Update Allocated Quantity',
-            message: `Are you sure you want to update allocated quantity to ${formatQty(newAllocatedQty)}?`,
-            confirmText: 'Save Changes',
-            onConfirm: () => executeSaveQty(allocationId, newAllocatedQty, reason)
-        });
-    };
-
     return {
         mappingList,
         poTolerance,
         loading,
         error,
-        searchQuery,
-        batchStatus,
-        fromActualDate, setFromActualDate,
-        toActualDate, setToActualDate,
-        fromCreatedDate, setFromCreatedDate,
-        toCreatedDate, setToCreatedDate,
         sortKey,
         sortOrder,
+        page,
+        limit,
         pagination,
-        viewMode,
-        exporting,
         setPage,
         setLimit,
-        setViewMode: handleViewModeChange,
-        handleSearchChange,
-        handleStatusChange,
         handleSort,
-        handleResetFilters,
-        handleExportExcel,
+        resetSortingAndPage,
         handleForceClose,
-
-        // Expose state & handler modal edit Qty
-        isEditModalOpen,
-        selectedAllocation,
-        editLoading,
-        handleOpenEditQty,
-        handleCloseEditQty,
-        handleSaveQty
+        refreshData: loadData
     };
 };
 

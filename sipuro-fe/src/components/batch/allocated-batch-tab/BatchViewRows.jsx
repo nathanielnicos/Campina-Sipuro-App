@@ -3,7 +3,7 @@ import { formatQty } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/dateHelper';
 import AllocationActionButton from './AllocationActionButton';
 
-export const BatchViewRows = ({ mappingList, currentUserRole, onForceClose, onOpenEditQty, loading }) => {
+export const BatchViewRows = ({ mappingList, currentUserRole, onForceClose, onOpenEditQty, onOpenHistory, loading }) => {
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>
@@ -24,10 +24,11 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onForceClose, onOp
 
         return allocations.map((po, idx) => {
             const target = Number(po.allocated_qty) || 0;
-            const canEditQty = currentUserRole !== 'CUSTOMER' && po.status === 'Open' && po.allocation_id;
+            const canEditQty = currentUserRole !== 'CUSTOMER' && po.allocation_id;
+            const hasAllocation = Boolean(po.allocation_id);
 
             return (
-                <tr key={`${row.id_batch}-${po.allocation_id || idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
+                <tr key={`${row.id_batch || row.batch_number}-${po.allocation_id || po.po_number || idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
                     {idx === 0 && (
                         <>
                             {/* 1. Batch Number */}
@@ -63,7 +64,7 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onForceClose, onOp
                         {po.po_number}
                     </td>
 
-                    {/* 6. Allocated Qty (Pcs) - Tombol pensil di depan angka */}
+                    {/* 6. Allocated Qty (Pcs) */}
                     <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                             {canEditQty && (
@@ -98,13 +99,37 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onForceClose, onOp
 
                     {/* 8. Action */}
                     <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <AllocationActionButton
-                            status={po.status}
-                            allocationId={po.allocation_id}
-                            currentUserRole={currentUserRole}
-                            onForceClose={onForceClose}
-                            loading={loading}
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                            {/* Tombol History Log selalu dirender */}
+                            <button
+                                type="button"
+                                disabled={!hasAllocation}
+                                onClick={() => hasAllocation && onOpenHistory && onOpenHistory(po)}
+                                title={hasAllocation ? "View Allocation History Log" : "No History Log Available"}
+                                style={{
+                                    background: 'none',
+                                    border: '1px solid #ced4da',
+                                    borderRadius: '4px',
+                                    cursor: hasAllocation ? 'pointer' : 'not-allowed',
+                                    fontSize: '13px',
+                                    padding: '3px 7px',
+                                    backgroundColor: hasAllocation ? '#fff' : '#e9ecef',
+                                    color: hasAllocation ? '#495057' : '#adb5bd',
+                                    opacity: hasAllocation ? 1 : 0.6
+                                }}
+                            >
+                                📜
+                            </button>
+
+                            {/* Tombol Action Force Close */}
+                            <AllocationActionButton
+                                status={po.status}
+                                allocationId={po.allocation_id}
+                                currentUserRole={currentUserRole}
+                                onForceClose={onForceClose}
+                                loading={loading}
+                            />
+                        </div>
                     </td>
                 </tr>
             );

@@ -24,6 +24,8 @@ const Filter = ({
         fromCreatedDate || toCreatedDate
     );
 
+    const getValue = (e) => (e?.target ? e.target.value : e);
+
     return (
         <div style={{
             backgroundColor: '#fff',
@@ -51,16 +53,16 @@ const Filter = ({
                 label="Actual Prod. Date Range"
                 fromDate={fromActualDate}
                 toDate={toActualDate}
-                onFromDateChange={(e) => onFromActualDateChange(e.target.value)}
-                onToDateChange={(e) => onToActualDateChange(e.target.value)}
+                onFromDateChange={(e) => onFromActualDateChange(getValue(e))}
+                onToDateChange={(e) => onToActualDateChange(getValue(e))}
             />
 
             <DateRangePicker
                 label="PO Created Date Range"
                 fromDate={fromCreatedDate}
                 toDate={toCreatedDate}
-                onFromDateChange={(e) => onFromCreatedDateChange(e.target.value)}
-                onToDateChange={(e) => onToCreatedDateChange(e.target.value)}
+                onFromDateChange={(e) => onFromCreatedDateChange(getValue(e))}
+                onToDateChange={(e) => onToCreatedDateChange(getValue(e))}
             />
 
             <div>

@@ -12,6 +12,17 @@ export const EditQtyModal = ({ isOpen, onClose, allocationData, onSubmit, loadin
         }
     }, [allocationData]);
 
+    // Listener tombol Escape untuk menutup modal
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && isOpen && !loading) {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, loading, onClose]);
+
     if (!isOpen || !allocationData) return null;
 
     const handleQtyChange = (e) => {
@@ -24,9 +35,11 @@ export const EditQtyModal = ({ isOpen, onClose, allocationData, onSubmit, loadin
         const rawNumericStr = unformatThousand(displayQty);
         const parsedQty = Number(rawNumericStr);
 
-        if (isNaN(parsedQty) || parsedQty < 0 || rawNumericStr === '') return;
+        const allocId = allocationData.allocation_id || allocationData.id;
 
-        onSubmit(allocationData.allocation_id, parsedQty, reason);
+        if (!allocId || isNaN(parsedQty) || parsedQty < 0 || rawNumericStr === '') return;
+
+        onSubmit(allocId, parsedQty, reason);
     };
 
     const rawNumeric = Number(unformatThousand(displayQty));
