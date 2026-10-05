@@ -3,28 +3,45 @@ const { sipuroDb } = require('../../../config/db');
 const { getWibDate } = require('../../../helpers/dateHelper');
 
 /**
- * Helper Environment-Agnostic untuk mengonversi nilai tanggal/string dari database
- * menjadi objek Date yang aman untuk SheetJS.
- * Menggunakan offset WIB (+07:00) secara eksplisit agar jam tidak bergeser di Vercel/Local.
+ * Helper Environment-Agnostic & Zero-Timezone Shift.
+ * Mengonversi tanggal ke Nilai Serial Excel (Excel Serial Number).
+ * Dijamin 100% presisi di server mana pun (Local/Vercel) dan sel di Excel tetap Native Date.
  */
 const toExcelDate = (dateVal) => {
     if (!dateVal) return '-';
 
-    // Jika data berupa Date object dari mysql2, ambil ISO string-nya
-    let dateStr = dateVal instanceof Date ? dateVal.toISOString() : String(dateVal);
+    let dateStr = '';
 
-    // Bersihkan format string tanggal MySQL "YYYY-MM-DD HH:mm:ss" -> "YYYY-MM-DDTHH:mm:ss"
-    dateStr = dateStr.replace(' ', 'T').replace('Z', '');
+    if (dateVal instanceof Date) {
+        // Ambil komponen tanggal/jam lokal murni dari objek Date
+        const y = dateVal.getFullYear();
+        const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+        const d = String(dateVal.getDate()).padStart(2, '0');
+        const hh = String(dateVal.getHours()).padStart(2, '0');
+        const mm = String(dateVal.getMinutes()).padStart(2, '0');
+        const ss = String(dateVal.getSeconds()).padStart(2, '0');
+        dateStr = `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+    } else {
+        dateStr = String(dateVal).trim();
+    }
 
-    // Ekstrak bagian tanggal & waktu (YYYY-MM-DDTHH:mm:ss)
-    const match = dateStr.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+    // Ambil pola "YYYY-MM-DD HH:mm:ss"
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2}):(\d{2}))?/);
     if (!match) return '-';
 
-    // Tempelkan offset WIB (+07:00) secara eksplisit agar bebas dari timezone server
-    const isoWibString = `${match[1]}+07:00`;
-    const finalDate = new Date(isoWibString);
+    const [_, year, month, day, hour = '00', minute = '00', second = '00'] = match;
 
-    return isNaN(finalDate.getTime()) ? '-' : finalDate;
+    // Hitung Hari Epok Excel (Epoch: 30 Dec 1899 karena bug kabisat 1900 Excel)
+    const utcDate = Date.UTC(+year, +month - 1, +day, +hour, +minute, +second);
+    const excelEpoch = Date.UTC(1899, 11, 30);
+    const serialDate = (utcDate - excelEpoch) / (24 * 60 * 60 * 1000);
+
+    // Kembalikan sebagai Cell Object SheetJS bertipe Number dengan Format Date
+    return {
+        v: serialDate,
+        t: 'n',
+        z: 'yyyy-mm-dd hh:mm:ss'
+    };
 };
 
 exports.exportBatchMappingExcel = async (req, res) => {
@@ -222,17 +239,8 @@ exports.exportBatchMappingExcel = async (req, res) => {
             ]);
         });
 
-        // Buat worksheet dari array dengan opsi cellDates aktif
-        const worksheet = XLSX.utils.aoa_to_sheet(excelData, { cellDates: true });
-
-        // Format tampilan tanggal Excel (yyyy-mm-dd hh:mm:ss) pada sel berjenis Date
-        const dateNumFormat = 'yyyy-mm-dd hh:mm:ss';
-        Object.keys(worksheet).forEach(key => {
-            if (key.startsWith('!')) return;
-            if (worksheet[key].v instanceof Date) {
-                worksheet[key].z = dateNumFormat;
-            }
-        });
+        // Buat worksheet dari array (tanpa cellDates agar Serial Date tidak diinterupsi)
+        const worksheet = XLSX.utils.aoa_to_sheet(excelData);
 
         worksheet['!cols'] = [
             { wch: 18 },
