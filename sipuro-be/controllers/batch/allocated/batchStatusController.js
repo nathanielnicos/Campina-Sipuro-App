@@ -86,7 +86,7 @@ exports.updateAllocationStatus = async (req, res) => {
             new_allocated_qty: allocation.allocated_qty || 0,
             old_status: allocation.allocation_status,
             new_status: newStatus,
-            reason: reason || 'Manual Force Close action',
+            reason: reason,
             created_by: userId
         }], userId);
 

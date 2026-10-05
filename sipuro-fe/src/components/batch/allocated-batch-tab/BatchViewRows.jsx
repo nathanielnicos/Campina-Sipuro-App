@@ -104,7 +104,7 @@ export const BatchViewRows = ({ mappingList, currentUserRole, onForceClose, onOp
                             <button
                                 type="button"
                                 disabled={!hasAllocation}
-                                onClick={() => hasAllocation && onOpenHistory && onOpenHistory(po)}
+                                onClick={() => hasAllocation && onOpenHistory && onOpenHistory({ ...po, batch_number: row.batch_number, product_name: row.product_name, product_code: row.product_code })}
                                 title={hasAllocation ? "View Allocation History Log" : "No History Log Available"}
                                 style={{
                                     background: 'none',

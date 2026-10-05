@@ -132,7 +132,7 @@ exports.updateAllocationQty = async (req, res) => {
             new_allocated_qty: parsedNewQty,
             old_status: currentStatus,
             new_status: newStatus,
-            reason: reason || 'Manual quantity update via web',
+            reason: reason,
             created_by: userId
         }], userId);
 

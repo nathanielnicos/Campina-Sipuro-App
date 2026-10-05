@@ -26,7 +26,9 @@ export const AllocationHistoryModal = ({
 
     if (!isOpen) return null;
 
-    const allocationId = allocation?.allocation_id || allocation?.id || '-';
+    const batchNumber = allocation?.batch_number || '-';
+    const productCode = allocation?.product_code || '-';
+    const productName = allocation?.product_name || '-';
     const poNumber = allocation?.po_number || '-';
 
     return (
@@ -62,7 +64,7 @@ export const AllocationHistoryModal = ({
                         Allocation History Log
                     </h5>
                     <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '2px' }}>
-                        PO: <strong>{poNumber}</strong> | Allocation ID: <strong>#{allocationId}</strong>
+                        Batch: <strong>{batchNumber}</strong> | PO: <strong>{poNumber}</strong> | Product: <strong>{productCode} - {productName}</strong>
                     </div>
                 </div>
 
