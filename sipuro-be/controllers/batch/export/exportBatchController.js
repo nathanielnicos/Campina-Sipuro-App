@@ -2,13 +2,29 @@ const XLSX = require('xlsx');
 const { sipuroDb } = require('../../../config/db');
 const { getWibDate } = require('../../../helpers/dateHelper');
 
-// Helper untuk menetralkan timezone offset SheetJS agar jam tetap tepat sesuai database
+/**
+ * Helper Environment-Agnostic untuk mengonversi nilai tanggal/string dari database
+ * menjadi objek Date yang aman untuk SheetJS.
+ * Menggunakan offset WIB (+07:00) secara eksplisit agar jam tidak bergeser di Vercel/Local.
+ */
 const toExcelDate = (dateVal) => {
     if (!dateVal) return '-';
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return '-';
-    // Menetralkan selisih timezone (menyesuaikan ke UTC internal SheetJS)
-    return new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
+
+    // Jika data berupa Date object dari mysql2, ambil ISO string-nya
+    let dateStr = dateVal instanceof Date ? dateVal.toISOString() : String(dateVal);
+
+    // Bersihkan format string tanggal MySQL "YYYY-MM-DD HH:mm:ss" -> "YYYY-MM-DDTHH:mm:ss"
+    dateStr = dateStr.replace(' ', 'T').replace('Z', '');
+
+    // Ekstrak bagian tanggal & waktu (YYYY-MM-DDTHH:mm:ss)
+    const match = dateStr.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+    if (!match) return '-';
+
+    // Tempelkan offset WIB (+07:00) secara eksplisit agar bebas dari timezone server
+    const isoWibString = `${match[1]}+07:00`;
+    const finalDate = new Date(isoWibString);
+
+    return isNaN(finalDate.getTime()) ? '-' : finalDate;
 };
 
 exports.exportBatchMappingExcel = async (req, res) => {
@@ -209,7 +225,7 @@ exports.exportBatchMappingExcel = async (req, res) => {
         // Buat worksheet dari array dengan opsi cellDates aktif
         const worksheet = XLSX.utils.aoa_to_sheet(excelData, { cellDates: true });
 
-        // Terapkan format tampilan tanggal Excel (yyyy-mm-dd hh:mm:ss) pada sel berjenis Date
+        // Format tampilan tanggal Excel (yyyy-mm-dd hh:mm:ss) pada sel berjenis Date
         const dateNumFormat = 'yyyy-mm-dd hh:mm:ss';
         Object.keys(worksheet).forEach(key => {
             if (key.startsWith('!')) return;
