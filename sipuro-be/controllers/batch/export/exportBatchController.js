@@ -4,39 +4,25 @@ const { getWibDate } = require('../../../helpers/dateHelper');
 
 /**
  * Helper Environment-Agnostic & Zero-Timezone Shift.
- * Mengonversi tanggal ke Nilai Serial Excel (Excel Serial Number).
- * Dijamin 100% presisi di server mana pun (Local/Vercel) dan sel di Excel tetap Native Date.
+ * Menerima string tanggal murni dari SQL "YYYY-MM-DD HH:mm:ss" 
+ * dan mengonversinya langsung ke Serial Number Excel.
  */
 const toExcelDate = (dateVal) => {
-    if (!dateVal) return '-';
+    if (!dateVal || dateVal === '-') return '-';
 
-    let dateStr = '';
+    let dateStr = String(dateVal).trim();
 
-    if (dateVal instanceof Date) {
-        // Ambil komponen tanggal/jam lokal murni dari objek Date
-        const y = dateVal.getFullYear();
-        const m = String(dateVal.getMonth() + 1).padStart(2, '0');
-        const d = String(dateVal.getDate()).padStart(2, '0');
-        const hh = String(dateVal.getHours()).padStart(2, '0');
-        const mm = String(dateVal.getMinutes()).padStart(2, '0');
-        const ss = String(dateVal.getSeconds()).padStart(2, '0');
-        dateStr = `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
-    } else {
-        dateStr = String(dateVal).trim();
-    }
-
-    // Ambil pola "YYYY-MM-DD HH:mm:ss"
+    // Ekstrak komponen tanggal & waktu menggunakan pola regex
     const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2}):(\d{2}))?/);
     if (!match) return '-';
 
     const [_, year, month, day, hour = '00', minute = '00', second = '00'] = match;
 
-    // Hitung Hari Epok Excel (Epoch: 30 Dec 1899 karena bug kabisat 1900 Excel)
+    // Hitung Serial Number Excel murni tanpa melibatkan timezone JavaScript
     const utcDate = Date.UTC(+year, +month - 1, +day, +hour, +minute, +second);
     const excelEpoch = Date.UTC(1899, 11, 30);
     const serialDate = (utcDate - excelEpoch) / (24 * 60 * 60 * 1000);
 
-    // Kembalikan sebagai Cell Object SheetJS bertipe Number dengan Format Date
     return {
         v: serialDate,
         t: 'n',
@@ -59,24 +45,20 @@ exports.exportBatchMappingExcel = async (req, res) => {
             batchStatus
         } = req.query;
 
-        // Mendukung alias untuk Planned Production Date
         const startDatePlan = fromPlanDate || fromDate;
         const endDatePlan = toPlanDate || toDate;
 
-        // Tentukan apakah perlu mengikutsertakan unassigned PO
         const hasBatchSpecificFilter = Boolean(
             startDatePlan || endDatePlan || fromActualDate || toActualDate || batchStatus
         );
         const shouldIncludeUnassigned = !hasBatchSpecificFilter;
 
-        // Where clauses & parameters terpisah untuk 2 query UNION
         let whereClauses1 = ['d.deleted_at IS NULL'];
         let queryParams1 = [];
 
         let whereClauses2 = ['d.deleted_at IS NULL'];
         let queryParams2 = [];
 
-        // 1. Filter Text (Batch / SKU / Nama Produk / PO)
         if (search && search.trim() !== '') {
             const searchTerm = `%${search.trim()}%`;
             whereClauses1.push(`(b.batch_number LIKE ? OR p.product_code LIKE ? OR p.product_name LIKE ? OR h.po_number LIKE ?)`);
@@ -88,7 +70,6 @@ exports.exportBatchMappingExcel = async (req, res) => {
             }
         }
 
-        // 2. Filter Rentang Tanggal Rencana Produksi (Plan Production Date)
         if (startDatePlan && startDatePlan.trim() !== '') {
             whereClauses1.push(`DATE(b.plan_production_date) >= ?`);
             queryParams1.push(startDatePlan.trim());
@@ -98,7 +79,6 @@ exports.exportBatchMappingExcel = async (req, res) => {
             queryParams1.push(endDatePlan.trim());
         }
 
-        // 3. Filter Rentang Tanggal Realisasi Produksi (Actual Production Date)
         if (fromActualDate && fromActualDate.trim() !== '') {
             whereClauses1.push(`DATE(b.actual_production_date) >= ?`);
             queryParams1.push(fromActualDate.trim());
@@ -108,7 +88,6 @@ exports.exportBatchMappingExcel = async (req, res) => {
             queryParams1.push(toActualDate.trim());
         }
 
-        // 4. Filter Rentang Tanggal PO Dibuat (PO Created Date)
         if (fromCreatedDate && fromCreatedDate.trim() !== '') {
             whereClauses1.push(`DATE(h.created_at) >= ?`);
             queryParams1.push(fromCreatedDate.trim());
@@ -128,7 +107,6 @@ exports.exportBatchMappingExcel = async (req, res) => {
             }
         }
 
-        // 5. Filter Status Batch
         if (batchStatus && batchStatus.trim() !== '') {
             whereClauses1.push(`b.status = ?`);
             queryParams1.push(batchStatus.trim());
@@ -137,11 +115,11 @@ exports.exportBatchMappingExcel = async (req, res) => {
         const whereSql1 = whereClauses1.length > 0 ? `WHERE ${whereClauses1.join(' AND ')}` : '';
         const whereSql2 = whereClauses2.length > 0 ? `WHERE ${whereClauses2.join(' AND ')}` : '';
 
-        // Gabungkan parameter sesuai urutan query UNION
         const queryParams = shouldIncludeUnassigned
             ? [...queryParams1, ...queryParams2]
             : queryParams1;
 
+        // Query menggunakan DATE_FORMAT agar nilai dikirim sebagai STRING MURNI dari database
         const query = `
             SELECT * FROM (
                 -- BAGIAN 1: Alokasi PO yang SUDAH dialokasikan ke Batch
@@ -149,11 +127,11 @@ exports.exportBatchMappingExcel = async (req, res) => {
                     p.product_code AS id_produk,
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
-                    h.created_at AS tgl_po_dibuat,
+                    DATE_FORMAT(h.created_at, '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
                     d.base_qty AS kuantitas_po,
                     COALESCE(b.batch_number, '-') AS kode_batch,
-                    b.actual_production_date AS tgl_mulai_produksi,
-                    b.actual_completed_date AS tgl_selesai_produksi,
+                    DATE_FORMAT(b.actual_production_date, '%Y-%m-%d %H:%i:%s') AS tgl_mulai_produksi,
+                    DATE_FORMAT(b.actual_completed_date, '%Y-%m-%d %H:%i:%s') AS tgl_selesai_produksi,
                     pba.allocated_qty AS hasil_produksi,
                     GREATEST(0, d.base_qty - COALESCE(alloc_total.total_allocated, 0)) AS sisa_po,
                     IF(pba.status IS NOT NULL, UPPER(pba.status), '-') AS status_alokasi,
@@ -179,7 +157,7 @@ exports.exportBatchMappingExcel = async (req, res) => {
                     p.product_code AS id_produk,
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
-                    h.created_at AS tgl_po_dibuat,
+                    DATE_FORMAT(h.created_at, '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
                     d.base_qty AS kuantitas_po,
                     '-' AS kode_batch,
                     NULL AS tgl_mulai_produksi,
@@ -207,7 +185,6 @@ exports.exportBatchMappingExcel = async (req, res) => {
 
         const excelData = [];
 
-        // BARIS PERTAMA: Header Kolom
         excelData.push([
             'Product Code',
             'Product Name',
@@ -222,7 +199,6 @@ exports.exportBatchMappingExcel = async (req, res) => {
             'Allocation Status'
         ]);
 
-        // Baris Data
         rows.forEach(row => {
             excelData.push([
                 row.id_produk || '-',
@@ -239,7 +215,6 @@ exports.exportBatchMappingExcel = async (req, res) => {
             ]);
         });
 
-        // Buat worksheet dari array (tanpa cellDates agar Serial Date tidak diinterupsi)
         const worksheet = XLSX.utils.aoa_to_sheet(excelData);
 
         worksheet['!cols'] = [
@@ -261,7 +236,6 @@ exports.exportBatchMappingExcel = async (req, res) => {
 
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-        // Standarisasi Penamaan File Menggunakan Date WIB: Export_Batch_YYYYMMDD_HHmmss.xlsx
         const nowWib = getWibDate();
         const year = nowWib.getFullYear();
         const month = String(nowWib.getMonth() + 1).padStart(2, '0');
