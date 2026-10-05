@@ -107,11 +107,11 @@ exports.exportBatchMappingExcel = async (req, res) => {
                     p.product_code AS id_produk,
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
-                    DATE_FORMAT(CONVERT_TZ(h.created_at, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
+                    h.created_at AS tgl_po_dibuat,
                     d.base_qty AS kuantitas_po,
                     COALESCE(b.batch_number, '-') AS kode_batch,
-                    IF(b.actual_production_date IS NOT NULL, DATE_FORMAT(CONVERT_TZ(b.actual_production_date, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s'), '-') AS tgl_mulai_produksi,
-                    IF(b.actual_completed_date IS NOT NULL, DATE_FORMAT(CONVERT_TZ(b.actual_completed_date, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s'), '-') AS tgl_selesai_produksi,
+                    b.actual_production_date AS tgl_mulai_produksi,
+                    b.actual_completed_date AS tgl_selesai_produksi,
                     pba.allocated_qty AS hasil_produksi,
                     GREATEST(0, d.base_qty - COALESCE(alloc_total.total_allocated, 0)) AS sisa_po,
                     IF(pba.status IS NOT NULL, UPPER(pba.status), '-') AS status_alokasi,
@@ -132,18 +132,18 @@ exports.exportBatchMappingExcel = async (req, res) => {
                 ${shouldIncludeUnassigned ? `
                 UNION ALL
 
-                -- BAGIAN 2: SISA PO yang BELUM dialokasikan ke batch mana pun
+                -- BAGIAN 2: PO yang SAMA SEKALI BELUM dialokasikan ke batch mana pun
                 SELECT 
                     p.product_code AS id_produk,
                     p.product_name AS nama_produk,
                     h.po_number AS kode_po,
-                    DATE_FORMAT(CONVERT_TZ(h.created_at, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s') AS tgl_po_dibuat,
+                    h.created_at AS tgl_po_dibuat,
                     d.base_qty AS kuantitas_po,
                     '-' AS kode_batch,
-                    '-' AS tgl_mulai_produksi,
-                    '-' AS tgl_selesai_produksi,
+                    NULL AS tgl_mulai_produksi,
+                    NULL AS tgl_selesai_produksi,
                     0 AS hasil_produksi,
-                    (d.base_qty - COALESCE(alloc.total_allocated, 0)) AS sisa_po,
+                    d.base_qty AS sisa_po,
                     '-' AS status_alokasi,
                     h.created_at,
                     999999999 AS sort_id
@@ -151,12 +151,11 @@ exports.exportBatchMappingExcel = async (req, res) => {
                 JOIN sipuro_db.po_details d ON h.po_header_id = d.po_header_id
                 JOIN sipuro_db.products p ON d.id_product = p.id_product
                 LEFT JOIN (
-                    SELECT po_detail_id, SUM(allocated_qty) AS total_allocated
+                    SELECT DISTINCT po_detail_id
                     FROM sipuro_db.po_batch_allocations
-                    GROUP BY po_detail_id
                 ) alloc ON d.po_detail_id = alloc.po_detail_id
                 ${whereSql2}
-                AND (d.base_qty - COALESCE(alloc.total_allocated, 0)) > 0
+                AND alloc.po_detail_id IS NULL
                 ` : ''}
             ) AS main_export
             ORDER BY created_at DESC, kode_po ASC, id_produk ASC, sort_id ASC;
@@ -187,18 +186,28 @@ exports.exportBatchMappingExcel = async (req, res) => {
                 row.id_produk || '-',
                 row.nama_produk || '-',
                 row.kode_po || '-',
-                row.tgl_po_dibuat || '-',
+                row.tgl_po_dibuat ? new Date(row.tgl_po_dibuat) : '-',
                 Number(row.kuantitas_po) || 0,
                 row.kode_batch,
-                row.tgl_mulai_produksi,
-                row.tgl_selesai_produksi,
+                row.tgl_mulai_produksi ? new Date(row.tgl_mulai_produksi) : '-',
+                row.tgl_selesai_produksi ? new Date(row.tgl_selesai_produksi) : '-',
                 Number(row.hasil_produksi) || 0,
                 Number(row.sisa_po) || 0,
                 row.status_alokasi || '-'
             ]);
         });
 
-        const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+        // Buat worksheet dari array dengan opsi cellDates aktif
+        const worksheet = XLSX.utils.aoa_to_sheet(excelData, { cellDates: true });
+
+        // Terapkan format tampilan tanggal Excel (yyyy-mm-dd hh:mm:ss) pada sel berjenis Date
+        const dateNumFormat = 'yyyy-mm-dd hh:mm:ss';
+        Object.keys(worksheet).forEach(key => {
+            if (key.startsWith('!')) return;
+            if (worksheet[key].v instanceof Date) {
+                worksheet[key].z = dateNumFormat;
+            }
+        });
 
         worksheet['!cols'] = [
             { wch: 18 },
