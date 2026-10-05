@@ -2,6 +2,15 @@ const XLSX = require('xlsx');
 const { sipuroDb } = require('../../../config/db');
 const { getWibDate } = require('../../../helpers/dateHelper');
 
+// Helper untuk menetralkan timezone offset SheetJS agar jam tetap tepat sesuai database
+const toExcelDate = (dateVal) => {
+    if (!dateVal) return '-';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '-';
+    // Menetralkan selisih timezone (menyesuaikan ke UTC internal SheetJS)
+    return new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
+};
+
 exports.exportBatchMappingExcel = async (req, res) => {
     try {
         const {
@@ -186,11 +195,11 @@ exports.exportBatchMappingExcel = async (req, res) => {
                 row.id_produk || '-',
                 row.nama_produk || '-',
                 row.kode_po || '-',
-                row.tgl_po_dibuat ? new Date(row.tgl_po_dibuat) : '-',
+                toExcelDate(row.tgl_po_dibuat),
                 Number(row.kuantitas_po) || 0,
                 row.kode_batch,
-                row.tgl_mulai_produksi ? new Date(row.tgl_mulai_produksi) : '-',
-                row.tgl_selesai_produksi ? new Date(row.tgl_selesai_produksi) : '-',
+                toExcelDate(row.tgl_mulai_produksi),
+                toExcelDate(row.tgl_selesai_produksi),
                 Number(row.hasil_produksi) || 0,
                 Number(row.sisa_po) || 0,
                 row.status_alokasi || '-'
