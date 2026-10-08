@@ -2,6 +2,7 @@ const { sipuroDb } = require('../../config/db');
 const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
 const { getWibDateTimeString } = require('../../helpers/dateHelper');
+const { refreshPOStatus } = require('../../helpers/batchHelper');
 
 /**
  * 1. CUSTOMER: REQUEST CLOSE PO DETAILS
@@ -84,6 +85,9 @@ exports.requestClosePoDetails = async (req, res) => {
         }));
 
         await logPODetails(connection, poHeaderLogId, detailLogs);
+
+        // Hitung ulang status header PO di transaksi yang sama (Close Requested / Closed / Partially Closed memengaruhi Production Completed)
+        await refreshPOStatus(connection, po_header_id);
 
         await connection.commit();
 
@@ -191,6 +195,9 @@ exports.approveClosePoDetails = async (req, res) => {
 
         await logPODetails(connection, poHeaderLogId, detailLogs);
 
+        // Hitung ulang status header PO di transaksi yang sama (Close Requested / Closed / Partially Closed memengaruhi Production Completed)
+        await refreshPOStatus(connection, po_header_id);
+
         await connection.commit();
 
         // 5. Notifikasi Balik ke Customer
@@ -292,6 +299,9 @@ exports.rejectClosePoDetails = async (req, res) => {
         }));
 
         await logPODetails(connection, poHeaderLogId, detailLogs);
+
+        // Hitung ulang status header PO di transaksi yang sama (Close Requested / Closed / Partially Closed memengaruhi Production Completed)
+        await refreshPOStatus(connection, po_header_id);
 
         await connection.commit();
 

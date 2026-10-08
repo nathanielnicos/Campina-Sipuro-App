@@ -19,7 +19,7 @@ const SummaryCards = ({ summary, activeTab, setActiveTab }) => {
                 }}
             >
                 <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Valid Data</div>
-                <div style={{ fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{summary.newCount || 0} Items</div>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{summary.newCount || 0} Batch{summary.validRowCount !== undefined ? ` \u00b7 ${summary.validRowCount} Rows` : ''}</div>
             </div>
 
             {/* Card 2: Unallocated Stock */}

@@ -6,6 +6,8 @@ const poController = require('../controllers/po/poController');
 router.get('/', poController.getPOList);
 router.post('/', poController.createPO);
 router.get('/export-excel', poController.exportPoExcel);
+router.get('/po-settings', poController.getPoSettings);
+router.put('/po-settings', poController.updatePoSettings);
 
 // 2. Endpoint Item Close Request & Approval (Wajib sebelum /:id)
 router.post('/details/request-close', poController.requestClosePoDetails);

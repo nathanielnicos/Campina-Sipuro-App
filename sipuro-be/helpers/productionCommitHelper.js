@@ -1,81 +1,55 @@
-const {
-    refreshPOStatus,
-    refreshBatchStatus,
-    refreshPODetailFulfilledQty,
-    updateBatchProductionDates
-} = require('./batchHelper');
+const { refreshPOStatus, refreshBatchStatuses } = require('./batchHelper');
 const { logAllocationInsert, logAllocationUpdate } = require('./poBatchAllocationLogHelper');
-const { getWibDate } = require('./dateHelper');
+const { BusinessError } = require('./businessError');
 
-/**
- * Helper untuk mengekstrak string YYYY-MM-DD dari string tanggal/datetime secara aman
- */
-const formatDateOnly = (dateVal) => {
-    if (!dateVal) {
-        const nowWib = getWibDate();
-        const year = nowWib.getFullYear();
-        const month = String(nowWib.getMonth() + 1).padStart(2, '0');
-        const day = String(nowWib.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
+const SYNC_REASON = 'Auto status sync after production upload';
 
-    if (typeof dateVal === 'string') {
-        return dateVal.split('T')[0].split(' ')[0];
-    }
-
-    if (dateVal instanceof Date) {
-        const dWib = getWibDate(dateVal);
-        const year = dWib.getFullYear();
-        const month = String(dWib.getMonth() + 1).padStart(2, '0');
-        const day = String(dWib.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    return dateVal;
+const chunk = (arr, size) => {
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
 };
 
+// Tanggal (YYYY-MM-DD) dari string datetime Excel; start selalu terisi karena grup tanpa tanggal tidak dialokasikan
+const dateOnly = (value) => (typeof value === 'string' ? value.split('T')[0].split(' ')[0] : value);
+
 /**
- * Helper untuk commit data alokasi dan master terkait ke database
+ * Menyimpan hasil perhitungan alokasi ke database.
+ * `calculation` adalah hasil calculateFifoAllocation yang SUDAH dihitung ulang server di dalam transaksi ini.
+ * Dipanggil di dalam transaksi (BEGIN/COMMIT/ROLLBACK diatur controller).
+ * Seluruh kondisi tidak wajar melempar BusinessError sehingga transaksi di-rollback.
  */
 const commitProductionAllocationTransaction = async (connection, {
     fileName,
     processTimestamp,
     fileHash,
     userId,
-    allocations = [],
-    newDetails = [],
-    detailedAllocations = []
+    calculation
 }) => {
-    const currentUserId = userId || null;
+    const { newRows, previewResults, detailedAllocations } = calculation;
+    const uploadReason = `Production upload: ${fileName || 'unnamed file'}`;
+    const problems = [];
 
-    // 1. Insert log upload file produksi
+    // 1. Log upload file (UNIQUE file_hash / process_timestamp menjaga dari commit ganda)
     const [uploadLogResult] = await connection.query(
         'INSERT INTO production_upload_logs (file_name, process_timestamp, file_hash, uploaded_by) VALUES (?, ?, ?, ?)',
-        [fileName, processTimestamp, fileHash || null, currentUserId]
+        [fileName, processTimestamp, fileHash || null, userId]
     );
     const uploadLogId = uploadLogResult.insertId;
 
-    const affectedBatchNumbers = new Set();
-
-    // 2. Insert detail baris data mentah Excel yang valid ke production_upload_details
-    if (newDetails && newDetails.length > 0) {
-        const detailValues = newDetails.map(detail => {
-            if (detail.batchNumber) {
-                affectedBatchNumbers.add(detail.batchNumber);
-            }
-            return [
-                uploadLogId,
-                detail.batchNumber,
-                detail.lotNumber || null,
-                detail.itemCode,
-                detail.lotStatus || null,
-                detail.qtyPac || 0,
-                detail.actualStartDatetime || null,
-                detail.actualCompletedDatetime || null,
-                detail.rowHash
-            ];
-        });
-
+    // 2. Simpan baris Excel yang teralokasi
+    for (const part of chunk(newRows, 500)) {
+        const detailValues = part.map((detail) => [
+            uploadLogId,
+            detail.batchNumber,
+            detail.lotNumber || null,
+            detail.itemCode,
+            detail.lotStatus || null,
+            detail.qtyPac || 0,
+            detail.actualStartDatetime || null,
+            detail.actualCompletedDatetime || null,
+            detail.rowHash
+        ]);
         await connection.query(
             `INSERT INTO production_upload_details 
             (upload_log_id, batch_number, lot_number, item_code, lot_status, qty_pac, actual_start_datetime, actual_completed_datetime, row_hash) 
@@ -84,206 +58,283 @@ const commitProductionAllocationTransaction = async (connection, {
         );
     }
 
-    // Sumber data alokasi yang akan diproses
-    const sourceAllocations = detailedAllocations.length > 0 ? detailedAllocations : allocations;
+    // 3. Find-or-create master batch (hanya untuk grup yang teralokasi)
+    const batchNumbers = previewResults.map((b) => b.batchNumber);
+    const batchIdByNumber = new Map();
+    const [existingBatchRows] = await connection.query(
+        'SELECT id, batch_number, id_product FROM batches WHERE batch_number IN (?)',
+        [batchNumbers]
+    );
+    existingBatchRows.forEach((b) => {
+        batchIdByNumber.set(b.batch_number, b.id);
+    });
 
-    // 3. Auto-create atau Find-or-Create Master Batch
-    const batchIdMap = new Map();
-    const uniqueBatchData = new Map();
-
-    const collectBatchInfo = (batchNumber, itemCode, startDt, completeDt) => {
-        if (batchNumber && itemCode) {
-            const compositeKey = `${batchNumber}_${itemCode}`;
-            if (!uniqueBatchData.has(compositeKey)) {
-                uniqueBatchData.set(compositeKey, {
-                    batchNumber,
-                    itemCode,
-                    actualStartDatetime: startDt || null,
-                    actualCompletedDatetime: completeDt || null
-                });
+    const existingByNumber = new Map(existingBatchRows.map((b) => [b.batch_number, b]));
+    const newBatchValues = [];
+    previewResults.forEach((group) => {
+        const existing = existingByNumber.get(group.batchNumber);
+        if (existing) {
+            if (Number(existing.id_product) !== Number(group.idProduct)) {
+                problems.push(`Batch ${group.batchNumber} already belongs to another product.`);
             }
+            return;
         }
-    };
-
-    newDetails.forEach(d => collectBatchInfo(d.batchNumber, d.itemCode, d.actualStartDatetime, d.actualCompletedDatetime));
-    sourceAllocations.forEach(a => collectBatchInfo(a.batchNumber || a.batch_number, a.productCode || a.product_code || a.itemCode, a.actualStartDatetime, a.actualCompletedDatetime));
-
-    for (const [compositeKey, bInfo] of uniqueBatchData.entries()) {
-        const [[product]] = await connection.query(
-            'SELECT id_product FROM products WHERE product_code = ? LIMIT 1',
-            [bInfo.itemCode]
-        );
-
-        if (product) {
-            const [[existingBatch]] = await connection.query(
-                'SELECT id FROM batches WHERE batch_number = ? AND id_product = ? LIMIT 1',
-                [bInfo.batchNumber, product.id_product]
-            );
-
-            if (existingBatch) {
-                batchIdMap.set(compositeKey, existingBatch.id);
-            } else {
-                // Penentuan planDate berbasis WIB menggunakan helper formatDateOnly
-                const planDate = formatDateOnly(bInfo.actualStartDatetime);
-
-                const [insertBatch] = await connection.query(
-                    `INSERT INTO batches (batch_number, id_product, plan_production_date, actual_production_date, actual_completed_date, status, created_by)
-                     VALUES (?, ?, ?, ?, ?, 'Open', ?)`,
-                    [
-                        bInfo.batchNumber,
-                        product.id_product,
-                        planDate,
-                        bInfo.actualStartDatetime || null,
-                        bInfo.actualCompletedDatetime || null,
-                        currentUserId
-                    ]
-                );
-                batchIdMap.set(compositeKey, insertBatch.insertId);
-            }
+        if (!group.idProduct) {
+            problems.push(`Product ${group.productCode} was not found for batch ${group.batchNumber}.`);
+            return;
         }
+        newBatchValues.push([
+            group.batchNumber,
+            group.idProduct,
+            dateOnly(group.actualStartDatetime),
+            group.actualStartDatetime || null,
+            group.actualCompletedDatetime || null,
+            'Open',
+            userId
+        ]);
+    });
+
+    if (problems.length > 0) {
+        throw new BusinessError('Allocation validation failed.', 422, { problems });
     }
 
-    // 4. Upsert po_batch_allocations (Akumulasi allocated_qty)
-    const updateLogsToInsert = [];
-    const insertLogsToInsert = [];
-
-    for (const item of sourceAllocations) {
-        const poDetailId = item.poDetailId || item.po_detail_id;
-        const batchNumber = item.batchNumber || item.batch_number;
-        const itemCode = item.productCode || item.product_code || item.itemCode;
-        const compositeKey = `${batchNumber}_${itemCode}`;
-
-        const batchId = item.batchId || batchIdMap.get(compositeKey) || item.id_batch;
-        const addedQty = item.addedQty !== undefined ? item.addedQty : (item.addedAllocatedQty || 0);
-        let rowStatus = item.rowStatus || item.status || 'Open';
-
-        if (batchNumber) affectedBatchNumbers.add(batchNumber);
-        if (!batchId || !poDetailId) continue;
-
-        const [[existingAlloc]] = await connection.query(
-            'SELECT id, allocated_qty, status FROM po_batch_allocations WHERE po_detail_id = ? AND id_batch = ? LIMIT 1',
-            [poDetailId, batchId]
+    if (newBatchValues.length > 0) {
+        await connection.query(
+            `INSERT INTO batches (batch_number, id_product, plan_production_date, actual_production_date, actual_completed_date, status, created_by)
+             VALUES ?`,
+            [newBatchValues]
         );
+        const [createdBatches] = await connection.query(
+            'SELECT id, batch_number FROM batches WHERE batch_number IN (?)',
+            [newBatchValues.map((v) => v[0])]
+        );
+        createdBatches.forEach((b) => batchIdByNumber.set(b.batch_number, b.id));
+    }
 
-        if (existingAlloc) {
-            const oldAllocatedQty = Number(existingAlloc.allocated_qty || 0);
-            const newAllocatedQty = oldAllocatedQty + Number(addedQty);
-
-            // Jangan timpa status jika alokasi di-Force Closed atau Canceled secara manual
-            const currentStatus = existingAlloc.status;
-            const finalStatus = (currentStatus === 'Force Closed' || currentStatus === 'Canceled')
-                ? currentStatus
-                : rowStatus;
-
-            updateLogsToInsert.push({
-                upload_log_id: uploadLogId,
-                allocation_id: existingAlloc.id,
-                po_detail_id: poDetailId,
-                id_batch: batchId,
-                old_allocated_qty: oldAllocatedQty,
-                new_allocated_qty: newAllocatedQty,
-                old_status: existingAlloc.status,
-                new_status: finalStatus,
-                created_by: currentUserId
-            });
-
-            await connection.query(
-                'UPDATE po_batch_allocations SET allocated_qty = ?, status = ?, updated_by = ? WHERE id = ?',
-                [newAllocatedQty, finalStatus, currentUserId, existingAlloc.id]
-            );
+    // 4. Upsert po_batch_allocations (akumulasi allocated_qty, plus maupun minus)
+    const items = new Map();
+    detailedAllocations.forEach((a) => {
+        const batchId = batchIdByNumber.get(a.batchNumber);
+        if (!batchId || !a.poDetailId) {
+            problems.push(`Missing batch or PO detail reference for batch ${a.batchNumber}.`);
+            return;
+        }
+        const key = `${a.poDetailId}_${batchId}`;
+        const current = items.get(key);
+        if (current) {
+            current.addedQty += Number(a.addedQty) || 0;
+            current.rowStatus = a.rowStatus;
         } else {
-            const newAllocatedQty = Number(addedQty);
+            items.set(key, {
+                poDetailId: a.poDetailId,
+                batchId,
+                addedQty: Number(a.addedQty) || 0,
+                rowStatus: a.rowStatus
+            });
+        }
+    });
 
-            const [insertAlloc] = await connection.query(
-                `INSERT INTO po_batch_allocations (po_detail_id, id_batch, allocated_qty, status, created_by)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [poDetailId, batchId, newAllocatedQty, rowStatus, currentUserId]
-            );
+    const batchIds = [...new Set([...items.values()].map((i) => i.batchId))];
+    const [existingAllocRows] = await connection.query(
+        'SELECT id, po_detail_id, id_batch, allocated_qty, status FROM po_batch_allocations WHERE id_batch IN (?) FOR UPDATE',
+        [batchIds]
+    );
+    const existingByPair = new Map(existingAllocRows.map((a) => [`${a.po_detail_id}_${a.id_batch}`, a]));
 
-            insertLogsToInsert.push({
+    const upsertValues = [];
+    const insertLogs = [];
+    const updateLogs = [];
+
+    items.forEach((item, key) => {
+        const existing = existingByPair.get(key);
+        const oldQty = existing ? Number(existing.allocated_qty) || 0 : 0;
+        const newQty = oldQty + item.addedQty;
+
+        if (newQty < 0) {
+            problems.push(`Allocation for PO detail ${item.poDetailId} and batch ${item.batchId} would become negative.`);
+            return;
+        }
+        if (existing && !['Open', 'Closed'].includes(existing.status)) {
+            problems.push(`Allocation for PO detail ${item.poDetailId} and batch ${item.batchId} is ${existing.status} and cannot be changed.`);
+            return;
+        }
+
+        upsertValues.push([item.poDetailId, item.batchId, newQty, item.rowStatus, userId, userId]);
+
+        if (existing) {
+            updateLogs.push({
                 upload_log_id: uploadLogId,
-                allocation_id: insertAlloc.insertId,
-                po_detail_id: poDetailId,
-                id_batch: batchId,
-                allocated_qty: newAllocatedQty,
-                status: rowStatus,
-                created_by: currentUserId
+                allocation_id: existing.id,
+                po_detail_id: item.poDetailId,
+                id_batch: item.batchId,
+                old_allocated_qty: oldQty,
+                new_allocated_qty: newQty,
+                old_status: existing.status,
+                new_status: item.rowStatus,
+                reason: uploadReason,
+                created_by: userId
+            });
+        } else {
+            insertLogs.push({
+                upload_log_id: uploadLogId,
+                po_detail_id: item.poDetailId,
+                id_batch: item.batchId,
+                allocated_qty: newQty,
+                status: item.rowStatus,
+                reason: uploadReason,
+                created_by: userId
             });
         }
+    });
+
+    if (problems.length > 0) {
+        throw new BusinessError('Allocation validation failed.', 422, { problems });
     }
 
-    if (insertLogsToInsert.length > 0) {
-        await logAllocationInsert(connection, insertLogsToInsert, currentUserId);
-    }
-    if (updateLogsToInsert.length > 0) {
-        await logAllocationUpdate(connection, updateLogsToInsert, currentUserId);
-    }
-
-    // 5. Update tanggal produksi aktual pada master batches
-    for (const bNo of affectedBatchNumbers) {
-        await updateBatchProductionDates(connection, bNo, currentUserId);
-    }
-
-    // Set untuk menampung SELURUH ID Batch & Header PO yang perlu di-refresh statusnya
-    const batchIdsToRefresh = new Set([...batchIdMap.values()].filter(Boolean));
-    const poHeaderIds = new Set();
-
-    // 6. Recalculate fulfilled_qty pada po_details & Evaluasi Dua Arah Status Alokasi
-    const poDetailIds = [...new Set(sourceAllocations.map(a => a.poDetailId || a.po_detail_id).filter(Boolean))];
-
-    for (const pdId of poDetailIds) {
-        // A. Refresh total fulfilled_qty di po_details
-        await refreshPODetailFulfilledQty(connection, pdId);
-
-        // B. Cek pemenuhan Qty PO
-        const [[poDetailInfo]] = await connection.query(
-            `SELECT base_qty, fulfilled_qty, po_header_id FROM po_details WHERE po_detail_id = ?`,
-            [pdId]
+    if (upsertValues.length > 0) {
+        await connection.query(
+            `INSERT INTO po_batch_allocations (po_detail_id, id_batch, allocated_qty, status, created_by, updated_by)
+             VALUES ?
+             ON DUPLICATE KEY UPDATE
+                allocated_qty = VALUES(allocated_qty),
+                status = VALUES(status),
+                updated_by = VALUES(updated_by)`,
+            [upsertValues]
         );
+    }
 
-        if (poDetailInfo) {
-            if (poDetailInfo.po_header_id) {
-                poHeaderIds.add(poDetailInfo.po_header_id);
-            }
+    // Ambil id alokasi baru untuk log
+    if (insertLogs.length > 0) {
+        const pairs = insertLogs.map((l) => [l.po_detail_id, l.id_batch]);
+        const [createdAllocs] = await connection.query(
+            'SELECT id, po_detail_id, id_batch FROM po_batch_allocations WHERE (po_detail_id, id_batch) IN (?)',
+            [pairs]
+        );
+        const idByPair = new Map(createdAllocs.map((a) => [`${a.po_detail_id}_${a.id_batch}`, a.id]));
+        insertLogs.forEach((l) => {
+            l.allocation_id = idByPair.get(`${l.po_detail_id}_${l.id_batch}`);
+        });
+        await logAllocationInsert(connection, insertLogs, userId);
+    }
+    if (updateLogs.length > 0) {
+        await logAllocationUpdate(connection, updateLogs, userId);
+    }
 
-            const baseQtyNum = Number(poDetailInfo.base_qty) || 0;
-            const fulfilledQtyNum = Number(poDetailInfo.fulfilled_qty) || 0;
+    // 5. Tanggal produksi aktual pada batches = MIN start / MAX completed dari seluruh detail tersimpan
+    await connection.query(
+        `UPDATE batches b
+         JOIN (
+            SELECT batch_number,
+                   MIN(actual_start_datetime) AS min_start,
+                   MAX(actual_completed_datetime) AS max_completed
+            FROM production_upload_details
+            WHERE batch_number IN (?)
+            GROUP BY batch_number
+         ) d ON d.batch_number = b.batch_number
+         SET b.actual_production_date = COALESCE(d.min_start, b.actual_production_date),
+             b.actual_completed_date = COALESCE(d.max_completed, b.actual_completed_date),
+             b.updated_by = ?`,
+        [batchNumbers, userId]
+    );
 
-            // Tentukan target status alokasi: 'Closed' HANYA JIKA fulfilled_qty === base_qty
-            const targetSystemStatus = (fulfilledQtyNum === baseQtyNum) ? 'Closed' : 'Open';
+    // 6. Recalculate fulfilled_qty pada po_details
+    const poDetailIds = [...new Set([...items.values()].map((i) => i.poDetailId))];
+    await connection.query(
+        `UPDATE po_details d
+         SET d.fulfilled_qty = (
+             SELECT COALESCE(SUM(pba.allocated_qty), 0)
+             FROM po_batch_allocations pba
+             WHERE pba.po_detail_id = d.po_detail_id AND pba.status <> 'Canceled'
+         )
+         WHERE d.po_detail_id IN (?)`,
+        [poDetailIds]
+    );
 
-            // Kumpulkan SELURUH batch_id yang terikat dengan po_detail ini untuk memastikan batch lama ikut di-refresh
-            const [relatedAllocations] = await connection.query(
-                `SELECT id_batch FROM po_batch_allocations WHERE po_detail_id = ?`,
-                [pdId]
-            );
-            relatedAllocations.forEach(alloc => {
-                if (alloc.id_batch) {
-                    batchIdsToRefresh.add(alloc.id_batch);
-                }
-            });
+    const [poDetailRows] = await connection.query(
+        'SELECT po_detail_id, po_header_id, base_qty, fulfilled_qty FROM po_details WHERE po_detail_id IN (?)',
+        [poDetailIds]
+    );
 
-            // Update status dua arah untuk alokasi otomatis (abaikan yang Force Closed / Canceled manual)
-            await connection.query(
-                `UPDATE po_batch_allocations 
-                 SET status = ?, updated_by = ? 
-                 WHERE po_detail_id = ? AND status IN ('Open', 'Closed')`,
-                [targetSystemStatus, currentUserId, pdId]
-            );
+    const poHeaderIds = new Set();
+    const targetStatusByDetail = new Map();
+    poDetailRows.forEach((pd) => {
+        const base = Number(pd.base_qty) || 0;
+        const fulfilled = Number(pd.fulfilled_qty) || 0;
+        if (fulfilled > base || fulfilled < 0) {
+            problems.push(`PO detail ${pd.po_detail_id} would have fulfilled quantity ${fulfilled} against PO quantity ${base}.`);
         }
+        if (pd.po_header_id) poHeaderIds.add(pd.po_header_id);
+        targetStatusByDetail.set(pd.po_detail_id, fulfilled >= base ? 'Closed' : 'Open');
+    });
+
+    if (problems.length > 0) {
+        throw new BusinessError(
+            'The allocation would exceed or go below the PO quantity limits. Please upload the file again to refresh the preview.',
+            409,
+            { problems }
+        );
     }
 
-    // 7. Refresh status Induk Batch (batches) untuk SEMUA ID batch yang terpengaruh
-    for (const bId of batchIdsToRefresh) {
-        if (bId) await refreshBatchStatus(connection, bId);
+    // 7. Sinkronisasi status dua arah untuk SELURUH alokasi Open/Closed milik PO detail terkait
+    //    (alokasi Force Closed / Canceled tidak disentuh)
+    const batchIdsToRefresh = new Set(batchIds);
+    const [relatedAllocs] = await connection.query(
+        `SELECT id, po_detail_id, id_batch, allocated_qty, status
+         FROM po_batch_allocations
+         WHERE po_detail_id IN (?) AND status IN ('Open', 'Closed')`,
+        [poDetailIds]
+    );
+
+    const changedToClosed = [];
+    const changedToOpen = [];
+    const syncLogs = [];
+    relatedAllocs.forEach((a) => {
+        const target = targetStatusByDetail.get(a.po_detail_id);
+        if (!target || a.status === target) return;
+        (target === 'Closed' ? changedToClosed : changedToOpen).push(a.id);
+        batchIdsToRefresh.add(a.id_batch);
+        syncLogs.push({
+            upload_log_id: uploadLogId,
+            allocation_id: a.id,
+            po_detail_id: a.po_detail_id,
+            id_batch: a.id_batch,
+            old_allocated_qty: Number(a.allocated_qty) || 0,
+            new_allocated_qty: Number(a.allocated_qty) || 0,
+            old_status: a.status,
+            new_status: target,
+            reason: SYNC_REASON,
+            created_by: userId
+        });
+    });
+
+    if (changedToClosed.length > 0) {
+        await connection.query(
+            `UPDATE po_batch_allocations SET status = 'Closed', updated_by = ? WHERE id IN (?)`,
+            [userId, changedToClosed]
+        );
+    }
+    if (changedToOpen.length > 0) {
+        await connection.query(
+            `UPDATE po_batch_allocations SET status = 'Open', updated_by = ? WHERE id IN (?)`,
+            [userId, changedToOpen]
+        );
+    }
+    if (syncLogs.length > 0) {
+        await logAllocationUpdate(connection, syncLogs, userId);
     }
 
-    // 8. Refresh status Header PO (po_headers)
+    // 8. Refresh status induk batch dan header PO
+    await refreshBatchStatuses(connection, [...batchIdsToRefresh]);
     for (const poHeaderId of poHeaderIds) {
         await refreshPOStatus(connection, poHeaderId);
     }
 
-    return { uploadLogId };
+    return {
+        uploadLogId,
+        savedBatchCount: previewResults.length,
+        savedRowCount: newRows.length,
+        allocationCount: upsertValues.length
+    };
 };
 
 module.exports = {

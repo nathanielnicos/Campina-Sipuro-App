@@ -15,9 +15,13 @@ export const previewProductionApi = async (formData) => {
     }
 };
 
+// payload berupa FormData: file Excel yang sama dengan saat preview, userId, dan fingerprint hasil preview.
+// Server menghitung ulang alokasi dari file tersebut dan menolak jika hasilnya berbeda dari preview.
 export const confirmProductionApi = async (payload) => {
     try {
-        const response = await axios.post(`${BASE_URL}/commit`, payload);
+        const response = await axios.post(`${BASE_URL}/commit`, payload, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
         return response.data;
     } catch (error) {
         console.error('Error confirming production:', error);

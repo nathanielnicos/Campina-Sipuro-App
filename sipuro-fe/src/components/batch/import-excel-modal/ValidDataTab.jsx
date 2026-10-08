@@ -4,6 +4,12 @@ import { formatDateTime } from '../../../utils/dateHelper';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import PaginationControl from '../../common/PaginationControl';
 
+// Qty bernilai minus (adjustment) ditampilkan merah dengan tanda minus
+const formatSignedQty = (value) => {
+    const n = Number(value) || 0;
+    return n < 0 ? `-${formatQty(Math.abs(n))}` : formatQty(n);
+};
+
 const ValidDataTab = ({ previewResults = [] }) => {
     // Pagination
     const [mainCurrentPage, setMainCurrentPage] = useState(1);
@@ -92,7 +98,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                             <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>-</td>
                                             <td style={{ textAlign: 'right', padding: '8px' }}>0</td>
                                             <td style={{ textAlign: 'right', padding: '8px' }}>0</td>
-                                            <td style={{ textAlign: 'right', padding: '8px' }}>{formatQty(item.totalQtyOutput || 0)}</td>
+                                            <td style={{ textAlign: 'right', padding: '8px', color: Number(item.totalQtyOutput) < 0 ? '#dc3545' : 'inherit' }}>{formatSignedQty(item.totalQtyOutput || 0)}</td>
                                             <td style={{ textAlign: 'right', padding: '8px' }}>0.0%</td>
                                             <td style={{ textAlign: 'center', padding: '8px' }}>{renderAllocationStatusBadge('Open')}</td>
                                         </tr>
@@ -131,8 +137,8 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                             <td style={{ textAlign: 'right', color: '#6c757d', padding: '8px' }}>
                                                 {formatQty(previousFulfilled)}
                                             </td>
-                                            <td style={{ textAlign: 'right', color: '#198754', fontWeight: 'bold', padding: '8px' }}>
-                                                {formatQty(productionOutput)}
+                                            <td style={{ textAlign: 'right', color: productionOutput < 0 ? '#dc3545' : '#198754', fontWeight: 'bold', padding: '8px' }}>
+                                                {formatSignedQty(productionOutput)}
                                             </td>
                                             <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '8px' }}>
                                                 {percentage}%

@@ -7,7 +7,7 @@ const Header = ({
     currentUser,
     onSuccessSave
 }) => {
-    const currentUserId = currentUser?.employee_id || currentUser?.id;
+    const currentUserId = currentUser?.id;
     const userRole = currentUser?.role;
 
     // Encapsulation: Hook dipanggil langsung di komponen Header yang mengontrol form upload & modal

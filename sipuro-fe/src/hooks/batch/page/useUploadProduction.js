@@ -4,12 +4,25 @@ import {
     confirmProductionApi
 } from '../../../services/productionUploadApi';
 import { useGlobalModal } from '../../../context/ModalContext';
+import { formatQty } from '../../../utils/formatters';
+
+// Qty bernilai minus ditampilkan dengan tanda minus
+const formatSignedQty = (value) => {
+    const n = Number(value) || 0;
+    return n < 0 ? `-${formatQty(Math.abs(n))}` : formatQty(n);
+};
 
 export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
     // Context Modal Global
     const { showAlert, showConfirm } = useGlobalModal();
 
     const fileInputRef = useRef(null);
+    // File yang dipakai saat preview. Dikirim ulang saat commit agar server menghitung ulang dari file yang sama,
+    // walaupun user mengubah isi input file setelah preview.
+    const previewFileRef = useRef(null);
+    // Guard sinkron terhadap klik ganda (state `saving` bisa terlambat diperbarui)
+    const savingRef = useRef(false);
+
     const [uploading, setUploading] = useState(false);
 
     const [previewData, setPreviewData] = useState(null);
@@ -20,6 +33,7 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
     const handleResetUploadState = () => {
         setIsPreviewOpen(false);
         setPreviewData(null);
+        previewFileRef.current = null;
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -48,6 +62,7 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
             setUploading(false);
 
             if (res && res.success) {
+                previewFileRef.current = actualFile;
                 setPreviewData(res.data);
                 setIsPreviewOpen(true);
             } else {
@@ -69,23 +84,31 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
         }
     };
 
-    // Fungsi internal untuk eksekusi penyimpan setelah konfirmasi disetujui
-    const executeConfirmSave = async (validNewDetails, duplicateStatusRows) => {
+    // Fungsi internal untuk eksekusi penyimpanan setelah konfirmasi disetujui.
+    // Server menghitung ulang alokasi dari file yang dikirim; client tidak mengirim hasil alokasi.
+    const executeConfirmSave = async () => {
+        if (savingRef.current) return;
+
+        const fileToCommit = previewFileRef.current;
+        if (!previewData || !fileToCommit) {
+            showAlert({
+                type: 'error',
+                title: 'Save Failed',
+                message: 'The preview file is no longer available. Please upload the file again.'
+            });
+            return;
+        }
+
+        savingRef.current = true;
         setSaving(true);
 
         try {
-            const payload = {
-                processTimestamp: previewData.processTimestamp,
-                fileHash: previewData.fileHash,
-                fileName: previewData.fileName,
-                userId: currentUserId,
-                allocations: previewData.detailedAllocations,
-                newDetails: validNewDetails,
-                duplicateStatusUpdateRows: duplicateStatusRows
-            };
+            const payload = new FormData();
+            payload.append('file', fileToCommit);
+            payload.append('userId', String(currentUserId));
+            payload.append('fingerprint', previewData.fingerprint || '');
 
             const res = await confirmProductionApi(payload);
-            setSaving(false);
 
             if (res && res.success) {
                 showAlert({
@@ -103,17 +126,19 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
                 });
             }
         } catch (err) {
-            setSaving(false);
             showAlert({
                 type: 'error',
                 title: 'Save Error',
                 message: 'An error occurred while saving the data.'
             });
+        } finally {
+            savingRef.current = false;
+            setSaving(false);
         }
     };
 
     const handleConfirmSave = async () => {
-        if (!previewData) return;
+        if (!previewData || savingRef.current) return;
 
         // Guard Tambahan: Jika file reupload, hentikan proses simpan
         if (previewData.isReupload) {
@@ -125,24 +150,17 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
             return;
         }
 
-        // Strictly extract newRows and unallocatedRows without OR fallbacks
-        const rawNewRows = previewData.newRows;
-        const unallocatedRows = previewData.unallocatedRows;
+        if (!currentUserId) {
+            showAlert({
+                type: 'error',
+                title: 'Cannot Save',
+                message: 'User information is missing. Please log in again.'
+            });
+            return;
+        }
 
-        // Set keys for unallocated items to strictly filter them out
-        const unallocatedKeys = new Set(
-            unallocatedRows.map(u => `${u.batchNumber}_${u.itemCode}`)
-        );
-
-        // Filter newDetails so it strictly carries allocated rows only
-        const validNewDetails = rawNewRows.filter(
-            r => !unallocatedKeys.has(`${r.batchNumber}_${r.itemCode}`)
-        );
-
-        const duplicateStatusRows = previewData.duplicateStatusUpdateRows;
-        const validCount = previewData.previewResults.length;
-
-        if (validCount === 0) {
+        // Server menentukan apakah ada alokasi yang bisa disimpan
+        if (!previewData.canSave) {
             showAlert({
                 type: 'warning',
                 title: 'No Data',
@@ -151,11 +169,16 @@ export const useUploadProduction = ({ currentUserId, onSuccessSave }) => {
             return;
         }
 
+        const results = previewData.previewResults || [];
+        const batchCount = results.length;
+        const rowCount = previewData.summary?.validRowCount ?? 0;
+        const totalQty = results.reduce((sum, b) => sum + (Number(b.totalQtyOutput) || 0), 0);
+
         showConfirm({
             title: 'Confirm Save Allocation',
-            message: `Save ${validCount} valid row(s) to PO allocation?`,
+            message: `Save ${batchCount} batch(es) (${rowCount} rows, ${formatSignedQty(totalQty)} pcs) to PO allocation?`,
             confirmText: 'Save',
-            onConfirm: () => executeConfirmSave(validNewDetails, duplicateStatusRows)
+            onConfirm: () => executeConfirmSave()
         });
     };
 

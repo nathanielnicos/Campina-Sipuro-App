@@ -44,3 +44,14 @@ export const toggleCustomerUserStatus = async (id, isActive) => {
     });
     return response.data;
 };
+
+// ==================== PO SETTINGS API ====================
+export const getPoSettings = async () => {
+    const response = await axios.get(`${API_BASE_URL}/po/po-settings`);
+    return response.data;
+};
+
+export const updatePoSettings = async (data) => {
+    const response = await axios.put(`${API_BASE_URL}/po/po-settings`, data);
+    return response.data;
+};

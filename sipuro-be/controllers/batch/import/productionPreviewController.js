@@ -1,6 +1,8 @@
 const { sipuroDb: db } = require('../../../config/db');
 const { parseProductionExcel } = require('../../../helpers/productionParserHelper');
-const { calculateFifoAllocation } = require('../../../helpers/productionCalculatorHelper');
+const { calculateFifoAllocation, computeAllocationFingerprint } = require('../../../helpers/productionCalculatorHelper');
+const { loadProductionContext } = require('../../../helpers/productionDataLoader');
+const { BusinessError, sendControllerError } = require('../../../helpers/businessError');
 
 /**
  * Preview Upload Excel Production (PPIC) - Automatic FIFO based on po_headers.created_at ASC
@@ -8,59 +10,28 @@ const { calculateFifoAllocation } = require('../../../helpers/productionCalculat
 exports.previewExcelUpload = async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ success: false, message: 'Excel file is required.' });
+            throw new BusinessError('Excel file is required.', 400);
         }
 
         const { processTimestamp, fileHash, rawRows } = parseProductionExcel(req.file.buffer);
 
+        // Aturan file duplikat: hash ATAU process timestamp sama (sama dengan commit)
         const [existingLogs] = await db.query(
             'SELECT id, uploaded_at FROM production_upload_logs WHERE process_timestamp = ? OR file_hash = ?',
             [processTimestamp, fileHash]
         );
         const isAlreadyUploaded = existingLogs && existingLogs.length > 0;
 
-        // Fetch existing row_hash from DB
-        const [existingHashRows] = await db.query(
-            'SELECT row_hash FROM production_upload_details'
-        );
-        const existingHashes = existingHashRows ? existingHashRows.map(row => row.row_hash) : [];
+        const { existingHashes, openPoDetails, allProducts, context } = await loadProductionContext(db, rawRows);
 
-        // Fetch active PO details eligible for allocation (JOIN po_details -> po_headers -> products)
-        // Menarik pd.status AS detail_status dan memfilter status Active & Close Requested
-        const [openPoDetails] = await db.query(`
-            SELECT 
-                pd.po_detail_id,
-                pd.po_header_id,
-                pd.id_product,
-                pd.base_qty,
-                pd.fulfilled_qty,
-                pd.status AS detail_status,
-                ph.po_number,
-                ph.created_at,
-                ph.status AS header_status,
-                p.product_code,
-                p.product_name
-            FROM po_details pd
-            JOIN po_headers ph ON pd.po_header_id = ph.po_header_id
-            JOIN products p ON pd.id_product = p.id_product
-            WHERE pd.deleted_at IS NULL 
-              AND ph.status NOT IN ('Canceled', 'Closed', 'Force Closed')
-              AND pd.status IN ('Active', 'Close Requested')
-            ORDER BY ph.created_at ASC
-        `);
-
-        const [allProducts] = await db.query('SELECT id_product, product_code, product_name FROM products');
-
-        // Panggil helper
         const calculationResult = calculateFifoAllocation(
             rawRows,
             existingHashes,
-            openPoDetails || [],
-            allProducts || []
+            openPoDetails,
+            allProducts,
+            context
         );
 
-        // Spread seluruh hasil helper agar array raw data (unallocatedRows, duplicateRows, dll) 
-        // berada sejajar di tingkat atas tanpa perlu pembungkusan ganda
         return res.json({
             success: true,
             data: {
@@ -70,12 +41,15 @@ exports.previewExcelUpload = async (req, res) => {
                 allocationMode: 'FIFO_CREATED_AT_ASC',
                 isReupload: isAlreadyUploaded,
                 warningMessage: isAlreadyUploaded ? 'This file or timestamp has been uploaded previously.' : null,
+                // Dikirim kembali saat commit; server menolak jika hasil hitung ulang berbeda
+                fingerprint: computeAllocationFingerprint(calculationResult),
                 ...calculationResult
             }
         });
-
     } catch (error) {
-        console.error('Preview Production Upload Error:', error);
-        return res.status(500).json({ success: false, message: 'Failed to process Excel file: ' + error.message });
+        return sendControllerError(res, error, {
+            label: 'Preview Production Upload Error',
+            fallbackMessage: 'Failed to process the Excel file. Please try again or contact the administrator.'
+        });
     }
 };

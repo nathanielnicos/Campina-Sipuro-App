@@ -38,7 +38,7 @@ const ImportExcelModal = ({
             alertBg: '#cff4fc',
             alertColor: '#055160',
             alertBorder: '#b6effb',
-            alertMessage: 'The rows below are valid production items but exceeded active PO capacity or have no matching open POs. These items are displayed for information only.'
+            alertMessage: 'The rows below did not produce a PO allocation (for example: exceeding PO capacity, no matching open PO, net quantity of zero, or missing production date). See the Reason column. These rows are displayed for information only and will not be saved.'
         },
         duplicate: {
             title: 'Duplicate Rows (Skipped)',
@@ -52,7 +52,7 @@ const ImportExcelModal = ({
             alertBg: '#e2e3e5',
             alertColor: '#41464b',
             alertBorder: '#d3d6d8',
-            alertMessage: 'The rows below were previously imported, but contain status or condition updates.'
+            alertMessage: 'The rows below were previously imported but now have a different lot status. They are displayed for information only and are not processed. Use the recall feature to adjust allocations.'
         },
         non_good: {
             title: 'Non-GOOD Status Rows',
@@ -71,6 +71,9 @@ const ImportExcelModal = ({
     };
 
     const currentConfig = tabConfigs[activeTab] || tabConfigs.new;
+
+    // Save hanya aktif jika ada minimal satu batch yang teralokasi (canSave dari server), file belum pernah diupload, dan tidak sedang menyimpan
+    const isSaveDisabled = loading || parsedData.isReupload || !parsedData.canSave;
 
     return (
         <div style={{
@@ -176,6 +179,7 @@ const ImportExcelModal = ({
                             <RawDataTab
                                 rawData={unallocatedRows}
                                 emptyMessage="No unallocated items found."
+                                showReason
                             />
                         )}
 
@@ -237,15 +241,15 @@ const ImportExcelModal = ({
                     <button
                         type="button"
                         onClick={onConfirmImport}
-                        disabled={loading || parsedData.isReupload || (!summary.newCount || summary.newCount === 0)}
+                        disabled={isSaveDisabled}
                         style={{
                             padding: '8px 16px',
                             backgroundColor: '#0d6efd',
                             color: '#fff',
                             border: 'none',
                             borderRadius: '4px',
-                            cursor: (loading || parsedData.isReupload || (!summary.newCount || summary.newCount === 0)) ? 'not-allowed' : 'pointer',
-                            opacity: (loading || parsedData.isReupload || (!summary.newCount || summary.newCount === 0)) ? 0.6 : 1,
+                            cursor: isSaveDisabled ? 'not-allowed' : 'pointer',
+                            opacity: isSaveDisabled ? 0.6 : 1,
                             fontWeight: 'bold',
                             fontSize: '14px'
                         }}

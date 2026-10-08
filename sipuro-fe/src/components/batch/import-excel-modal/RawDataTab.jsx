@@ -3,7 +3,13 @@ import { formatQty } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/dateHelper';
 import PaginationControl from '../../common/PaginationControl';
 
-const RawDataTab = ({ rawData = [], emptyMessage = "No data available." }) => {
+// Qty bernilai minus ditampilkan dengan tanda minus (formatQty dipanggil dengan nilai absolut)
+const formatSignedQty = (value) => {
+    const n = Number(value) || 0;
+    return n < 0 ? `-${formatQty(Math.abs(n))}` : formatQty(n);
+};
+
+const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showReason = false }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
@@ -25,12 +31,13 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available." }) => {
                             <th style={{ textAlign: 'right', padding: '8px' }}>Qty (Pcs)</th>
                             <th style={{ textAlign: 'center', padding: '8px' }}>Start Datetime</th>
                             <th style={{ textAlign: 'center', padding: '8px' }}>Completed Datetime</th>
+                            {showReason && <th style={{ textAlign: 'left', padding: '8px', minWidth: '200px' }}>Reason</th>}
                         </tr>
                     </thead>
                     <tbody>
                         {paginatedRows.length === 0 ? (
                             <tr>
-                                <td colSpan={7} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                <td colSpan={showReason ? 8 : 7} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                     {emptyMessage}
                                 </td>
                             </tr>
@@ -44,9 +51,10 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available." }) => {
                                         <td style={{ textAlign: 'center', padding: '8px' }}>
                                             {row.lotStatus || '-'}
                                         </td>
-                                        <td style={{ textAlign: 'right', padding: '8px' }}>{formatQty(row.qtyPac)}</td>
+                                        <td style={{ textAlign: 'right', padding: '8px', color: Number(row.qtyPac) < 0 ? '#dc3545' : 'inherit' }}>{formatSignedQty(row.qtyPac)}</td>
                                         <td style={{ textAlign: 'center', padding: '8px' }}>{formatDateTime(row.actualStartDatetime) || '-'}</td>
                                         <td style={{ textAlign: 'center', padding: '8px' }}>{formatDateTime(row.actualCompletedDatetime) || '-'}</td>
+                                        {showReason && <td style={{ padding: '8px', color: '#842029' }}>{row.reason || '-'}</td>}
                                     </tr>
                                 );
                             })

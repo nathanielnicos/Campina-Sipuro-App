@@ -1,8 +1,8 @@
 const { sipuroDb } = require('../../config/db');
 const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
-const { getWibYear, getWibDateTimeString } = require('../../helpers/dateHelper');
-const { calculateBaseQty } = require('../../helpers/poHelper');
+const { getWibDateTimeString } = require('../../helpers/dateHelper');
+const { calculateBaseQty, generateNextPoNumber } = require('../../helpers/poHelper');
 
 /**
  * CREATE PO
@@ -39,26 +39,8 @@ exports.createPO = async (req, res) => {
         });
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
-        // Menggunakan getWibYear() untuk penentuan tahun nomor PO berbasis WIB
-        const currentYear = getWibYear();
-
-        const [lastPoRows] = await sipuroDb.query(
-            `SELECT po_number FROM sipuro_db.po_headers 
-             WHERE YEAR(created_at) = ? 
-             ORDER BY po_header_id DESC LIMIT 1`,
-            [currentYear]
-        );
-
-        let nextSeq = 1;
-        if (lastPoRows.length > 0 && lastPoRows[0].po_number) {
-            const lastPoNumber = lastPoRows[0].po_number;
-            const parts = lastPoNumber.split('/');
-            const lastSeq = parseInt(parts[0], 10);
-            if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
-        }
-
-        const formattedSeq = String(nextSeq).padStart(3, '0');
-        const poNumber = `${formattedSeq}/PO/${customerCode}/${currentYear}`;
+        // Generate Nomor PO Terpusat melalui Helper (Ambil string poNumber)
+        const { poNumber } = await generateNextPoNumber(connection, { customer_id, customerCode });
 
         const productIds = items.map(item => item.id_product);
         const [productRows] = await sipuroDb.query(
@@ -67,12 +49,12 @@ exports.createPO = async (req, res) => {
         );
         const productMap = new Map(productRows.map(p => [p.id_product, p]));
 
-        // Dapatkan timestamp waktu WIB presisi untuk created_at & updated_at
+        // Timestamp WIB presisi untuk created_at & updated_at
         const nowWib = getWibDateTimeString();
 
         await connection.beginTransaction();
 
-        // Insert Header dengan timestamp WIB eksplisit untuk created_at & updated_at
+        // Insert Header
         const [headerResult] = await connection.query(
             `INSERT INTO sipuro_db.po_headers 
              (po_number, customer_id, subtotal, ppn_percent, total_amount, delivery_address, description, status, created_by, updated_by, created_at, updated_at) 
@@ -145,7 +127,7 @@ exports.createPO = async (req, res) => {
             });
         }
 
-        // Catat Audit Trail
+        // Audit Trail
         const poHeaderLogId = await logPOHeader(connection, {
             poHeaderId,
             actionType: 'CREATE',
@@ -158,7 +140,6 @@ exports.createPO = async (req, res) => {
 
         await connection.commit();
 
-        // Notifikasi ke PPIC HANYA jika bukan status Draft
         if (targetStatus !== 'Draft') {
             await createNotification({
                 title: 'New PO Received',

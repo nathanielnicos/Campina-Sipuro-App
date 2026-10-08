@@ -9,6 +9,7 @@ export const NAV_ITEMS = {
     SA_CUSTOMERS: { id: 'sa-customers', label: 'Customer User', path: '/sa-customers' },
     SA_PRODUCTS: { id: 'sa-products', label: 'Product', path: '/sa-products' },
     SA_PRICES: { id: 'sa-prices', label: 'Selling Price', path: '/sa-prices' },
+    SA_SETTINGS: { id: 'sa-settings', label: 'Setting', path: '/sa-settings'},
     PROFILE: { id: 'profile', label: 'Profile', path: '/profile' }
 };
 
@@ -37,6 +38,7 @@ export const getNavItemsByUser = (user) => {
             NAV_ITEMS.SA_CUSTOMERS,
             NAV_ITEMS.SA_PRODUCTS,
             NAV_ITEMS.SA_PRICES,
+            NAV_ITEMS.SA_SETTINGS,
             NAV_ITEMS.PROFILE
         ];
     }

@@ -4,6 +4,7 @@ const poUpdateController = require('./poUpdateController');
 const poStatusController = require('./poStatusController');
 const poExportController = require('./poExportController');
 const poDetailCloseController = require('./poDetailCloseController');
+const poSettingController = require('./poSettingController');
 
 module.exports = {
     // PO Get
@@ -22,5 +23,9 @@ module.exports = {
     // PO Detail Close
     requestClosePoDetails: poDetailCloseController.requestClosePoDetails,
     approveClosePoDetails: poDetailCloseController.approveClosePoDetails,
-    rejectClosePoDetails: poDetailCloseController.rejectClosePoDetails
+    rejectClosePoDetails: poDetailCloseController.rejectClosePoDetails,
+
+    // PO Setting
+    getPoSettings: poSettingController.getPoSettings,
+    updatePoSettings: poSettingController.updatePoSettings
 };

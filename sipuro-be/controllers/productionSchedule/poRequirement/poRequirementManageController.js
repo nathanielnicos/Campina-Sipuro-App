@@ -1,7 +1,8 @@
 const { sipuroDb } = require('../../../config/db');
 const { createNotification } = require('../../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../../helpers/poLogHelper');
-const { getWibYear, getWibDateTimeString } = require('../../../helpers/dateHelper');
+const { getWibDateTimeString } = require('../../../helpers/dateHelper');
+const { generateNextPoNumber } = require('../../../helpers/poHelper');
 
 /**
  * CREATE DRAFT PO FROM PO REQUIREMENT BY PPIC
@@ -15,7 +16,6 @@ exports.createDraftPO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Customer and items are required.' });
         }
 
-        // Batasi dan bersihkan karakter description max 50 karakter
         const safeDescription = description ? description.trim().slice(0, 50) : null;
 
         // 1. Ambil customer_code dan delivery_address dari tabel customers
@@ -29,7 +29,7 @@ exports.createDraftPO = async (req, res) => {
         const customerCode = customerRows[0].customer_code || 'CUST';
         const deliveryAddress = customerRows[0].delivery_address || '';
 
-        // 2. Ambil PPN Percent dari Company Profile
+        // 2. Ambil PPN Percent
         const [profileRows] = await connection.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
         const ppn_percent = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
 
@@ -88,28 +88,12 @@ exports.createDraftPO = async (req, res) => {
 
         const total_amount = subtotal + (subtotal * (ppn_percent / 100));
 
-        // 5. Generate Nomor PO (Menggunakan Tahun Presisi WIB)
-        const currentYear = getWibYear();
-        const [lastPoRows] = await connection.query(
-            `SELECT po_number FROM sipuro_db.po_headers 
-             WHERE YEAR(created_at) = ? 
-             ORDER BY po_header_id DESC LIMIT 1`,
-            [currentYear]
-        );
-
-        let nextSeq = 1;
-        if (lastPoRows.length > 0 && lastPoRows[0].po_number) {
-            const parts = lastPoRows[0].po_number.split('/');
-            const lastSeq = parseInt(parts[0], 10);
-            if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
-        }
-
-        const formattedSeq = String(nextSeq).padStart(3, '0');
-        const poNumber = `${formattedSeq}/PO/${customerCode}/${currentYear}`;
+        // 5. Generate Nomor PO Terpusat melalui Helper (Ambil string poNumber)
+        const { poNumber } = await generateNextPoNumber(connection, { customer_id, customerCode });
 
         await connection.beginTransaction();
 
-        // 6. Insert PO Header (Eksplisit menyertakan timestamp WIB untuk created_at & updated_at)
+        // 6. Insert PO Header
         const nowWib = getWibDateTimeString();
         const [headerResult] = await connection.query(
             `INSERT INTO sipuro_db.po_headers 
@@ -133,7 +117,7 @@ exports.createDraftPO = async (req, res) => {
         const poHeaderId = headerResult.insertId;
         const insertedDetails = [];
 
-        // 7. Insert PO Details (Eksplisit menyertakan status 'Active')
+        // 7. Insert PO Details
         for (const item of processedItems) {
             const [detailRes] = await connection.query(
                 `INSERT INTO sipuro_db.po_details 
@@ -181,7 +165,7 @@ exports.createDraftPO = async (req, res) => {
 
         await connection.commit();
 
-        // 9. Kirim Notifikasi ke Customer (Aplikasi & Email)
+        // 9. Kirim Notifikasi ke Customer
         await createNotification({
             title: 'Suggested Draft PO Created',
             message: `A new suggested Draft PO ${poNumber} has been created for your review by PPIC.`,

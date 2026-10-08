@@ -10,6 +10,7 @@ import EmployeeListPage from './components/master/EmployeeListPage';
 import CustomerUserListPage from './components/master/CustomerUserListPage';
 import ProductListPage from './components/master/ProductListPage';
 import PriceListPage from './components/master/PriceListPage';
+import SettingPage from './components/master/SettingPage';
 
 import DOPage from './components/do/DOPage';
 import ProfilePage from './components/profile/ProfilePage';
@@ -168,6 +169,7 @@ function MainApp() {
         <Route path="/sa-customers" element={<CustomerUserListPage />} />
         <Route path="/sa-products" element={<ProductListPage />} />
         <Route path="/sa-prices" element={<PriceListPage />} />
+        <Route path="/sa-settings" element={<SettingPage />} />
 
         <Route path="/profile" element={
           <ProfilePage currentUser={user} onUserUpdated={handleUserUpdated} />
