@@ -11,7 +11,7 @@ const superadminRoutes = require('./routes/superadminRoutes');
 const poRoutes = require('./routes/poRoutes');
 const batchRoutes = require('./routes/batchRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
-const doRoutes = require('./routes/doRoutes');
+const documentFlowRoutes = require('./routes/documentFlowRoutes');
 const productionSchedule = require('./routes/productionScheduleRoutes');
 const testRoutes = require('./routes/testRoutes'); // <-- Import testRoutes
 
@@ -41,7 +41,7 @@ app.use('/api/superadmin', superadminRoutes);
 app.use('/api/po', poRoutes);
 app.use('/api/batch', batchRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/delivery-orders', doRoutes);
+app.use('/api/document-flow', documentFlowRoutes);
 app.use('/api/production-schedule', productionSchedule);
 app.use('/api/test', testRoutes);
 

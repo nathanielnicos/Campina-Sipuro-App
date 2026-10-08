@@ -1,12 +1,14 @@
+import React, { useState } from 'react';
 import FilterBar from './FilterBar';
 import Table from './Table';
+import ImportModal from './ImportModal';
 
-// Import Hooks
-import { useFilterBar } from '../../hooks/do/useFilterBar';
-import { useTable } from '../../hooks/do/useTable';
+import { useFilterBar } from '../../hooks/documentFlow/do/useFilterBar';
+import { useTable } from '../../hooks/documentFlow/do/useTable';
 
 const DOPage = () => {
-    // 1. Hook Filter
+    const [isImportOpen, setIsImportOpen] = useState(false);
+
     const {
         search,
         startDate,
@@ -26,7 +28,6 @@ const DOPage = () => {
         handleResetFilters
     } = useFilterBar();
 
-    // 2. Hook Table Data
     const {
         doList,
         loading,
@@ -36,7 +37,8 @@ const DOPage = () => {
         totalPages,
         totalItems,
         handlePageChange,
-        handleLimitChange
+        handleLimitChange,
+        refreshData
     } = useTable({
         currentPage,
         setCurrentPage,
@@ -51,6 +53,16 @@ const DOPage = () => {
 
     return (
         <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h2>Delivery Orders Management</h2>
+                <button
+                    onClick={() => setIsImportOpen(true)}
+                    style={{ backgroundColor: '#0d6efd', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                    + Import Document Flow
+                </button>
+            </div>
+
             <FilterBar
                 search={search}
                 startDate={startDate}
@@ -83,6 +95,12 @@ const DOPage = () => {
                     onLimitChange={handleLimitChange}
                 />
             )}
+
+            <ImportModal
+                isOpen={isImportOpen}
+                onClose={() => setIsImportOpen(false)}
+                onSuccess={refreshData}
+            />
         </div>
     );
 };

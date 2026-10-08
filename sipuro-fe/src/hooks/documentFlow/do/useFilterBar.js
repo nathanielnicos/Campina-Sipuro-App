@@ -1,3 +1,4 @@
+// hooks/do/useFilterBar.js
 import { useState } from 'react';
 
 export const useFilterBar = () => {
@@ -6,7 +7,7 @@ export const useFilterBar = () => {
     const [endDate, setEndDate] = useState('');
     const [completedStartDate, setCompletedStartDate] = useState('');
     const [completedEndDate, setCompletedEndDate] = useState('');
-    const [sortConfig, setSortConfig] = useState({ key: 'po_created_date', direction: 'DESC' });
+    const [sortConfig, setSortConfig] = useState({ key: 'do_created_date', direction: 'DESC' });
     const [currentPage, setCurrentPage] = useState(1);
 
     const isFilterActive = Boolean(

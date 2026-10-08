@@ -1,5 +1,6 @@
+// hooks/si/useTable.js
 import { useState, useEffect, useCallback } from 'react';
-import { getDeliveryOrders } from '../../services/doApi';
+import { getSalesInvoices } from '../../services/siApi';
 
 export const useTable = ({
     currentPage,
@@ -7,12 +8,12 @@ export const useTable = ({
     search,
     startDate,
     endDate,
-    completedStartDate,
-    completedEndDate,
+    pickUpStartDate,
+    pickUpEndDate,
     sortBy,
     sortOrder
 }) => {
-    const [doList, setDoList] = useState([]);
+    const [siList, setSiList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [fetching, setFetching] = useState(false);
     const [error, setError] = useState(null);
@@ -21,7 +22,6 @@ export const useTable = ({
     const [totalItems, setTotalItems] = useState(0);
 
     const fetchData = useCallback(async () => {
-        // Jika belum ada data sama sekali, tampilkan loading utama. Jika sudah ada, gunakan indikator fetching.
         setFetching(true);
         setError(null);
 
@@ -32,25 +32,25 @@ export const useTable = ({
                 search,
                 startDate,
                 endDate,
-                completedStartDate,
-                completedEndDate,
+                pickUpStartDate,
+                pickUpEndDate,
                 sortBy,
                 sortOrder
             };
 
-            const res = await getDeliveryOrders(params);
+            const res = await getSalesInvoices(params);
 
             if (res.success) {
-                setDoList(res.data || []);
+                setSiList(res.data || []);
                 if (res.pagination) {
                     setTotalPages(res.pagination.totalPages || 1);
                     setTotalItems(res.pagination.totalItems || 0);
                 }
             } else {
-                setError(res.message || 'Failed to load delivery orders');
+                setError(res.message || 'Failed to load sales invoices data');
             }
         } catch (err) {
-            console.error('Error fetching delivery orders:', err);
+            console.error('Error fetching sales invoices:', err);
             setError(err.message || 'Server connection error');
         } finally {
             setLoading(false);
@@ -62,8 +62,8 @@ export const useTable = ({
         search,
         startDate,
         endDate,
-        completedStartDate,
-        completedEndDate,
+        pickUpStartDate,
+        pickUpEndDate,
         sortBy,
         sortOrder
     ]);
@@ -84,7 +84,7 @@ export const useTable = ({
     };
 
     return {
-        doList,
+        siList,
         loading,
         fetching,
         error,
