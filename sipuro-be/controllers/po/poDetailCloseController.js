@@ -114,7 +114,7 @@ exports.requestClosePoDetails = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error('Error requesting item close:', error);
-        res.status(500).json({ success: false, message: 'Failed to submit close request.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to submit close request.', ...(process.env.NODE_ENV === 'development' && { error: error.message }) });
     } finally {
         connection.release();
     }
@@ -223,7 +223,7 @@ exports.approveClosePoDetails = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error('Error approving item close:', error);
-        res.status(500).json({ success: false, message: 'Failed to approve item close.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to approve item close.', ...(process.env.NODE_ENV === 'development' && { error: error.message }) });
     } finally {
         connection.release();
     }
@@ -328,7 +328,7 @@ exports.rejectClosePoDetails = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error('Error rejecting item close:', error);
-        res.status(500).json({ success: false, message: 'Failed to reject item close.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to reject item close.', ...(process.env.NODE_ENV === 'development' && { error: error.message }) });
     } finally {
         connection.release();
     }
