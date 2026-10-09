@@ -1,19 +1,18 @@
-// hooks/si/useTable.js
 import { useState, useEffect, useCallback } from 'react';
-import { getSalesInvoices } from '../../services/siApi';
+import { getDeliveryOrders } from '../../../services/documentFlowApi';
 
-export const useTable = ({
+export const useDOTable = ({
     currentPage,
     setCurrentPage,
     search,
     startDate,
     endDate,
-    pickUpStartDate,
-    pickUpEndDate,
+    completedStartDate,
+    completedEndDate,
     sortBy,
     sortOrder
 }) => {
-    const [siList, setSiList] = useState([]);
+    const [doList, setDoList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [fetching, setFetching] = useState(false);
     const [error, setError] = useState(null);
@@ -32,25 +31,25 @@ export const useTable = ({
                 search,
                 startDate,
                 endDate,
-                pickUpStartDate,
-                pickUpEndDate,
+                completedStartDate,
+                completedEndDate,
                 sortBy,
                 sortOrder
             };
 
-            const res = await getSalesInvoices(params);
+            const res = await getDeliveryOrders(params);
 
             if (res.success) {
-                setSiList(res.data || []);
+                setDoList(res.data || []);
                 if (res.pagination) {
                     setTotalPages(res.pagination.totalPages || 1);
                     setTotalItems(res.pagination.totalItems || 0);
                 }
             } else {
-                setError(res.message || 'Failed to load sales invoices data');
+                setError(res.message || 'Failed to load delivery orders data');
             }
         } catch (err) {
-            console.error('Error fetching sales invoices:', err);
+            console.error('Error fetching delivery orders:', err);
             setError(err.message || 'Server connection error');
         } finally {
             setLoading(false);
@@ -62,8 +61,8 @@ export const useTable = ({
         search,
         startDate,
         endDate,
-        pickUpStartDate,
-        pickUpEndDate,
+        completedStartDate,
+        completedEndDate,
         sortBy,
         sortOrder
     ]);
@@ -84,7 +83,7 @@ export const useTable = ({
     };
 
     return {
-        siList,
+        doList,
         loading,
         fetching,
         error,

@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import SummaryCards from './SummaryCards';
-import ValidDataTab from './ValidDataTab';
-import RawDataTab from './RawDataTab';
+import DocumentFlowSummaryCards from './DocumentFlowSummaryCards';
+import DocumentFlowDataTab from './DocumentFlowDataTab';
 
-const ImportExcelModal = ({
+const DocumentFlowImportModal = ({
     show,
-    onClose,
-    onConfirmImport,
     parsedData = null,
-    loading = false
+    loading = false,
+    onConfirmImport,
+    onClose
 }) => {
     const [activeTab, setActiveTab] = useState('new');
 
@@ -18,48 +17,24 @@ const ImportExcelModal = ({
     const {
         summary = {},
         previewResults: validData = [],
-        unallocatedRows = [],
         duplicateRows = [],
-        duplicateStatusUpdateRows = [],
-        nonGoodRows = [],
         unregisteredRows = []
     } = parsedData;
 
     const tabConfigs = {
         new: {
-            title: 'Valid Data (Allocated to PO)',
+            title: 'Valid Data',
             alertBg: '#d1e7dd',
             alertColor: '#0f5132',
             alertBorder: '#badbcc',
             alertMessage: 'The data below is valid and successfully allocated to matching POs. This data will be saved to the database when you click Save.'
         },
-        unallocated: {
-            title: 'Unallocated Data',
-            alertBg: '#cff4fc',
-            alertColor: '#055160',
-            alertBorder: '#b6effb',
-            alertMessage: 'The rows below did not produce a PO allocation (for example: exceeding PO capacity, no matching open PO, net quantity of zero, or missing production date). See the Reason column. These rows are displayed for information only and will not be saved.'
-        },
         duplicate: {
-            title: 'Duplicate Rows (Skipped)',
+            title: 'Duplicate Rows',
             alertBg: '#fff3cd',
             alertColor: '#664d03',
             alertBorder: '#ffecb5',
             alertMessage: 'The rows below are exact duplicates and will be skipped during processing.'
-        },
-        duplicate_status_update: {
-            title: 'Duplicate Status Update Only',
-            alertBg: '#e2e3e5',
-            alertColor: '#41464b',
-            alertBorder: '#d3d6d8',
-            alertMessage: 'The rows below were previously imported but now have a different lot status. They are displayed for information only and are not processed. Use the recall feature to adjust allocations.'
-        },
-        non_good: {
-            title: 'Non-GOOD Status Rows',
-            alertBg: '#ffe5d0',
-            alertColor: '#853e00',
-            alertBorder: '#ffd0a8',
-            alertMessage: 'The rows below have a Non-GOOD quality status and require special attention or will be skipped.'
         },
         unregistered: {
             title: 'Unregistered SKU Rows',
@@ -72,7 +47,7 @@ const ImportExcelModal = ({
 
     const currentConfig = tabConfigs[activeTab] || tabConfigs.new;
 
-    // Save hanya aktif jika ada minimal satu batch yang teralokasi (canSave dari server), file belum pernah diupload, dan tidak sedang menyimpan
+    // Save hanya aktif jika ada minimal satu data yang bisa disimpan (canSave dari server), file belum pernah diupload, dan tidak sedang menyimpan
     const isSaveDisabled = loading || parsedData.isReupload || !parsedData.canSave;
 
     return (
@@ -82,7 +57,7 @@ const ImportExcelModal = ({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: 'rgba(0,0,0,0.5)',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -108,7 +83,7 @@ const ImportExcelModal = ({
                     alignItems: 'center'
                 }}>
                     <h3 style={{ margin: 0, fontSize: '18px', color: '#333', fontWeight: 'bold' }}>
-                        Import Production Preview
+                        Import Document Flow Preview
                     </h3>
                     <button
                         type="button"
@@ -134,7 +109,7 @@ const ImportExcelModal = ({
                     flex: 1
                 }}>
                     <div style={{ marginBottom: '16px' }}>
-                        <SummaryCards
+                        <DocumentFlowSummaryCards
                             summary={summary}
                             activeTab={activeTab}
                             setActiveTab={setActiveTab}
@@ -172,42 +147,20 @@ const ImportExcelModal = ({
                     {/* Tab Content */}
                     <div>
                         {activeTab === 'new' && (
-                            <ValidDataTab previewResults={validData} />
-                        )}
-
-                        {activeTab === 'unallocated' && (
-                            <RawDataTab
-                                rawData={unallocatedRows}
-                                emptyMessage="No unallocated items found."
-                                showReason
+                            <DocumentFlowDataTab
+                                rawData={validData}
                             />
                         )}
 
                         {activeTab === 'duplicate' && (
-                            <RawDataTab
+                            <DocumentFlowDataTab
                                 rawData={duplicateRows}
-                                emptyMessage="No duplicate rows found."
-                            />
-                        )}
-
-                        {activeTab === 'duplicate_status_update' && (
-                            <RawDataTab
-                                rawData={duplicateStatusUpdateRows}
-                                emptyMessage="No status update duplicates found."
-                            />
-                        )}
-
-                        {activeTab === 'non_good' && (
-                            <RawDataTab
-                                rawData={nonGoodRows}
-                                emptyMessage="No Non-GOOD status rows found."
                             />
                         )}
 
                         {activeTab === 'unregistered' && (
-                            <RawDataTab
+                            <DocumentFlowDataTab
                                 rawData={unregisteredRows}
-                                emptyMessage="No unregistered SKU rows found."
                             />
                         )}
                     </div>
@@ -262,4 +215,4 @@ const ImportExcelModal = ({
     );
 };
 
-export default ImportExcelModal;
+export default DocumentFlowImportModal;

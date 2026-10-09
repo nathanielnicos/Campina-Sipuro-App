@@ -42,7 +42,7 @@ export const getSalesInvoices = async (params = {}) => {
     return await res.json();
 };
 
-export const importDocumentFlow = async (formData) => {
+export const previewDocumentFlow = async (formData) => {
     const res = await fetch(`${BASE_URL}/preview`, {
         method: 'POST',
         body: formData

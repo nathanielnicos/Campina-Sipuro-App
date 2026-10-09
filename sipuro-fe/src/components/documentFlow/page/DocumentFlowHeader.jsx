@@ -1,14 +1,14 @@
-import { useUploadProduction } from '../../../hooks/batch/page/useUploadProduction';
-import ImportExcelModal from '../import-excel-modal/ImportExcelModal';
+import { useUploadDocumentFlow } from '../../../hooks/documentFlow/page/useUploadDocumentFlow';
+import DocumentFlowImportModal from '../import-excel-modal/DocumentFlowImportModal'
 
-const Header = ({
+const DocumentFlowHeader = ({
     activeTab,
-    onTabChange,
+    setActiveTab,
     currentUser,
     onSuccessSave
 }) => {
     const currentUserId = currentUser?.id;
-    const userRole = currentUser?.role;
+    const userDepartment = currentUser?.department;
 
     // Encapsulation: Hook dipanggil langsung di komponen Header yang mengontrol form upload & modal
     const {
@@ -20,7 +20,7 @@ const Header = ({
         handleUploadSubmit,
         handleConfirmSave,
         handleRejectPreview
-    } = useUploadProduction({
+    } = useUploadDocumentFlow({
         currentUserId,
         onSuccessSave
     });
@@ -36,7 +36,7 @@ const Header = ({
             }}>
                 <div style={{ display: 'flex' }}>
                     <button
-                        onClick={() => onTabChange('summary')}
+                        onClick={() => setActiveTab('DELIVERY_ORDER')}
                         style={{
                             padding: '12px 20px',
                             border: 'none',
@@ -44,30 +44,32 @@ const Header = ({
                             cursor: 'pointer',
                             fontWeight: 'bold',
                             fontSize: '14px',
-                            borderBottom: activeTab === 'summary' ? '3px solid #0d6efd' : '3px solid transparent',
-                            color: activeTab === 'summary' ? '#0d6efd' : '#6c757d'
+                            borderBottom: activeTab === 'DELIVERY_ORDER' ? '3px solid #0d6efd' : '3px solid transparent',
+                            color: activeTab === 'DELIVERY_ORDER' ? '#0d6efd' : '#6c757d'
                         }}
                     >
-                        Outstanding PO
+                        Delivery Order
                     </button>
-                    <button
-                        onClick={() => onTabChange('mapping')}
-                        style={{
-                            padding: '12px 20px',
-                            border: 'none',
-                            background: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            fontSize: '14px',
-                            borderBottom: activeTab === 'mapping' ? '3px solid #0d6efd' : '3px solid transparent',
-                            color: activeTab === 'mapping' ? '#0d6efd' : '#6c757d'
-                        }}
-                    >
-                        Allocated Batch
-                    </button>
+                    {userDepartment !== 'LOGISTIC' && (
+                        <button
+                            onClick={() => setActiveTab('SALES_INVOICE')}
+                            style={{
+                                padding: '12px 20px',
+                                border: 'none',
+                                background: 'none',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '14px',
+                                borderBottom: activeTab === 'SALES_INVOICE' ? '3px solid #0d6efd' : '3px solid transparent',
+                                color: activeTab === 'SALES_INVOICE' ? '#0d6efd' : '#6c757d'
+                            }}
+                        >
+                            Sales Invoice
+                        </button>
+                    )}
                 </div>
 
-                {userRole !== 'CUSTOMER' && (
+                {userDepartment !== 'LOGISTIC' && (
                     <form onSubmit={handleUploadSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '6px 10px', borderRadius: '6px', border: '1px solid #dee2e6', marginBottom: '6px' }}>
                         <input
                             ref={fileInputRef}
@@ -86,7 +88,7 @@ const Header = ({
                 )}
             </div>
 
-            <ImportExcelModal
+            <DocumentFlowImportModal
                 show={isPreviewOpen}
                 parsedData={previewData}
                 loading={saving}
@@ -97,4 +99,4 @@ const Header = ({
     );
 };
 
-export default Header;
+export default DocumentFlowHeader;

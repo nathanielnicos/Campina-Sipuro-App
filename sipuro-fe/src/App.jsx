@@ -12,7 +12,7 @@ import ProductListPage from './components/master/ProductListPage';
 import PriceListPage from './components/master/PriceListPage';
 import SettingPage from './components/master/SettingPage';
 
-import DOPage from './components/do/DOPage';
+import DocumentFlowPage from './components/documentFlow/page/DocumentFlowPage';
 import ProfilePage from './components/profile/ProfilePage';
 
 import Login from './components/auth/Login';
@@ -163,7 +163,8 @@ function MainApp() {
         <Route path="/ppic-dashboard" element={<Dashboard />} />
         <Route path="/ppic-batch" element={<BatchPage currentUser={user} />} />
         <Route path="/ppic-production-schedule" element={<ProductionSchedulePage />} />
-        <Route path="/delivery-order" element={<DOPage />} />
+        
+        <Route path="/document-flow" element={<DocumentFlowPage currentUser={user} />} />
 
         <Route path="/sa-employees" element={<EmployeeListPage />} />
         <Route path="/sa-customers" element={<CustomerUserListPage />} />

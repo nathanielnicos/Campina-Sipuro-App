@@ -1,12 +1,11 @@
-import React from 'react';
-import Row from './Row';
-import PaginationControl from '../common/PaginationControl';
-import SortableHeader from '../common/SortableHeader';
+import SIRow from './SIRow';
+import PaginationControl from '../../common/PaginationControl';
+import SortableHeader from '../../common/SortableHeader';
 
 const poDoHeaderStyle = { width: '140px', minWidth: '140px' };
 const dateHeaderStyle = { width: '105px', minWidth: '105px', whiteSpace: 'normal', lineHeight: '1.2' };
 
-const Table = ({
+const SITable = ({
     doList,
     fetching,
     sortConfig,
@@ -121,7 +120,7 @@ const Table = ({
                             </tr>
                         ) : (
                             doList.map((item) => (
-                                <Row
+                                <SIRow
                                     key={item.allocation_id}
                                     item={item}
                                 />
@@ -145,4 +144,4 @@ const Table = ({
     );
 };
 
-export default Table;
+export default SITable;

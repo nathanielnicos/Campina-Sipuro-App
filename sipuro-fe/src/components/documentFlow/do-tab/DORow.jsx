@@ -1,11 +1,11 @@
-import { formatQty } from '../../utils/formatters';
-import { formatDate } from '../../utils/dateHelper';
+import { formatQty } from '../../../utils/formatters';
+import { formatDate } from '../../../utils/dateHelper';
 
 const cellStyle = { padding: '10px 12px', fontSize: '13px' };
 const poDoStyle = { ...cellStyle, width: '140px', minWidth: '140px' };
 const dateStyle = { ...cellStyle, width: '105px', minWidth: '105px' };
 
-const Row = ({ item }) => {
+const DORow = ({ item }) => {
     return (
         <tr style={{ borderBottom: '1px solid #dee2e6' }}>
             <td style={poDoStyle}><strong>{item.po_number || '-'}</strong></td>
@@ -29,4 +29,4 @@ const Row = ({ item }) => {
     );
 };
 
-export default Row;
+export default DORow;

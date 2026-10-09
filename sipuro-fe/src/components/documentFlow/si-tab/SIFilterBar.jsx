@@ -1,6 +1,6 @@
-import DateRangePicker from '../common/DateRangePicker';
+import DateRangePicker from '../../common/DateRangePicker';
 
-const FilterBar = ({
+const SIFilterBar = ({
     search,
     startDate,
     endDate,
@@ -96,4 +96,4 @@ const FilterBar = ({
     );
 };
 
-export default FilterBar;
+export default SIFilterBar;

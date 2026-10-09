@@ -1,14 +1,10 @@
-import React, { useState } from 'react';
-import FilterBar from './FilterBar';
-import Table from './Table';
-import ImportModal from './ImportModal';
+import FilterBar from './DOFilterBar';
+import Table from './DOTable';
 
-import { useFilterBar } from '../../hooks/documentFlow/do/useFilterBar';
-import { useTable } from '../../hooks/documentFlow/do/useTable';
+import { useDOFilterBar } from '../../../hooks/documentFlow/do/useDOFilterBar';
+import { useDOTable } from '../../../hooks/documentFlow/do/useDOTable';
 
-const DOPage = () => {
-    const [isImportOpen, setIsImportOpen] = useState(false);
-
+const DOTab = ({ reloadTrigger, currentUser }) => {
     const {
         search,
         startDate,
@@ -26,7 +22,7 @@ const DOPage = () => {
         handleCompletedStartDateChange,
         handleCompletedEndDateChange,
         handleResetFilters
-    } = useFilterBar();
+    } = useDOFilterBar();
 
     const {
         doList,
@@ -37,9 +33,8 @@ const DOPage = () => {
         totalPages,
         totalItems,
         handlePageChange,
-        handleLimitChange,
-        refreshData
-    } = useTable({
+        handleLimitChange
+    } = useDOTable({
         currentPage,
         setCurrentPage,
         search,
@@ -53,16 +48,6 @@ const DOPage = () => {
 
     return (
         <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h2>Delivery Orders Management</h2>
-                <button
-                    onClick={() => setIsImportOpen(true)}
-                    style={{ backgroundColor: '#0d6efd', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                    + Import Document Flow
-                </button>
-            </div>
-
             <FilterBar
                 search={search}
                 startDate={startDate}
@@ -95,14 +80,8 @@ const DOPage = () => {
                     onLimitChange={handleLimitChange}
                 />
             )}
-
-            <ImportModal
-                isOpen={isImportOpen}
-                onClose={() => setIsImportOpen(false)}
-                onSuccess={refreshData}
-            />
         </div>
     );
 };
 
-export default DOPage;
+export default DOTab;

@@ -4,7 +4,7 @@ export const NAV_ITEMS = {
     PPIC_DASHBOARD: { id: 'ppic-dashboard', label: 'Dashboard', path: '/ppic-dashboard' },
     PPIC_BATCH: { id: 'ppic-batch', label: 'Batch', path: '/ppic-batch' },
     PPIC_PRODUCTION_SCHEDULE: { id: 'ppic-production-schedule', label: 'Production Schedule', path: '/ppic-production-schedule' },
-    DELIVERY_ORDER: { id: 'delivery-order', label: 'Delivery Order', path: '/delivery-order' },
+    DOCUMENT_FLOW: { id: 'document-flow', label: 'Document Flow', path: '/document-flow' },
     SA_EMPLOYEES: { id: 'sa-employees', label: 'Employee User', path: '/sa-employees' },
     SA_CUSTOMERS: { id: 'sa-customers', label: 'Customer User', path: '/sa-customers' },
     SA_PRODUCTS: { id: 'sa-products', label: 'Product', path: '/sa-products' },
@@ -33,7 +33,7 @@ export const getNavItemsByUser = (user) => {
             NAV_ITEMS.PO_LIST,
             NAV_ITEMS.PPIC_BATCH,
             NAV_ITEMS.PPIC_PRODUCTION_SCHEDULE,
-            NAV_ITEMS.DELIVERY_ORDER,
+            NAV_ITEMS.DOCUMENT_FLOW,
             NAV_ITEMS.SA_EMPLOYEES,
             NAV_ITEMS.SA_CUSTOMERS,
             NAV_ITEMS.SA_PRODUCTS,
@@ -55,7 +55,7 @@ export const getNavItemsByUser = (user) => {
 
     if ((userDept === 'LOGISTICS' || userDept === 'LOGISTIC' || userDept === 'FINANCE') && (userRole === 'STAFF' || userRole === 'MANAGER')) {
         return [
-            NAV_ITEMS.DELIVERY_ORDER,
+            NAV_ITEMS.DOCUMENT_FLOW,
             NAV_ITEMS.PROFILE
         ];
     }
