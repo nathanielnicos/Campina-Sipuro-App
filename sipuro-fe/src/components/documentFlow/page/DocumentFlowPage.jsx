@@ -18,7 +18,7 @@ const DocumentFlowPage = ({ currentUser }) => {
         <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
             <DocumentFlowHeader
                 activeTab={activeTab}
-                onTabChange={setActiveTab}
+                setActiveTab={setActiveTab}
                 currentUser={currentUser}
                 onSuccessSave={handleTriggerReload}
             />

@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getDeliveryOrders } from '../../../services/documentFlowApi';
+
+const SEARCH_DEBOUNCE_MS = 400;
 
 export const useDOTable = ({
     currentPage,
@@ -7,10 +9,11 @@ export const useDOTable = ({
     search,
     startDate,
     endDate,
-    completedStartDate,
-    completedEndDate,
+    pickUpStartDate,
+    pickUpEndDate,
     sortBy,
-    sortOrder
+    sortOrder,
+    reloadTrigger
 }) => {
     const [doList, setDoList] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -20,7 +23,18 @@ export const useDOTable = ({
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
 
+    // Wait until the user stops typing before calling the API
+    const [debouncedSearch, setDebouncedSearch] = useState(search);
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Only the latest request may update the screen
+    const requestIdRef = useRef(0);
+
     const fetchData = useCallback(async () => {
+        const requestId = ++requestIdRef.current;
         setFetching(true);
         setError(null);
 
@@ -28,16 +42,17 @@ export const useDOTable = ({
             const params = {
                 page: currentPage,
                 limit: pageSize,
-                search,
+                search: debouncedSearch,
                 startDate,
                 endDate,
-                completedStartDate,
-                completedEndDate,
+                pickUpStartDate,
+                pickUpEndDate,
                 sortBy,
                 sortOrder
             };
 
             const res = await getDeliveryOrders(params);
+            if (requestId !== requestIdRef.current) return;
 
             if (res.success) {
                 setDoList(res.data || []);
@@ -49,27 +64,31 @@ export const useDOTable = ({
                 setError(res.message || 'Failed to load delivery orders data');
             }
         } catch (err) {
+            if (requestId !== requestIdRef.current) return;
             console.error('Error fetching delivery orders:', err);
             setError(err.message || 'Server connection error');
         } finally {
-            setLoading(false);
-            setFetching(false);
+            if (requestId === requestIdRef.current) {
+                setLoading(false);
+                setFetching(false);
+            }
         }
     }, [
         currentPage,
         pageSize,
-        search,
+        debouncedSearch,
         startDate,
         endDate,
-        completedStartDate,
-        completedEndDate,
+        pickUpStartDate,
+        pickUpEndDate,
         sortBy,
         sortOrder
     ]);
 
+    // reloadTrigger is bumped by the parent after a successful upload to force a refetch
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, [fetchData, reloadTrigger]);
 
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages) {

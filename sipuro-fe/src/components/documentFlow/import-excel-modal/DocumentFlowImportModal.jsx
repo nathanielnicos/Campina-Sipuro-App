@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import DocumentFlowSummaryCards from './DocumentFlowSummaryCards';
 import DocumentFlowDataTab from './DocumentFlowDataTab';
+import DocumentFlowRowsToFix from './DocumentFlowRowsToFix';
 
 const DocumentFlowImportModal = ({
     show,
@@ -18,7 +19,10 @@ const DocumentFlowImportModal = ({
         summary = {},
         previewResults: validData = [],
         duplicateRows = [],
-        unregisteredRows = []
+        unregisteredRows = [],
+        nonInterfacedRows = [],
+        rowsToFix = [],
+        warnings = []
     } = parsedData;
 
     const tabConfigs = {
@@ -27,28 +31,35 @@ const DocumentFlowImportModal = ({
             alertBg: '#d1e7dd',
             alertColor: '#0f5132',
             alertBorder: '#badbcc',
-            alertMessage: 'The data below is valid and successfully allocated to matching POs. This data will be saved to the database when you click Save.'
+            alertMessage: 'The rows below are valid and have been allocated to production batches (FIFO). They will be saved when you click Save.'
         },
         duplicate: {
             title: 'Duplicate Rows',
             alertBg: '#fff3cd',
             alertColor: '#664d03',
             alertBorder: '#ffecb5',
-            alertMessage: 'The rows below are exact duplicates and will be skipped during processing.'
+            alertMessage: 'The rows below have already been saved (same DO and item). They will be skipped.'
         },
         unregistered: {
             title: 'Unregistered SKU Rows',
             alertBg: '#f8d7da',
             alertColor: '#842029',
             alertBorder: '#f5c2c7',
-            alertMessage: 'The rows below contain SKU codes that are not registered in the master data. Please register the SKUs first.'
+            alertMessage: 'The rows below contain an SKU that is not registered, or a PO that is not found. They will not be saved and do not block saving the valid rows. The unmatched part of the PO is highlighted.'
+        },
+        nonInterfaced: {
+            title: 'Non-Interfaced Status',
+            alertBg: '#e2e3e5',
+            alertColor: '#41464b',
+            alertBorder: '#d3d6d8',
+            alertMessage: 'The rows below do not have the Interfaced status. They are ignored and will not be saved.'
         }
     };
 
     const currentConfig = tabConfigs[activeTab] || tabConfigs.new;
 
     // Save hanya aktif jika ada minimal satu data yang bisa disimpan (canSave dari server), file belum pernah diupload, dan tidak sedang menyimpan
-    const isSaveDisabled = loading || parsedData.isReupload || !parsedData.canSave;
+    const isSaveDisabled = loading || parsedData.isReupload || !parsedData.canSave || rowsToFix.length > 0;
 
     return (
         <div style={{
@@ -83,7 +94,7 @@ const DocumentFlowImportModal = ({
                     alignItems: 'center'
                 }}>
                     <h3 style={{ margin: 0, fontSize: '18px', color: '#333', fontWeight: 'bold' }}>
-                        Import Document Flow Preview
+                        Upload Document Flow Preview
                     </h3>
                     <button
                         type="button"
@@ -132,6 +143,22 @@ const DocumentFlowImportModal = ({
                         </div>
                     )}
 
+                    <DocumentFlowRowsToFix rows={rowsToFix} />
+
+                    {warnings.map((w, i) => (
+                        <div key={i} style={{
+                            backgroundColor: '#fff3cd',
+                            color: '#664d03',
+                            border: '1px solid #ffecb5',
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            marginBottom: '16px',
+                            fontSize: '13px'
+                        }}>
+                            ℹ️ {w.message}{Array.isArray(w.rows) && w.rows.length > 0 ? ` (Excel rows: ${w.rows.join(', ')})` : ''}
+                        </div>
+                    ))}
+
                     <div style={{
                         backgroundColor: currentConfig.alertBg,
                         color: currentConfig.alertColor,
@@ -147,21 +174,16 @@ const DocumentFlowImportModal = ({
                     {/* Tab Content */}
                     <div>
                         {activeTab === 'new' && (
-                            <DocumentFlowDataTab
-                                rawData={validData}
-                            />
+                            <DocumentFlowDataTab key="new" variant="valid" rawData={validData} />
                         )}
-
                         {activeTab === 'duplicate' && (
-                            <DocumentFlowDataTab
-                                rawData={duplicateRows}
-                            />
+                            <DocumentFlowDataTab key="duplicate" variant="duplicate" rawData={duplicateRows} />
                         )}
-
                         {activeTab === 'unregistered' && (
-                            <DocumentFlowDataTab
-                                rawData={unregisteredRows}
-                            />
+                            <DocumentFlowDataTab key="unregistered" variant="unregistered" rawData={unregisteredRows} />
+                        )}
+                        {activeTab === 'nonInterfaced' && (
+                            <DocumentFlowDataTab key="nonInterfaced" variant="nonInterfaced" rawData={nonInterfacedRows} />
                         )}
                     </div>
                 </div>
@@ -207,7 +229,7 @@ const DocumentFlowImportModal = ({
                             fontSize: '14px'
                         }}
                     >
-                        {loading ? 'Saving Data...' : 'Save Import Data'}
+                        {loading ? 'Saving Data...' : 'Save Valid Data'}
                     </button>
                 </div>
             </div>

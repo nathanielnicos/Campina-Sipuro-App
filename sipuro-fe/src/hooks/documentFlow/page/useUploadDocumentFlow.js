@@ -71,7 +71,7 @@ export const useUploadDocumentFlow = ({ currentUserId, onSuccessSave }) => {
             showAlert({
                 type: 'error',
                 title: 'Upload Error',
-                message: 'An error occurred while uploading the file.'
+                message: err?.message || 'An error occurred while uploading the file.'
             });
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
@@ -122,7 +122,7 @@ export const useUploadDocumentFlow = ({ currentUserId, onSuccessSave }) => {
             showAlert({
                 type: 'error',
                 title: 'Save Error',
-                message: 'An error occurred while saving the data.'
+                message: err?.message || 'An error occurred while saving the data.'
             });
         } finally {
             savingRef.current = false;
@@ -162,9 +162,10 @@ export const useUploadDocumentFlow = ({ currentUserId, onSuccessSave }) => {
             return;
         }
 
+        const { validCount = 0, validAllocationCount = 0 } = previewData.summary || {};
         showConfirm({
             title: 'Confirm Save Allocation',
-            message: `Save ... (?)`,
+            message: `Save ${validCount} valid row(s) (${validAllocationCount} PO/batch allocation line(s)) to the database? Rows in other categories will not be saved.`,
             confirmText: 'Save',
             onConfirm: () => executeConfirmSave()
         });

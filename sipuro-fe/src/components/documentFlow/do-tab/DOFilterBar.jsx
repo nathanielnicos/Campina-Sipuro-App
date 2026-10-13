@@ -4,14 +4,14 @@ const DOFilterBar = ({
     search,
     startDate,
     endDate,
-    completedStartDate,
-    completedEndDate,
+    pickUpStartDate,
+    pickUpEndDate,
     isFilterActive,
     onSearchChange,
     onStartDateChange,
     onEndDateChange,
-    onCompletedStartDateChange,
-    onCompletedEndDateChange,
+    onPickUpStartDateChange,
+    onPickUpEndDateChange,
     onResetFilters
 }) => {
     return (
@@ -33,7 +33,7 @@ const DOFilterBar = ({
                 </label>
                 <input
                     type="text"
-                    placeholder="PO No, DO No, Code, Name..."
+                    placeholder="PO No, DO No, Item Code, Item Name..."
                     value={search}
                     onChange={onSearchChange}
                     style={{
@@ -48,10 +48,10 @@ const DOFilterBar = ({
                 />
             </div>
 
-            {/* Created Date Range Picker */}
+            {/* DO Created Date */}
             <div style={{ flex: '0 0 220px' }}>
                 <DateRangePicker
-                    label="Filter Created Date"
+                    label="Filter DO Created Date"
                     fromDate={startDate}
                     toDate={endDate}
                     onFromDateChange={onStartDateChange}
@@ -59,18 +59,17 @@ const DOFilterBar = ({
                 />
             </div>
 
-            {/* Actual Completed Date Range Picker */}
+            {/* Pick Up Date */}
             <div style={{ flex: '0 0 220px' }}>
                 <DateRangePicker
-                    label="Filter Actual Complete Date"
-                    fromDate={completedStartDate}
-                    toDate={completedEndDate}
-                    onFromDateChange={onCompletedStartDateChange}
-                    onToDateChange={onCompletedEndDateChange}
+                    label="Filter Pick Up Date"
+                    fromDate={pickUpStartDate}
+                    toDate={pickUpEndDate}
+                    onFromDateChange={onPickUpStartDateChange}
+                    onToDateChange={onPickUpEndDateChange}
                 />
             </div>
 
-            {/* Reset Filters Button */}
             <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
                 <button
                     onClick={onResetFilters}

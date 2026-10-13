@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getSalesInvoices } from '../../services/siApi';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getSalesInvoices } from '../../../services/documentFlowApi';
+
+const SEARCH_DEBOUNCE_MS = 400;
 
 export const useSITable = ({
     currentPage,
@@ -10,7 +12,8 @@ export const useSITable = ({
     pickUpStartDate,
     pickUpEndDate,
     sortBy,
-    sortOrder
+    sortOrder,
+    reloadTrigger
 }) => {
     const [siList, setSiList] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -20,7 +23,18 @@ export const useSITable = ({
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
 
+    // Wait until the user stops typing before calling the API
+    const [debouncedSearch, setDebouncedSearch] = useState(search);
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Only the latest request may update the screen
+    const requestIdRef = useRef(0);
+
     const fetchData = useCallback(async () => {
+        const requestId = ++requestIdRef.current;
         setFetching(true);
         setError(null);
 
@@ -28,7 +42,7 @@ export const useSITable = ({
             const params = {
                 page: currentPage,
                 limit: pageSize,
-                search,
+                search: debouncedSearch,
                 startDate,
                 endDate,
                 pickUpStartDate,
@@ -38,6 +52,7 @@ export const useSITable = ({
             };
 
             const res = await getSalesInvoices(params);
+            if (requestId !== requestIdRef.current) return;
 
             if (res.success) {
                 setSiList(res.data || []);
@@ -49,16 +64,19 @@ export const useSITable = ({
                 setError(res.message || 'Failed to load sales invoices data');
             }
         } catch (err) {
+            if (requestId !== requestIdRef.current) return;
             console.error('Error fetching sales invoices:', err);
             setError(err.message || 'Server connection error');
         } finally {
-            setLoading(false);
-            setFetching(false);
+            if (requestId === requestIdRef.current) {
+                setLoading(false);
+                setFetching(false);
+            }
         }
     }, [
         currentPage,
         pageSize,
-        search,
+        debouncedSearch,
         startDate,
         endDate,
         pickUpStartDate,
@@ -67,9 +85,10 @@ export const useSITable = ({
         sortOrder
     ]);
 
+    // reloadTrigger is bumped by the parent after a successful upload to force a refetch
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, [fetchData, reloadTrigger]);
 
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages) {

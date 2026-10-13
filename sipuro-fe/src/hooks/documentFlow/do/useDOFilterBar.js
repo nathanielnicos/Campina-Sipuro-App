@@ -2,15 +2,17 @@ import { useState } from 'react';
 
 export const useDOFilterBar = () => {
     const [search, setSearch] = useState('');
+    // DO Created Date range
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [completedStartDate, setCompletedStartDate] = useState('');
-    const [completedEndDate, setCompletedEndDate] = useState('');
+    // Pick Up Date range
+    const [pickUpStartDate, setPickUpStartDate] = useState('');
+    const [pickUpEndDate, setPickUpEndDate] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: 'do_created_date', direction: 'DESC' });
     const [currentPage, setCurrentPage] = useState(1);
 
     const isFilterActive = Boolean(
-        search || startDate || endDate || completedStartDate || completedEndDate
+        search || startDate || endDate || pickUpStartDate || pickUpEndDate
     );
 
     const handleSort = (key) => {
@@ -37,13 +39,13 @@ export const useDOFilterBar = () => {
         setCurrentPage(1);
     };
 
-    const handleCompletedStartDateChange = (e) => {
-        setCompletedStartDate(e?.target?.value || '');
+    const handlePickUpStartDateChange = (e) => {
+        setPickUpStartDate(e?.target?.value || '');
         setCurrentPage(1);
     };
 
-    const handleCompletedEndDateChange = (e) => {
-        setCompletedEndDate(e?.target?.value || '');
+    const handlePickUpEndDateChange = (e) => {
+        setPickUpEndDate(e?.target?.value || '');
         setCurrentPage(1);
     };
 
@@ -51,8 +53,8 @@ export const useDOFilterBar = () => {
         setSearch('');
         setStartDate('');
         setEndDate('');
-        setCompletedStartDate('');
-        setCompletedEndDate('');
+        setPickUpStartDate('');
+        setPickUpEndDate('');
         setCurrentPage(1);
     };
 
@@ -60,8 +62,8 @@ export const useDOFilterBar = () => {
         search,
         startDate,
         endDate,
-        completedStartDate,
-        completedEndDate,
+        pickUpStartDate,
+        pickUpEndDate,
         sortConfig,
         currentPage,
         setCurrentPage,
@@ -70,8 +72,8 @@ export const useDOFilterBar = () => {
         handleSearchChange,
         handleStartDateChange,
         handleEndDateChange,
-        handleCompletedStartDateChange,
-        handleCompletedEndDateChange,
+        handlePickUpStartDateChange,
+        handlePickUpEndDateChange,
         handleResetFilters
     };
 };

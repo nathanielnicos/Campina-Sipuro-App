@@ -1,7 +1,25 @@
 const { sipuroDb: db } = require('../../config/db');
+const { sendControllerError } = require('../../helpers/businessError');
+const {
+    isoDateTimeSql,
+    isoDateSql,
+    likePattern,
+    parsePagination,
+    addDateRange
+} = require('../../helpers/upload-document-flow/listQueryHelper');
+
+const ALLOWED_SORT_COLUMNS = {
+    si_number: 'si_tbl.si_number',
+    do_number: 'si_tbl.do_number',
+    si_date: 'si_tbl.si_date',
+    pick_up_date: 'si_tbl.pick_up_date',
+    do_created_date: 'do_tbl.do_created_date',
+    product_name: 'p.product_name',
+    qty_ctn: 'si_tbl.qty_ctn'
+};
 
 /**
- * Get List of Sales Invoices from sales_invoices table
+ * Sales Invoices for the "Sales Invoice" tab (one row per SI x DO x item).
  */
 exports.getSalesInvoices = async (req, res) => {
     try {
@@ -12,106 +30,73 @@ exports.getSalesInvoices = async (req, res) => {
             pickUpStartDate = '',
             pickUpEndDate = '',
             sortBy = 'si_date',
-            sortOrder = 'DESC',
-            page = 1,
-            limit = 10
+            sortOrder = 'DESC'
         } = req.query;
-
-        const pageNum = parseInt(page, 10) || 1;
-        const limitNum = parseInt(limit, 10) || 10;
-        const offset = (pageNum - 1) * limitNum;
+        const { page, limit, offset } = parsePagination(req.query);
 
         const fromClause = `
-            FROM sipuro_db.sales_invoices si_tbl
-            JOIN sipuro_db.products p ON si_tbl.product_id = p.id_product
-            LEFT JOIN sipuro_db.delivery_orders do_tbl ON si_tbl.delivery_order_id = do_tbl.id
+            FROM sales_invoices si_tbl
+            JOIN products p ON si_tbl.product_id = p.id_product
+            LEFT JOIN delivery_orders do_tbl ON si_tbl.delivery_order_id = do_tbl.id
         `;
 
-        const whereConditions = [];
-        const queryParams = [];
+        const conditions = [];
+        const params = [];
 
-        if (search.trim() !== '') {
-            const searchPattern = `%${search.trim()}%`;
-            whereConditions.push(
-                '(si_tbl.si_number LIKE ? OR si_tbl.do_number LIKE ? OR p.product_code LIKE ? OR p.product_name LIKE ?)'
-            );
-            queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
+        const term = String(search).trim();
+        if (term !== '') {
+            const pattern = likePattern(term);
+            conditions.push(`(
+                si_tbl.si_number LIKE ? ESCAPE '!'
+                OR si_tbl.do_number LIKE ? ESCAPE '!'
+                OR p.product_code LIKE ? ESCAPE '!'
+                OR p.product_name LIKE ? ESCAPE '!'
+            )`);
+            params.push(pattern, pattern, pattern, pattern);
         }
 
-        if (startDate) {
-            whereConditions.push('DATE(si_tbl.si_date) >= ?');
-            queryParams.push(startDate);
-        }
-        if (endDate) {
-            whereConditions.push('DATE(si_tbl.si_date) <= ?');
-            queryParams.push(endDate);
-        }
+        // si_date and pick_up_date are DATE columns
+        addDateRange(conditions, params, 'si_tbl.si_date', startDate, endDate);
+        addDateRange(conditions, params, 'si_tbl.pick_up_date', pickUpStartDate, pickUpEndDate);
 
-        if (pickUpStartDate) {
-            whereConditions.push('DATE(si_tbl.pick_up_date) >= ?');
-            queryParams.push(pickUpStartDate);
-        }
-        if (pickUpEndDate) {
-            whereConditions.push('DATE(si_tbl.pick_up_date) <= ?');
-            queryParams.push(pickUpEndDate);
-        }
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        const sortColumn = ALLOWED_SORT_COLUMNS[sortBy] || ALLOWED_SORT_COLUMNS.si_date;
+        const direction = String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-        const allowedSortColumns = {
-            si_number: 'si_tbl.si_number',
-            do_number: 'si_tbl.do_number',
-            si_date: 'si_tbl.si_date',
-            pick_up_date: 'si_tbl.pick_up_date',
-            product_name: 'p.product_name',
-            qty_ctn: 'si_tbl.qty_ctn',
-            qty_pcs: 'si_tbl.qty_pcs'
-        };
+        const [countRows] = await db.query(`SELECT COUNT(*) AS total ${fromClause} ${whereClause}`, params);
+        const totalItems = Number(countRows[0] && countRows[0].total) || 0;
+        const totalPages = Math.ceil(totalItems / limit) || 1;
 
-        const sortColumn = allowedSortColumns[sortBy] || 'si_tbl.si_date';
-        const orderDirection = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-        const countQuery = `SELECT COUNT(*) AS total ${fromClause} ${whereClause}`;
-        const [countRows] = await db.query(countQuery, queryParams);
-        const totalItems = countRows[0]?.total || 0;
-        const totalPages = Math.ceil(totalItems / limitNum) || 1;
-
-        const dataQuery = `
-            SELECT 
+        const [rows] = await db.query(
+            `SELECT
                 si_tbl.id AS si_id,
                 si_tbl.delivery_order_id,
                 si_tbl.do_number,
+                ${isoDateTimeSql('do_tbl.do_created_date')} AS do_created_date,
                 si_tbl.si_number,
-                DATE_FORMAT(si_tbl.si_date, '%Y-%m-%d') AS si_date,
-                DATE_FORMAT(si_tbl.pick_up_date, '%Y-%m-%d') AS pick_up_date,
+                ${isoDateSql('si_tbl.si_date')} AS si_date,
+                ${isoDateSql('si_tbl.pick_up_date')} AS pick_up_date,
                 p.product_code,
                 p.product_name,
                 si_tbl.qty_ctn,
                 si_tbl.qty_pcs
-            ${fromClause}
-            ${whereClause}
-            ORDER BY ${sortColumn} ${orderDirection}, si_tbl.id DESC
-            LIMIT ? OFFSET ?
-        `;
-
-        const [rows] = await db.query(dataQuery, [...queryParams, limitNum, offset]);
+             ${fromClause}
+             ${whereClause}
+             ORDER BY ${sortColumn} ${direction}, si_tbl.id DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
 
         return res.json({
             success: true,
             data: rows,
-            pagination: {
-                currentPage: pageNum,
-                totalPages,
-                totalItems,
-                limit: limitNum
-            }
+            pagination: { currentPage: page, totalPages, totalItems, limit }
         });
     } catch (error) {
-        console.error('Error fetching sales invoices:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to fetch sales invoices data.',
-            error: error.message
+        return sendControllerError(res, error, {
+            label: 'Get Sales Invoices Error',
+            fallbackMessage: 'Failed to fetch sales invoices data.'
         });
     }
 };

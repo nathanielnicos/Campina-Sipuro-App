@@ -2,8 +2,10 @@ import { useState } from 'react';
 
 export const useSIFilterBar = () => {
     const [search, setSearch] = useState('');
+    // SI Created Date range
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    // Pick Up Date range
     const [pickUpStartDate, setPickUpStartDate] = useState('');
     const [pickUpEndDate, setPickUpEndDate] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: 'si_date', direction: 'DESC' });

@@ -1,7 +1,25 @@
 const { sipuroDb: db } = require('../../config/db');
+const { sendControllerError } = require('../../helpers/businessError');
+const {
+    isoDateTimeSql,
+    isoDateSql,
+    likePattern,
+    parsePagination,
+    addDateTimeRange,
+    addDateRange
+} = require('../../helpers/upload-document-flow/listQueryHelper');
+
+const ALLOWED_SORT_COLUMNS = {
+    do_number: 'do_tbl.do_number',
+    do_created_date: 'do_tbl.do_created_date',
+    pick_up_date: 'do_tbl.pick_up_date',
+    product_name: 'p.product_name',
+    qty_ctn: 'do_tbl.qty_ctn'
+};
 
 /**
- * Get List of Delivery Orders from delivery_orders table
+ * Delivery Orders for the "Delivery Order" tab.
+ * Pagination is per DO (parent row). Each DO carries its batch allocation lines (child rows).
  */
 exports.getDeliveryOrders = async (req, res) => {
     try {
@@ -9,113 +27,128 @@ exports.getDeliveryOrders = async (req, res) => {
             search = '',
             startDate = '',
             endDate = '',
-            completedStartDate = '',
-            completedEndDate = '',
+            pickUpStartDate = '',
+            pickUpEndDate = '',
             sortBy = 'do_created_date',
-            sortOrder = 'DESC',
-            page = 1,
-            limit = 10
+            sortOrder = 'DESC'
         } = req.query;
-
-        const pageNum = parseInt(page, 10) || 1;
-        const limitNum = parseInt(limit, 10) || 10;
-        const offset = (pageNum - 1) * limitNum;
+        const { page, limit, offset } = parsePagination(req.query);
 
         const fromClause = `
-            FROM sipuro_db.delivery_orders do_tbl
-            JOIN sipuro_db.products p ON do_tbl.product_id = p.id_product
-            LEFT JOIN sipuro_db.po_batch_allocations pba ON do_tbl.po_batch_allocation_id = pba.id
-            LEFT JOIN sipuro_db.batches b ON pba.id_batch = b.id
+            FROM delivery_orders do_tbl
+            JOIN products p ON do_tbl.product_id = p.id_product
         `;
 
-        const whereConditions = [];
-        const queryParams = [];
+        const conditions = [];
+        const params = [];
 
-        if (search.trim() !== '') {
-            const searchPattern = `%${search.trim()}%`;
-            whereConditions.push(
-                '(do_tbl.po_number LIKE ? OR do_tbl.do_number LIKE ? OR p.product_code LIKE ? OR p.product_name LIKE ?)'
-            );
-            queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
+        const term = String(search).trim();
+        if (term !== '') {
+            const pattern = likePattern(term);
+            conditions.push(`(
+                do_tbl.do_number LIKE ? ESCAPE '!'
+                OR do_tbl.customer_po_text LIKE ? ESCAPE '!'
+                OR p.product_code LIKE ? ESCAPE '!'
+                OR p.product_name LIKE ? ESCAPE '!'
+                OR EXISTS (
+                    SELECT 1
+                    FROM delivery_order_allocations doa
+                    JOIN po_batch_allocations pba ON pba.id = doa.po_batch_allocation_id
+                    JOIN po_details pd ON pd.po_detail_id = pba.po_detail_id
+                    JOIN po_headers ph ON ph.po_header_id = pd.po_header_id
+                    WHERE doa.delivery_order_id = do_tbl.id AND ph.po_number LIKE ? ESCAPE '!'
+                )
+            )`);
+            params.push(pattern, pattern, pattern, pattern, pattern);
         }
 
-        if (startDate) {
-            whereConditions.push('DATE(do_tbl.do_created_date) >= ?');
-            queryParams.push(startDate);
-        }
-        if (endDate) {
-            whereConditions.push('DATE(do_tbl.do_created_date) <= ?');
-            queryParams.push(endDate);
-        }
+        addDateTimeRange(conditions, params, 'do_tbl.do_created_date', startDate, endDate);
+        addDateRange(conditions, params, 'do_tbl.pick_up_date', pickUpStartDate, pickUpEndDate);
 
-        if (completedStartDate) {
-            whereConditions.push('DATE(b.actual_completed_date) >= ?');
-            queryParams.push(completedStartDate);
-        }
-        if (completedEndDate) {
-            whereConditions.push('DATE(b.actual_completed_date) <= ?');
-            queryParams.push(completedEndDate);
-        }
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        const sortColumn = ALLOWED_SORT_COLUMNS[sortBy] || ALLOWED_SORT_COLUMNS.do_created_date;
+        const direction = String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-        const allowedSortColumns = {
-            po_number: 'do_tbl.po_number',
-            do_number: 'do_tbl.do_number',
-            po_created_date: 'do_tbl.po_created_date',
-            do_created_date: 'do_tbl.do_created_date',
-            actual_completed_date: 'b.actual_completed_date',
-            product_name: 'p.product_name',
-            qty_ctn: 'do_tbl.qty_ctn',
-            qty_pcs: 'do_tbl.qty_pcs'
-        };
+        const [countRows] = await db.query(`SELECT COUNT(*) AS total ${fromClause} ${whereClause}`, params);
+        const totalItems = Number(countRows[0] && countRows[0].total) || 0;
+        const totalPages = Math.ceil(totalItems / limit) || 1;
 
-        const sortColumn = allowedSortColumns[sortBy] || 'do_tbl.do_created_date';
-        const orderDirection = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-        const countQuery = `SELECT COUNT(*) AS total ${fromClause} ${whereClause}`;
-        const [countRows] = await db.query(countQuery, queryParams);
-        const totalItems = countRows[0]?.total || 0;
-        const totalPages = Math.ceil(totalItems / limitNum) || 1;
-
-        const dataQuery = `
-            SELECT 
+        // Page of parent rows
+        const [parents] = await db.query(
+            `SELECT
                 do_tbl.id AS do_id,
-                do_tbl.po_batch_allocation_id,
-                do_tbl.po_number,
-                DATE_FORMAT(do_tbl.po_created_date, '%Y-%m-%d') AS po_created_date,
                 do_tbl.do_number,
-                DATE_FORMAT(do_tbl.do_created_date, '%Y-%m-%d') AS do_created_date,
-                DATE_FORMAT(do_tbl.pick_up_date, '%Y-%m-%d') AS pick_up_date,
-                DATE_FORMAT(b.actual_completed_date, '%Y-%m-%d') AS actual_completed_date,
+                ${isoDateTimeSql('do_tbl.do_created_date')} AS do_created_date,
+                ${isoDateSql('do_tbl.pick_up_date')} AS pick_up_date,
+                do_tbl.customer_po_text,
                 p.product_code,
                 p.product_name,
+                p.pcs_per_ctn,
                 do_tbl.qty_ctn,
                 do_tbl.qty_pcs
-            ${fromClause}
-            ${whereClause}
-            ORDER BY ${sortColumn} ${orderDirection}, do_tbl.id DESC
-            LIMIT ? OFFSET ?
-        `;
+             ${fromClause}
+             ${whereClause}
+             ORDER BY ${sortColumn} ${direction}, do_tbl.id DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
 
-        const [rows] = await db.query(dataQuery, [...queryParams, limitNum, offset]);
+        // Child rows of this page
+        const childrenByDo = new Map();
+        if (parents.length > 0) {
+            const [children] = await db.query(
+                `SELECT
+                    doa.id AS line_id,
+                    doa.delivery_order_id,
+                    doa.po_batch_allocation_id AS allocation_id,
+                    doa.qty_pcs,
+                    ph.po_number,
+                    ${isoDateTimeSql('ph.created_at')} AS po_created_date,
+                    b.batch_number,
+                    ${isoDateTimeSql('b.actual_completed_date')} AS actual_completed_date
+                 FROM delivery_order_allocations doa
+                 JOIN po_batch_allocations pba ON pba.id = doa.po_batch_allocation_id
+                 JOIN po_details pd ON pd.po_detail_id = pba.po_detail_id
+                 JOIN po_headers ph ON ph.po_header_id = pd.po_header_id
+                 JOIN batches b ON b.id = pba.id_batch
+                 WHERE doa.delivery_order_id IN (?)
+                 ORDER BY doa.delivery_order_id, b.actual_completed_date ASC, doa.id ASC`,
+                [parents.map((p) => p.do_id)]
+            );
+            children.forEach((c) => {
+                if (!childrenByDo.has(c.delivery_order_id)) childrenByDo.set(c.delivery_order_id, []);
+                childrenByDo.get(c.delivery_order_id).push(c);
+            });
+        }
+
+        const data = parents.map((p) => {
+            const pcsPerCtn = Number(p.pcs_per_ctn) || 0;
+            return {
+                ...p,
+                allocations: (childrenByDo.get(p.do_id) || []).map((c) => ({
+                    line_id: c.line_id,
+                    allocation_id: c.allocation_id,
+                    po_number: c.po_number,
+                    po_created_date: c.po_created_date,
+                    batch_number: c.batch_number,
+                    actual_completed_date: c.actual_completed_date,
+                    qty_pcs: Number(c.qty_pcs),
+                    // May be fractional when a DO is split over batches
+                    qty_ctn: pcsPerCtn > 0 ? Math.round((Number(c.qty_pcs) / pcsPerCtn) * 100) / 100 : null
+                }))
+            };
+        });
 
         return res.json({
             success: true,
-            data: rows,
-            pagination: {
-                currentPage: pageNum,
-                totalPages,
-                totalItems,
-                limit: limitNum
-            }
+            data,
+            pagination: { currentPage: page, totalPages, totalItems, limit }
         });
     } catch (error) {
-        console.error('Error fetching delivery orders:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to fetch delivery orders data.',
-            error: error.message
+        return sendControllerError(res, error, {
+            label: 'Get Delivery Orders Error',
+            fallbackMessage: 'Failed to fetch delivery orders data.'
         });
     }
 };

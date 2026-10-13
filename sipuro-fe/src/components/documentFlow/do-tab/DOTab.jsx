@@ -4,13 +4,13 @@ import Table from './DOTable';
 import { useDOFilterBar } from '../../../hooks/documentFlow/do/useDOFilterBar';
 import { useDOTable } from '../../../hooks/documentFlow/do/useDOTable';
 
-const DOTab = ({ reloadTrigger, currentUser }) => {
+const DOTab = ({ reloadTrigger }) => {
     const {
         search,
         startDate,
         endDate,
-        completedStartDate,
-        completedEndDate,
+        pickUpStartDate,
+        pickUpEndDate,
         sortConfig,
         currentPage,
         setCurrentPage,
@@ -19,8 +19,8 @@ const DOTab = ({ reloadTrigger, currentUser }) => {
         handleSearchChange,
         handleStartDateChange,
         handleEndDateChange,
-        handleCompletedStartDateChange,
-        handleCompletedEndDateChange,
+        handlePickUpStartDateChange,
+        handlePickUpEndDateChange,
         handleResetFilters
     } = useDOFilterBar();
 
@@ -40,10 +40,11 @@ const DOTab = ({ reloadTrigger, currentUser }) => {
         search,
         startDate,
         endDate,
-        completedStartDate,
-        completedEndDate,
+        pickUpStartDate,
+        pickUpEndDate,
         sortBy: sortConfig.key,
-        sortOrder: sortConfig.direction
+        sortOrder: sortConfig.direction,
+        reloadTrigger
     });
 
     return (
@@ -52,14 +53,14 @@ const DOTab = ({ reloadTrigger, currentUser }) => {
                 search={search}
                 startDate={startDate}
                 endDate={endDate}
-                completedStartDate={completedStartDate}
-                completedEndDate={completedEndDate}
+                pickUpStartDate={pickUpStartDate}
+                pickUpEndDate={pickUpEndDate}
                 isFilterActive={isFilterActive}
                 onSearchChange={handleSearchChange}
                 onStartDateChange={handleStartDateChange}
                 onEndDateChange={handleEndDateChange}
-                onCompletedStartDateChange={handleCompletedStartDateChange}
-                onCompletedEndDateChange={handleCompletedEndDateChange}
+                onPickUpStartDateChange={handlePickUpStartDateChange}
+                onPickUpEndDateChange={handlePickUpEndDateChange}
                 onResetFilters={handleResetFilters}
             />
 

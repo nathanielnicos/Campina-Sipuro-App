@@ -2,11 +2,8 @@ import SIRow from './SIRow';
 import PaginationControl from '../../common/PaginationControl';
 import SortableHeader from '../../common/SortableHeader';
 
-const poDoHeaderStyle = { width: '140px', minWidth: '140px' };
-const dateHeaderStyle = { width: '105px', minWidth: '105px', whiteSpace: 'normal', lineHeight: '1.2' };
-
 const SITable = ({
-    doList,
+    siList,
     fetching,
     sortConfig,
     currentPage,
@@ -17,6 +14,12 @@ const SITable = ({
     onPageChange,
     onLimitChange
 }) => {
+    const sortProps = {
+        currentSortKey: sortConfig?.key,
+        currentSortOrder: sortConfig?.direction,
+        onSort
+    };
+
     return (
         <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden', position: 'relative' }}>
             {fetching && (
@@ -37,106 +40,31 @@ const SITable = ({
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                     <thead>
                         <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                            <SortableHeader
-                                label="PO Number"
-                                sortKey="po_number"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={poDoHeaderStyle}
-                            />
-                            <SortableHeader
-                                label="DO Number"
-                                sortKey="do_number"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={poDoHeaderStyle}
-                            />
-                            <SortableHeader
-                                label="PO Created Date"
-                                sortKey="po_created_date"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={dateHeaderStyle}
-                            />
-                            <SortableHeader
-                                label="Actual Complete Date"
-                                sortKey="actual_completed_date"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={dateHeaderStyle}
-                            />
-                            <SortableHeader
-                                label="Destination"
-                                sortKey="destination"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={{ width: '280px', minWidth: '220px' }}
-                            />
-                            <SortableHeader
-                                label="License Plate"
-                                sortKey="license_plate"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={{ width: '100px' }}
-                            />
-                            <SortableHeader
-                                label="Product"
-                                sortKey="product_name"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={{ minWidth: '200px' }}
-                            />
-                            <SortableHeader
-                                label="Qty (Ctn)"
-                                sortKey="qty_ctn"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={{ textAlign: 'right', width: '90px' }}
-                            />
-                            <SortableHeader
-                                label="Description"
-                                sortKey="description"
-                                currentSortKey={sortConfig?.key}
-                                currentSortOrder={sortConfig?.direction}
-                                onSort={onSort}
-                                style={{ minWidth: '120px' }}
-                            />
+                            <SortableHeader label="Pick Up Date" sortKey="pick_up_date" {...sortProps} style={{ width: '110px', minWidth: '105px' }} />
+                            <SortableHeader label="DO Number" sortKey="do_number" {...sortProps} style={{ width: '140px', minWidth: '140px' }} />
+                            <SortableHeader label="DO Created Date" sortKey="do_created_date" {...sortProps} style={{ width: '170px', minWidth: '150px' }} />
+                            <SortableHeader label="SI Number" sortKey="si_number" {...sortProps} style={{ width: '150px', minWidth: '140px' }} />
+                            <SortableHeader label="SI Created Date" sortKey="si_date" {...sortProps} style={{ width: '110px', minWidth: '105px' }} />
+                            <SortableHeader label="Product" sortKey="product_name" {...sortProps} style={{ minWidth: '220px' }} />
+                            <SortableHeader label="Qty (Ctn)" sortKey="qty_ctn" {...sortProps} align="right" style={{ width: '110px' }} />
                         </tr>
                     </thead>
                     <tbody>
-                        {doList.length === 0 ? (
+                        {siList.length === 0 ? (
                             <tr>
-                                <td colSpan="10" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
-                                    No Delivery Orders found.
+                                <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                                    No Sales Invoices found.
                                 </td>
                             </tr>
                         ) : (
-                            doList.map((item) => (
-                                <SIRow
-                                    key={item.allocation_id}
-                                    item={item}
-                                />
-                            ))
+                            siList.map((item) => <SIRow key={item.si_id} item={item} />)
                         )}
                     </tbody>
                 </table>
             </div>
 
             <PaginationControl
-                pagination={{
-                    currentPage,
-                    totalPages,
-                    totalItems,
-                    limit: pageSize
-                }}
+                pagination={{ currentPage, totalPages, totalItems, limit: pageSize }}
                 onPageChange={onPageChange}
                 onLimitChange={onLimitChange}
             />
