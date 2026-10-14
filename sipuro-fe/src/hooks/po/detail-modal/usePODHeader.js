@@ -6,7 +6,7 @@ import {
     fetchPODetail
 } from '../../../services/poApi';
 
-export const useFormHeader = ({ poId, currentUser }) => {
+export const usePODHeader = ({ poId, currentUser }) => {
     const userRole = currentUser?.role;
     const customerId = userRole === 'CUSTOMER' ? currentUser?.customer_id : null;
     const isCustomer = userRole === 'CUSTOMER';

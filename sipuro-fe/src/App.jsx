@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import POPage from './components/po/page/POPage';
-import DetailModal from './components/po/detail-modal/DetailModal';
+import PODModal from './components/po/detail-modal/PODModal';
 import BatchPage from './components/batch/page/BatchPage';
 import ProductionSchedulePage from './components/productionSchedule/page/ProductionSchedulePage';
 import Dashboard from './components/dashboard/Dashboard';
@@ -180,7 +180,7 @@ function MainApp() {
       </Routes>
 
       {showCreateModal && (
-        <DetailModal
+        <PODModal
           poId={selectedPoId}
           currentUser={user}
           onClose={handleCloseModal}

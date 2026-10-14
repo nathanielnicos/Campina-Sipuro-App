@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-export const useFilterBar = () => {
+export const usePOFilterBar = () => {
     const [searchParams, setSearchParams] = useSearchParams();
 
     const initialSearch = searchParams.get('search') || '';

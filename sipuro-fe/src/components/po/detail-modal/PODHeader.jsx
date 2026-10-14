@@ -1,4 +1,4 @@
-const FormHeader = ({
+const PODHeader = ({
     userRole,
     poStatus,
     rejectionReason,
@@ -58,4 +58,4 @@ const FormHeader = ({
     );
 };
 
-export default FormHeader;
+export default PODHeader;

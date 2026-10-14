@@ -3,7 +3,7 @@ import html2pdf from 'html2pdf.js';
 import { fetchPODetail, fetchCompanyProfile } from '../../../services/poApi';
 import { getWibTimestamp } from '../../../utils/dateHelper';
 
-export const usePdfModal = (poId) => {
+export const usePOPdfModal = (poId) => {
     const [poData, setPoData] = useState(null);
     const [seller, setSeller] = useState(null);
     const [loading, setLoading] = useState(true);

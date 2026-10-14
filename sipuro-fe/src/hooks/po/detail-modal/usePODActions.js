@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { savePO, cancelPOApi, updatePOStatusApi } from '../../../services/poApi';
 import { useGlobalModal } from '../../../context/ModalContext';
 
-export const useActions = ({ poId, currentUser, onSuccess }) => {
+export const usePODActions = ({ poId, currentUser, onSuccess }) => {
     // Simpan jenis aksi yang sedang loading: 'SAVE', 'SAVE_DRAFT', 'SUBMIT', 'CANCEL', 'APPROVE', 'REJECT', atau null
     const [actionLoading, setActionLoading] = useState(null);
 

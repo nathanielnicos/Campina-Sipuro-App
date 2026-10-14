@@ -1,7 +1,7 @@
-import { usePdfModal } from '../../../hooks/po/pdf-modal/usePdfModal';
-import PdfDocument from './PdfDocument';
+import { usePOPdfModal } from '../../../hooks/po/pdf-modal/usePOPdfModal';
+import POPdfDocument from './POPdfDocument';
 
-const PdfModal = ({ poId, onClose }) => {
+const POPdfModal = ({ poId, onClose }) => {
     const {
         poData,
         seller,
@@ -9,7 +9,7 @@ const PdfModal = ({ poId, onClose }) => {
         pdfContentRef,
         ppnPercentNum,
         handleDownloadPdf
-    } = usePdfModal(poId);
+    } = usePOPdfModal(poId);
 
     if (!poId) return null;
 
@@ -68,7 +68,7 @@ const PdfModal = ({ poId, onClose }) => {
                     {loading ? (
                         <p style={{ textAlign: 'center', padding: '20px' }}>Loading document...</p>
                     ) : poData ? (
-                        <PdfDocument
+                        <POPdfDocument
                             ref={pdfContentRef}
                             poData={poData}
                             seller={seller}
@@ -129,4 +129,4 @@ const PdfModal = ({ poId, onClose }) => {
     );
 };
 
-export default PdfModal;
+export default POPdfModal;

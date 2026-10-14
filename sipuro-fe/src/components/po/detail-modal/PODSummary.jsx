@@ -1,6 +1,6 @@
 import { formatCurrency } from '../../../utils/formatters';
 
-const Summary = ({ subtotal, ppnPercent, taxAmount, grandTotal, userRole }) => {
+const PODSummary = ({ subtotal, ppnPercent, taxAmount, grandTotal, userRole }) => {
     if (userRole !== 'CUSTOMER') {
         return null;
     }
@@ -17,4 +17,4 @@ const Summary = ({ subtotal, ppnPercent, taxAmount, grandTotal, userRole }) => {
     );
 };
 
-export default Summary;
+export default PODSummary;

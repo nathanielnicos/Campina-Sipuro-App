@@ -57,8 +57,11 @@ const isValidYmd = (y, m, d) => {
 
 /**
  * Excel serial number / text -> { date: 'YYYY-MM-DD', time: 'HH:mm:ss' } | { empty:true } | { error:true }
- * Text formats accepted: 'YYYY-MM-DD[ HH:mm[:ss]]' and 'M/D/YYYY[ h:mm[:ss] AM|PM]' (Oracle export format).
+ * Text formats accepted: 'YYYY-MM-DD[ HH:mm[:ss]]', 'D-Mon-YY[YY][ HH:mm[:ss]]' (e.g. 06-Jul-26 09:09:06, English month
+ * abbreviations), 'DD/MM/YYYY HH:mm:ss' (24-hour, day first) and 'M/D/YYYY h:mm:ss AM|PM' (older export, month first).
  */
+const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
 const parseDateValue = (raw) => {
     if (raw === undefined || raw === null) return { empty: true };
 
@@ -85,15 +88,36 @@ const parseDateValue = (raw) => {
         return { date: `${y}-${pad2(mo)}-${pad2(d)}`, time: `${pad2(hh)}:${pad2(mm)}:${pad2(ss)}` };
     }
 
-    // Oracle export: M/D/YYYY h:mm:ss AM|PM  (month first)
-    m = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
+    // Current export: D-Mon-YY HH:mm:ss, e.g. "06-Jul-26 09:09:06" (24-hour clock; 2-digit year = 20YY)
+    m = text.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
     if (m) {
-        const [mo, d, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
-        if (!isValidYmd(y, mo, d)) return { error: true };
-        let hh = m[4] !== undefined ? Number(m[4]) : 0;
+        const mo = MONTHS[m[2].toLowerCase()];
+        const d = Number(m[1]);
+        const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+        if (!mo || !isValidYmd(y, mo, d)) return { error: true };
+        const hh = m[4] !== undefined ? Number(m[4]) : 0;
         const mm = m[5] !== undefined ? Number(m[5]) : 0;
         const ss = m[6] !== undefined ? Number(m[6]) : 0;
+        if (hh > 23 || mm > 59 || ss > 59) return { error: true };
+        return { date: `${y}-${pad2(mo)}-${pad2(d)}`, time: `${pad2(hh)}:${pad2(mm)}:${pad2(ss)}` };
+    }
+
+    // Slash formats. Which one it is is decided by the text itself, never by guessing:
+    //  - with AM/PM          -> M/D/YYYY h:mm:ss AM|PM   (older Oracle export, month first)
+    //  - 24-hour, with time  -> DD/MM/YYYY HH:mm:ss      (current export variant, day first; confirmed by the user)
+    //  - slash date WITHOUT a time and WITHOUT AM/PM is ambiguous and is rejected.
+    m = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i);
+    if (m) {
         const meridiem = m[7] ? m[7].toUpperCase() : null;
+        const hasTime = m[4] !== undefined;
+        if (!meridiem && !hasTime) return { error: true };
+
+        const [a1, a2, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
+        const [mo, d] = meridiem ? [a1, a2] : [a2, a1];
+        if (!isValidYmd(y, mo, d)) return { error: true };
+        let hh = hasTime ? Number(m[4]) : 0;
+        const mm = m[5] !== undefined ? Number(m[5]) : 0;
+        const ss = m[6] !== undefined ? Number(m[6]) : 0;
         if (meridiem) {
             if (hh < 1 || hh > 12) return { error: true };
             if (meridiem === 'AM' && hh === 12) hh = 0;
@@ -254,7 +278,7 @@ const parseDocumentFlowExcel = (fileBuffer) => {
         const gl = parseDateValue(glRaw);
         if (gl.error) parseErrors.push({ column: REQUIRED_HEADERS.glDate.label, message: `Invalid date "${cellText(glRaw)}"` });
         const doCreation = parseDateValue(doCreationRaw);
-        if (doCreation.error) parseErrors.push({ column: REQUIRED_HEADERS.doCreationDate.label, message: `Invalid date/time "${cellText(doCreationRaw)}" (expected M/D/YYYY h:mm:ss AM/PM)` });
+        if (doCreation.error) parseErrors.push({ column: REQUIRED_HEADERS.doCreationDate.label, message: `Invalid date/time "${cellText(doCreationRaw)}" (expected e.g. 06-Jul-26 09:09:06 or 06/07/2026 09:09:06)` });
 
         rows.push({
             excelRowNumber: i + 1 + firstSheetRow,

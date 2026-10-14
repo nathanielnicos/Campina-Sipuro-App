@@ -322,3 +322,44 @@ test('Fingerprint: stable for the same input, changes when allocation or file ch
     });
     assert.notEqual(a, computeDocumentFlowFingerprint(differentCapacity, 'hash1'));
 });
+
+// ------------------------------------------------------------------ date parsing (text formats)
+// The Excel library and the production businessError helper are replaced by tiny stubs: only text dates are tested here (serial numbers need real SheetJS).
+const Module = require('module');
+const originalLoad = Module._load;
+Module._load = function (request, ...rest) {
+    if (request === '../businessError') return { BusinessError: class BusinessError extends Error {} };
+    if (request === 'xlsx') return { SSF: { parse_date_code: () => null }, read: () => ({}), utils: {} };
+    return originalLoad.call(this, request, ...rest);
+};
+const { parseDateValue } = require('../helpers/upload-document-flow/excelParserHelper');
+Module._load = originalLoad;
+
+test('date: current export format D-Mon-YY HH:mm:ss', () => {
+    assert.deepEqual(parseDateValue('06-Jul-26 09:09:06'), { date: '2026-07-06', time: '09:09:06' });
+    assert.deepEqual(parseDateValue('10-Jul-26 13:22:02'), { date: '2026-07-10', time: '13:22:02' });
+    assert.deepEqual(parseDateValue('5-AUG-2026 7:05'), { date: '2026-08-05', time: '07:05:00' });
+});
+
+test('date: older formats still work, empty and invalid are distinguished', () => {
+    assert.deepEqual(parseDateValue('8/3/2026 8:33:02 AM'), { date: '2026-08-03', time: '08:33:02' });
+    assert.deepEqual(parseDateValue('2026-08-03 08:33:02'), { date: '2026-08-03', time: '08:33:02' });
+    assert.deepEqual(parseDateValue(''), { empty: true });
+    assert.deepEqual(parseDateValue('31-Feb-26 10:00:00'), { error: true });
+    assert.deepEqual(parseDateValue('06-Xyz-26 10:00:00'), { error: true });
+    assert.deepEqual(parseDateValue('06-Jul-26 25:00:00'), { error: true });
+});
+
+test('date: DD/MM/YYYY HH:mm:ss (24-hour) is day first, AM/PM is month first, ambiguous slash date is rejected', () => {
+    assert.deepEqual(parseDateValue('02/01/2026 08:28:03'), { date: '2026-01-02', time: '08:28:03' });
+    assert.deepEqual(parseDateValue('14/01/2024 13:55:05'), { date: '2024-01-14', time: '13:55:05' });
+    assert.deepEqual(parseDateValue('12/01/2024 08:46:09'), { date: '2024-01-12', time: '08:46:09' });
+    assert.deepEqual(parseDateValue('8/3/2026 9:43:51 AM'), { date: '2026-08-03', time: '09:43:51' });
+    assert.deepEqual(parseDateValue('02/01/2026'), { error: true });
+    assert.deepEqual(parseDateValue('12/13/2026 10:00:00'), { error: true });
+    assert.deepEqual(parseDateValue('31/02/2026 10:00:00'), { error: true });
+});
+
+test('date: both export variants of the same moment give the same result', () => {
+    assert.deepEqual(parseDateValue('02-Jan-26 14:52:18'), parseDateValue('02/01/2026 14:52:18'));
+});

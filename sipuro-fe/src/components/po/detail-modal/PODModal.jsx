@@ -1,17 +1,17 @@
 import { getStatusStyle } from '../../../utils/statusHelper';
-import FormHeader from './FormHeader';
-import ItemRow from './ItemRow';
-import Summary from './Summary';
-import Actions from './Actions';
+import PODHeader from './PODHeader';
+import PODRow from './PODRow';
+import PODSummary from './PODSummary';
+import PODActions from './PODActions';
 import PaginationControl from '../../common/PaginationControl';
 
 // Import ke-4 Custom Hook
-import { useFormHeader } from '../../../hooks/po/detail-modal/useFormHeader';
-import { useItemRow } from '../../../hooks/po/detail-modal/useItemRow';
-import { useSummary } from '../../../hooks/po/detail-modal/useSummary';
-import { useActions } from '../../../hooks/po/detail-modal/useActions';
+import { usePODHeader } from '../../../hooks/po/detail-modal/usePODHeader';
+import { usePODRow } from '../../../hooks/po/detail-modal/usePODRow';
+import { usePODSummary } from '../../../hooks/po/detail-modal/usePODSummary';
+import { usePODActions } from '../../../hooks/po/detail-modal/usePODActions';
 
-const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
+const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
     const userRole = currentUser?.role;
 
     // 1. Hook Header & Data Fetching
@@ -28,7 +28,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
         error,
         isCustomer,
         customerId
-    } = useFormHeader({ poId, currentUser });
+    } = usePODHeader({ poId, currentUser });
 
     // 2. Hook Items Table Management
     const {
@@ -47,10 +47,10 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
         handleQtyChange,
         handleAddItem,
         handleRemoveItem
-    } = useItemRow({ rawPoItems, products, isCustomer });
+    } = usePODRow({ rawPoItems, products, isCustomer });
 
     // 3. Hook Calculation Summary
-    const { subtotal, taxAmount, grandTotal } = useSummary({ items, ppnPercent });
+    const { subtotal, taxAmount, grandTotal } = usePODSummary({ items, ppnPercent });
 
     // 4. Hook API Actions
     const {
@@ -58,7 +58,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
         handleSubmit,
         handleCancelPO,
         handleUpdateStatus
-    } = useActions({ poId, currentUser, onSuccess });
+    } = usePODActions({ poId, currentUser, onSuccess });
 
     // Cek apakah form masih diizinkan diedit oleh Customer
     const isEditableByCustomer = isCustomer && (!poId || poStatus === 'Draft' || poStatus === 'Waiting for Confirmation');
@@ -95,7 +95,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                 {error && <p style={{ color: 'red' }}>{error}</p>}
 
                 <form onSubmit={onSubmitForm}>
-                    <FormHeader
+                    <PODHeader
                         userRole={userRole}
                         poStatus={poStatus}
                         rejectionReason={rejectionReason}
@@ -128,7 +128,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                                 {paginatedItems.map((item, localIndex) => {
                                     const actualIndex = (currentPage - 1) * pageSize + localIndex;
                                     return (
-                                        <ItemRow
+                                        <PODRow
                                             key={item.po_detail_id || item.id_product || actualIndex}
                                             index={actualIndex}
                                             item={item}
@@ -175,7 +175,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         </button>
                     )}
 
-                    <Summary
+                    <PODSummary
                         subtotal={subtotal}
                         ppnPercent={ppnPercent}
                         taxAmount={taxAmount}
@@ -183,7 +183,7 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         userRole={userRole}
                     />
 
-                    <Actions
+                    <PODActions
                         poId={poId}
                         userRole={userRole}
                         poStatus={poStatus}
@@ -198,4 +198,4 @@ const DetailModal = ({ poId, currentUser, onClose, onSuccess }) => {
     );
 };
 
-export default DetailModal;
+export default PODModal;

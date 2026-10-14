@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchPOListApi } from '../../../services/poApi';
 
-export const useTable = ({
+export const usePOTable = ({
     customerId,
     currentPage,
     setCurrentPage,

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { exportPoExcelApi } from '../../../services/poApi';
 
-export const useExportExcel = ({ customerId, filters }) => {
+export const usePOExportExcel = ({ customerId, filters }) => {
     const [exporting, setExporting] = useState(false);
 
     const handleExportExcel = async () => {

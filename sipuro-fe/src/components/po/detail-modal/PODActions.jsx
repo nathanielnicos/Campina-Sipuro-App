@@ -1,4 +1,4 @@
-const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdateStatus }) => {
+const PODActions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdateStatus }) => {
     const isAnyLoading = Boolean(loading);
 
     const getButtonStyle = (baseBgColor = 'transparent', isTextWhite = true) => ({
@@ -107,4 +107,4 @@ const Actions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdat
     );
 };
 
-export default Actions;
+export default PODActions;

@@ -23,7 +23,7 @@ const createInitialItem = () => ({
     total_price: 0
 });
 
-export const useItemRow = ({ rawPoItems = [], products = [], isCustomer = true }) => {
+export const usePODRow = ({ rawPoItems = [], products = [], isCustomer = true }) => {
     const [items, setItems] = useState([createInitialItem()]);
     const [searchTerm, setSearchTerm] = useState({});
     const [openDropdown, setOpenDropdown] = useState(null);

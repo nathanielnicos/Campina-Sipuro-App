@@ -244,7 +244,10 @@ const calculateDocumentFlow = ({
 
         const result = allocateFifo({ qtyPcs: p.qtyPcs, doCreatedAt: row.doCreatedAt, candidates, ledger });
         if (!result.ok) {
-            rowsToFix.push(toFixRow(row, [{ column: 'Allocation', message: result.message }], { reasonCode: result.reason }));
+            rowsToFix.push(toFixRow(row, [{ column: 'Allocation', message: result.message }], {
+                reasonCode: result.reason,
+                matchedPo: Array.from(p.matchedPoNumbers).sort()
+            }));
             return;
         }
 

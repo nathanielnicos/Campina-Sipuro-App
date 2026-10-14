@@ -32,6 +32,7 @@ const DocumentFlowRowsToFix = ({ rows = [] }) => {
                                     <th style={{ textAlign: 'left', padding: '8px' }}>DO Number</th>
                                     <th style={{ textAlign: 'left', padding: '8px' }}>Item Code</th>
                                     <th style={{ textAlign: 'left', padding: '8px' }}>Customer PO</th>
+                                    <th style={{ textAlign: 'left', padding: '8px' }}>Matched Registered PO</th>
                                     <th style={{ textAlign: 'left', padding: '8px' }}>Problem</th>
                                 </tr>
                             </thead>
@@ -42,6 +43,7 @@ const DocumentFlowRowsToFix = ({ rows = [] }) => {
                                         <td style={{ padding: '8px' }}>{row.doNumber || '-'}</td>
                                         <td style={{ padding: '8px' }}>{row.itemCode || '-'}</td>
                                         <td style={{ padding: '8px' }}>{row.customerPoText || '-'}</td>
+                                        <td style={{ padding: '8px' }}>{(row.matchedPo || []).join(', ') || '-'}</td>
                                         <td style={{ padding: '8px', color: '#842029' }}>
                                             {(row.problems || []).map((p, i) => (
                                                 <div key={i}><strong>{p.column}:</strong> {p.message}</div>

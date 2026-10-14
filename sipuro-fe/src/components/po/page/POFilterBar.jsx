@@ -1,6 +1,6 @@
 import DateRangePicker from '../../common/DateRangePicker';
 
-const FilterBar = ({
+const POFilterBar = ({
     search,
     startDate,
     endDate,
@@ -153,4 +153,4 @@ const FilterBar = ({
     );
 };
 
-export default FilterBar;
+export default POFilterBar;

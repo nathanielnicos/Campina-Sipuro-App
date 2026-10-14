@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { formatCurrency, formatQty, unformatThousand } from '../../../utils/formatters';
 import useOnClickOutside from '../../../hooks/useOnClickOutside';
 
-const ItemRow = ({
+const PODRow = ({
     index,
     item,
     searchTerm,
@@ -176,4 +176,4 @@ const ItemRow = ({
     );
 };
 
-export default ItemRow;
+export default PODRow;

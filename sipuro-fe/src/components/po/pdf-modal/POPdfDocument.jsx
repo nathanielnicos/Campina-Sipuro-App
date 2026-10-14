@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import { formatCurrency, formatQty } from '../../../utils/formatters';
 import { formatDate, formatDateTime } from '../../../utils/dateHelper';
 
-const PdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
+const POPdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
     const header = poData?.header || {};
 
     return (
@@ -141,6 +141,6 @@ const PdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
     );
 });
 
-PdfDocument.displayName = 'PdfDocument';
+POPdfDocument.displayName = 'POPdfDocument';
 
-export default PdfDocument;
+export default POPdfDocument;
