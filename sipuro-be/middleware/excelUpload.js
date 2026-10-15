@@ -1,5 +1,5 @@
 const multer = require('multer');
-const { MAX_UPLOAD_FILE_BYTES } = require('../helpers/productionUploadConfig');
+const { MAX_UPLOAD_FILE_BYTES } = require('../helpers/upload-production/productionUploadConfig');
 
 /**
  * Shared Excel upload middleware (single file, field name "file", .xlsx / .xls only).

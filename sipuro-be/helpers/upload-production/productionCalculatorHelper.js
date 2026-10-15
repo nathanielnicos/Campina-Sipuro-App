@@ -14,7 +14,7 @@
  *  - Filter tanggal PO berlaku untuk plus dan minus.
  */
 const crypto = require('crypto');
-const { BusinessError } = require('./businessError');
+const { BusinessError } = require('../businessError');
 
 const ELIGIBLE_HEADER_STATUSES = ['Approved', 'Production Completed'];
 const ELIGIBLE_ALLOCATION_STATUSES = ['Open', 'Closed'];

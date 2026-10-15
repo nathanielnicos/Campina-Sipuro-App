@@ -1,6 +1,6 @@
 const xlsx = require('xlsx');
 const crypto = require('crypto');
-const { BusinessError } = require('./businessError');
+const { BusinessError } = require('../businessError');
 const { MAX_UPLOAD_ROWS } = require('./productionUploadConfig');
 
 /**

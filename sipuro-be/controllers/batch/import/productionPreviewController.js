@@ -1,7 +1,7 @@
 const { sipuroDb: db } = require('../../../config/db');
-const { parseProductionExcel } = require('../../../helpers/productionParserHelper');
-const { calculateFifoAllocation, computeAllocationFingerprint } = require('../../../helpers/productionCalculatorHelper');
-const { loadProductionContext } = require('../../../helpers/productionDataLoader');
+const { parseProductionExcel } = require('../../../helpers/upload-production/productionParserHelper');
+const { calculateFifoAllocation, computeAllocationFingerprint } = require('../../../helpers/upload-production/productionCalculatorHelper');
+const { loadProductionContext } = require('../../../helpers/upload-production/productionDataLoader');
 const { BusinessError, sendControllerError } = require('../../../helpers/businessError');
 
 /**
