@@ -2,6 +2,17 @@ const { sipuroDb } = require('../config/db');
 const { sendEmail } = require('./emailHelper');
 
 /**
+ * Escape karakter HTML agar teks dari pengguna aman disisipkan ke isi email.
+ * Diekspor juga agar pemanggil yang menyusun `htmlMessage` sendiri bisa memakainya.
+ */
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+/**
  * Saves a new notification to sipuro_db and dispatches email notifications.
  * 
  * @param {Object} params
@@ -13,7 +24,7 @@ const { sendEmail } = require('./emailHelper');
  * @param {string|null} params.recipientDepartment - Target department if recipientType is 'EMPLOYEE' (e.g., 'PPIC')
  * @param {'EMPLOYEE'|'CUSTOMER'|null} params.senderType - Sender entity type
  * @param {string|number|null} params.senderId - Sender User ID
- * @param {string} params.link - Target URL path upon click
+ * @param {string|null} params.link - Target URL path upon click (boleh null)
  */
 const createNotification = async ({
     title,
@@ -48,12 +59,13 @@ const createNotification = async ({
         let recipientEmails = [];
 
         if (recipientType === 'CUSTOMER' && recipientId) {
-            // Cek apakah recipientId dikirim sebagai customer_id (Tenant Level) atau customer_user_id (User Level)
+            // recipientId untuk customer adalah customer_id (level perusahaan):
+            // semua user aktif milik perusahaan tersebut menerima email.
             const [custRows] = await sipuroDb.query(
-                `SELECT email FROM sipuro_db.customer_users 
-                 WHERE (customer_id = ? OR customer_user_id = ?) 
+                `SELECT email FROM sipuro_db.customer_users
+                 WHERE customer_id = ?
                    AND email IS NOT NULL AND email != '' AND is_active = 1`,
-                [recipientId, recipientId]
+                [recipientId]
             );
             recipientEmails = custRows.map(row => row.email);
         } else if (recipientType === 'EMPLOYEE') {
@@ -76,17 +88,20 @@ const createNotification = async ({
 
         // 3. Dispatch batch email notification
         if (recipientEmails.length > 0) {
-            const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
-            const fullLink = `${baseUrl}${link.startsWith('/') ? link : '/' + link}`;
+            const baseUrl = (process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+            // link boleh null/kosong (mis. dari scheduler): tautan mengarah ke halaman utama aplikasi.
+            const linkPath = (typeof link === 'string' && link.trim() !== '') ? link.trim() : '/';
+            const fullLink = escapeHtml(`${baseUrl}${linkPath.startsWith('/') ? linkPath : '/' + linkPath}`);
 
             const emailSubject = `[SIPURO Notification] ${title}`;
 
-            // Menggunakan htmlMessage jika ada, jika tidak fallback ke message biasa
-            const emailBody = htmlMessage || `<p style="font-size: 15px; line-height: 1.6; color: #444;">${message}</p>`;
+            // htmlMessage dianggap HTML tepercaya dari pemanggil (nilai di dalamnya wajib di-escape pemanggil).
+            // Jika tidak ada, pesan teks biasa di-escape sebelum disisipkan.
+            const emailBody = htmlMessage || `<p style="font-size: 15px; line-height: 1.6; color: #444;">${escapeHtml(message)}</p>`;
 
             const htmlContent = `
                 <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 650px; border: 1px solid #e0e0e0; border-radius: 8px; margin: 0 auto;">
-                    <h2 style="color: #0056b3; margin-top: 0;">${title}</h2>
+                    <h2 style="color: #0056b3; margin-top: 0;">${escapeHtml(title)}</h2>
                     
                     ${emailBody}
                     
@@ -115,4 +130,4 @@ const createNotification = async ({
     }
 };
 
-module.exports = { createNotification };
+module.exports = { createNotification, escapeHtml };

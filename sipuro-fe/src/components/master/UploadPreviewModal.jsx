@@ -93,6 +93,14 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm, isCommitti
                             SKU Not Found: {summary.notFoundCount}
                         </button>
                     )}
+                    {summary.invalidCount > 0 && (
+                        <button
+                            onClick={() => setActiveTab('INVALID')}
+                            style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', backgroundColor: activeTab === 'INVALID' ? '#997404' : '#fff3cd', color: activeTab === 'INVALID' ? '#fff' : '#664d03' }}
+                        >
+                            Invalid (not saved): {summary.invalidCount}
+                        </button>
+                    )}
                 </div>
 
                 <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1, boxSizing: 'border-box' }}>
@@ -128,6 +136,10 @@ const UploadPreviewModal = ({ title, previewData, onClose, onConfirm, isCommitti
                                                 {item.status === 'NOT_FOUND' ? (
                                                     <span style={{ color: '#dc3545', fontStyle: 'italic' }}>
                                                         Product not registered in Product Master
+                                                    </span>
+                                                ) : item.status === 'INVALID' ? (
+                                                    <span style={{ color: '#997404', fontStyle: 'italic' }}>
+                                                        {item.reason || 'Invalid data'} (this row will not be saved)
                                                     </span>
                                                 ) : item.changes && item.changes.length > 0 ? (
                                                     <ul style={{ margin: 0, paddingLeft: '16px' }}>

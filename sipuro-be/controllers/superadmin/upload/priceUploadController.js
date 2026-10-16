@@ -1,6 +1,44 @@
 const xlsx = require('xlsx');
 const { sipuroDb: db } = require('../../../config/db');
 const { findHeaderRowIndex, parseToFixed, safeFormatDate } = require('../../../helpers/superadminHelper');
+const { safeError } = require('../../../helpers/safeError');
+
+// Format tanggal YYYY-MM-DD yang benar-benar ada di kalender (menolak 2025-02-31, 2025-13-01, dst.)
+const isValidYmd = (value) => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [y, m, d] = value.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+};
+
+/**
+ * Validasi satu baris harga. Mengembalikan array alasan (kosong jika valid).
+ * Aturan: harga wajib angka dan tidak negatif (0 boleh, untuk barang bonus),
+ * tanggal mulai wajib, tanggal akhir opsional tetapi tidak boleh lebih awal dari tanggal mulai.
+ */
+const validatePriceRow = ({ price, startDate, endDate }) => {
+    const reasons = [];
+
+    if (typeof price !== 'number' || !Number.isFinite(price)) {
+        reasons.push('Price (EXC. PPN) is empty or not a number');
+    } else if (price < 0) {
+        reasons.push('Price cannot be negative');
+    }
+
+    if (!isValidYmd(startDate)) {
+        reasons.push('Start Date is empty or invalid');
+    }
+
+    if (endDate !== null && endDate !== undefined) {
+        if (!isValidYmd(endDate)) {
+            reasons.push('End Date is invalid');
+        } else if (isValidYmd(startDate) && endDate < startDate) {
+            reasons.push('End Date is earlier than Start Date');
+        }
+    }
+
+    return reasons;
+};
 
 /**
  * Preview Upload Harga Jual (Superadmin)
@@ -71,11 +109,12 @@ exports.previewPrices = async (req, res) => {
         });
 
         const previewList = [];
-        let newCount = 0, updatedCount = 0, unchangedCount = 0, notFoundCount = 0;
+        let newCount = 0, updatedCount = 0, unchangedCount = 0, notFoundCount = 0, invalidCount = 0;
 
         // Iterasi data Excel yang sudah dibersihkan (unique SKU)
         for (const [oracleId, rowObj] of excelUniqueMap.entries()) {
-            const priceExcPpn = parseToFixed(rowObj['EXC. PPN'], 0) || 0;
+            // null jika sel harga kosong / bukan angka (berbeda dengan angka 0 yang diketik eksplisit)
+            const priceExcPpn = parseToFixed(rowObj['EXC. PPN'], 0);
             const startDate = safeFormatDate(rowObj['START DATE']);
             const endDate = safeFormatDate(rowObj['END DATE']);
 
@@ -89,6 +128,23 @@ exports.previewPrices = async (req, res) => {
                     price: priceExcPpn,
                     start_date: startDate,
                     end_date: endDate,
+                    changes: []
+                });
+                continue;
+            }
+
+            // BARIS TIDAK VALID (harga kosong/negatif, tanggal mulai kosong, dst.) -> INVALID, tidak ikut disimpan
+            const invalidReasons = validatePriceRow({ price: priceExcPpn, startDate, endDate });
+            if (invalidReasons.length > 0) {
+                invalidCount++;
+                previewList.push({
+                    status: 'INVALID',
+                    product_code: oracleId,
+                    description: rowObj['DESCRIPTION'],
+                    price: priceExcPpn,
+                    start_date: startDate,
+                    end_date: endDate,
+                    reason: invalidReasons.join('; '),
                     changes: []
                 });
                 continue;
@@ -154,12 +210,12 @@ exports.previewPrices = async (req, res) => {
 
         res.json({
             success: true,
-            summary: { total: previewList.length, newCount, updatedCount, unchangedCount, notFoundCount },
+            summary: { total: previewList.length, newCount, updatedCount, unchangedCount, notFoundCount, invalidCount },
             data: previewList
         });
     } catch (error) {
         console.error('Error preview prices:', error);
-        res.status(500).json({ success: false, message: 'Failed to process Selling Price Excel file.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to process Selling Price Excel file.', error: safeError(error) });
     }
 };
 
@@ -175,6 +231,27 @@ exports.commitPrices = async (req, res) => {
 
         if (itemsToProcess.length === 0) {
             return res.json({ success: true, message: 'No price data changes to save.' });
+        }
+
+        // Pemeriksaan ulang di server: item NEW/UPDATED yang tidak valid membatalkan seluruh simpan
+        // dengan pesan jelas (400), bukan error database (500).
+        const invalidItems = itemsToProcess
+            .map(item => ({
+                product_code: item.product_code,
+                reasons: validatePriceRow({
+                    price: typeof item.price === 'number' ? item.price : parseToFixed(item.price, 0),
+                    startDate: item.start_date || null,
+                    endDate: item.end_date || null
+                })
+            }))
+            .filter(entry => entry.reasons.length > 0);
+
+        if (invalidItems.length > 0) {
+            const sampleCodes = invalidItems.slice(0, 10).map(entry => entry.product_code).join(', ');
+            return res.status(400).json({
+                success: false,
+                message: `Invalid price data for ${invalidItems.length} item(s): ${sampleCodes}${invalidItems.length > 10 ? ', ...' : ''}. Please re-upload the Excel file.`
+            });
         }
 
         await connection.beginTransaction();
@@ -221,7 +298,7 @@ exports.commitPrices = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error('Error commit prices:', error);
-        res.status(500).json({ success: false, message: 'Failed to save selling prices to the database.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to save selling prices to the database.', error: safeError(error) });
     } finally {
         connection.release();
     }

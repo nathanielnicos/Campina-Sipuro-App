@@ -15,7 +15,7 @@ exports.exportPoExcel = async (req, res) => {
         let query = `
             SELECT 
                 ph.po_number,
-                DATE_FORMAT(CONVERT_TZ(ph.created_at, '+00:00', '+07:00'), '%Y-%m-%d') AS created_at,
+                DATE_FORMAT(ph.created_at, '%Y-%m-%d') AS created_at,
                 ph.status,
                 ph.delivery_address,
                 ph.description,
@@ -48,11 +48,11 @@ exports.exportPoExcel = async (req, res) => {
 
         // Filter Created Date Range berbasis WIB
         if (startDate && startDate !== '') {
-            query += ` AND DATE(CONVERT_TZ(ph.created_at, '+00:00', '+07:00')) >= ?`;
+            query += ` AND DATE(ph.created_at) >= ?`;
             params.push(startDate);
         }
         if (endDate && endDate !== '') {
-            query += ` AND DATE(CONVERT_TZ(ph.created_at, '+00:00', '+07:00')) <= ?`;
+            query += ` AND DATE(ph.created_at) <= ?`;
             params.push(endDate);
         }
 

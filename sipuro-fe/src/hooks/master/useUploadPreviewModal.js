@@ -14,7 +14,8 @@ export const useUploadPreviewModal = ({ previewData, onConfirm }) => {
         newCount = 0,
         updatedCount = 0,
         unchangedCount = 0,
-        notFoundCount = 0
+        notFoundCount = 0,
+        invalidCount = 0
     } = summary;
 
     const hasChangesToSave = (newCount + updatedCount) > 0;
@@ -26,6 +27,7 @@ export const useUploadPreviewModal = ({ previewData, onConfirm }) => {
             if (activeTab === 'UPDATED') return item.status === 'UPDATED';
             if (activeTab === 'UNCHANGED') return item.status === 'UNCHANGED';
             if (activeTab === 'NOT_FOUND') return item.status === 'NOT_FOUND';
+            if (activeTab === 'INVALID') return item.status === 'INVALID';
             return true;
         });
     }, [dataList, activeTab]);
@@ -67,6 +69,8 @@ export const useUploadPreviewModal = ({ previewData, onConfirm }) => {
                 return { label: 'UPDATED', style: { ...baseStyle, backgroundColor: '#fd7e14' } };
             case 'NOT_FOUND':
                 return { label: 'SKU NOT FOUND', style: { ...baseStyle, backgroundColor: '#dc3545' } };
+            case 'INVALID':
+                return { label: 'INVALID', style: { ...baseStyle, backgroundColor: '#997404' } };
             default:
                 return { label: 'UNCHANGED', style: { ...baseStyle, backgroundColor: '#6c757d' } };
         }
@@ -81,6 +85,8 @@ export const useUploadPreviewModal = ({ previewData, onConfirm }) => {
                 return { backgroundColor: '#fff8e1' };
             case 'NOT_FOUND':
                 return { backgroundColor: '#ffebee' };
+            case 'INVALID':
+                return { backgroundColor: '#fff3cd' };
             default:
                 return {};
         }
@@ -89,7 +95,7 @@ export const useUploadPreviewModal = ({ previewData, onConfirm }) => {
     return {
         activeTab,
         setActiveTab,
-        summary: { total, newCount, updatedCount, unchangedCount, notFoundCount },
+        summary: { total, newCount, updatedCount, unchangedCount, notFoundCount, invalidCount },
         filteredData,
         hasChangesToSave,
         handleSave,

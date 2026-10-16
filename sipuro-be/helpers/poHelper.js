@@ -53,18 +53,23 @@ async function generateNextPoNumber(connection, { customer_id, customerCode }) {
     }
 
     // 4. WIB Date calculations
+    // Komponen waktu diambil langsung dari string WIB ("YYYY-MM-DD HH:mm:ss"),
+    // bukan lewat getter objek Date, agar hasilnya tidak bergantung zona waktu server
+    // (server Vercel berjalan di UTC).
     const nowWibStr = getWibDateTimeString();
-    const nowWibDate = new Date(nowWibStr.replace(' ', 'T') + '+07:00');
+    const [wibDatePart, wibTimePart] = nowWibStr.split(' ');
+    const [wibYear, wibMonth, wibDay] = wibDatePart.split('-');
+    const [wibHour, wibMin, wibSec] = wibTimePart.split(':');
 
-    const yearFull = String(nowWibDate.getFullYear());
+    const yearFull = wibYear;
     const yearShort = yearFull.slice(-2);
-    const month = String(nowWibDate.getMonth() + 1).padStart(2, '0');
-    const monthSingle = String(nowWibDate.getMonth() + 1);
-    const date = String(nowWibDate.getDate()).padStart(2, '0');
-    const dateSingle = String(nowWibDate.getDate());
-    const hour = String(nowWibDate.getHours()).padStart(2, '0');
-    const min = String(nowWibDate.getMinutes()).padStart(2, '0');
-    const sec = String(nowWibDate.getSeconds()).padStart(2, '0');
+    const month = wibMonth;
+    const monthSingle = String(parseInt(wibMonth, 10));
+    const date = wibDay;
+    const dateSingle = String(parseInt(wibDay, 10));
+    const hour = wibHour;
+    const min = wibMin;
+    const sec = wibSec;
 
     // 5. Query PO Numbers diurutkan dari created_at TERBARU
     let dateWhereClause = '';

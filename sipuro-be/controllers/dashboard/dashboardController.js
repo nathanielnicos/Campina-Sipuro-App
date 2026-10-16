@@ -43,7 +43,7 @@ exports.getDashboardStats = async (req, res) => {
                     COALESCE(SUM(pod.fulfilled_qty), 0) AS total_fulfilled
                 FROM dates d
                 LEFT JOIN sipuro_db.po_headers poh 
-                    ON DATE(CONVERT_TZ(poh.created_at, '+00:00', '+07:00')) = d.date_val
+                    ON DATE(poh.created_at) = d.date_val
                    AND poh.status NOT IN ('Draft', 'Waiting for Confirmation', 'Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id 
@@ -70,7 +70,7 @@ exports.getDashboardStats = async (req, res) => {
                     COALESCE(SUM(pod.fulfilled_qty), 0) AS total_fulfilled
                 FROM months m
                 LEFT JOIN sipuro_db.po_headers poh 
-                    ON DATE_FORMAT(CONVERT_TZ(poh.created_at, '+00:00', '+07:00'), '%Y-%m') = DATE_FORMAT(m.month_val, '%Y-%m')
+                    ON DATE_FORMAT(poh.created_at, '%Y-%m') = DATE_FORMAT(m.month_val, '%Y-%m')
                    AND poh.status NOT IN ('Draft', 'Waiting for Confirmation', 'Rejected', 'Canceled')
                 LEFT JOIN sipuro_db.po_details pod 
                     ON poh.po_header_id = pod.po_header_id 
@@ -93,15 +93,15 @@ exports.getDashboardStats = async (req, res) => {
         let queryParamsTop = [];
 
         if (startDate) {
-            statusWhere.push(`DATE(CONVERT_TZ(created_at, '+00:00', '+07:00')) >= ?`);
-            topProductsWhere.push(`DATE(CONVERT_TZ(h.created_at, '+00:00', '+07:00')) >= ?`);
+            statusWhere.push(`DATE(created_at) >= ?`);
+            topProductsWhere.push(`DATE(h.created_at) >= ?`);
             queryParamsStatus.push(startDate);
             queryParamsTop.push(startDate);
         }
 
         if (endDate) {
-            statusWhere.push(`DATE(CONVERT_TZ(created_at, '+00:00', '+07:00')) <= ?`);
-            topProductsWhere.push(`DATE(CONVERT_TZ(h.created_at, '+00:00', '+07:00')) <= ?`);
+            statusWhere.push(`DATE(created_at) <= ?`);
+            topProductsWhere.push(`DATE(h.created_at) <= ?`);
             queryParamsStatus.push(endDate);
             queryParamsTop.push(endDate);
         }
