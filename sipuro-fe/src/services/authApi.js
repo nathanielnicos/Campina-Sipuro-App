@@ -1,23 +1,15 @@
-import { API_BASE_URL } from './config';
+import { apiClientSoft } from './apiClient';
 
 export const loginApi = async (username, password, roleType) => {
-    const res = await fetch(`${API_BASE_URL}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            username,
-            password,
-            role_type: roleType
-        })
+    const res = await apiClientSoft.post('/login', {
+        username,
+        password,
+        role_type: roleType
     });
-    return await res.json();
+    return res.data;
 };
 
 export const registerApi = async (payload) => {
-    const res = await fetch(`${API_BASE_URL}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    return await res.json();
+    const res = await apiClientSoft.post('/register', payload);
+    return res.data;
 };

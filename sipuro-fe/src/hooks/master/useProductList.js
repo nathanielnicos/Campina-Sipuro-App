@@ -89,11 +89,8 @@ export const useProductList = () => {
 
     const handleConfirmCommit = async (items) => {
         try {
-            const savedUser = localStorage.getItem('sipuro_user');
-            const currentUser = savedUser ? JSON.parse(savedUser) : null;
-            const createdBy = currentUser?.code || currentUser?.name || 'SYSTEM';
-
-            const res = await commitProductsApi(items, createdBy);
+            // Pengguna pencatat diambil server dari token login.
+            const res = await commitProductsApi(items);
             if (res.success) {
                 showAlert({
                     type: 'success',

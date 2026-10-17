@@ -3,6 +3,7 @@ const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
 const { getWibDateTimeString } = require('../../helpers/dateHelper');
 const { calculateBaseQty, generateNextPoNumber } = require('../../helpers/poHelper');
+const { safeError } = require('../../helpers/safeError');
 
 /**
  * CREATE PO
@@ -10,7 +11,10 @@ const { calculateBaseQty, generateNextPoNumber } = require('../../helpers/poHelp
 exports.createPO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
-        const { customer_id, created_by, delivery_address, description, items, status } = req.body;
+        const { delivery_address, description, items, status } = req.body;
+        // Identitas diambil dari token login, bukan dari body request.
+        const customer_id = req.user.customerId;
+        const created_by = req.user.id;
 
         if (!customer_id || !items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ success: false, message: 'Incomplete request data.' });
@@ -156,7 +160,7 @@ exports.createPO = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error('Error creating PO:', error);
-        res.status(500).json({ success: false, message: 'Failed to create Purchase Order.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to create Purchase Order.', error: safeError(error) });
     } finally {
         connection.release();
     }

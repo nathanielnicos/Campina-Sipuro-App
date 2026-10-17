@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const uploadController = require('../controllers/superadmin/upload/uploadController');
+const { requireAccess } = require('../middleware/auth');
+
+// Upload master data: hanya SUPERADMIN
+router.use(requireAccess('SUPERADMIN'));
 
 const upload = multer({ storage: multer.memoryStorage() });
 

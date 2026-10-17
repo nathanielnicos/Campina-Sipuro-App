@@ -1,4 +1,6 @@
 const { sipuroDb } = require('../config/db');
+const { hasAccess } = require('../middleware/auth');
+const { safeError } = require('../helpers/safeError');
 
 exports.getProducts = async (req, res) => {
     try {
@@ -10,10 +12,16 @@ exports.getProducts = async (req, res) => {
             ORDER BY p.product_name ASC
         `;
         const [rows] = await sipuroDb.query(query);
-        res.json({ success: true, data: rows });
+
+        // Harga hanya boleh dilihat oleh CUSTOMER; pengguna lain menerima data produk tanpa harga
+        const data = hasAccess(req.user, 'CUSTOMER')
+            ? rows
+            : rows.map(({ base_price, ...productWithoutPrice }) => productWithoutPrice); // eslint-disable-line no-unused-vars
+
+        res.json({ success: true, data });
     } catch (error) {
         console.error('Error fetching products:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch product data.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch product data.', error: safeError(error) });
     }
 };
 
@@ -38,21 +46,30 @@ exports.getCompanyProfile = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching company profile:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch company profile data.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch company profile data.', error: safeError(error) });
     }
 };
 
 exports.getCustomerDetail = async (req, res) => {
     try {
-        const { id } = req.params;
+        const requestedId = Number.parseInt(req.params.id, 10);
+        if (!Number.isInteger(requestedId) || requestedId <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid customer id.' });
+        }
+
+        // Customer hanya boleh membaca data perusahaannya sendiri
+        if (hasAccess(req.user, 'CUSTOMER') && req.user.customerId !== requestedId) {
+            return res.status(403).json({ success: false, message: 'You do not have permission to access this resource.' });
+        }
+
         const query = `SELECT customer_id, company_name, delivery_address FROM sipuro_db.customers WHERE customer_id = ?`;
-        const [rows] = await sipuroDb.query(query, [id]);
+        const [rows] = await sipuroDb.query(query, [requestedId]);
         if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
         res.json({ success: true, data: rows[0] });
     } catch (error) {
         console.error('Error fetching customer detail:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch customer details.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch customer details.', error: safeError(error) });
     }
 };

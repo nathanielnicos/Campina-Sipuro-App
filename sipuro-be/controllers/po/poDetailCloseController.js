@@ -11,7 +11,8 @@ const { refreshPOStatus } = require('../../helpers/batchHelper');
 exports.requestClosePoDetails = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
-        const { po_header_id, po_detail_ids, reason, requested_by } = req.body;
+        const { po_header_id, po_detail_ids, reason } = req.body;
+        const requested_by = req.user.id;
 
         if (!po_header_id || !po_detail_ids || !Array.isArray(po_detail_ids) || po_detail_ids.length === 0) {
             return res.status(400).json({ success: false, message: 'PO Header ID and selected detail items are required.' });
@@ -35,6 +36,9 @@ exports.requestClosePoDetails = async (req, res) => {
             return res.status(404).json({ success: false, message: 'PO Header not found.' });
         }
         const poData = headerRows[0];
+        if (Number(poData.customer_id) !== Number(req.user.customerId)) {
+            return res.status(404).json({ success: false, message: 'PO Header not found.' });
+        }
 
         // 2. Ambil detail item yang valid beserta nama & kode produk (Status 'Active' dan belum soft delete)
         const [validDetails] = await connection.query(
@@ -127,7 +131,8 @@ exports.requestClosePoDetails = async (req, res) => {
 exports.approveClosePoDetails = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
-        const { po_header_id, po_detail_ids, approved_by } = req.body;
+        const { po_header_id, po_detail_ids } = req.body;
+        const approved_by = req.user.id;
 
         if (!po_header_id || !po_detail_ids || !Array.isArray(po_detail_ids) || po_detail_ids.length === 0) {
             return res.status(400).json({ success: false, message: 'PO Header ID and selected detail items are required.' });
@@ -236,7 +241,8 @@ exports.approveClosePoDetails = async (req, res) => {
 exports.rejectClosePoDetails = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
-        const { po_header_id, po_detail_ids, rejected_by } = req.body;
+        const { po_header_id, po_detail_ids } = req.body;
+        const rejected_by = req.user.id;
 
         if (!po_header_id || !po_detail_ids || !Array.isArray(po_detail_ids) || po_detail_ids.length === 0) {
             return res.status(400).json({ success: false, message: 'PO Header ID and selected detail items are required.' });

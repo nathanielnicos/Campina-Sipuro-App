@@ -1,11 +1,11 @@
 const XLSX = require('xlsx');
 const { sipuroDb } = require('../../config/db');
 const { getWibDate } = require('../../helpers/dateHelper');
+const { safeError } = require('../../helpers/safeError');
 
 exports.exportPoExcel = async (req, res) => {
     try {
         const {
-            customer_id,
             search,
             status,
             startDate,
@@ -33,10 +33,9 @@ exports.exportPoExcel = async (req, res) => {
 
         const params = [];
 
-        if (customer_id && customer_id !== 'null' && customer_id !== 'undefined') {
-            query += ` AND ph.customer_id = ?`;
-            params.push(customer_id);
-        }
+        // Hanya data perusahaan milik pengguna yang login (rute ini khusus CUSTOMER).
+        query += ` AND ph.customer_id = ?`;
+        params.push(req.user.customerId);
         if (search && search.trim() !== '') {
             query += ` AND (ph.po_number LIKE ? OR p.product_name LIKE ?)`;
             params.push(`%${search.trim()}%`, `%${search.trim()}%`);
@@ -143,6 +142,6 @@ exports.exportPoExcel = async (req, res) => {
         return res.send(buffer);
     } catch (error) {
         console.error('Error exporting PO Excel:', error);
-        return res.status(500).json({ success: false, message: 'Failed to export PO data to Excel.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to export PO data to Excel.', error: safeError(error) });
     }
 };

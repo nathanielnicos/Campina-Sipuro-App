@@ -19,6 +19,7 @@ import Login from './components/auth/Login';
 import Navbar from './components/navigation/Navbar';
 import GlobalNotificationBanner from './components/navigation/GlobalNotificationBanner';
 import { markAsRead } from './services/notificationApi';
+import { getToken, clearSession, SESSION_EXPIRED_EVENT } from './services/apiClient';
 import { getNavItemsByUser } from './config/navigationConfig';
 
 import { ModalProvider, useGlobalModal } from './context/ModalContext';
@@ -38,15 +39,29 @@ function MainApp() {
 
   useEffect(() => {
     const savedUser = localStorage.getItem('sipuro_user');
-    if (savedUser) {
+    // Sesi hanya dipulihkan jika token login masih tersimpan.
+    // Sesi lama tanpa token (sebelum sistem token) dibersihkan dan pengguna diminta login ulang.
+    if (savedUser && getToken()) {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
       } catch (e) {
         console.error('Failed to parse saved user:', e);
       }
+    } else if (savedUser) {
+      clearSession();
     }
   }, []);
+
+  // Dipicu apiClient saat server menyatakan sesi tidak berlaku (token kedaluwarsa / akun dinonaktifkan).
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser(null);
+      navigate('/login');
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, [navigate]);
 
   const getDefaultPath = (userData) => {
     if (!userData) return '/po-list';
@@ -68,7 +83,7 @@ function MainApp() {
 
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem('sipuro_user');
+    clearSession();
     navigate('/login');
   };
 

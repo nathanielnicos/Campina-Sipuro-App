@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from './apiClient';
 import { API_BASE_URL } from './config';
 
 const BASE_URL = `${API_BASE_URL}/upload/master`;
@@ -12,8 +12,9 @@ export const previewProductsApi = async (file) => {
     return response.data;
 };
 
-export const commitProductsApi = async (items, createdBy) => {
-    const response = await axios.post(`${BASE_URL}/products/commit`, { items, createdBy });
+// createdBy diabaikan: server mengambil pengguna dari token login.
+export const commitProductsApi = async (items) => {
+    const response = await axios.post(`${BASE_URL}/products/commit`, { items });
     return response.data;
 };
 

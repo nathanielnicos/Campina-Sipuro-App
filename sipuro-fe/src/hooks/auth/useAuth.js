@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { loginApi, registerApi } from '../../services/authApi';
+import { setToken } from '../../services/apiClient';
 
 export const useAuth = (onLoginSuccess) => {
     const [isRegistering, setIsRegistering] = useState(false);
@@ -14,8 +15,11 @@ export const useAuth = (onLoginSuccess) => {
 
         try {
             const result = await loginApi(username, password, roleType);
-            if (result.success) {
+            if (result.success && result.token) {
+                setToken(result.token);
                 onLoginSuccess(result.data);
+            } else if (result.success) {
+                setErrorMsg('Login failed: no session token received.');
             } else {
                 setErrorMsg(result.message || 'Login failed.');
             }

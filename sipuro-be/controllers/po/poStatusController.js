@@ -2,6 +2,7 @@ const { sipuroDb } = require('../../config/db');
 const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader } = require('../../helpers/poLogHelper');
 const { getWibDateTimeString } = require('../../helpers/dateHelper');
+const { safeError } = require('../../helpers/safeError');
 
 /**
  * APPROVE / REJECT PO (UPDATE STATUS)
@@ -10,7 +11,8 @@ exports.updatePOStatus = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
         const { id } = req.params;
-        const { status, notes, updated_by } = req.body;
+        const { status, notes } = req.body;
+        const updated_by = req.user.id;
         if (!status) return res.status(400).json({ success: false, message: 'Status is required.' });
 
         const cleanedReason = notes ? notes.trim().slice(0, 50) : null;
@@ -70,7 +72,7 @@ exports.updatePOStatus = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error('Error updating PO status:', error);
-        res.status(500).json({ success: false, message: 'Failed to update PO status.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to update PO status.', error: safeError(error) });
     } finally {
         connection.release();
     }

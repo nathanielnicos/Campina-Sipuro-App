@@ -1,4 +1,16 @@
 const { sipuroDb } = require('../../../config/db');
+const { safeError } = require('../../../helpers/safeError');
+
+/**
+ * Mengubah nilai status dari request menjadi 1 / 0 secara ketat.
+ * Menerima true/false, 1/0, "true"/"false", "1"/"0". Nilai lain -> null (ditolak).
+ * (Sebelumnya string "false" dianggap true.)
+ */
+const parseFlag = (value) => {
+    if (value === true || value === 1 || value === '1' || value === 'true') return 1;
+    if (value === false || value === 0 || value === '0' || value === 'false') return 0;
+    return null;
+};
 
 /**
  * 1. Menarik daftar Customer Users dari DB (Server-side Pagination & Search)
@@ -66,7 +78,7 @@ exports.getAllCustomerUsers = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching customer users:', error);
-        return res.status(500).json({ success: false, message: 'Failed to fetch customer user data from the database.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to fetch customer user data from the database.', error: safeError(error) });
     }
 };
 
@@ -75,16 +87,33 @@ exports.getAllCustomerUsers = async (req, res) => {
  */
 exports.toggleCustomerUserStatus = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { is_active } = req.body;
+        const targetId = Number.parseInt(req.params.id, 10);
+        const { is_active } = req.body || {};
+
+        if (!Number.isInteger(targetId) || targetId <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid customer user id.' });
+        }
 
         if (is_active === undefined) {
             return res.status(400).json({ success: false, message: 'The is_active status is required.' });
         }
 
+        const activeFlag = parseFlag(is_active);
+        if (activeFlag === null) {
+            return res.status(400).json({ success: false, message: 'The is_active status must be true or false.' });
+        }
+
+        const [targetRows] = await sipuroDb.query(
+            'SELECT customer_user_id FROM sipuro_db.customer_users WHERE customer_user_id = ?',
+            [targetId]
+        );
+        if (targetRows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Customer user not found.' });
+        }
+
         await sipuroDb.query(
             'UPDATE sipuro_db.customer_users SET is_active = ? WHERE customer_user_id = ?',
-            [is_active ? 1 : 0, id]
+            [activeFlag, targetId]
         );
 
         return res.json({
@@ -93,6 +122,6 @@ exports.toggleCustomerUserStatus = async (req, res) => {
         });
     } catch (error) {
         console.error('Error toggling customer user status:', error);
-        return res.status(500).json({ success: false, message: 'Failed to update customer user status.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to update customer user status.', error: safeError(error) });
     }
 };

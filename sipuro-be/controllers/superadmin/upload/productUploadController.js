@@ -129,7 +129,8 @@ exports.commitProducts = async (req, res) => {
     const connection = await db.getConnection();
     try {
         const items = req.body.items || [];
-        const createdBy = req.body.createdBy || 'SYSTEM';
+        // Pengguna diambil dari token login, bukan dari body request.
+        const createdBy = String(req.user.code || 'SYSTEM').slice(0, 10);
         const itemsToProcess = items.filter(item => item.status === 'NEW' || item.status === 'UPDATED');
 
         if (itemsToProcess.length === 0) {

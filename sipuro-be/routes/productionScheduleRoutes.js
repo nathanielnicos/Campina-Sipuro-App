@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const productionScheduleController = require('../controllers/productionSchedule/productionScheduleController');
+const { requireAccess } = require('../middleware/auth');
+
+// Production Schedule: PPIC dan SUPERADMIN
+router.use(requireAccess('PPIC', 'SUPERADMIN'));
 
 // 1. RUTE STATIS (GET)
 router.get('/po-requirement/summary', productionScheduleController.getPORequirementSummary);

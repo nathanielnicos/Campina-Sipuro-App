@@ -89,11 +89,8 @@ export const usePriceList = () => {
 
     const handleConfirmCommit = async (items) => {
         try {
-            const savedUser = localStorage.getItem('sipuro_user');
-            const currentUser = savedUser ? JSON.parse(savedUser) : null;
-            const createdBy = currentUser?.code || currentUser?.name || 'SYSTEM';
-
-            const res = await commitPricesApi(items, createdBy);
+            // Pengguna pencatat diambil server dari token login.
+            const res = await commitPricesApi(items);
             if (res.success) {
                 showAlert({
                     type: 'success',

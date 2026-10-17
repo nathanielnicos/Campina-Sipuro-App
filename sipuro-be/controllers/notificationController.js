@@ -1,163 +1,106 @@
 const { sipuroDb } = require('../config/db');
+const { safeError } = require('../helpers/safeError');
+
+/**
+ * Penerima notifikasi ditentukan dari token login (req.user), bukan dari query/body.
+ *  - CUSTOMER : recipient_id = customer_id (level perusahaan)
+ *  - EMPLOYEE : recipient_id = id karyawan ATAU recipient_department = departemennya
+ * Mengembalikan potongan WHERE + parameternya.
+ */
+const recipientFilter = (user) => {
+    if (user.type === 'CUSTOMER') {
+        return {
+            where: `recipient_type = 'CUSTOMER' AND recipient_id = ?`,
+            params: [user.customerId]
+        };
+    }
+    const department = user.department ? String(user.department).trim() : null;
+    return {
+        where: `recipient_type = 'EMPLOYEE' AND (recipient_id = ? OR recipient_department = ?)`,
+        params: [user.id, department]
+    };
+};
+
+const serverError = (res, error) =>
+    res.status(500).json({ success: false, message: 'Server error', error: safeError(error) });
 
 // Mengambil jumlah notifikasi belum dibaca
 exports.getUnreadCount = async (req, res) => {
     try {
-        const { role, userId, department } = req.query;
-        const isCustomer = role && role.toLowerCase() === 'customer';
-
-        let query = '';
-        let params = [];
-
-        if (isCustomer) {
-            query = `
-                SELECT COUNT(*) AS count 
-                FROM sipuro_db.notifications 
-                WHERE is_read = FALSE 
-                  AND recipient_type = 'CUSTOMER' 
-                  AND recipient_id = ?
-            `;
-            params = [userId];
-        } else {
-            const cleanDepartment = department ? department.trim() : null;
-
-            query = `
-                SELECT COUNT(*) AS count 
-                FROM sipuro_db.notifications 
-                WHERE is_read = FALSE 
-                AND recipient_type = 'EMPLOYEE' 
-                AND (recipient_id = ? OR recipient_department = ?)
-            `;
-            params = [userId, cleanDepartment];
-        }
-
-        const [rows] = await sipuroDb.query(query, params);
+        const { where, params } = recipientFilter(req.user);
+        const [rows] = await sipuroDb.query(
+            `SELECT COUNT(*) AS count FROM sipuro_db.notifications WHERE is_read = FALSE AND ${where}`,
+            params
+        );
         return res.json({ count: rows[0].count });
     } catch (error) {
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        return serverError(res, error);
     }
 };
 
 // Mengambil notifikasi terbaru dengan dukungan pagination / load more
 exports.getNotifications = async (req, res) => {
     try {
-        const { role, userId, department } = req.query;
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 10;
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
         const offset = (page - 1) * limit;
 
-        const isCustomer = role && role.toLowerCase() === 'customer';
+        const { where, params } = recipientFilter(req.user);
 
-        let query = '';
-        let countQuery = '';
-        let params = [];
-        let countParams = [];
-
-        if (isCustomer) {
-            query = `
-                SELECT * 
-                FROM sipuro_db.notifications 
-                WHERE recipient_type = 'CUSTOMER' 
-                  AND recipient_id = ?
-                ORDER BY created_at DESC 
-                LIMIT ? OFFSET ?
-            `;
-            params = [userId, limit, offset];
-
-            countQuery = `
-                SELECT COUNT(*) AS total 
-                FROM sipuro_db.notifications 
-                WHERE recipient_type = 'CUSTOMER' 
-                  AND recipient_id = ?
-            `;
-            countParams = [userId];
-        } else {
-            const cleanDepartment = department ? department.trim() : null;
-
-            query = `
-                SELECT * 
-                FROM sipuro_db.notifications 
-                WHERE recipient_type = 'EMPLOYEE' 
-                AND (recipient_id = ? OR recipient_department = ?)
-                ORDER BY created_at DESC 
-                LIMIT ? OFFSET ?
-            `;
-            params = [userId, cleanDepartment, limit, offset];
-
-            countQuery = `
-                SELECT COUNT(*) AS total 
-                FROM sipuro_db.notifications 
-                WHERE recipient_type = 'EMPLOYEE' 
-                AND (recipient_id = ? OR recipient_department = ?)
-            `;
-            countParams = [userId, cleanDepartment];
-        }
-
-        const [rows] = await sipuroDb.query(query, params);
-        const [countRows] = await sipuroDb.query(countQuery, countParams);
+        const [rows] = await sipuroDb.query(
+            `SELECT * FROM sipuro_db.notifications WHERE ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+        const [countRows] = await sipuroDb.query(
+            `SELECT COUNT(*) AS total FROM sipuro_db.notifications WHERE ${where}`,
+            params
+        );
 
         const totalData = countRows[0].total;
         const hasMore = offset + rows.length < totalData;
 
         return res.json({
             data: rows,
-            pagination: {
-                page,
-                limit,
-                totalData,
-                hasMore
-            }
+            pagination: { page, limit, totalData, hasMore }
         });
     } catch (error) {
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        return serverError(res, error);
     }
 };
 
-// Tandai notifikasi spesifik sebagai sudah dibaca
+// Tandai notifikasi spesifik sebagai sudah dibaca (hanya milik penerima yang login)
 exports.markAsRead = async (req, res) => {
-    const { id } = req.params;
     try {
-        await sipuroDb.query('UPDATE sipuro_db.notifications SET is_read = TRUE WHERE id = ?', [id]);
+        const id = Number.parseInt(req.params.id, 10);
+        if (!Number.isInteger(id) || id <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid notification id.' });
+        }
+
+        const { where, params } = recipientFilter(req.user);
+        const [result] = await sipuroDb.query(
+            `UPDATE sipuro_db.notifications SET is_read = TRUE WHERE id = ? AND ${where}`,
+            [id, ...params]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Notification not found.' });
+        }
         return res.json({ success: true, message: 'Notification marked as read.' });
     } catch (error) {
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        return serverError(res, error);
     }
 };
 
 // Tandai SEMUA notifikasi penerima sebagai sudah dibaca
 exports.markAllAsRead = async (req, res) => {
     try {
-        const { role, userId, department } = req.body;
-        const isCustomer = role && role.toLowerCase() === 'customer';
-
-        let query = '';
-        let params = [];
-
-        if (isCustomer) {
-            query = `
-                UPDATE sipuro_db.notifications 
-                SET is_read = TRUE 
-                WHERE is_read = FALSE 
-                  AND recipient_type = 'CUSTOMER' 
-                  AND recipient_id = ?
-            `;
-            params = [userId];
-        } else {
-            const cleanDepartment = department ? department.trim() : null;
-
-            query = `
-                UPDATE sipuro_db.notifications 
-                SET is_read = TRUE 
-                WHERE is_read = FALSE 
-                AND recipient_type = 'EMPLOYEE' 
-                AND (recipient_id = ? OR recipient_department = ?)
-            `;
-            params = [userId, cleanDepartment];
-        }
-
-        await sipuroDb.query(query, params);
+        const { where, params } = recipientFilter(req.user);
+        await sipuroDb.query(
+            `UPDATE sipuro_db.notifications SET is_read = TRUE WHERE is_read = FALSE AND ${where}`,
+            params
+        );
         return res.json({ success: true, message: 'All notifications marked as read.' });
     } catch (error) {
-        return res.status(500).json({ message: 'Server error', error: error.message });
+        return serverError(res, error);
     }
 };

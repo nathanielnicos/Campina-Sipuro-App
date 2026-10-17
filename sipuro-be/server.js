@@ -13,6 +13,7 @@ const batchRoutes = require('./routes/batchRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const documentFlowRoutes = require('./routes/documentFlowRoutes');
 const productionSchedule = require('./routes/productionScheduleRoutes');
+const { requireAuth } = require('./middleware/auth');
 
 const app = express();
 
@@ -53,8 +54,19 @@ app.get('/', (req, res) => {
     res.send('SIPURO Backend Server is ready.');
 });
 
+// Route pengujian hanya tersedia di luar production (dipasang SEBELUM requireAuth agar bisa dibuka dari browser saat pengujian lokal)
+if (!isProduction) {
+    const testRoutes = require('./routes/testRoutes');
+    app.use('/api/test', testRoutes);
+}
+
 // Register API Routes
+// 1) authRoutes: login & register publik; profile & change-password sudah dilindungi di dalam router-nya
 app.use('/api', authRoutes);
+
+// 2) Semua route /api/* di bawah ini WAJIB login (token Bearer). Pembatasan peran dipasang di masing-masing router.
+app.use('/api', requireAuth);
+
 app.use('/api', dashboardRoutes);
 app.use('/api', masterRoutes);
 app.use('/api/upload/master', masterUploadRoutes);
@@ -64,12 +76,6 @@ app.use('/api/batch', batchRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/document-flow', documentFlowRoutes);
 app.use('/api/production-schedule', productionSchedule);
-
-// Route pengujian hanya tersedia di luar production
-if (!isProduction) {
-    const testRoutes = require('./routes/testRoutes');
-    app.use('/api/test', testRoutes);
-}
 
 // 404 handler (route tidak ditemukan)
 app.use((req, res) => {

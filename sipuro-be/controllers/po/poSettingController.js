@@ -1,5 +1,6 @@
 const { sipuroDb } = require('../../config/db');
 const { generateNextPoNumber } = require('../../helpers/poHelper');
+const { safeError } = require('../../helpers/safeError');
 
 exports.getPoSettings = async (req, res) => {
     try {
@@ -30,13 +31,14 @@ exports.getPoSettings = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching PO settings:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch PO settings.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch PO settings.', error: safeError(error) });
     }
 };
 
 exports.updatePoSettings = async (req, res) => {
     try {
-        const { template_pattern, reset_cycle, description, updated_by } = req.body;
+        const { template_pattern, reset_cycle, description } = req.body;
+        const updated_by = req.user.id;
 
         if (!template_pattern || !template_pattern.trim()) {
             return res.status(400).json({ success: false, message: 'Template pattern is required.' });
@@ -84,6 +86,6 @@ exports.updatePoSettings = async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating PO settings:', error);
-        res.status(500).json({ success: false, message: 'Failed to update PO settings.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to update PO settings.', error: safeError(error) });
     }
 };

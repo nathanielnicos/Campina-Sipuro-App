@@ -1,15 +1,15 @@
 const { sipuroDb } = require('../../config/db');
-const { comparePassword, hashPassword } = require('../../helpers/authHelper');
+const { comparePassword, hashPassword, validateNewPassword } = require('../../helpers/authHelper');
+const { safeError } = require('../../helpers/safeError');
 
+/**
+ * Profil akun yang sedang login. Identitas diambil dari token (req.user), bukan dari parameter klien.
+ */
 exports.getProfile = async (req, res) => {
     try {
-        const { user_id, role } = req.query;
+        const user = req.user;
 
-        if (!user_id || !role) {
-            return res.status(400).json({ success: false, message: 'User ID and Role are required.' });
-        }
-
-        if (role === 'CUSTOMER') {
+        if (user.type === 'CUSTOMER') {
             const query = `
                 SELECT 
                     cu.customer_user_id AS id, 
@@ -22,58 +22,60 @@ exports.getProfile = async (req, res) => {
                 JOIN sipuro_db.customers c ON cu.customer_id = c.customer_id
                 WHERE cu.customer_user_id = ?
             `;
-            const [rows] = await sipuroDb.query(query, [user_id]);
+            const [rows] = await sipuroDb.query(query, [user.id]);
             if (rows.length === 0) return res.status(404).json({ success: false, message: 'User not found.' });
 
             return res.json({ success: true, data: rows[0] });
-        } else {
-            const query = `
-                SELECT 
-                    id, 
-                    employee_code AS code, 
-                    full_name, 
-                    email,
-                    gender, 
-                    DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date, 
-                    department,
-                    role, 
-                    DATE_FORMAT(join_date, '%Y-%m-%d') AS join_date
-                FROM sipuro_db.employees
-                WHERE id = ?
-            `;
-            const [rows] = await sipuroDb.query(query, [user_id]);
-            if (rows.length === 0) return res.status(404).json({ success: false, message: 'Employee not found.' });
-
-            return res.json({ success: true, data: rows[0] });
         }
+
+        const query = `
+            SELECT 
+                id, 
+                employee_code AS code, 
+                full_name, 
+                email,
+                gender, 
+                DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date, 
+                department,
+                role, 
+                DATE_FORMAT(join_date, '%Y-%m-%d') AS join_date
+            FROM sipuro_db.employees
+            WHERE id = ?
+        `;
+        const [rows] = await sipuroDb.query(query, [user.id]);
+        if (rows.length === 0) return res.status(404).json({ success: false, message: 'Employee not found.' });
+
+        return res.json({ success: true, data: rows[0] });
     } catch (error) {
         console.error('Error fetching profile:', error);
-        return res.status(500).json({ success: false, message: 'Failed to fetch profile.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to fetch profile.', error: safeError(error) });
     }
 };
 
+/**
+ * Ganti password akun yang sedang login (identitas dari token).
+ */
 exports.changePassword = async (req, res) => {
     try {
-        const { user_id, role, currentPassword, newPassword } = req.body;
+        const { currentPassword, newPassword } = req.body || {};
+        const user = req.user;
 
-        if (!user_id || !role) {
-            return res.status(400).json({ success: false, message: 'User ID and Role are required.' });
-        }
-
-        if (!currentPassword || !newPassword) {
+        if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword) {
             return res.status(400).json({ success: false, message: 'Current password and new password are required.' });
         }
 
-        if (newPassword.length < 6) {
-            return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+        const passwordError = validateNewPassword(newPassword);
+        if (passwordError) {
+            return res.status(400).json({ success: false, message: passwordError });
         }
 
-        const userTable = role === 'CUSTOMER' ? 'customer_users' : 'employees';
-        const idColumn = role === 'CUSTOMER' ? 'customer_user_id' : 'id';
+        const isCustomer = user.type === 'CUSTOMER';
+        const userTable = isCustomer ? 'customer_users' : 'employees';
+        const idColumn = isCustomer ? 'customer_user_id' : 'id';
 
         const [rows] = await sipuroDb.query(
             `SELECT password FROM sipuro_db.${userTable} WHERE ${idColumn} = ?`,
-            [user_id]
+            [user.id]
         );
 
         if (rows.length === 0) {
@@ -82,13 +84,17 @@ exports.changePassword = async (req, res) => {
 
         const isMatch = await comparePassword(currentPassword, rows[0].password);
         if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Incorrect current password.' });
+            return res.status(400).json({ success: false, message: 'Incorrect current password.', code: 'WRONG_CURRENT_PASSWORD' });
+        }
+
+        if (newPassword === currentPassword) {
+            return res.status(400).json({ success: false, message: 'New password must be different from the current password.' });
         }
 
         const encryptedPassword = await hashPassword(newPassword);
         await sipuroDb.query(
             `UPDATE sipuro_db.${userTable} SET password = ? WHERE ${idColumn} = ?`,
-            [encryptedPassword, user_id]
+            [encryptedPassword, user.id]
         );
 
         return res.json({
@@ -97,6 +103,6 @@ exports.changePassword = async (req, res) => {
         });
     } catch (error) {
         console.error('Error changing password:', error);
-        return res.status(500).json({ success: false, message: 'Failed to change password.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to change password.', error: safeError(error) });
     }
 };

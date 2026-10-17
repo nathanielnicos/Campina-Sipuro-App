@@ -3,6 +3,7 @@ const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
 const { getWibDateTimeString } = require('../../helpers/dateHelper');
 const { calculateBaseQty } = require('../../helpers/poHelper');
+const { safeError } = require('../../helpers/safeError');
 
 /**
  * UPDATE PO (REVISI QTY ITEM & STATUS)
@@ -11,7 +12,8 @@ exports.updatePO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
         const { id } = req.params;
-        const { delivery_address, description, items, updated_by, status } = req.body;
+        const { delivery_address, description, items, status } = req.body;
+        const updated_by = req.user.id;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ success: false, message: 'Incomplete request data.' });
@@ -29,6 +31,9 @@ exports.updatePO = async (req, res) => {
         if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO not found.' });
 
         const poData = checkRows[0];
+        if (Number(poData.customer_id) !== Number(req.user.customerId)) {
+            return res.status(404).json({ success: false, message: 'PO not found.' });
+        }
         // Memperbolehkan update jika status 'Draft' atau 'Waiting for Confirmation'
         if (!['Draft', 'Waiting for Confirmation'].includes(poData.status)) {
             return res.status(400).json({ success: false, message: 'PO cannot be updated because of its current status.' });
@@ -226,7 +231,7 @@ exports.updatePO = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error('Error updating PO:', error);
-        res.status(500).json({ success: false, message: 'Failed to update Purchase Order.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to update Purchase Order.', error: safeError(error) });
     } finally {
         connection.release();
     }
@@ -239,7 +244,8 @@ exports.cancelPO = async (req, res) => {
     const connection = await sipuroDb.getConnection();
     try {
         const { id } = req.params;
-        const { canceled_by, reason } = req.body;
+        const { reason } = req.body;
+        const canceled_by = req.user.id;
 
         const [checkRows] = await connection.query(
             `SELECT h.po_number, h.status, h.customer_id, c.company_name 
@@ -251,6 +257,9 @@ exports.cancelPO = async (req, res) => {
         if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO not found.' });
 
         const poData = checkRows[0];
+        if (Number(poData.customer_id) !== Number(req.user.customerId)) {
+            return res.status(404).json({ success: false, message: 'PO not found.' });
+        }
         // Memperbolehkan cancel jika status 'Draft' atau 'Waiting for Confirmation'
         if (!['Draft', 'Waiting for Confirmation'].includes(poData.status)) {
             return res.status(400).json({ success: false, message: 'PO cannot be canceled because of its current status.' });
@@ -328,7 +337,7 @@ exports.cancelPO = async (req, res) => {
     } catch (error) {
         await connection.rollback();
         console.error('Error cancelling PO:', error);
-        res.status(500).json({ success: false, message: 'Failed to cancel Purchase Order.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to cancel Purchase Order.', error: safeError(error) });
     } finally {
         connection.release();
     }

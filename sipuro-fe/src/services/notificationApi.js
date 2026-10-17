@@ -1,44 +1,28 @@
-import { API_BASE_URL } from './config';
+import { apiClientSoft } from './apiClient';
 
-const BASE_URL = `${API_BASE_URL}/notifications`;
+const BASE_PATH = '/notifications';
 
+// Penerima notifikasi kini ditentukan server dari token login.
+// Parameter role/userId/department dipertahankan hanya agar pemanggil lama tidak berubah; nilainya diabaikan.
+// eslint-disable-next-line no-unused-vars
 export const getUnreadCount = async (role, userId, department) => {
-    const params = new URLSearchParams();
-    if (role) params.append('role', role);
-    if (userId) params.append('userId', userId);
-    if (department) params.append('department', department);
-
-    const query = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetch(`${BASE_URL}/unread-count${query}`);
-    return await res.json();
+    const res = await apiClientSoft.get(`${BASE_PATH}/unread-count`);
+    return res.data;
 };
 
+// eslint-disable-next-line no-unused-vars
 export const getNotifications = async (role, userId, department, page = 1, limit = 10) => {
-    const params = new URLSearchParams();
-    if (role) params.append('role', role);
-    if (userId) params.append('userId', userId);
-    if (department) params.append('department', department);
-    params.append('page', page);
-    params.append('limit', limit);
-
-    const query = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetch(`${BASE_URL}${query}`);
-    return await res.json();
+    const res = await apiClientSoft.get(BASE_PATH, { params: { page, limit } });
+    return res.data;
 };
 
 export const markAsRead = async (id) => {
-    const res = await fetch(`${BASE_URL}/${id}/read`, { method: 'PATCH' });
-    return await res.json();
+    const res = await apiClientSoft.patch(`${BASE_PATH}/${id}/read`);
+    return res.data;
 };
 
-// Menandai semua notifikasi milik user/role sebagai sudah dibaca
+// eslint-disable-next-line no-unused-vars
 export const markAllAsRead = async (role, userId, department) => {
-    const res = await fetch(`${BASE_URL}/mark-all-read`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ role, userId, department })
-    });
-    return await res.json();
+    const res = await apiClientSoft.put(`${BASE_PATH}/mark-all-read`);
+    return res.data;
 };

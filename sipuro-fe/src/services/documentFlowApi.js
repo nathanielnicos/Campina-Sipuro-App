@@ -1,52 +1,44 @@
-import { API_BASE_URL } from './config';
+import { apiClientSoft } from './apiClient';
 
-const BASE_URL = `${API_BASE_URL}/document-flow`;
+const BASE_PATH = '/document-flow';
 
-const buildQueryString = (params = {}) => {
-    const searchParams = new URLSearchParams();
+const buildParams = (params = {}) => {
+    const clean = {};
     Object.keys(params).forEach((key) => {
         if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
-            searchParams.append(key, params[key]);
+            clean[key] = params[key];
         }
     });
-    return searchParams.toString();
+    return clean;
 };
 
-const parseResponse = async (res, fallbackMessage) => {
-    if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || fallbackMessage);
+// Perilaku sama seperti versi fetch: status non-2xx dilempar sebagai Error(message server atau pesan default).
+const parseResponse = (res, fallbackMessage) => {
+    if (res.status < 200 || res.status >= 300) {
+        throw new Error(res.data?.message || fallbackMessage);
     }
-    return await res.json();
+    return res.data;
 };
 
 export const getDeliveryOrders = async (params = {}) => {
-    const queryString = buildQueryString(params);
-    const res = await fetch(queryString ? `${BASE_URL}/do?${queryString}` : `${BASE_URL}/do`);
+    const res = await apiClientSoft.get(`${BASE_PATH}/do`, { params: buildParams(params) });
     return parseResponse(res, 'Failed to fetch delivery orders');
 };
 
 export const getSalesInvoices = async (params = {}) => {
-    const queryString = buildQueryString(params);
-    const res = await fetch(queryString ? `${BASE_URL}/si?${queryString}` : `${BASE_URL}/si`);
+    const res = await apiClientSoft.get(`${BASE_PATH}/si`, { params: buildParams(params) });
     return parseResponse(res, 'Failed to fetch sales invoices');
 };
 
 // formData: { file }
 export const previewDocumentFlow = async (formData) => {
-    const res = await fetch(`${BASE_URL}/preview`, {
-        method: 'POST',
-        body: formData
-    });
+    const res = await apiClientSoft.post(`${BASE_PATH}/preview`, formData);
     return parseResponse(res, 'Failed to preview import file');
 };
 
-// payload: FormData { file, userId, fingerprint }. The browser sets the multipart Content-Type itself,
-// so no Content-Type header must be set here (the previous version sent FormData as JSON).
+// payload: FormData { file, userId, fingerprint }. Browser mengatur Content-Type multipart sendiri,
+// sehingga header Content-Type tidak boleh diisi di sini.
 export const commitDocumentFlow = async (payload) => {
-    const res = await fetch(`${BASE_URL}/commit`, {
-        method: 'POST',
-        body: payload
-    });
+    const res = await apiClientSoft.post(`${BASE_PATH}/commit`, payload);
     return parseResponse(res, 'Failed to commit document import');
 };

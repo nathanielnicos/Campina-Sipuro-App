@@ -1,4 +1,5 @@
 const { sipuroDb } = require('../../config/db');
+const { safeError } = require('../../helpers/safeError');
 
 exports.getPOList = async (req, res) => {
     try {
@@ -17,12 +18,17 @@ exports.getPOList = async (req, res) => {
 
         const pageNum = parseInt(page, 10) || 1;
         const limitNum = parseInt(limit, 10) || 10;
+        const isCustomer = req.user.type === 'CUSTOMER';
         const offset = (pageNum - 1) * limitNum;
 
         const conditions = [];
         const queryParams = [];
 
-        if (customer_id && customer_id !== 'null' && customer_id !== 'undefined') {
+        if (isCustomer) {
+            // Customer hanya boleh melihat PO perusahaannya sendiri.
+            conditions.push('h.customer_id = ?');
+            queryParams.push(req.user.customerId);
+        } else if (customer_id && customer_id !== 'null' && customer_id !== 'undefined') {
             conditions.push('h.customer_id = ?');
             queryParams.push(customer_id);
         }
@@ -59,7 +65,10 @@ exports.getPOList = async (req, res) => {
             status: 'h.status'
         };
 
-        const sortColumn = validSortColumns[sortBy] || 'h.created_at';
+        // Non-customer tidak boleh melihat harga, termasuk lewat urutan berdasarkan harga.
+        const sortColumn = (!isCustomer && sortBy === 'total_price')
+            ? 'h.created_at'
+            : (validSortColumns[sortBy] || 'h.created_at');
         const sortDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
         const countQuery = `
@@ -85,6 +94,10 @@ exports.getPOList = async (req, res) => {
         const dataQueryParams = [...queryParams, limitNum, offset];
         const [rows] = await sipuroDb.query(query, dataQueryParams);
 
+        if (!isCustomer) {
+            rows.forEach((row) => { delete row.total_amount; });
+        }
+
         res.json({
             success: true,
             data: rows,
@@ -97,7 +110,7 @@ exports.getPOList = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching PO list:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch Purchase Order list.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch Purchase Order list.', error: safeError(error) });
     }
 };
 
@@ -123,6 +136,11 @@ exports.getPODetail = async (req, res) => {
             return res.status(404).json({ success: false, message: 'PO data not found.' });
         }
 
+        const isCustomer = req.user.type === 'CUSTOMER';
+        if (isCustomer && Number(headerRows[0].customer_id) !== Number(req.user.customerId)) {
+            return res.status(404).json({ success: false, message: 'PO data not found.' });
+        }
+
         const detailQuery = `
             SELECT d.*, p.product_code, p.product_name, p.base_uom, p.pcs_per_ctn, p.ctn_per_plt
             FROM sipuro_db.po_details d
@@ -131,9 +149,18 @@ exports.getPODetail = async (req, res) => {
         `;
         const [detailRows] = await sipuroDb.query(detailQuery, [id]);
 
-        res.json({ success: true, data: { header: headerRows[0], items: detailRows } });
+        const header = headerRows[0];
+        let items = detailRows;
+        if (!isCustomer) {
+            // Harga hanya untuk Customer.
+            delete header.subtotal;
+            delete header.total_amount;
+            items = detailRows.map(({ base_price, total_price, ...rest }) => rest);
+        }
+
+        res.json({ success: true, data: { header, items } });
     } catch (error) {
         console.error('Error fetching PO detail:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch PO details.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch PO details.', error: safeError(error) });
     }
 };

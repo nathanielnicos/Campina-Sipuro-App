@@ -33,7 +33,7 @@ export const useProfile = ({ currentUser }) => {
     useEffect(() => {
         const loadProfileData = async () => {
             setLoading(true);
-            const res = await getProfile(userId, userRole);
+            const res = await getProfile();
             if (res.success && res.data) {
                 const data = res.data;
                 setFormData({
@@ -78,19 +78,17 @@ export const useProfile = ({ currentUser }) => {
         }
 
         // Validasi Panjang Password Minimum
-        if (passData.newPassword.length < 6) {
+        if (passData.newPassword.length < 8 || passData.newPassword.length > 72) {
             showAlert({
                 type: 'warning',
                 title: 'Validation Error',
-                message: 'New password must be at least 6 characters long.'
+                message: 'New password must be 8 to 72 characters long.'
             });
             return;
         }
 
         setSavingPassword(true);
         const res = await updatePassword({
-            user_id: userId,
-            role: userRole,
             currentPassword: passData.currentPassword,
             newPassword: passData.newPassword
         });
@@ -105,7 +103,7 @@ export const useProfile = ({ currentUser }) => {
             setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } else {
             showAlert({
-                type: 'danger',
+                type: 'error',
                 title: 'Error',
                 message: res.message || 'Failed to change password.'
             });

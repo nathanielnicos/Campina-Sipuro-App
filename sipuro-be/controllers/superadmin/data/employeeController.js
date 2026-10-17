@@ -1,4 +1,16 @@
 const { sipuroDb } = require('../../../config/db');
+const { safeError } = require('../../../helpers/safeError');
+
+/**
+ * Mengubah nilai status dari request menjadi 1 / 0 secara ketat.
+ * Menerima true/false, 1/0, "true"/"false", "1"/"0". Nilai lain -> null (ditolak).
+ * (Sebelumnya string "false" dianggap true.)
+ */
+const parseFlag = (value) => {
+    if (value === true || value === 1 || value === '1' || value === 'true') return 1;
+    if (value === false || value === 0 || value === '0' || value === 'false') return 0;
+    return null;
+};
 
 /**
  * 1. Menarik daftar karyawan dari DB (Server-side Pagination & Search)
@@ -55,7 +67,7 @@ exports.getAllEmployees = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching employees:', error);
-        return res.status(500).json({ success: false, message: 'Failed to fetch employee data from the database.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to fetch employee data from the database.', error: safeError(error) });
     }
 };
 
@@ -64,16 +76,38 @@ exports.getAllEmployees = async (req, res) => {
  */
 exports.toggleEmployeeStatus = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { is_suspended } = req.body;
+        const targetId = Number.parseInt(req.params.id, 10);
+        const { is_suspended } = req.body || {};
+
+        if (!Number.isInteger(targetId) || targetId <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid employee id.' });
+        }
 
         if (is_suspended === undefined) {
             return res.status(400).json({ success: false, message: 'The is_suspended status is required.' });
         }
 
+        const suspendedFlag = parseFlag(is_suspended);
+        if (suspendedFlag === null) {
+            return res.status(400).json({ success: false, message: 'The is_suspended status must be true or false.' });
+        }
+
+        const [targetRows] = await sipuroDb.query(
+            'SELECT id, role FROM sipuro_db.employees WHERE id = ?',
+            [targetId]
+        );
+        if (targetRows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Employee not found.' });
+        }
+
+        // Akun SUPERADMIN (termasuk akun sendiri) tidak boleh ditangguhkan agar sistem tidak terkunci
+        if (suspendedFlag === 1 && (targetRows[0].role === 'SUPERADMIN' || targetId === req.user.id)) {
+            return res.status(400).json({ success: false, message: 'Superadmin accounts and your own account cannot be suspended.' });
+        }
+
         await sipuroDb.query(
             'UPDATE sipuro_db.employees SET is_suspended = ? WHERE id = ?',
-            [is_suspended ? 1 : 0, id]
+            [suspendedFlag, targetId]
         );
 
         return res.json({
@@ -82,6 +116,6 @@ exports.toggleEmployeeStatus = async (req, res) => {
         });
     } catch (error) {
         console.error('Error toggling employee status:', error);
-        return res.status(500).json({ success: false, message: 'Failed to update employee status.', error: error.message });
+        return res.status(500).json({ success: false, message: 'Failed to update employee status.', error: safeError(error) });
     }
 };

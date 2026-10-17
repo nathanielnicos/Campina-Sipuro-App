@@ -1,12 +1,9 @@
-import axios from 'axios';
-import { API_BASE_URL } from './config';
+import apiClient from './apiClient';
 
-// 1. Ambil data profil dengan membawa query params user_id & role
-export const getProfile = async (userId, role) => {
+// 1. Ambil data profil milik pengguna yang sedang login (identitas dibaca server dari token)
+export const getProfile = async () => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/profile`, {
-            params: { user_id: userId, role: role }
-        });
+        const response = await apiClient.get('/profile');
         return response.data;
     } catch (error) {
         console.error('Error fetching profile:', error);
@@ -14,10 +11,10 @@ export const getProfile = async (userId, role) => {
     }
 };
 
-// 2. Update password dengan menyisipkan user_id & role ke payload
+// 2. Ganti password milik pengguna yang sedang login
 export const updatePassword = async (passwordData) => {
     try {
-        const response = await axios.put(`${API_BASE_URL}/change-password`, passwordData);
+        const response = await apiClient.put('/change-password', passwordData);
         return response.data;
     } catch (error) {
         console.error('Error changing password:', error);

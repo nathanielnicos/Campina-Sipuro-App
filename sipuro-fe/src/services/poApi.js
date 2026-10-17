@@ -1,4 +1,8 @@
-import { API_BASE_URL } from './config';
+import { apiClientSoft } from './apiClient';
+
+// Semua fungsi mengembalikan body JSON server apa adanya (termasuk saat status 4xx),
+// sama seperti perilaku versi fetch sebelumnya.
+// Identitas pengguna (created_by, updated_by, dst.) kini dibaca server dari token login.
 
 export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters = {}) => {
     const {
@@ -10,69 +14,59 @@ export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters =
         sortOrder = 'desc'
     } = filters;
 
-    const params = new URLSearchParams({
-        customer_id: customerId || '',
-        page,
-        limit,
-        search,
-        startDate,
-        endDate,
-        status,
-        sortBy,
-        sortOrder
+    const res = await apiClientSoft.get('/po', {
+        params: {
+            customer_id: customerId || '',
+            page,
+            limit,
+            search,
+            startDate,
+            endDate,
+            status,
+            sortBy,
+            sortOrder
+        }
     });
-
-    const res = await fetch(`${API_BASE_URL}/po?${params.toString()}`);
-    return await res.json();
+    return res.data;
 };
 
 export const fetchProducts = async () => {
-    const res = await fetch(`${API_BASE_URL}/products`);
-    return await res.json();
+    const res = await apiClientSoft.get('/products');
+    return res.data;
 };
 
 export const fetchCustomerDetail = async (customerId) => {
-    const res = await fetch(`${API_BASE_URL}/customers/${customerId}`);
-    return await res.json();
+    const res = await apiClientSoft.get(`/customers/${customerId}`);
+    return res.data;
 };
 
 export const fetchCompanyProfile = async () => {
-    const res = await fetch(`${API_BASE_URL}/company-profile`);
-    return await res.json();
+    const res = await apiClientSoft.get('/company-profile');
+    return res.data;
 };
 
 export const fetchPODetail = async (poId) => {
-    const res = await fetch(`${API_BASE_URL}/po/${poId}`);
-    return await res.json();
+    const res = await apiClientSoft.get(`/po/${poId}`);
+    return res.data;
 };
 
 export const savePO = async (poId, payload) => {
-    const url = poId ? `${API_BASE_URL}/po/${poId}` : `${API_BASE_URL}/po`;
-    const method = poId ? 'PUT' : 'POST';
-    const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    return await res.json();
+    const res = poId
+        ? await apiClientSoft.put(`/po/${poId}`, payload)
+        : await apiClientSoft.post('/po', payload);
+    return res.data;
 };
 
+// eslint-disable-next-line no-unused-vars
 export const cancelPOApi = async (poId, canceledBy) => {
-    const res = await fetch(`${API_BASE_URL}/po/${poId}/cancel`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ canceled_by: canceledBy })
-    });
-    return await res.json();
+    const res = await apiClientSoft.patch(`/po/${poId}/cancel`, {});
+    return res.data;
 };
 
+// eslint-disable-next-line no-unused-vars
 export const updatePOStatusApi = async (poId, status, notes, updatedBy) => {
-    const res = await fetch(`${API_BASE_URL}/po/${poId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, notes, updated_by: updatedBy })
-    });
-    return await res.json();
+    const res = await apiClientSoft.put(`/po/${poId}/status`, { status, notes });
+    return res.data;
 };
 
 export const exportPoExcelApi = async (customerId, filters = {}) => {
@@ -84,20 +78,21 @@ export const exportPoExcelApi = async (customerId, filters = {}) => {
             status = ''
         } = filters;
 
-        const params = new URLSearchParams({
-            customer_id: customerId || '',
-            search,
-            startDate,
-            endDate,
-            status
+        const res = await apiClientSoft.get('/po/export-excel', {
+            params: {
+                customer_id: customerId || '',
+                search,
+                startDate,
+                endDate,
+                status
+            },
+            responseType: 'blob'
         });
-
-        const res = await fetch(`${API_BASE_URL}/po/export-excel?${params.toString()}`);
-        if (!res.ok) throw new Error('Gagal mengunduh file Excel');
+        if (res.status < 200 || res.status >= 300) throw new Error('Gagal mengunduh file Excel');
 
         // Ambil nama file langsung dari header Content-Disposition server
         let filename = 'PO_Recap.xlsx';
-        const disposition = res.headers.get('Content-Disposition');
+        const disposition = res.headers['content-disposition'];
 
         if (disposition && disposition.includes('filename=')) {
             const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
@@ -107,7 +102,9 @@ export const exportPoExcelApi = async (customerId, filters = {}) => {
             }
         }
 
-        const blob = await res.blob();
+        const blob = new Blob([res.data], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -128,44 +125,32 @@ export const exportPoExcelApi = async (customerId, filters = {}) => {
  */
 
 // 1. Customer mengajukan penutupan detail item
+// eslint-disable-next-line no-unused-vars
 export const requestClosePoDetailsApi = async (poHeaderId, poDetailIds, reason, requestedBy) => {
-    const res = await fetch(`${API_BASE_URL}/po/details/request-close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            po_header_id: poHeaderId,
-            po_detail_ids: poDetailIds,
-            reason,
-            requested_by: requestedBy
-        })
+    const res = await apiClientSoft.post('/po/details/request-close', {
+        po_header_id: poHeaderId,
+        po_detail_ids: poDetailIds,
+        reason
     });
-    return await res.json();
+    return res.data;
 };
 
 // 2. PPIC menyetujui pengajuan penutupan detail item
+// eslint-disable-next-line no-unused-vars
 export const approveClosePoDetailsApi = async (poHeaderId, poDetailIds, approvedBy) => {
-    const res = await fetch(`${API_BASE_URL}/po/details/approve-close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            po_header_id: poHeaderId,
-            po_detail_ids: poDetailIds,
-            approved_by: approvedBy
-        })
+    const res = await apiClientSoft.post('/po/details/approve-close', {
+        po_header_id: poHeaderId,
+        po_detail_ids: poDetailIds
     });
-    return await res.json();
+    return res.data;
 };
 
 // 3. PPIC menolak pengajuan penutupan detail item
+// eslint-disable-next-line no-unused-vars
 export const rejectClosePoDetailsApi = async (poHeaderId, poDetailIds, rejectedBy) => {
-    const res = await fetch(`${API_BASE_URL}/po/details/reject-close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            po_header_id: poHeaderId,
-            po_detail_ids: poDetailIds,
-            rejected_by: rejectedBy
-        })
+    const res = await apiClientSoft.post('/po/details/reject-close', {
+        po_header_id: poHeaderId,
+        po_detail_ids: poDetailIds
     });
-    return await res.json();
+    return res.data;
 };

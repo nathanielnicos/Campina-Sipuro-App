@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 
 const dataController = require('../controllers/superadmin/data/dataController');
+const { requireAccess } = require('../middleware/auth');
+
+// Seluruh data master & manajemen akun: hanya SUPERADMIN
+router.use(requireAccess('SUPERADMIN'));
 
 // MENU 1: Master Produk (Lihat Tabel)
 router.get('/products', dataController.getAllProducts);

@@ -34,6 +34,9 @@ function RegisterForm({ onSubmit, loading, onSwitchToLogin, setErrorMsg }) {
             if (empDept === 'Pilih') {
                 return setErrorMsg('Please select a department.');
             }
+            if (empPassword.length < 8 || empPassword.length > 72) {
+                return setErrorMsg('Password must be 8 to 72 characters long.');
+            }
             if (empPassword !== empConfirmPassword) {
                 return setErrorMsg('Password confirmation does not match.');
             }
@@ -49,6 +52,9 @@ function RegisterForm({ onSubmit, loading, onSwitchToLogin, setErrorMsg }) {
                 confirm_password: empConfirmPassword
             };
         } else {
+            if (custPassword.length < 8 || custPassword.length > 72) {
+                return setErrorMsg('Password must be 8 to 72 characters long.');
+            }
             if (custPassword !== custConfirmPassword) {
                 return setErrorMsg('Password confirmation does not match.');
             }
@@ -166,7 +172,7 @@ function RegisterForm({ onSubmit, loading, onSwitchToLogin, setErrorMsg }) {
                             value={empPassword}
                             onChange={(e) => setEmpPassword(e.target.value)}
                             required
-                            placeholder="Enter Password"
+                            placeholder="Enter Password (8-72 characters)"
                             style={{ width: '100%', padding: '7px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ccc', fontSize: '13px' }}
                         />
                     </div>
@@ -240,7 +246,7 @@ function RegisterForm({ onSubmit, loading, onSwitchToLogin, setErrorMsg }) {
                             value={custPassword}
                             onChange={(e) => setCustPassword(e.target.value)}
                             required
-                            placeholder="Enter Password"
+                            placeholder="Enter Password (8-72 characters)"
                             style={{ width: '100%', padding: '7px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ccc', fontSize: '13px' }}
                         />
                     </div>
