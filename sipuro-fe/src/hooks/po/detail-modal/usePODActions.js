@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { savePO, cancelPOApi, updatePOStatusApi } from '../../../services/poApi';
 import { useGlobalModal } from '../../../context/ModalContext';
 import { PO_STATUS, MAX_ITEM_QTY, PO_TEXT_MAX_LENGTH } from '../../../constants/po';
+import { AMOUNT_TOO_LARGE_MESSAGE } from '../../../utils/money';
 
 export const usePODActions = ({ poId, onSuccess }) => {
     // Simpan jenis aksi yang sedang loading: 'SAVE', 'SAVE_DRAFT', 'SUBMIT', 'CANCEL', 'APPROVE', 'REJECT', atau null
@@ -12,23 +13,18 @@ export const usePODActions = ({ poId, onSuccess }) => {
 
     // Fungsi internal untuk eksekusi API Save/Submit PO
     const executeSavePO = async (targetStatus, formData, loadingType) => {
-        const { deliveryAddress, description, subtotal, taxAmount, grandTotal, items, poStatus } = formData;
+        const { deliveryAddress, description, items, poStatus } = formData;
 
         const payload = {
             // Identitas pembuat/pengubah dan perusahaan diambil server dari token login.
+            // Harga, total, PPN, dan satuan dihitung server, sehingga tidak dikirim dari sini.
             status: targetStatus,
             delivery_address: deliveryAddress,
             description,
-            subtotal,
-            tax_amount: taxAmount,
-            grand_total: grandTotal,
             items: items.map((item) => ({
                 po_detail_id: item.po_detail_id || undefined,
                 id_product: item.id_product,
-                qty: Number(item.qty),
-                selected_uom: item.selected_uom,
-                unit_price: item.unit_price,
-                total_price: item.total_price
+                qty: Number(item.qty)
             }))
         };
 
@@ -84,12 +80,31 @@ export const usePODActions = ({ poId, onSuccess }) => {
             return;
         }
 
+        const unavailableItem = items.find((i) => i.price_unavailable);
+        if (unavailableItem) {
+            showAlert({
+                type: 'warning',
+                title: 'Validation Error',
+                message: `"${unavailableItem.product_name}" is no longer available. Please remove it before saving.`
+            });
+            return;
+        }
+
         const overLimitItem = items.find((i) => Number(i.qty) > MAX_ITEM_QTY);
         if (overLimitItem) {
             showAlert({
                 type: 'warning',
                 title: 'Validation Error',
                 message: 'Quantity per row cannot exceed 1.000.000.000.'
+            });
+            return;
+        }
+
+        if (formData.isTooLarge) {
+            showAlert({
+                type: 'warning',
+                title: 'Validation Error',
+                message: AMOUNT_TOO_LARGE_MESSAGE
             });
             return;
         }

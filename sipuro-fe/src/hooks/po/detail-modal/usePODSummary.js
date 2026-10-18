@@ -1,15 +1,16 @@
 import { useMemo } from 'react';
+import { calcOrderTotals } from '../../../utils/money';
 
 export const usePODSummary = ({ items = [], ppnPercent = 0 }) => {
     const summary = useMemo(() => {
-        const subtotal = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
-        const taxAmount = subtotal * ((ppnPercent || 0) / 100);
-        const grandTotal = subtotal + taxAmount;
+        // Aturan hitung yang sama dengan server (rupiah utuh), agar angka di layar = angka tersimpan.
+        const totals = calcOrderTotals(items.map((item) => item.total_price), ppnPercent);
 
         return {
-            subtotal,
-            taxAmount,
-            grandTotal
+            subtotal: totals.subtotal,
+            taxAmount: totals.ppnAmount,
+            grandTotal: totals.total,
+            isTooLarge: totals.tooLarge
         };
     }, [items, ppnPercent]);
 

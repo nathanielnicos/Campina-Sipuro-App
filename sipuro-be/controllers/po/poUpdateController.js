@@ -2,7 +2,7 @@ const { sipuroDb } = require('../../config/db');
 const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
 const { getWibDateTimeString } = require('../../helpers/dateHelper');
-const { calculateBaseQty } = require('../../helpers/poHelper');
+const { priceItems } = require('../../helpers/poPricing');
 const { safeError } = require('../../helpers/safeError');
 
 /**
@@ -43,7 +43,7 @@ exports.updatePO = async (req, res) => {
 
         // AMBIL STATUS DETAIL EKSISTING UNTUK CATATAN LOG
         const [existingDetails] = await connection.query(
-            `SELECT po_detail_id, id_product, qty, base_qty, total_price, status 
+            `SELECT po_detail_id, id_product, qty, base_qty, base_price, total_price, status 
              FROM sipuro_db.po_details 
              WHERE po_header_id = ? AND deleted_at IS NULL`,
             [id]
@@ -53,20 +53,18 @@ exports.updatePO = async (req, res) => {
         const [profileRows] = await sipuroDb.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
         const ppn_percent = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
 
-        let subtotal = 0;
-        items.forEach(item => {
-            const itemPrice = parseFloat(item.unit_price !== undefined ? item.unit_price : item.base_price) || 0;
-            const qty = parseInt(item.qty) || 0;
-            subtotal += (itemPrice * qty);
+        // Harga dihitung ulang di server. Draft: semua baris memakai harga hari ini.
+        // Waiting for Confirmation: baris lama dengan produk yang sama tetap memakai harga tersimpan.
+        // unit_price / total_price dari klien tidak dipakai.
+        const pricing = await priceItems({
+            db: connection,
+            items,
+            poStatus: poData.status,
+            existingMap,
+            ppnPercent: ppn_percent
         });
-        const total_amount = subtotal + (subtotal * (ppn_percent / 100));
-
-        const productIds = items.map(item => item.id_product);
-        const [productRows] = await sipuroDb.query(
-            `SELECT id_product, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs FROM sipuro_db.products WHERE id_product IN (?)`,
-            [productIds]
-        );
-        const productMap = new Map(productRows.map(p => [p.id_product, p]));
+        const subtotal = pricing.subtotal;
+        const total_amount = pricing.totalAmount;
 
         const nowWib = getWibDateTimeString();
 
@@ -79,7 +77,7 @@ exports.updatePO = async (req, res) => {
         );
 
         const existingIds = existingDetails.map(row => row.po_detail_id);
-        const payloadDetailIds = items.map(item => item.po_detail_id).filter(Boolean);
+        const payloadDetailIds = pricing.lines.map(line => line.po_detail_id).filter(Boolean);
 
         const detailLogsToSave = [];
         const idsToDelete = existingIds.filter(detailId => !payloadDetailIds.includes(detailId));
@@ -107,34 +105,20 @@ exports.updatePO = async (req, res) => {
             }
         }
 
-        for (const item of items) {
-            const unitPrice = parseFloat(item.unit_price !== undefined ? item.unit_price : item.base_price) || 0;
-            const qty = parseInt(item.qty) || 0;
-            const totalPrice = item.total_price !== undefined ? parseFloat(item.total_price) : (unitPrice * qty);
-            const selectedUom = item.selected_uom || item.uom || item.base_uom || 'PCS';
+        for (const line of pricing.lines) {
+            if (line.po_detail_id && existingMap.has(line.po_detail_id)) {
+                const oldItem = existingMap.get(line.po_detail_id);
 
-            const product = productMap.get(item.id_product) || {};
-            const pcsPerCtn = Number(product.pcs_per_ctn || 1);
-            const ctnPerPlt = Number(product.ctn_per_plt || 1);
-            const mlPerPcs = product.ml_per_pcs !== undefined ? product.ml_per_pcs : null;
-            const kgPerPcs = product.kg_per_pcs !== undefined ? product.kg_per_pcs : null;
-
-            const baseQty = calculateBaseQty(qty, selectedUom, product);
-            const basePrice = baseQty > 0 ? (totalPrice / baseQty) : unitPrice;
-
-            if (item.po_detail_id && existingMap.has(item.po_detail_id)) {
-                const oldItem = existingMap.get(item.po_detail_id);
-
-                if (oldItem.qty !== qty || oldItem.total_price !== totalPrice) {
+                if (oldItem.qty !== line.qty || oldItem.total_price !== line.totalPrice) {
                     detailLogsToSave.push({
-                        po_detail_id: item.po_detail_id,
-                        id_product: item.id_product,
+                        po_detail_id: line.po_detail_id,
+                        id_product: line.id_product,
                         old_qty: oldItem.qty,
-                        new_qty: qty,
+                        new_qty: line.qty,
                         old_base_qty: oldItem.base_qty,
-                        new_base_qty: baseQty,
+                        new_base_qty: line.baseQty,
                         old_total_price: oldItem.total_price,
-                        new_total_price: totalPrice,
+                        new_total_price: line.totalPrice,
                         old_status: oldItem.status || 'Active',
                         new_status: oldItem.status || 'Active'
                     });
@@ -145,18 +129,18 @@ exports.updatePO = async (req, res) => {
                      SET id_product = ?, qty = ?, base_qty = ?, uom = ?, pcs_per_ctn = ?, ctn_per_plt = ?, ml_per_pcs = ?, kg_per_pcs = ?, base_price = ?, total_price = ?, notes = ? 
                      WHERE po_detail_id = ?`,
                     [
-                        item.id_product,
-                        qty,
-                        baseQty,
-                        selectedUom,
-                        pcsPerCtn,
-                        ctnPerPlt,
-                        mlPerPcs,
-                        kgPerPcs,
-                        basePrice,
-                        totalPrice,
-                        item.notes || null,
-                        item.po_detail_id
+                        line.id_product,
+                        line.qty,
+                        line.baseQty,
+                        line.uom,
+                        line.pcsPerCtn,
+                        line.ctnPerPlt,
+                        line.mlPerPcs,
+                        line.kgPerPcs,
+                        line.basePrice,
+                        line.totalPrice,
+                        line.notes,
+                        line.po_detail_id
                     ]
                 );
             } else {
@@ -167,29 +151,29 @@ exports.updatePO = async (req, res) => {
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)`,
                     [
                         id,
-                        item.id_product,
-                        qty,
-                        baseQty,
-                        selectedUom,
-                        pcsPerCtn,
-                        ctnPerPlt,
-                        mlPerPcs,
-                        kgPerPcs,
-                        basePrice,
-                        totalPrice,
-                        item.notes || null
+                        line.id_product,
+                        line.qty,
+                        line.baseQty,
+                        line.uom,
+                        line.pcsPerCtn,
+                        line.ctnPerPlt,
+                        line.mlPerPcs,
+                        line.kgPerPcs,
+                        line.basePrice,
+                        line.totalPrice,
+                        line.notes
                     ]
                 );
 
                 detailLogsToSave.push({
                     po_detail_id: newDet.insertId,
-                    id_product: item.id_product,
+                    id_product: line.id_product,
                     old_qty: 0,
-                    new_qty: qty,
+                    new_qty: line.qty,
                     old_base_qty: 0,
-                    new_base_qty: baseQty,
+                    new_base_qty: line.baseQty,
                     old_total_price: 0,
-                    new_total_price: totalPrice,
+                    new_total_price: line.totalPrice,
                     old_status: null,
                     new_status: 'Active'
                 });
@@ -230,6 +214,9 @@ exports.updatePO = async (req, res) => {
         res.json({ success: true, message: 'Purchase Order updated successfully!' });
     } catch (error) {
         await connection.rollback();
+        if (error && error.isValidation) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         console.error('Error updating PO:', error);
         res.status(500).json({ success: false, message: 'Failed to update Purchase Order.', error: safeError(error) });
     } finally {

@@ -1,6 +1,7 @@
 import { formatCurrency } from '../../../utils/formatters';
+import { AMOUNT_TOO_LARGE_MESSAGE } from '../../../utils/money';
 
-const PODSummary = ({ subtotal, ppnPercent, taxAmount, grandTotal, userRole }) => {
+const PODSummary = ({ subtotal, ppnPercent, taxAmount, grandTotal, userRole, isTooLarge = false }) => {
     if (userRole !== 'CUSTOMER') {
         return null;
     }
@@ -13,6 +14,9 @@ const PODSummary = ({ subtotal, ppnPercent, taxAmount, grandTotal, userRole }) =
                 <strong>{formatCurrency(taxAmount)}</strong>
             </p>
             <h3 style={{ margin: '8px 0', color: '#007bff' }}>Grand Total: {formatCurrency(grandTotal)}</h3>
+            {isTooLarge && (
+                <p style={{ margin: '4px 0', color: '#dc3545', fontWeight: 'bold' }}>{AMOUNT_TOO_LARGE_MESSAGE}</p>
+            )}
         </div>
     );
 };

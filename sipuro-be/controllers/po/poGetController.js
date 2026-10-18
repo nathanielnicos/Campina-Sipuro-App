@@ -1,6 +1,9 @@
 const { sipuroDb } = require('../../config/db');
 const { safeError } = require('../../helpers/safeError');
 
+// Batas jumlah baris per halaman (sesuai pilihan di frontend: 10, 25, 50).
+const MAX_PAGE_LIMIT = 50;
+
 exports.getPOList = async (req, res) => {
     try {
         const {
@@ -16,8 +19,8 @@ exports.getPOList = async (req, res) => {
             sortOrder = 'desc'
         } = req.query;
 
-        const pageNum = parseInt(page, 10) || 1;
-        const limitNum = parseInt(limit, 10) || 10;
+        const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+        const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), MAX_PAGE_LIMIT);
         const isCustomer = req.user.type === 'CUSTOMER';
         const offset = (pageNum - 1) * limitNum;
 

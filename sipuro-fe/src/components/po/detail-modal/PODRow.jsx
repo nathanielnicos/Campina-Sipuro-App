@@ -125,6 +125,14 @@ const PODRow = ({
             {userRole === 'CUSTOMER' && (
                 <td style={{ padding: '12px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
                     {formatCurrency(item.unit_price)}
+                    {item.price_changed && (
+                        <div style={{ fontSize: '11px', color: '#b45309' }}>
+                            was {formatCurrency(item.old_unit_price)}
+                        </div>
+                    )}
+                    {item.price_unavailable && (
+                        <div style={{ fontSize: '11px', color: '#dc3545' }}>Not available</div>
+                    )}
                 </td>
             )}
 

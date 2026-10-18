@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { formatCurrency, formatQty } from '../../../utils/formatters';
 import { formatDate, formatDateTime } from '../../../utils/dateHelper';
+import { getUnitPrice } from '../../../utils/money';
 
 const POPdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
     const header = poData?.header || {};
@@ -65,7 +66,7 @@ const POPdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
                 </thead>
                 <tbody>
                     {poData?.items?.map((item, index) => {
-                        const unitPrice = item.qty > 0 ? item.total_price / item.qty : 0;
+                        const unitPrice = getUnitPrice(item);
                         return (
                             <tr key={item.po_detail_id ?? index} style={{ borderBottom: '1px solid #000' }}>
                                 <td style={{ padding: '10px 4px', fontWeight: 'bold' }}>{item.product_name}</td>
@@ -88,7 +89,7 @@ const POPdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontWeight: 'bold' }}>
                         <span>TOTAL PPN TAX IN {ppnPercentNum}%</span>
-                        <span>{formatCurrency((header.subtotal * ppnPercentNum) / 100)}</span>
+                        <span>{formatCurrency((Number(header.total_amount) || 0) - (Number(header.subtotal) || 0))}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontWeight: 'bold', borderTop: '1px solid #000', borderBottom: '1px solid #000', marginTop: '4px' }}>
                         <span>TOTAL IDR</span>

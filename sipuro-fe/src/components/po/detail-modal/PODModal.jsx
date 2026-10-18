@@ -3,6 +3,7 @@ import PODHeader from './PODHeader';
 import PODItemsTable from './PODItemsTable';
 import PODSummary from './PODSummary';
 import PODActions from './PODActions';
+import PODPriceNotice from './PODPriceNotice';
 import { PO_STATUS } from '../../../constants/po';
 
 // Import ke-4 Custom Hook
@@ -46,10 +47,10 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
         handleQtyChange,
         handleAddItem,
         handleRemoveItem
-    } = usePODRow({ rawPoItems, products, isCustomer });
+    } = usePODRow({ rawPoItems, products, isCustomer, poStatus });
 
     // 3. Hook Calculation Summary
-    const { subtotal, taxAmount, grandTotal } = usePODSummary({ items, ppnPercent });
+    const { subtotal, taxAmount, grandTotal, isTooLarge } = usePODSummary({ items, ppnPercent });
 
     // 4. Hook API Actions
     const {
@@ -80,11 +81,9 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
         handleSubmit(e, {
             deliveryAddress,
             description,
-            subtotal,
-            taxAmount,
-            grandTotal,
             items,
-            poStatus
+            poStatus,
+            isTooLarge
         });
     };
 
@@ -120,6 +119,8 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
 
                     <h3 style={{ marginBottom: '12px' }}>Product List</h3>
 
+                    {isCustomer && <PODPriceNotice items={items} />}
+
                     <PODItemsTable
                         items={items}
                         paginatedItems={paginatedItems}
@@ -151,6 +152,7 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         taxAmount={taxAmount}
                         grandTotal={grandTotal}
                         userRole={userRole}
+                        isTooLarge={isTooLarge}
                     />
 
                     <PODActions

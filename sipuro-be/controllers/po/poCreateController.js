@@ -2,7 +2,8 @@ const { sipuroDb } = require('../../config/db');
 const { createNotification } = require('../../helpers/notificationHelper');
 const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
 const { getWibDateTimeString } = require('../../helpers/dateHelper');
-const { calculateBaseQty, generateNextPoNumber } = require('../../helpers/poHelper');
+const { generateNextPoNumber } = require('../../helpers/poHelper');
+const { priceItems } = require('../../helpers/poPricing');
 const { safeError } = require('../../helpers/safeError');
 
 /**
@@ -35,23 +36,20 @@ exports.createPO = async (req, res) => {
         const [profileRows] = await sipuroDb.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
         const ppn_percent = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
 
-        let subtotal = 0;
-        items.forEach(item => {
-            const itemPrice = parseFloat(item.unit_price !== undefined ? item.unit_price : item.base_price) || 0;
-            const qty = parseInt(item.qty) || 0;
-            subtotal += (itemPrice * qty);
+        // Harga, total, dan PPN dihitung di server dari harga master yang berlaku hari ini.
+        // unit_price / total_price dari klien tidak dipakai.
+        const pricing = await priceItems({
+            db: connection,
+            items,
+            poStatus: null,
+            existingMap: null,
+            ppnPercent: ppn_percent
         });
-        const total_amount = subtotal + (subtotal * (ppn_percent / 100));
+        const subtotal = pricing.subtotal;
+        const total_amount = pricing.totalAmount;
 
         // Generate Nomor PO Terpusat melalui Helper (Ambil string poNumber)
         const { poNumber } = await generateNextPoNumber(connection, { customer_id, customerCode });
-
-        const productIds = items.map(item => item.id_product);
-        const [productRows] = await sipuroDb.query(
-            `SELECT id_product, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs FROM sipuro_db.products WHERE id_product IN (?)`,
-            [productIds]
-        );
-        const productMap = new Map(productRows.map(p => [p.id_product, p]));
 
         // Timestamp WIB presisi untuk created_at & updated_at
         const nowWib = getWibDateTimeString();
@@ -82,50 +80,36 @@ exports.createPO = async (req, res) => {
         const poHeaderId = headerResult.insertId;
         const insertedDetails = [];
 
-        for (const item of items) {
-            const unitPrice = parseFloat(item.unit_price !== undefined ? item.unit_price : item.base_price) || 0;
-            const qty = parseInt(item.qty) || 0;
-            const totalPrice = item.total_price !== undefined ? parseFloat(item.total_price) : (unitPrice * qty);
-            const selectedUom = item.selected_uom || item.uom || item.base_uom || 'PCS';
-
-            const product = productMap.get(item.id_product) || {};
-            const pcsPerCtn = Number(product.pcs_per_ctn || 1);
-            const ctnPerPlt = Number(product.ctn_per_plt || 1);
-            const mlPerPcs = product.ml_per_pcs !== undefined ? product.ml_per_pcs : null;
-            const kgPerPcs = product.kg_per_pcs !== undefined ? product.kg_per_pcs : null;
-
-            const baseQty = calculateBaseQty(qty, selectedUom, product);
-            const basePrice = baseQty > 0 ? (totalPrice / baseQty) : unitPrice;
-
+        for (const line of pricing.lines) {
             const [detailRes] = await connection.query(
                 `INSERT INTO sipuro_db.po_details 
                  (po_header_id, id_product, qty, base_qty, uom, pcs_per_ctn, ctn_per_plt, ml_per_pcs, kg_per_pcs, base_price, total_price, status, notes) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)`,
                 [
                     poHeaderId,
-                    item.id_product,
-                    qty,
-                    baseQty,
-                    selectedUom,
-                    pcsPerCtn,
-                    ctnPerPlt,
-                    mlPerPcs,
-                    kgPerPcs,
-                    basePrice,
-                    totalPrice,
-                    item.notes || null
+                    line.id_product,
+                    line.qty,
+                    line.baseQty,
+                    line.uom,
+                    line.pcsPerCtn,
+                    line.ctnPerPlt,
+                    line.mlPerPcs,
+                    line.kgPerPcs,
+                    line.basePrice,
+                    line.totalPrice,
+                    line.notes
                 ]
             );
 
             insertedDetails.push({
                 po_detail_id: detailRes.insertId,
-                id_product: item.id_product,
+                id_product: line.id_product,
                 old_qty: 0,
-                new_qty: qty,
+                new_qty: line.qty,
                 old_base_qty: 0,
-                new_base_qty: baseQty,
+                new_base_qty: line.baseQty,
                 old_total_price: 0,
-                new_total_price: totalPrice,
+                new_total_price: line.totalPrice,
                 old_status: null,
                 new_status: 'Active'
             });
@@ -159,6 +143,9 @@ exports.createPO = async (req, res) => {
         res.json({ success: true, message: 'Purchase Order created successfully!', data: { po_header_id: poHeaderId, po_number: poNumber } });
     } catch (error) {
         await connection.rollback();
+        if (error && error.isValidation) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         console.error('Error creating PO:', error);
         res.status(500).json({ success: false, message: 'Failed to create Purchase Order.', error: safeError(error) });
     } finally {
