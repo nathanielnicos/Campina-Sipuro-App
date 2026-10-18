@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { savePO, cancelPOApi, updatePOStatusApi } from '../../../services/poApi';
 import { useGlobalModal } from '../../../context/ModalContext';
-
-// Batas kuantitas per baris item (disepakati: 1 miliar).
-const MAX_QTY = 1000000000;
+import { PO_STATUS, MAX_ITEM_QTY, PO_TEXT_MAX_LENGTH } from '../../../constants/po';
 
 export const usePODActions = ({ poId, onSuccess }) => {
     // Simpan jenis aksi yang sedang loading: 'SAVE', 'SAVE_DRAFT', 'SUBMIT', 'CANCEL', 'APPROVE', 'REJECT', atau null
@@ -38,9 +36,9 @@ export const usePODActions = ({ poId, onSuccess }) => {
             setActionLoading(loadingType);
             const result = await savePO(poId, payload);
             if (result.success) {
-                const msg = targetStatus === 'Draft'
+                const msg = targetStatus === PO_STATUS.DRAFT
                     ? 'PO saved as Draft successfully!'
-                    : (poId && poStatus === 'Waiting for Confirmation' ? 'PO updated successfully!' : 'PO submitted successfully!');
+                    : (poId && poStatus === PO_STATUS.WAITING ? 'PO updated successfully!' : 'PO submitted successfully!');
 
                 showAlert({
                     type: 'success',
@@ -72,7 +70,7 @@ export const usePODActions = ({ poId, onSuccess }) => {
         if (e) e.preventDefault();
 
         // Mengambil target_status dari tombol yang diklik (Save as Draft / Submit PO)
-        const targetStatus = e?.nativeEvent?.submitter?.getAttribute('value') || 'Waiting for Confirmation';
+        const targetStatus = e?.nativeEvent?.submitter?.getAttribute('value') || PO_STATUS.WAITING;
 
         const { items } = formData;
 
@@ -86,7 +84,7 @@ export const usePODActions = ({ poId, onSuccess }) => {
             return;
         }
 
-        const overLimitItem = items.find((i) => Number(i.qty) > MAX_QTY);
+        const overLimitItem = items.find((i) => Number(i.qty) > MAX_ITEM_QTY);
         if (overLimitItem) {
             showAlert({
                 type: 'warning',
@@ -99,10 +97,10 @@ export const usePODActions = ({ poId, onSuccess }) => {
         let confirmTitle = 'Save Changes';
         let confirmMsg = 'Are you sure you want to save changes to this PO?';
 
-        if (targetStatus === 'Draft') {
+        if (targetStatus === PO_STATUS.DRAFT) {
             confirmTitle = 'Save as Draft';
             confirmMsg = 'Are you sure you want to save this PO as Draft?';
-        } else if (targetStatus === 'Waiting for Confirmation') {
+        } else if (targetStatus === PO_STATUS.WAITING) {
             confirmTitle = 'Submit PO';
             confirmMsg = poId
                 ? 'Are you sure you want to submit this PO for confirmation?'
@@ -110,10 +108,10 @@ export const usePODActions = ({ poId, onSuccess }) => {
         }
 
         let loadingType = 'SAVE';
-        if (targetStatus === 'Draft') {
+        if (targetStatus === PO_STATUS.DRAFT) {
             loadingType = 'SAVE_DRAFT';
-        } else if (targetStatus === 'Waiting for Confirmation') {
-            loadingType = poId && formData.poStatus === 'Waiting for Confirmation' ? 'SAVE' : 'SUBMIT';
+        } else if (targetStatus === PO_STATUS.WAITING) {
+            loadingType = poId && formData.poStatus === PO_STATUS.WAITING ? 'SAVE' : 'SUBMIT';
         }
 
         // Tampilkan Modal Konfirmasi Global
@@ -163,26 +161,26 @@ export const usePODActions = ({ poId, onSuccess }) => {
     };
 
     const handleUpdateStatus = (newStatus) => {
-        const targetAction = newStatus === 'Rejected' ? 'REJECT' : 'APPROVE';
+        const targetAction = newStatus === PO_STATUS.REJECTED ? 'REJECT' : 'APPROVE';
 
-        if (newStatus === 'Rejected') {
+        if (newStatus === PO_STATUS.REJECTED) {
             // Tampilkan Modal Prompt Teks untuk alasan Reject
             showConfirm({
                 title: 'Reject PO',
                 message: 'Please enter the reason for rejecting this Purchase Order:',
                 type: 'prompt',
                 inputLabel: 'Rejection Reason',
-                maxLength: 50,
+                maxLength: PO_TEXT_MAX_LENGTH,
                 isDanger: true,
                 confirmText: 'Reject PO',
-                onConfirm: (notes) => executeStatusUpdate('Rejected', notes, targetAction)
+                onConfirm: (notes) => executeStatusUpdate(PO_STATUS.REJECTED, notes, targetAction)
             });
-        } else if (newStatus === 'Approved') {
+        } else if (newStatus === PO_STATUS.APPROVED) {
             showConfirm({
                 title: 'Approve PO',
                 message: 'Are you sure you want to APPROVE this PO?',
                 confirmText: 'Approve',
-                onConfirm: () => executeStatusUpdate('Approved', '', targetAction)
+                onConfirm: () => executeStatusUpdate(PO_STATUS.APPROVED, '', targetAction)
             });
         } else {
             showConfirm({
@@ -199,9 +197,9 @@ export const usePODActions = ({ poId, onSuccess }) => {
             const result = await updatePOStatusApi(poId, status, notes);
 
             if (result.success) {
-                const successMsg = status === 'Rejected'
+                const successMsg = status === PO_STATUS.REJECTED
                     ? 'PO rejected successfully!'
-                    : (status === 'Approved' ? 'PO approved successfully!' : `PO status successfully updated to ${status}!`);
+                    : (status === PO_STATUS.APPROVED ? 'PO approved successfully!' : `PO status successfully updated to ${status}!`);
 
                 showAlert({
                     type: 'success',

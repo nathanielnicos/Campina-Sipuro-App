@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
     fetchProducts,
     fetchCustomerDetail,
@@ -23,10 +23,11 @@ export const usePODHeader = ({ poId, currentUser }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const loadPODetailData = useCallback(async (catalogProducts = []) => {
-        if (!poId) return;
-        try {
-            const poRes = await fetchPODetail(poId);
+    useEffect(() => {
+        // Mencegah pembaruan state jika modal sudah ditutup / PO berganti sebelum permintaan selesai
+        let cancelled = false;
+
+        const applyPODetail = (poRes) => {
             if (poRes.success && poRes.data) {
                 const poHeader = poRes.data.header || {};
                 const poItems = poRes.data.items || [];
@@ -45,52 +46,61 @@ export const usePODHeader = ({ poId, currentUser }) => {
             } else {
                 setError(poRes.message || 'Failed to load PO details.');
             }
-        } catch (err) {
-            console.error('Error fetching PO detail:', err);
-            setError('Failed to load PO details from server.');
-        }
-    }, [poId]);
+        };
 
-    useEffect(() => {
         const initData = async () => {
             setLoading(true);
             try {
-                let currentProducts = [];
-                const prodRes = await fetchProducts();
+                // Keempat permintaan tidak saling bergantung, jadi dijalankan bersamaan.
+                const [prodRes, custRes, profileRes, poRes] = await Promise.all([
+                    fetchProducts(),
+                    customerId ? fetchCustomerDetail(customerId) : Promise.resolve(null),
+                    fetchCompanyProfile(),
+                    poId
+                        ? fetchPODetail(poId).catch((err) => {
+                            console.error('Error fetching PO detail:', err);
+                            return { success: false, message: 'Failed to load PO details from server.' };
+                        })
+                        : Promise.resolve(null)
+                ]);
+
+                if (cancelled) return;
+
+                // Hasil diterapkan berurutan seperti sebelumnya (data PO menimpa alamat & PPN default).
                 if (prodRes.success) {
-                    currentProducts = prodRes.data || [];
-                    setProducts(currentProducts);
+                    setProducts(prodRes.data || []);
                 } else {
                     setError('Failed to load product catalog.');
                 }
 
-                if (customerId) {
-                    const custRes = await fetchCustomerDetail(customerId);
-                    if (custRes.success && custRes.data) {
-                        setDeliveryAddress(custRes.data.delivery_address || '');
-                    }
+                if (custRes && custRes.success && custRes.data) {
+                    setDeliveryAddress(custRes.data.delivery_address || '');
                 }
 
-                const profileRes = await fetchCompanyProfile();
                 if (profileRes.success && profileRes.data?.ppn_percent !== undefined) {
                     setPpnPercent(profileRes.data.ppn_percent);
                 } else {
                     setError(profileRes.message || 'Failed to load VAT rate.');
                 }
 
-                if (poId) {
-                    await loadPODetailData(currentProducts);
+                if (poRes) {
+                    applyPODetail(poRes);
                 }
             } catch (err) {
+                if (cancelled) return;
                 console.error('Error fetching data:', err);
                 setError('Failed to connect to the server.');
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
         initData();
-    }, [customerId, poId, loadPODetailData]);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [customerId, poId]);
 
     return {
         poCode,

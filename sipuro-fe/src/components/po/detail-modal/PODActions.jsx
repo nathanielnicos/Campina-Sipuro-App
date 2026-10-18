@@ -1,3 +1,5 @@
+import { PO_STATUS } from '../../../constants/po';
+
 const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onCancel, onUpdateStatus }) => {
     const isAnyLoading = Boolean(loading);
 
@@ -14,14 +16,14 @@ const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onC
     });
 
     const isCustomer = userRole === 'CUSTOMER';
-    const isDraftOrNew = !poId || poStatus === 'Draft';
-    const isWaiting = poStatus === 'Waiting for Confirmation';
+    const isDraftOrNew = !poId || poStatus === PO_STATUS.DRAFT;
+    const isWaiting = poStatus === PO_STATUS.WAITING;
 
     return (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px' }}>
             <div>
                 {/* Tombol Cancel PO aktif saat Waiting for Confirmation ATAU Draft */}
-                {poId && isCustomer && (isWaiting || poStatus === 'Draft') && (
+                {poId && isCustomer && (isWaiting || poStatus === PO_STATUS.DRAFT) && (
                     <button
                         type="button"
                         onClick={onCancel}
@@ -49,7 +51,7 @@ const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onC
                         <button
                             type="button"
                             disabled={isAnyLoading}
-                            onClick={() => onUpdateStatus('Rejected')}
+                            onClick={() => onUpdateStatus(PO_STATUS.REJECTED)}
                             style={getButtonStyle('#dc3545')}
                         >
                             {loading === 'REJECT' ? 'Rejecting...' : 'Reject PO'}
@@ -57,7 +59,7 @@ const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onC
                         <button
                             type="button"
                             disabled={isAnyLoading}
-                            onClick={() => onUpdateStatus('Approved')}
+                            onClick={() => onUpdateStatus(PO_STATUS.APPROVED)}
                             style={getButtonStyle('#198754')}
                         >
                             {loading === 'APPROVE' ? 'Approving...' : 'Approve PO'}
@@ -72,7 +74,7 @@ const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onC
                         <button
                             type="submit"
                             name="target_status"
-                            value="Draft"
+                            value={PO_STATUS.DRAFT}
                             disabled={isAnyLoading}
                             style={getButtonStyle('#6f42c1')}
                         >
@@ -83,7 +85,7 @@ const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onC
                         <button
                             type="submit"
                             name="target_status"
-                            value="Waiting for Confirmation"
+                            value={PO_STATUS.WAITING}
                             disabled={isAnyLoading}
                             style={getButtonStyle('#0d6efd')}
                         >

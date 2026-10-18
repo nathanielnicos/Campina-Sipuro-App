@@ -24,7 +24,7 @@ const PODRow = ({
 
     // Menggunakan custom hook useOnClickOutside
     useOnClickOutside(dropdownRef, () => {
-        if (openDropdown === index && onCloseDropdown) {
+        if (openDropdown === item.row_id && onCloseDropdown) {
             onCloseDropdown();
         }
     });
@@ -75,14 +75,14 @@ const PODRow = ({
                     type="text"
                     placeholder={isCustomer ? "Search product name..." : "Search product code/name..."}
                     value={searchTerm !== undefined ? searchTerm : ''}
-                    onFocus={() => onFocusDropdown(index)}
-                    onClick={() => onFocusDropdown(index)}
-                    onChange={(e) => onSearchChange(index, e.target.value)}
+                    onFocus={() => onFocusDropdown(item.row_id)}
+                    onClick={() => onFocusDropdown(item.row_id)}
+                    onChange={(e) => onSearchChange(item.row_id, e.target.value)}
                     disabled={isReadOnly}
                     style={inputStyle}
                 />
 
-                {!isReadOnly && openDropdown === index && (
+                {!isReadOnly && openDropdown === item.row_id && (
                     <div style={{
                         position: 'absolute',
                         top: '100%',

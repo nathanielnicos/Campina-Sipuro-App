@@ -1,3 +1,5 @@
+import { PO_STATUS, PO_TEXT_MAX_LENGTH } from '../../../constants/po';
+
 const PODHeader = ({
     userRole,
     poStatus,
@@ -10,7 +12,7 @@ const PODHeader = ({
 
     return (
         <>
-            {poStatus === 'Rejected' && (
+            {poStatus === PO_STATUS.REJECTED && (
                 <div style={{
                     backgroundColor: '#f8d7da',
                     color: '#842029',
@@ -45,13 +47,13 @@ const PODHeader = ({
                     rows="2"
                     placeholder="Additional notes for the order..."
                     value={description || ''}
-                    maxLength={50}
+                    maxLength={PO_TEXT_MAX_LENGTH}
                     onChange={(e) => setDescription(e.target.value)}
                     disabled={isNotCustomer}
                     style={{ width: '100%', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ced4da' }}
                 />
                 <small style={{ color: '#6c757d', fontSize: '11px', display: 'block', marginTop: '2px' }}>
-                    {(description || '').length}/50 characters
+                    {(description || '').length}/{PO_TEXT_MAX_LENGTH} characters
                 </small>
             </div>
         </>

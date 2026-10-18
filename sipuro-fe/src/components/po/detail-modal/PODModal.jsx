@@ -1,9 +1,9 @@
 import { getStatusStyle } from '../../../utils/statusHelper';
 import PODHeader from './PODHeader';
-import PODRow from './PODRow';
+import PODItemsTable from './PODItemsTable';
 import PODSummary from './PODSummary';
 import PODActions from './PODActions';
-import PaginationControl from '../../common/PaginationControl';
+import { PO_STATUS } from '../../../constants/po';
 
 // Import ke-4 Custom Hook
 import { usePODHeader } from '../../../hooks/po/detail-modal/usePODHeader';
@@ -60,7 +60,7 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
     } = usePODActions({ poId, onSuccess });
 
     // Cek apakah form masih diizinkan diedit oleh Customer
-    const isEditableByCustomer = isCustomer && (!poId || poStatus === 'Draft' || poStatus === 'Waiting for Confirmation');
+    const isEditableByCustomer = isCustomer && (!poId || poStatus === PO_STATUS.DRAFT || poStatus === PO_STATUS.WAITING);
 
     // Approve / Reject hanya untuk karyawan PPIC (STAFF / MANAGER), bukan SUPERADMIN
     const canReview = userRole !== 'CUSTOMER'
@@ -120,76 +120,30 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
 
                     <h3 style={{ marginBottom: '12px' }}>Product List</h3>
 
-                    <div style={{ borderRadius: '8px', border: '1px solid #dee2e6', marginBottom: '16px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', tableLayout: 'fixed' }}>
-                            <thead>
-                                <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '50%' : '36%' }}>Product</th>
-                                    {userRole === 'CUSTOMER' && (
-                                        <th style={{ padding: '12px 16px', width: '14%', textAlign: 'right' }}>Unit Price</th>
-                                    )}
-                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '20%' : '13%', textAlign: 'right' }}>Qty</th>
-                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '20%' : '11%' }}>Unit</th>
-                                    {userRole === 'CUSTOMER' && (
-                                        <th style={{ padding: '12px 16px', width: '18%', textAlign: 'right' }}>Total Price</th>
-                                    )}
-                                    <th style={{ padding: '12px 16px', width: userRole !== 'CUSTOMER' ? '10%' : '8%', textAlign: 'center' }}>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {paginatedItems.map((item, localIndex) => {
-                                    const actualIndex = (currentPage - 1) * pageSize + localIndex;
-                                    return (
-                                        <PODRow
-                                            key={item.row_id}
-                                            index={actualIndex}
-                                            item={item}
-                                            searchTerm={searchTerm[actualIndex]}
-                                            openDropdown={openDropdown}
-                                            products={products}
-                                            takenProductIds={items
-                                                .filter((_, i) => i !== actualIndex)
-                                                .map((it) => String(it.id_product))
-                                                .filter((id) => id !== '')}
-                                            userRole={userRole}
-                                            isReadOnly={!isEditableByCustomer}
-                                            onSearchChange={(i, val) => {
-                                                setSearchTerm({ ...searchTerm, [i]: val });
-                                                setOpenDropdown(i);
-                                            }}
-                                            onFocusDropdown={(i) => setOpenDropdown(i)}
-                                            onCloseDropdown={() => setOpenDropdown(null)}
-                                            onSelectProduct={handleSelectProduct}
-                                            onQtyChange={handleQtyChange}
-                                            onRemoveItem={handleRemoveItem}
-                                            isMultipleItems={items.length > 1}
-                                        />
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-
-                        <PaginationControl
-                            pagination={{
-                                currentPage,
-                                totalPages,
-                                totalItems: items.length,
-                                limit: pageSize
-                            }}
-                            onPageChange={(p) => setCurrentPage(p)}
-                            onLimitChange={(l) => { setPageSize(l); setCurrentPage(1); }}
-                        />
-                    </div>
-
-                    {isEditableByCustomer && (
-                        <button
-                            type="button"
-                            onClick={handleAddItem}
-                            style={{ marginBottom: '20px', padding: '8px 16px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
-                        >
-                            + Add Product Row
-                        </button>
-                    )}
+                    <PODItemsTable
+                        items={items}
+                        paginatedItems={paginatedItems}
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalPages={totalPages}
+                        searchTerm={searchTerm}
+                        openDropdown={openDropdown}
+                        products={products}
+                        userRole={userRole}
+                        isEditable={isEditableByCustomer}
+                        onSearchChange={(rowId, val) => {
+                            setSearchTerm((prev) => ({ ...prev, [rowId]: val }));
+                            setOpenDropdown(rowId);
+                        }}
+                        onFocusDropdown={(rowId) => setOpenDropdown(rowId)}
+                        onCloseDropdown={() => setOpenDropdown(null)}
+                        onSelectProduct={handleSelectProduct}
+                        onQtyChange={handleQtyChange}
+                        onRemoveItem={handleRemoveItem}
+                        onAddItem={handleAddItem}
+                        onPageChange={(p) => setCurrentPage(p)}
+                        onLimitChange={(l) => { setPageSize(l); setCurrentPage(1); }}
+                    />
 
                     <PODSummary
                         subtotal={subtotal}

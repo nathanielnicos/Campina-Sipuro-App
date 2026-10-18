@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { unformatThousand } from '../../../utils/formatters';
+import { PO_ITEMS_PAGE_SIZE } from '../../../constants/po';
 
 const generateUniqueId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -25,18 +26,21 @@ const createInitialItem = () => ({
 
 export const usePODRow = ({ rawPoItems = [], products = [], isCustomer = true }) => {
     const [items, setItems] = useState([createInitialItem()]);
+    // Teks pencarian produk dan dropdown yang terbuka dikunci dengan row_id (bukan nomor baris),
+    // sehingga tetap benar saat baris dihapus atau urutan berubah.
     const [searchTerm, setSearchTerm] = useState({});
     const [openDropdown, setOpenDropdown] = useState(null);
 
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(PO_ITEMS_PAGE_SIZE);
 
     // Mappings data items saat rawPoItems atau products berubah
     useEffect(() => {
         if (rawPoItems && rawPoItems.length > 0) {
             const initialSearch = {};
 
-            const mappedItems = rawPoItems.map((item, idx) => {
+            const mappedItems = rawPoItems.map((item) => {
+                const rowId = generateUniqueId();
                 const productId = item.id_product || item.product_id;
                 const masterProd = products.find((p) => String(p.id_product) === String(productId));
 
@@ -71,13 +75,13 @@ export const usePODRow = ({ rawPoItems = [], products = [], isCustomer = true })
                 const productName = item.product_name || masterProd?.product_name || '';
 
                 if (productCode || productName) {
-                    initialSearch[idx] = isCustomer
+                    initialSearch[rowId] = isCustomer
                         ? productName
                         : `${productCode} - ${productName}`;
                 }
 
                 return {
-                    row_id: generateUniqueId(),
+                    row_id: rowId,
                     po_detail_id: item.po_detail_id || item.id,
                     id_product: productId,
                     product_code: productCode,
@@ -121,7 +125,10 @@ export const usePODRow = ({ rawPoItems = [], products = [], isCustomer = true })
             };
         }));
         const displayLabel = isCustomer ? prod.product_name : `${prod.product_code} - ${prod.product_name}`;
-        setSearchTerm(prev => ({ ...prev, [index]: displayLabel }));
+        const rowId = items[index]?.row_id;
+        if (rowId) {
+            setSearchTerm(prev => ({ ...prev, [rowId]: displayLabel }));
+        }
         setOpenDropdown(null);
     };
 
@@ -145,20 +152,8 @@ export const usePODRow = ({ rawPoItems = [], products = [], isCustomer = true })
     const handleRemoveItem = (index) => {
         if (items.length <= 1) return;
 
+        const removedRowId = items[index]?.row_id;
         const updatedItems = items.filter((_, i) => i !== index);
-
-        // Re-index searchTerm agar baris yang bergeser ke atas tetap mempertahankan label pengetikannya
-        const newSearchTerm = {};
-        updatedItems.forEach((itm, newIdx) => {
-            const oldIdx = newIdx >= index ? newIdx + 1 : newIdx;
-            if (searchTerm[oldIdx] !== undefined) {
-                newSearchTerm[newIdx] = searchTerm[oldIdx];
-            } else if (itm.product_name || itm.product_code) {
-                newSearchTerm[newIdx] = isCustomer
-                    ? itm.product_name
-                    : `${itm.product_code} - ${itm.product_name}`;
-            }
-        });
 
         // Sesuaikan halaman pagination jika halaman saat ini menjadi kosong setelah item dihapus
         const newTotalPages = Math.ceil(updatedItems.length / pageSize) || 1;
@@ -166,7 +161,12 @@ export const usePODRow = ({ rawPoItems = [], products = [], isCustomer = true })
             setCurrentPage(newTotalPages);
         }
 
-        setSearchTerm(newSearchTerm);
+        // Cukup buang teks milik baris yang dihapus; baris lain tidak terpengaruh
+        setSearchTerm((prev) => {
+            const next = { ...prev };
+            delete next[removedRowId];
+            return next;
+        });
         setItems(updatedItems);
         setOpenDropdown(null);
     };
