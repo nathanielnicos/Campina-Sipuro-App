@@ -67,7 +67,7 @@ const POPdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
                     {poData?.items?.map((item, index) => {
                         const unitPrice = item.qty > 0 ? item.total_price / item.qty : 0;
                         return (
-                            <tr key={index} style={{ borderBottom: '1px solid #000' }}>
+                            <tr key={item.po_detail_id ?? index} style={{ borderBottom: '1px solid #000' }}>
                                 <td style={{ padding: '10px 4px', fontWeight: 'bold' }}>{item.product_name}</td>
                                 <td style={{ padding: '10px 4px', textAlign: 'right' }}>{formatQty(item.qty)}</td>
                                 <td style={{ padding: '10px 4px', textAlign: 'right' }}>{formatCurrency(unitPrice).replace('Rp', '').trim()}</td>

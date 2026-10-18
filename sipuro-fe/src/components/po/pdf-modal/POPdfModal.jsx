@@ -1,11 +1,13 @@
 import { usePOPdfModal } from '../../../hooks/po/pdf-modal/usePOPdfModal';
 import POPdfDocument from './POPdfDocument';
+import Button from '../../common/Button';
 
 const POPdfModal = ({ poId, onClose }) => {
     const {
         poData,
         seller,
         loading,
+        downloading,
         pdfContentRef,
         ppnPercentNum,
         handleDownloadPdf
@@ -48,14 +50,15 @@ const POPdfModal = ({ poId, onClose }) => {
                 }}>
                     <h5 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>PO Document Preview</h5>
                     <button
+                        type="button"
                         onClick={onClose}
-                        disabled={loading}
+                        disabled={loading || downloading}
                         style={{
                             border: 'none',
                             background: 'transparent',
                             fontSize: '20px',
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                            opacity: loading ? 0.6 : 1,
+                            cursor: loading || downloading ? 'not-allowed' : 'pointer',
+                            opacity: loading || downloading ? 0.6 : 1,
                             color: '#6c757d'
                         }}
                     >
@@ -88,41 +91,22 @@ const POPdfModal = ({ poId, onClose }) => {
                     gap: '10px',
                     backgroundColor: '#f8f9fa'
                 }}>
-                    <button
+                    <Button
+                        variant="outlineSecondary"
+                        size="sm"
                         onClick={onClose}
-                        disabled={loading}
-                        style={{
-                            padding: '6px 14px',
-                            borderRadius: '4px',
-                            border: '1px solid #6c757d',
-                            backgroundColor: '#ffffff',
-                            color: '#6c757d',
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                            opacity: loading ? 0.6 : 1,
-                            fontSize: '13px',
-                            transition: 'all 0.2s ease-in-out'
-                        }}
+                        disabled={loading || downloading}
                     >
                         Close
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="danger"
+                        size="sm"
                         onClick={handleDownloadPdf}
-                        disabled={loading || !poData}
-                        style={{
-                            padding: '6px 14px',
-                            borderRadius: '4px',
-                            border: 'none',
-                            backgroundColor: '#dc3545',
-                            color: '#ffffff',
-                            fontWeight: 'bold',
-                            cursor: loading || !poData ? 'not-allowed' : 'pointer',
-                            opacity: loading || !poData ? 0.6 : 1,
-                            fontSize: '13px',
-                            transition: 'all 0.2s ease-in-out'
-                        }}
+                        disabled={loading || downloading || !poData}
                     >
-                        Download PDF
-                    </button>
+                        {downloading ? 'Generating...' : 'Download PDF'}
+                    </Button>
                 </div>
             </div>
         </div>
