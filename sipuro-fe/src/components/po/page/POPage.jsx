@@ -2,14 +2,25 @@ import { useState } from 'react';
 import POFilterBar from './POFilterBar';
 import POTable from './POTable';
 import POPdfModal from '../pdf-modal/POPdfModal';
+import PODModal from '../detail-modal/PODModal';
+import { useGlobalModal } from '../../../context/ModalContext';
 
 // Import Hooks
 import { usePOFilterBar } from '../../../hooks/po/page/usePOFilterBar';
 import { usePOTable } from '../../../hooks/po/page/usePOTable';
 import { usePOExportExcel } from '../../../hooks/po/page/usePOExportExcel';
 
-const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
+// refreshSignal: angka dari induk (App). Jika nilainya berubah, daftar PO dimuat ulang
+// tanpa memasang ulang halaman, sehingga filter dan halaman aktif tidak hilang.
+const POPage = ({ customerId = 1, user, refreshSignal = 0 }) => {
     const [selectedPdfPoId, setSelectedPdfPoId] = useState(null);
+
+    // Modal detail / buat PO dikelola di halaman ini
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedPoId, setSelectedPoId] = useState(null);
+    const [localRefresh, setLocalRefresh] = useState(0);
+
+    const { showAlert } = useGlobalModal();
 
     // 1. Hook Filter
     const {
@@ -49,7 +60,8 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
         endDate,
         status,
         sortBy: sortConfig.key,
-        sortOrder: sortConfig.direction
+        sortOrder: sortConfig.direction,
+        refreshSignal: refreshSignal + localRefresh
     });
 
     // 3. Hook Export Excel
@@ -62,6 +74,34 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
             status 
         }
     });
+
+    const handleOpenCreate = () => {
+        if (user && user.role !== 'CUSTOMER') {
+            showAlert({
+                type: 'warning',
+                title: 'Access Restricted',
+                message: 'Only Customers can create new Purchase Orders.'
+            });
+            return;
+        }
+        setSelectedPoId(null);
+        setShowDetailModal(true);
+    };
+
+    const handleSelectPODetail = (poHeaderId) => {
+        setSelectedPoId(poHeaderId);
+        setShowDetailModal(true);
+    };
+
+    const handleCloseModal = () => {
+        setShowDetailModal(false);
+        setSelectedPoId(null);
+    };
+
+    const handlePOSuccess = () => {
+        handleCloseModal();
+        setLocalRefresh((prev) => prev + 1);
+    };
 
     return (
         <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
@@ -79,7 +119,7 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                 onStatusChange={handleStatusChange}
                 onResetFilters={handleResetFilters}
                 onExportExcel={handleExportExcel}
-                onCreateNewPO={onCreateNewPO}
+                onCreateNewPO={handleOpenCreate}
             />
 
             {loading && <p>Loading PO data...</p>}
@@ -91,6 +131,7 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                     fetching={fetching}
                     sortConfig={sortConfig}
                     user={user}
+                    isFilterActive={isFilterActive}
                     currentPage={currentPage}
                     totalPages={totalPages}
                     totalItems={totalItems}
@@ -98,7 +139,7 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                     onSort={handleSort}
                     onPageChange={handlePageChange}
                     onLimitChange={handleLimitChange}
-                    onSelectPODetail={onSelectPODetail}
+                    onSelectPODetail={handleSelectPODetail}
                     onOpenPdfModal={(poId) => setSelectedPdfPoId(poId)}
                 />
             )}
@@ -107,6 +148,15 @@ const POPage = ({ customerId = 1, onCreateNewPO, onSelectPODetail, user }) => {
                 <POPdfModal
                     poId={selectedPdfPoId}
                     onClose={() => setSelectedPdfPoId(null)}
+                />
+            )}
+
+            {showDetailModal && (
+                <PODModal
+                    poId={selectedPoId}
+                    currentUser={user}
+                    onClose={handleCloseModal}
+                    onSuccess={handlePOSuccess}
                 />
             )}
         </div>

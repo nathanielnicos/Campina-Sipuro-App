@@ -8,6 +8,7 @@ const PODRow = ({
     searchTerm,
     openDropdown,
     products,
+    takenProductIds = [],
     userRole,
     isReadOnly,
     onSearchChange,
@@ -53,6 +54,8 @@ const PODRow = ({
     };
 
     const filteredProducts = products.filter(p => {
+        // Produk yang sudah dipilih di baris lain tidak ditampilkan lagi.
+        if (takenProductIds.includes(String(p.id_product))) return false;
         const kw = (searchTerm || '').toLowerCase();
         if (isCustomer) {
             return p.product_name.toLowerCase().includes(kw);

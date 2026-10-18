@@ -39,6 +39,7 @@ const PaginationControl = ({
 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
+                        type="button"
                         disabled={currentPage <= 1}
                         onClick={() => onPageChange && onPageChange(currentPage - 1)}
                         style={{
@@ -58,6 +59,7 @@ const PaginationControl = ({
                     </span>
 
                     <button
+                        type="button"
                         disabled={currentPage >= totalPages || totalPages === 0}
                         onClick={() => onPageChange && onPageChange(currentPage + 1)}
                         style={{

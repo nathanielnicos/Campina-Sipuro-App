@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import POPage from './components/po/page/POPage';
-import PODModal from './components/po/detail-modal/PODModal';
 import BatchPage from './components/batch/page/BatchPage';
 import ProductionSchedulePage from './components/productionSchedule/page/ProductionSchedulePage';
 import Dashboard from './components/dashboard/Dashboard';
@@ -22,17 +21,13 @@ import { markAsRead } from './services/notificationApi';
 import { getToken, clearSession, SESSION_EXPIRED_EVENT } from './services/apiClient';
 import { getNavItemsByUser } from './config/navigationConfig';
 
-import { ModalProvider, useGlobalModal } from './context/ModalContext';
+import { ModalProvider } from './context/ModalContext';
 
 function MainApp() {
   const [user, setUser] = useState(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedPoId, setSelectedPoId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const navigate = useNavigate();
-
-  const { showAlert } = useGlobalModal();
 
   const [showBanner, setShowBanner] = useState(false);
   const [bannerNotif, setBannerNotif] = useState(null);
@@ -87,35 +82,6 @@ function MainApp() {
     navigate('/login');
   };
 
-  const handleOpenCreate = () => {
-    if (user && user.role !== 'CUSTOMER') {
-      showAlert({
-        type: 'warning',
-        title: 'Access Restricted',
-        message: 'Only Customers can create new Purchase Orders.'
-      });
-      return;
-    }
-    setSelectedPoId(null);
-    setShowCreateModal(true);
-  };
-
-  const handleSelectPODetail = (poHeaderId) => {
-    setSelectedPoId(poHeaderId);
-    setShowCreateModal(true);
-  };
-
-  const handlePOSuccess = () => {
-    setShowCreateModal(false);
-    setSelectedPoId(null);
-    setRefreshKey((prev) => prev + 1);
-  };
-
-  const handleCloseModal = () => {
-    setShowCreateModal(false);
-    setSelectedPoId(null);
-  };
-
   const handleBannerRefresh = async () => {
     setShowBanner(false);
 
@@ -168,11 +134,9 @@ function MainApp() {
         <Route path="/" element={<Navigate to={defaultRedirect} replace />} />
         <Route path="/po-list" element={
           <POPage
-            key={refreshKey}
             customerId={user.role === 'CUSTOMER' ? user.customer_id : null}
             user={user}
-            onCreateNewPO={handleOpenCreate}
-            onSelectPODetail={handleSelectPODetail}
+            refreshSignal={refreshKey}
           />
         } />
         <Route path="/ppic-dashboard" element={<Dashboard />} />
@@ -193,15 +157,6 @@ function MainApp() {
 
         <Route path="*" element={<Navigate to={defaultRedirect} replace />} />
       </Routes>
-
-      {showCreateModal && (
-        <PODModal
-          poId={selectedPoId}
-          currentUser={user}
-          onClose={handleCloseModal}
-          onSuccess={handlePOSuccess}
-        />
-      )}
     </div>
   );
 }

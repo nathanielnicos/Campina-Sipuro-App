@@ -7,6 +7,7 @@ const POTable = ({
     fetching,
     sortConfig,
     user,
+    isFilterActive,
     currentPage,
     totalPages,
     totalItems,
@@ -98,7 +99,9 @@ const POTable = ({
                         {poList.length === 0 ? (
                             <tr>
                                 <td colSpan={totalColumns} style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
-                                    No Purchase Orders created yet.
+                                    {isFilterActive
+                                        ? 'No Purchase Orders match the current filters.'
+                                        : 'No Purchase Orders created yet.'}
                                 </td>
                             </tr>
                         ) : (

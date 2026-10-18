@@ -2,25 +2,23 @@ import { useState } from 'react';
 import { savePO, cancelPOApi, updatePOStatusApi } from '../../../services/poApi';
 import { useGlobalModal } from '../../../context/ModalContext';
 
-export const usePODActions = ({ poId, currentUser, onSuccess }) => {
+// Batas kuantitas per baris item (disepakati: 1 miliar).
+const MAX_QTY = 1000000000;
+
+export const usePODActions = ({ poId, onSuccess }) => {
     // Simpan jenis aksi yang sedang loading: 'SAVE', 'SAVE_DRAFT', 'SUBMIT', 'CANCEL', 'APPROVE', 'REJECT', atau null
     const [actionLoading, setActionLoading] = useState(null);
 
     // Akses fungsi modal global
     const { showConfirm, showAlert } = useGlobalModal();
 
-    const userRole = currentUser?.role;
-    const customerUserId = userRole === 'CUSTOMER' ? currentUser?.id : null;
-    const employeeId = userRole !== 'CUSTOMER' ? currentUser?.id : null;
-
     // Fungsi internal untuk eksekusi API Save/Submit PO
     const executeSavePO = async (targetStatus, formData, loadingType) => {
-        const { deliveryAddress, description, subtotal, taxAmount, grandTotal, items, customerId, poStatus } = formData;
+        const { deliveryAddress, description, subtotal, taxAmount, grandTotal, items, poStatus } = formData;
 
         const payload = {
-            customer_id: customerId,
+            // Identitas pembuat/pengubah dan perusahaan diambil server dari token login.
             status: targetStatus,
-            ...(poId ? { updated_by: customerUserId } : { created_by: customerUserId }),
             delivery_address: deliveryAddress,
             description,
             subtotal,
@@ -88,6 +86,16 @@ export const usePODActions = ({ poId, currentUser, onSuccess }) => {
             return;
         }
 
+        const overLimitItem = items.find((i) => Number(i.qty) > MAX_QTY);
+        if (overLimitItem) {
+            showAlert({
+                type: 'warning',
+                title: 'Validation Error',
+                message: 'Quantity per row cannot exceed 1.000.000.000.'
+            });
+            return;
+        }
+
         let confirmTitle = 'Save Changes';
         let confirmMsg = 'Are you sure you want to save changes to this PO?';
 
@@ -125,7 +133,7 @@ export const usePODActions = ({ poId, currentUser, onSuccess }) => {
             onConfirm: async () => {
                 try {
                     setActionLoading('CANCEL');
-                    const result = await cancelPOApi(poId, customerUserId);
+                    const result = await cancelPOApi(poId);
                     if (result.success) {
                         showAlert({
                             type: 'success',
@@ -188,7 +196,7 @@ export const usePODActions = ({ poId, currentUser, onSuccess }) => {
     const executeStatusUpdate = async (status, notes, targetAction) => {
         try {
             setActionLoading(targetAction);
-            const result = await updatePOStatusApi(poId, status, notes, employeeId);
+            const result = await updatePOStatusApi(poId, status, notes);
 
             if (result.success) {
                 const successMsg = status === 'Rejected'

@@ -36,6 +36,11 @@ export const usePODHeader = ({ poId, currentUser }) => {
                 setDeliveryAddress(poHeader.delivery_address || '');
                 setDescription(poHeader.description || '');
                 setRejectionReason(poHeader.rejection_reason || '');
+                // PO yang sudah ada memakai persentase PPN yang tersimpan di PO itu sendiri,
+                // bukan tarif PPN perusahaan saat ini.
+                if (poHeader.ppn_percent !== undefined && poHeader.ppn_percent !== null) {
+                    setPpnPercent(Number(poHeader.ppn_percent));
+                }
                 setRawPoItems(poItems);
             } else {
                 setError(poRes.message || 'Failed to load PO details.');

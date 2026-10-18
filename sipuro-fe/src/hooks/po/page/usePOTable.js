@@ -10,7 +10,8 @@ export const usePOTable = ({
     endDate,
     status,
     sortBy,
-    sortOrder
+    sortOrder,
+    refreshSignal = 0
 }) => {
     const [poList, setPoList] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -61,9 +62,11 @@ export const usePOTable = ({
         }
     }, [customerId, currentPage, pageSize, search, startDate, endDate, status, sortBy, sortOrder]);
 
+    // refreshSignal sengaja menjadi dependensi efek ini (bukan getPOList): saat nilainya berubah,
+    // daftar dimuat ulang tanpa memasang ulang halaman, sehingga filter dan halaman aktif tetap.
     useEffect(() => {
         getPOList();
-    }, [getPOList]);
+    }, [getPOList, refreshSignal]);
 
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages) {

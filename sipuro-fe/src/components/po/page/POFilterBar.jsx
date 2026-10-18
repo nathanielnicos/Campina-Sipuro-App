@@ -88,6 +88,7 @@ const POFilterBar = ({
             {/* Action Buttons */}
             <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
                 <button
+                    type="button"
                     onClick={onResetFilters}
                     disabled={!isFilterActive}
                     style={{
@@ -109,6 +110,7 @@ const POFilterBar = ({
 
                 {userRole === 'CUSTOMER' && (
                     <button
+                        type="button"
                         onClick={onExportExcel}
                         disabled={exporting}
                         style={{
@@ -131,6 +133,7 @@ const POFilterBar = ({
 
                 {userRole === 'CUSTOMER' && (
                     <button
+                        type="button"
                         onClick={onCreateNewPO}
                         style={{
                             padding: '8px 12px',

@@ -100,25 +100,26 @@ export const usePODRow = ({ rawPoItems = [], products = [], isCustomer = true })
 
     const handleSelectProduct = (index, prod) => {
         const basePrice = parseFloat(prod.base_price) || 0;
-        const currentQty = items[index]?.qty || 1;
         const baseUom = prod.base_uom || 'PCS';
 
-        const updatedItems = [...items];
-        updatedItems[index] = {
-            ...updatedItems[index],
-            id_product: prod.id_product,
-            product_code: prod.product_code,
-            product_name: prod.product_name,
-            base_price: basePrice,
-            unit_price: basePrice,
-            base_uom: baseUom,
-            selected_uom: baseUom,
-            pcs_per_ctn: prod.pcs_per_ctn || 1,
-            ctn_per_plt: prod.ctn_per_plt || 1,
-            total_price: basePrice * currentQty
-        };
-
-        setItems(updatedItems);
+        // Pembaruan imutabel: objek baris lama tidak diubah, hanya diganti dengan salinan baru.
+        setItems((prevItems) => prevItems.map((row, i) => {
+            if (i !== index) return row;
+            const currentQty = row.qty || 1;
+            return {
+                ...row,
+                id_product: prod.id_product,
+                product_code: prod.product_code,
+                product_name: prod.product_name,
+                base_price: basePrice,
+                unit_price: basePrice,
+                base_uom: baseUom,
+                selected_uom: baseUom,
+                pcs_per_ctn: prod.pcs_per_ctn || 1,
+                ctn_per_plt: prod.ctn_per_plt || 1,
+                total_price: basePrice * currentQty
+            };
+        }));
         const displayLabel = isCustomer ? prod.product_name : `${prod.product_code} - ${prod.product_name}`;
         setSearchTerm(prev => ({ ...prev, [index]: displayLabel }));
         setOpenDropdown(null);
@@ -129,13 +130,12 @@ export const usePODRow = ({ rawPoItems = [], products = [], isCustomer = true })
         const cleanNumber = unformatThousand(rawValue);
         const qty = parseInt(cleanNumber, 10) || 0;
 
-        const updatedItems = [...items];
-        const item = updatedItems[index];
-        if (item) {
-            item.qty = qty;
-            item.total_price = (item.unit_price || 0) * qty;
-            setItems(updatedItems);
-        }
+        // Pembaruan imutabel: baris yang berubah diganti salinan baru (objek lama tidak dimutasi).
+        setItems((prevItems) => prevItems.map((row, i) => (
+            i === index
+                ? { ...row, qty, total_price: (row.unit_price || 0) * qty }
+                : row
+        )));
     };
 
     const handleAddItem = () => {

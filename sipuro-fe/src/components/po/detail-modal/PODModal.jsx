@@ -26,8 +26,7 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
         ppnPercent,
         rawPoItems,
         error,
-        isCustomer,
-        customerId
+        isCustomer
     } = usePODHeader({ poId, currentUser });
 
     // 2. Hook Items Table Management
@@ -58,10 +57,23 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
         handleSubmit,
         handleCancelPO,
         handleUpdateStatus
-    } = usePODActions({ poId, currentUser, onSuccess });
+    } = usePODActions({ poId, onSuccess });
 
     // Cek apakah form masih diizinkan diedit oleh Customer
     const isEditableByCustomer = isCustomer && (!poId || poStatus === 'Draft' || poStatus === 'Waiting for Confirmation');
+
+    // Approve / Reject hanya untuk karyawan PPIC (STAFF / MANAGER), bukan SUPERADMIN
+    const canReview = userRole !== 'CUSTOMER'
+        && userRole !== 'SUPERADMIN'
+        && String(currentUser?.department || '').trim().toUpperCase() === 'PPIC';
+
+    // Tekan Enter di kolom isian tidak boleh mengirim form secara tidak sengaja.
+    // Tombol Save / Submit tetap bekerja karena hanya event dari <input> yang diblokir.
+    const handleFormKeyDown = (e) => {
+        if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+            e.preventDefault();
+        }
+    };
 
     // Handler Form Submit wrapper
     const onSubmitForm = (e) => {
@@ -72,7 +84,7 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
             taxAmount,
             grandTotal,
             items,
-            customerId
+            poStatus
         });
     };
 
@@ -94,7 +106,7 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
                 </h2>
                 {error && <p style={{ color: 'red' }}>{error}</p>}
 
-                <form onSubmit={onSubmitForm}>
+                <form onSubmit={onSubmitForm} onKeyDown={handleFormKeyDown}>
                     <PODHeader
                         userRole={userRole}
                         poStatus={poStatus}
@@ -129,12 +141,16 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
                                     const actualIndex = (currentPage - 1) * pageSize + localIndex;
                                     return (
                                         <PODRow
-                                            key={item.po_detail_id || item.id_product || actualIndex}
+                                            key={item.row_id}
                                             index={actualIndex}
                                             item={item}
                                             searchTerm={searchTerm[actualIndex]}
                                             openDropdown={openDropdown}
                                             products={products}
+                                            takenProductIds={items
+                                                .filter((_, i) => i !== actualIndex)
+                                                .map((it) => String(it.id_product))
+                                                .filter((id) => id !== '')}
                                             userRole={userRole}
                                             isReadOnly={!isEditableByCustomer}
                                             onSearchChange={(i, val) => {
@@ -186,6 +202,7 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
                     <PODActions
                         poId={poId}
                         userRole={userRole}
+                        canReview={canReview}
                         poStatus={poStatus}
                         loading={actionLoading}
                         onClose={onClose}

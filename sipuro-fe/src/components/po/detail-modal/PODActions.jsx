@@ -1,4 +1,4 @@
-const PODActions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUpdateStatus }) => {
+const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onCancel, onUpdateStatus }) => {
     const isAnyLoading = Boolean(loading);
 
     const getButtonStyle = (baseBgColor = 'transparent', isTextWhite = true) => ({
@@ -43,8 +43,8 @@ const PODActions = ({ poId, userRole, poStatus, loading, onClose, onCancel, onUp
                     Close
                 </button>
 
-                {/* Approve & Reject untuk non-CUSTOMER saat Waiting for Confirmation */}
-                {poId && !isCustomer && isWaiting && (
+                {/* Approve & Reject hanya untuk PPIC saat Waiting for Confirmation */}
+                {poId && canReview && isWaiting && (
                     <>
                         <button
                             type="button"
