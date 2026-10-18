@@ -4,7 +4,8 @@ import { apiClientSoft } from './apiClient';
 // sama seperti perilaku versi fetch sebelumnya.
 // Identitas pengguna (created_by, updated_by, dst.) kini dibaca server dari token login.
 
-export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters = {}) => {
+// signal (opsional): AbortSignal untuk membatalkan permintaan yang sudah tidak relevan.
+export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters = {}, signal) => {
     const {
         search = '',
         startDate = '',
@@ -25,7 +26,8 @@ export const fetchPOListApi = async (customerId, page = 1, limit = 10, filters =
             status,
             sortBy,
             sortOrder
-        }
+        },
+        signal
     });
     return res.data;
 };

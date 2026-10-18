@@ -12,6 +12,7 @@ const DateRangePicker = ({
     const [isOpen, setIsOpen] = useState(false);
     const [tempFrom, setTempFrom] = useState(fromDate || '');
     const [tempTo, setTempTo] = useState(toDate || '');
+    const [rangeError, setRangeError] = useState('');
     const containerRef = useRef(null);
 
     // Close dropdown saat mengklik di luar komponen
@@ -43,12 +44,19 @@ const DateRangePicker = ({
         if (!isOpen) {
             setTempFrom(fromDate || '');
             setTempTo(toDate || '');
+            setRangeError('');
         }
         setIsOpen(!isOpen);
     };
 
     // Jalankan filter utama hanya saat tombol Apply diklik
     const handleApply = () => {
+        // Format YYYY-MM-DD bisa dibandingkan langsung sebagai teks
+        if (tempFrom && tempTo && tempFrom > tempTo) {
+            setRangeError('From Date cannot be later than To Date.');
+            return;
+        }
+        setRangeError('');
         if (onFromDateChange) onFromDateChange({ target: { value: tempFrom } });
         if (onToDateChange) onToDateChange({ target: { value: tempTo } });
         setIsOpen(false);
@@ -134,7 +142,7 @@ const DateRangePicker = ({
                             <input
                                 type="date"
                                 value={tempFrom}
-                                onChange={(e) => setTempFrom(e.target.value)}
+                                onChange={(e) => { setTempFrom(e.target.value); setRangeError(''); }}
                                 style={{
                                     width: '100%',
                                     padding: '6px',
@@ -153,7 +161,7 @@ const DateRangePicker = ({
                             <input
                                 type="date"
                                 value={tempTo}
-                                onChange={(e) => setTempTo(e.target.value)}
+                                onChange={(e) => { setTempTo(e.target.value); setRangeError(''); }}
                                 style={{
                                     width: '100%',
                                     padding: '6px',
@@ -164,6 +172,12 @@ const DateRangePicker = ({
                                 }}
                             />
                         </div>
+
+                        {rangeError && (
+                            <div style={{ color: '#dc3545', fontSize: '11px' }}>
+                                {rangeError}
+                            </div>
+                        )}
 
                         <button
                             type="button"

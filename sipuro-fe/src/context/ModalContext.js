@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const ModalContext = createContext(null);
 
@@ -34,7 +34,7 @@ export const ModalProvider = ({ children }) => {
     // --- FUNGSI PEMANGGIL GLOBAL ---
 
     // 1. Fungsi Konfirmasi & Prompt Input Teks
-    const showConfirm = ({
+    const showConfirm = useCallback(({
         title = 'Confirmation',
         message = 'Are you sure?',
         type = 'confirm',
@@ -61,10 +61,10 @@ export const ModalProvider = ({ children }) => {
             onConfirm,
             onCancel
         });
-    };
+    }, []);
 
     // 2. Fungsi Alert / Notifikasi
-    const showAlert = ({
+    const showAlert = useCallback(({
         type = 'info',
         title = 'Notification',
         message = '',
@@ -77,13 +77,13 @@ export const ModalProvider = ({ children }) => {
             message,
             onClose
         });
-    };
+    }, []);
 
     // --- HANDLER EVENT ---
-    const handleCloseConfirm = () => {
+    const handleCloseConfirm = useCallback(() => {
         if (confirmState.onCancel) confirmState.onCancel();
         setConfirmState((prev) => ({ ...prev, isOpen: false }));
-    };
+    }, [confirmState]);
 
     const handleExecuteConfirm = () => {
         if (confirmState.type === 'prompt') {
@@ -103,13 +103,34 @@ export const ModalProvider = ({ children }) => {
         setConfirmState((prev) => ({ ...prev, isOpen: false }));
     };
 
-    const handleCloseAlert = () => {
+    const handleCloseAlert = useCallback(() => {
         if (alertState.onClose) alertState.onClose();
         setAlertState((prev) => ({ ...prev, isOpen: false }));
-    };
+    }, [alertState]);
+
+    // Tombol Escape menutup modal teratas: alert (paling atas) dulu, baru konfirmasi/prompt.
+    useEffect(() => {
+        if (!alertState.isOpen && !confirmState.isOpen) return undefined;
+
+        const handleKeyDown = (e) => {
+            if (e.key !== 'Escape') return;
+            e.preventDefault();
+            if (alertState.isOpen) {
+                handleCloseAlert();
+            } else if (confirmState.isOpen) {
+                handleCloseConfirm();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [alertState.isOpen, confirmState.isOpen, handleCloseAlert, handleCloseConfirm]);
+
+    // Nilai context dibuat stabil agar komponen pemakai tidak render ulang setiap modal dibuka/ditutup.
+    const contextValue = useMemo(() => ({ showConfirm, showAlert }), [showConfirm, showAlert]);
 
     return (
-        <ModalContext.Provider value={{ showConfirm, showAlert }}>
+        <ModalContext.Provider value={contextValue}>
             {children}
 
             {/* ================= MODAL KONFIRMASI / PROMPT (z-index 9999) ================= */}
@@ -120,11 +141,16 @@ export const ModalProvider = ({ children }) => {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     zIndex: 9999
                 }}>
-                    <div style={{
-                        backgroundColor: '#fff', borderRadius: '8px', padding: '24px',
-                        width: '420px', maxWidth: '90vw', boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-                    }}>
-                        <h4 style={{ marginTop: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 'bold', color: '#212529' }}>
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="sipuro-confirm-title"
+                        style={{
+                            backgroundColor: '#fff', borderRadius: '8px', padding: '24px',
+                            width: '420px', maxWidth: '90vw', boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                        }}
+                    >
+                        <h4 id="sipuro-confirm-title" style={{ marginTop: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 'bold', color: '#212529' }}>
                             {confirmState.title}
                         </h4>
                         <p style={{ fontSize: '14px', color: '#495057', marginBottom: '16px', lineHeight: '1.4' }}>
@@ -203,10 +229,15 @@ export const ModalProvider = ({ children }) => {
                     backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
                     zIndex: 10000
                 }}>
-                    <div style={{
-                        backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '360px', maxWidth: '90vw',
-                        textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-                    }}>
+                    <div
+                        role="alertdialog"
+                        aria-modal="true"
+                        aria-labelledby="sipuro-alert-title"
+                        style={{
+                            backgroundColor: '#fff', padding: '24px', borderRadius: '8px', width: '360px', maxWidth: '90vw',
+                            textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                        }}
+                    >
                         <div style={{
                             fontSize: '40px',
                             color: alertState.type === 'success' ? '#198754' : alertState.type === 'error' ? '#dc3545' : alertState.type === 'warning' ? '#ffc107' : '#0d6efd',
@@ -214,7 +245,7 @@ export const ModalProvider = ({ children }) => {
                         }}>
                             {alertState.type === 'success' ? '✓' : alertState.type === 'error' ? '✕' : alertState.type === 'warning' ? '⚠️' : 'ℹ️'}
                         </div>
-                        <h4 style={{ marginTop: 0, marginBottom: '8px', fontSize: '18px', fontWeight: 'bold', color: '#212529' }}>
+                        <h4 id="sipuro-alert-title" style={{ marginTop: 0, marginBottom: '8px', fontSize: '18px', fontWeight: 'bold', color: '#212529' }}>
                             {alertState.title}
                         </h4>
                         <p style={{ fontSize: '14px', color: '#495057', marginBottom: '20px', lineHeight: '1.4' }}>

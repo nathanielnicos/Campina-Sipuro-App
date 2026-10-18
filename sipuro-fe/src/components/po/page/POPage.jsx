@@ -4,6 +4,7 @@ import POTable from './POTable';
 import POPdfModal from '../pdf-modal/POPdfModal';
 import PODModal from '../detail-modal/PODModal';
 import { useGlobalModal } from '../../../context/ModalContext';
+import useDebounce from '../../../hooks/useDebounce';
 
 // Import Hooks
 import { usePOFilterBar } from '../../../hooks/po/page/usePOFilterBar';
@@ -40,6 +41,9 @@ const POPage = ({ customerId = 1, user, refreshSignal = 0 }) => {
         handleResetFilters
     } = usePOFilterBar();
 
+    // Pencarian ke server ditunda 400 ms setelah pengguna berhenti mengetik (kotak input tetap langsung responsif)
+    const debouncedSearch = useDebounce(search, 400);
+
     // 2. Hook Fetch List Data
     const {
         poList,
@@ -55,7 +59,7 @@ const POPage = ({ customerId = 1, user, refreshSignal = 0 }) => {
         customerId,
         currentPage,
         setCurrentPage,
-        search,
+        search: debouncedSearch,
         startDate,
         endDate,
         status,
@@ -68,7 +72,7 @@ const POPage = ({ customerId = 1, user, refreshSignal = 0 }) => {
     const { exporting, handleExportExcel } = usePOExportExcel({
         customerId,
         filters: { 
-            search, 
+            search: debouncedSearch, 
             startDate, 
             endDate, 
             status 

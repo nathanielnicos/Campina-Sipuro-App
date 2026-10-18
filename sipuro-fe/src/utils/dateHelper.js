@@ -39,10 +39,20 @@ export const getWibFormattedLabel = (dateInput = new Date()) => {
 };
 
 /**
+ * Apakah nilai bisa dibaca sebagai tanggal yang valid.
+ * (getWibDate memakai "sekarang" sebagai cadangan untuk input rusak, sehingga formatter
+ * harus memeriksa input aslinya lebih dulu agar tidak menampilkan tanggal hari ini secara keliru.)
+ */
+const isValidDateInput = (value) => {
+    if (value === null || value === undefined || value === '') return false;
+    return !isNaN(new Date(value).getTime());
+};
+
+/**
  * Format tanggal diselaraskan dengan zona waktu WIB (contoh: "25 Sep 2026")
  */
 export const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
+    if (!isValidDateInput(dateStr)) return '-';
 
     const date = getWibDate(dateStr);
     if (isNaN(date.getTime())) return '-';
@@ -58,7 +68,7 @@ export const formatDate = (dateStr) => {
  * Format tanggal & waktu diselaraskan dengan zona waktu WIB (contoh: "25 Sep 2026 14:30:00")
  */
 export const formatDateTime = (dateString) => {
-    if (!dateString) return '-';
+    if (!isValidDateInput(dateString)) return '-';
 
     const date = getWibDate(dateString);
     if (isNaN(date.getTime())) return '-';
