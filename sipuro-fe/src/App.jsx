@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import POPage from './components/po/page/POPage';
 import BatchPage from './components/batch/page/BatchPage';
+import ProductionLotPage from './components/production-lot/page/ProductionLotPage';
 import ProductionSchedulePage from './components/productionSchedule/page/ProductionSchedulePage';
 import Dashboard from './components/dashboard/Dashboard';
 
@@ -141,6 +142,7 @@ function MainApp() {
         } />
         <Route path="/ppic-dashboard" element={<Dashboard />} />
         <Route path="/ppic-batch" element={<BatchPage currentUser={user} />} />
+        <Route path="/ppic-production-lot" element={<ProductionLotPage currentUser={user} />} />
         <Route path="/ppic-production-schedule" element={<ProductionSchedulePage />} />
         
         <Route path="/document-flow" element={<DocumentFlowPage currentUser={user} />} />

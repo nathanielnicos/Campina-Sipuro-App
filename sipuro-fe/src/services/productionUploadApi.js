@@ -11,7 +11,7 @@ export const previewProductionApi = async (formData) => {
         return response.data;
     } catch (error) {
         console.error('Error previewing production file:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal membaca file produksi.' };
+        return { success: false, message: error.response?.data?.message || 'Failed to read the production file.' };
     }
 };
 
@@ -25,6 +25,6 @@ export const confirmProductionApi = async (payload) => {
         return response.data;
     } catch (error) {
         console.error('Error confirming production:', error);
-        return { success: false, message: error.response?.data?.message || 'Gagal menyimpan data alokasi.' };
+        return { success: false, message: error.response?.data?.message || 'Failed to save allocation data.' };
     }
 };

@@ -1,7 +1,7 @@
 const xlsx = require('xlsx');
 const crypto = require('crypto');
 const { BusinessError } = require('../businessError');
-const { MAX_UPLOAD_ROWS } = require('./productionUploadConfig');
+const { MAX_UPLOAD_ROWS } = require('../uploadConfig');
 
 /**
  * Helper untuk memformat tanggal & jam dari Excel secara aman ke format SQL DATETIME (YYYY-MM-DD HH:mm:ss)

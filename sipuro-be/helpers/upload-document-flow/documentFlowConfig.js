@@ -1,6 +1,6 @@
 /**
  * Document Flow upload configuration. Change values here if needed.
- * File size limit is shared with the production upload (helpers/productionUploadConfig).
+ * File size limit is shared with the uploadConfig.js.
  */
 module.exports = {
     // Maximum number of data rows per upload (SubTot / Grand Total rows are excluded)

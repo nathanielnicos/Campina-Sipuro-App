@@ -4,7 +4,7 @@ const { calculateFifoAllocation, computeAllocationFingerprint } = require('../..
 const { loadProductionContext } = require('../../../helpers/upload-production/productionDataLoader');
 const { commitProductionAllocationTransaction } = require('../../../helpers/upload-production/productionCommitHelper');
 const { BusinessError, sendControllerError } = require('../../../helpers/businessError');
-const { COMMIT_LOCK_NAME, COMMIT_LOCK_TIMEOUT_SECONDS } = require('../../../helpers/upload-production/productionUploadConfig');
+const { COMMIT_LOCK_NAME, COMMIT_LOCK_TIMEOUT_SECONDS } = require('../../../helpers/uploadConfig');
 
 // Ubah error duplikat database menjadi pesan yang jelas
 const translateDuplicateEntry = (error) => {
