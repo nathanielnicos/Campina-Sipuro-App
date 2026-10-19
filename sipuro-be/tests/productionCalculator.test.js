@@ -6,7 +6,7 @@
  *   (Windows PowerShell)  $env:TZ="UTC"; node tests/productionCalculator.test.js
  */
 const assert = require('assert');
-const { calculateFifoAllocation, computeAllocationFingerprint } = require('../helpers/productionCalculatorHelper');
+const { calculateFifoAllocation, computeAllocationFingerprint } = require('../helpers/upload-production/productionCalculatorHelper');
 const { BusinessError } = require('../helpers/businessError');
 
 const products = [
