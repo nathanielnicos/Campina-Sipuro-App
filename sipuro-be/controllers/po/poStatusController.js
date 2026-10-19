@@ -4,6 +4,10 @@ const { logPOHeader } = require('../../helpers/poLogHelper');
 const { getWibDateTimeString } = require('../../helpers/dateHelper');
 const { safeError } = require('../../helpers/safeError');
 
+// Keputusan PPIC yang diperbolehkan, dan satu-satunya status PO yang boleh diputuskan.
+const ALLOWED_DECISIONS = ['Approved', 'Rejected'];
+const STATUS_WAITING = 'Waiting for Confirmation';
+
 /**
  * APPROVE / REJECT PO (UPDATE STATUS)
  */
@@ -14,6 +18,9 @@ exports.updatePOStatus = async (req, res) => {
         const { status, notes } = req.body;
         const updated_by = req.user.id;
         if (!status) return res.status(400).json({ success: false, message: 'Status is required.' });
+        if (!ALLOWED_DECISIONS.includes(status)) {
+            return res.status(400).json({ success: false, message: 'Status must be Approved or Rejected.' });
+        }
 
         const cleanedReason = notes ? notes.trim().slice(0, 50) : null;
 
@@ -21,17 +28,30 @@ exports.updatePOStatus = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Rejection reason is required (maximum 50 characters).' });
         }
 
+        await connection.beginTransaction();
+
+        // Kunci baris PO selama transaksi: jika pelanggan membatalkan PO pada saat yang sama,
+        // salah satu aksi menunggu dan aksi kedua melihat status terbaru.
         const [poRows] = await connection.query(
-            `SELECT po_number, customer_id, status FROM sipuro_db.po_headers WHERE po_header_id = ?`,
+            `SELECT po_number, customer_id, status FROM sipuro_db.po_headers WHERE po_header_id = ? FOR UPDATE`,
             [id]
         );
 
-        if (poRows.length === 0) return res.status(404).json({ success: false, message: 'PO data not found.' });
+        if (poRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: 'PO data not found.' });
+        }
 
         const targetPo = poRows[0];
-        const actionType = status === 'Rejected' ? 'REJECT' : (status === 'Approved' ? 'APPROVE' : 'STATUS_AUTO_CHANGE');
+        if (targetPo.status !== STATUS_WAITING) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: `PO can only be approved or rejected while its status is ${STATUS_WAITING}.`
+            });
+        }
 
-        await connection.beginTransaction();
+        const actionType = status === 'Rejected' ? 'REJECT' : 'APPROVE';
 
         // Menggunakan getWibDateTimeString() untuk mengisi timestamp WIB pada confirmed_at & updated_at
         const nowWib = getWibDateTimeString();

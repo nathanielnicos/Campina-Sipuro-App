@@ -6,6 +6,9 @@ const { generateNextPoNumber } = require('../../helpers/poHelper');
 const { priceItems } = require('../../helpers/poPricing');
 const { safeError } = require('../../helpers/safeError');
 
+// Status awal yang boleh dikirim klien saat membuat PO.
+const ALLOWED_CREATE_STATUSES = ['Draft', 'Waiting for Confirmation'];
+
 /**
  * CREATE PO
  */
@@ -21,7 +24,10 @@ exports.createPO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Incomplete request data.' });
         }
 
-        const targetStatus = status || 'Waiting for Confirmation';
+        const targetStatus = (status === undefined || status === null || status === '') ? 'Waiting for Confirmation' : status;
+        if (!ALLOWED_CREATE_STATUSES.includes(targetStatus)) {
+            return res.status(400).json({ success: false, message: 'Invalid PO status.' });
+        }
         const safeDescription = description ? description.trim().slice(0, 50) : null;
 
         const [customerRows] = await sipuroDb.query(
@@ -48,13 +54,20 @@ exports.createPO = async (req, res) => {
         const subtotal = pricing.subtotal;
         const total_amount = pricing.totalAmount;
 
-        // Generate Nomor PO Terpusat melalui Helper (Ambil string poNumber)
-        const { poNumber } = await generateNextPoNumber(connection, { customer_id, customerCode });
-
         // Timestamp WIB presisi untuk created_at & updated_at
         const nowWib = getWibDateTimeString();
 
         await connection.beginTransaction();
+
+        // Kunci baris po_settings sebagai antrean: pembuat PO lain menunggu sampai transaksi ini
+        // selesai, sehingga dua PO yang dibuat bersamaan tidak mendapat nomor yang sama.
+        // Kunci harus diambil sebelum membaca nomor terakhir.
+        await connection.query(
+            `SELECT setting_id FROM sipuro_db.po_settings ORDER BY setting_id DESC LIMIT 1 FOR UPDATE`
+        );
+
+        // Generate Nomor PO Terpusat melalui Helper (Ambil string poNumber)
+        const { poNumber } = await generateNextPoNumber(connection, { customer_id, customerCode });
 
         // Insert Header
         const [headerResult] = await connection.query(

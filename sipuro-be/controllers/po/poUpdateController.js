@@ -5,6 +5,12 @@ const { getWibDateTimeString } = require('../../helpers/dateHelper');
 const { priceItems } = require('../../helpers/poPricing');
 const { safeError } = require('../../helpers/safeError');
 
+const STATUS_DRAFT = 'Draft';
+const STATUS_WAITING = 'Waiting for Confirmation';
+
+// Status yang boleh dikirim klien saat menyimpan PO (Draft -> Draft/Waiting, Waiting -> Waiting).
+const ALLOWED_UPDATE_STATUSES = [STATUS_DRAFT, STATUS_WAITING];
+
 /**
  * UPDATE PO (REVISI QTY ITEM & STATUS)
  */
@@ -21,25 +27,49 @@ exports.updatePO = async (req, res) => {
 
         const safeDescription = description ? description.trim().slice(0, 50) : null;
 
+        const requestedStatus = (status === undefined || status === null || status === '') ? null : status;
+        if (requestedStatus !== null && !ALLOWED_UPDATE_STATUSES.includes(requestedStatus)) {
+            return res.status(400).json({ success: false, message: 'Invalid PO status.' });
+        }
+
+        await connection.beginTransaction();
+
+        // Kunci baris PO selama transaksi, sehingga aksi lain pada PO yang sama
+        // (misalnya PPIC menyetujui atau pelanggan membatalkan) menunggu dan melihat status terbaru.
         const [checkRows] = await connection.query(
-            `SELECT h.po_number, h.status, h.customer_id, c.company_name 
-             FROM sipuro_db.po_headers h
-             LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id 
-             WHERE h.po_header_id = ?`,
+            `SELECT po_number, status, customer_id, ppn_percent
+             FROM sipuro_db.po_headers
+             WHERE po_header_id = ?
+             FOR UPDATE`,
             [id]
         );
-        if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO not found.' });
+        if (checkRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: 'PO not found.' });
+        }
 
         const poData = checkRows[0];
         if (Number(poData.customer_id) !== Number(req.user.customerId)) {
+            await connection.rollback();
             return res.status(404).json({ success: false, message: 'PO not found.' });
         }
         // Memperbolehkan update jika status 'Draft' atau 'Waiting for Confirmation'
-        if (!['Draft', 'Waiting for Confirmation'].includes(poData.status)) {
+        if (!ALLOWED_UPDATE_STATUSES.includes(poData.status)) {
+            await connection.rollback();
             return res.status(400).json({ success: false, message: 'PO cannot be updated because of its current status.' });
         }
 
-        const newStatus = status || poData.status;
+        const newStatus = requestedStatus || poData.status;
+        if (poData.status === STATUS_WAITING && newStatus !== STATUS_WAITING) {
+            await connection.rollback();
+            return res.status(400).json({ success: false, message: 'A submitted PO cannot be changed back to Draft.' });
+        }
+
+        const [customerRows] = await connection.query(
+            `SELECT company_name FROM sipuro_db.customers WHERE customer_id = ?`,
+            [poData.customer_id]
+        );
+        poData.company_name = customerRows.length > 0 ? customerRows[0].company_name : null;
 
         // AMBIL STATUS DETAIL EKSISTING UNTUK CATATAN LOG
         const [existingDetails] = await connection.query(
@@ -50,8 +80,12 @@ exports.updatePO = async (req, res) => {
         );
         const existingMap = new Map(existingDetails.map(row => [row.po_detail_id, row]));
 
-        const [profileRows] = await sipuroDb.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
-        const ppn_percent = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
+        // PPN: Draft memakai PPN perusahaan saat ini (belum final, seperti harga).
+        // PO yang sudah dikirim (Waiting for Confirmation) memakai PPN yang tersimpan pada PO itu.
+        const [profileRows] = await connection.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
+        const currentPpn = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
+        const storedPpn = poData.ppn_percent !== null && poData.ppn_percent !== undefined ? parseFloat(poData.ppn_percent) : NaN;
+        const ppn_percent = (poData.status === STATUS_WAITING && Number.isFinite(storedPpn)) ? storedPpn : currentPpn;
 
         // Harga dihitung ulang di server. Draft: semua baris memakai harga hari ini.
         // Waiting for Confirmation: baris lama dengan produk yang sama tetap memakai harga tersimpan.
@@ -67,8 +101,6 @@ exports.updatePO = async (req, res) => {
         const total_amount = pricing.totalAmount;
 
         const nowWib = getWibDateTimeString();
-
-        await connection.beginTransaction();
 
         // Update Header beserta update status & updated_at WIB
         await connection.query(
@@ -234,27 +266,39 @@ exports.cancelPO = async (req, res) => {
         const { reason } = req.body;
         const canceled_by = req.user.id;
 
+        await connection.beginTransaction();
+
+        // Kunci baris PO selama transaksi (lihat updatePO).
         const [checkRows] = await connection.query(
-            `SELECT h.po_number, h.status, h.customer_id, c.company_name 
-             FROM sipuro_db.po_headers h
-             LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id 
-             WHERE h.po_header_id = ?`,
+            `SELECT po_number, status, customer_id
+             FROM sipuro_db.po_headers
+             WHERE po_header_id = ?
+             FOR UPDATE`,
             [id]
         );
-        if (checkRows.length === 0) return res.status(404).json({ success: false, message: 'PO not found.' });
+        if (checkRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: 'PO not found.' });
+        }
 
         const poData = checkRows[0];
         if (Number(poData.customer_id) !== Number(req.user.customerId)) {
+            await connection.rollback();
             return res.status(404).json({ success: false, message: 'PO not found.' });
         }
         // Memperbolehkan cancel jika status 'Draft' atau 'Waiting for Confirmation'
-        if (!['Draft', 'Waiting for Confirmation'].includes(poData.status)) {
+        if (!ALLOWED_UPDATE_STATUSES.includes(poData.status)) {
+            await connection.rollback();
             return res.status(400).json({ success: false, message: 'PO cannot be canceled because of its current status.' });
         }
 
-        const nowWib = getWibDateTimeString();
+        const [customerRows] = await connection.query(
+            `SELECT company_name FROM sipuro_db.customers WHERE customer_id = ?`,
+            [poData.customer_id]
+        );
+        poData.company_name = customerRows.length > 0 ? customerRows[0].company_name : null;
 
-        await connection.beginTransaction();
+        const nowWib = getWibDateTimeString();
 
         // 1. Update Header
         await connection.query(
