@@ -1,12 +1,11 @@
 import ProductionLotHeader from './ProductionLotHeader';
-import ProductionLotList from './ProductionLotList';
 
 // Custom Hooks
 import { useProductionLotPage } from '../../../hooks/production-lot/page/useProductionLotPage';
 
 const ProductionLotPage = ({ currentUser }) => {
     const {
-        reloadTrigger,
+        // reloadTrigger,
         handleTriggerReload
     } = useProductionLotPage();
 
