@@ -13,6 +13,7 @@ const batchRoutes = require('./routes/batchRoutes');
 const outstandingPoRoutes = require('./routes/outstandingPoRoutes');
 const productionLotRoutes = require('./routes/productionLotRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const doRoutes = require('./routes/doRoutes');
 const documentFlowRoutes = require('./routes/documentFlowRoutes');
 const productionSchedule = require('./routes/productionScheduleRoutes');
 const { requireAuth } = require('./middleware/auth');
@@ -78,6 +79,7 @@ app.use('/api/batch', batchRoutes);
 app.use('/api/outstanding-po', outstandingPoRoutes);
 app.use('/api/production-lot', productionLotRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/do', doRoutes);
 app.use('/api/document-flow', documentFlowRoutes);
 app.use('/api/production-schedule', productionSchedule);
 

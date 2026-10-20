@@ -1,8 +1,8 @@
 const { sipuroDb: db } = require('../../../config/db');
 const { parseProductionExcel } = require('../../../helpers/upload-production-lot/productionLotParserHelper');
-const { calculateFifoAllocation, computeAllocationFingerprint } = require('../../../helpers/upload-production-lot/productionLotCalculatorHelper');
-const { loadProductionContext } = require('../../../helpers/upload-production-lot/productionLotDataLoader');
-const { commitProductionAllocationTransaction } = require('../../../helpers/upload-production-lot/productionCommitHelper');
+const { calculateLotFifoAllocation, computeAllocationFingerprint } = require('../../../helpers/upload-production-lot/productionLotCalculatorHelper');
+const { loadProductionLotContext } = require('../../../helpers/upload-production-lot/productionLotDataLoader');
+const { commitProductionAllocationTransaction } = require('../../../helpers/upload-production-lot/productionLotCommitHelper');
 const { BusinessError, sendControllerError } = require('../../../helpers/businessError');
 const { COMMIT_LOCK_NAME, COMMIT_LOCK_TIMEOUT_SECONDS } = require('../../../helpers/uploadConfig');
 
@@ -79,13 +79,13 @@ exports.commitExcelAllocation = async (req, res) => {
             throw new BusinessError('This production lot allocation file has already been committed previously.', 409);
         }
 
-        const { existingHashes, openPoDetails, allProducts, context } = await loadProductionContext(
+        const { existingHashes, openPoDetails, allProducts, context } = await loadProductionLotContext(
             connection,
             rawRows,
             { forUpdate: true }
         );
 
-        const calculation = calculateFifoAllocation(rawRows, existingHashes, openPoDetails, allProducts, context);
+        const calculation = calculateLotFifoAllocation(rawRows, existingHashes, openPoDetails, allProducts, context);
 
         if (computeAllocationFingerprint(calculation) !== clientFingerprint) {
             throw new BusinessError(
