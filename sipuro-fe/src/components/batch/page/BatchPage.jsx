@@ -1,6 +1,6 @@
 import Header from './Header';
 import OutstandingTable from '../outstanding-tab/OutstandingTable';
-import BatchListTable from '../allocated-batch-tab/AllocatedBatchTable';
+import AllocatedBatchTable from '../allocated-batch-tab/AllocatedBatchTable';
 
 // Custom Hooks
 import { useBatchPage } from '../../../hooks/batch/page/useBatchPage';
@@ -32,7 +32,7 @@ const BatchPage = ({ currentUser }) => {
                 )}
 
                 {activeTab === 'mapping' && (
-                    <BatchListTable
+                    <AllocatedBatchTable
                         currentUser={currentUser}
                         reloadTrigger={reloadTrigger}
                         onRefreshAll={handleTriggerReload}

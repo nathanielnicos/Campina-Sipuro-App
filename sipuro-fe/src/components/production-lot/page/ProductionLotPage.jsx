@@ -17,11 +17,11 @@ const ProductionLotPage = ({ currentUser }) => {
                 onSuccessSave={handleTriggerReload}
             />
 
-            <ProductionLotList
+            {/* <ProductionLotList
                 currentUser={currentUser}
                 reloadTrigger={reloadTrigger}
                 onRefreshAll={handleTriggerReload}
-            />
+            /> */}
         </div>
     );
 }

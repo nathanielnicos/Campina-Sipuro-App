@@ -137,15 +137,12 @@ const parseProductionExcel = (fileBuffer) => {
         const transType = row[1] ? String(row[1]).trim() : ''; // Kolom B
         const status = row[2] ? String(row[2]).trim() : '';    // Kolom C
 
-        // Filter: Hanya ambil Trans Type tertentu dan Status harus "GOOD"
+        // Filter: Hanya ambil Trans Type tertentu (status selain 'GOOD' dibiarkan lolos agar ditangani kalkulator)
         if (transType !== 'WIP Completion' && transType !== 'WIP Completion Return') {
             continue;
         }
-        if (status !== 'GOOD') {
-            continue;
-        }
 
-        const transDateRaw = row[3];                           // Kolom D (Trans Date)
+        const transDateRaw = row[3];                         // Kolom D (Trans Date)
         const itemCode = row[4] ? String(row[4]).trim() : '';  // Kolom E (Item)
         
         // Kolom G (Doc Source) sebagai nomor batch, hapus teks "BATCH" di depannya jika ada
@@ -156,7 +153,7 @@ const parseProductionExcel = (fileBuffer) => {
         const batchNumber = docSource;
 
         const lotNumber = row[11] ? String(row[11]).trim() : ''; // Kolom L (Lot Num)
-        const expDateRaw = row[15];                              // Kolom P (Exp Date)
+        const expDateRaw = row[15];                            // Kolom P (Exp Date)
 
         const excelRowNumber = i + 1 + firstSheetRow;
 
@@ -176,7 +173,7 @@ const parseProductionExcel = (fileBuffer) => {
         }
         const qtyPac = qtyResult.error ? 0 : qtyResult.value;
 
-        // Simpan nilai positif absolut untuk baris database & rowHash (menjaga pencegahan duplikat upload baris persis)
+        // Simpan nilai positif absolut untuk baris database & rowHash
         const storedQtyPac = Math.abs(qtyPac);
 
         const actualCompletedDatetime = parseExcelDateTime(transDateRaw, null);
@@ -200,8 +197,8 @@ const parseProductionExcel = (fileBuffer) => {
             itemCode,
             lotStatus: status,
             transType,
-            qtyPac: storedQtyPac,         // Disimpan positif sesuai format file untuk log/tabel detail
-            rawAllocationQty: transType === 'WIP Completion Return' ? -Math.abs(qtyPac) : qtyPac, // Disiapkan negatif untuk WIP Completion Return saat di-sum ke alokasi PO
+            qtyPac: storedQtyPac,         
+            rawAllocationQty: transType === 'WIP Completion Return' ? -Math.abs(qtyPac) : qtyPac, 
             actualCompletedDatetime,
             expiredDate,
             rowHash,

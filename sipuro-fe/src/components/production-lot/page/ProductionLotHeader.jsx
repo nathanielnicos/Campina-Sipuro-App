@@ -1,7 +1,7 @@
 import { useUploadProductionLot } from '../../../hooks/production-lot/import-modal/useUploadProductionLot';
 import ImportProductionLotModal from '../import-modal/ImportProductionLotModal';
 
-const Header = ({
+const ProductionLotHeader = ({
     currentUser,
     onSuccessSave
 }) => {
@@ -62,4 +62,4 @@ const Header = ({
     );
 };
 
-export default Header;
+export default ProductionLotHeader;

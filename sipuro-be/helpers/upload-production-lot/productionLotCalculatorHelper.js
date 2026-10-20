@@ -6,12 +6,12 @@
  *
  * Aturan utama:
  *  - Satuan alokasi adalah grup (batchNumber + lotNumber + itemCode). Total bersih grup 
-    (plus dan minus dijumlahkan) harus teralokasi PENUH (boleh dipecah ke beberapa PO), 
-    kalau tidak seluruh baris grup menjadi Unallocated.
- *  - Urutan grup: start datetime ASC, completed datetime ASC, batch number ASC, lot number ASC.
+ *    (plus dan minus dijumlahkan) harus teralokasi PENUH (boleh dipecah ke beberapa PO), 
+ *    kalau tidak seluruh baris grup menjadi Unallocated.
+ *  - Urutan grup: completed datetime ASC, batch number ASC, lot number ASC, urutan kemunculan di file.
  *  - Total bersih positif: FIFO berdasarkan po_headers.created_at (lalu po_detail_id).
  *  - Total bersih negatif: mengurangi alokasi lot yang sudah ada, PO TERBARU lebih dulu.
- *  - Filter tanggal PO berlaku untuk plus dan minus.
+ *  - Filter tanggal PO berlaku untuk mencocokkan completed date lot terhadap po_headers.created_at.
  */
 const crypto = require('crypto');
 const { BusinessError } = require('../businessError');
@@ -143,7 +143,6 @@ const calculateLotFifoAllocation = (
                     itemCode: row.itemCode,
                     rows: [],
                     totalQty: 0,
-                    start: null,
                     completed: null,
                     expiredDate: row.expiredDate,
                     firstIndex: index,
@@ -153,14 +152,10 @@ const calculateLotFifoAllocation = (
             }
 
             group.rows.push(row);
-            // Menggunakan rawAllocationQty (bisa positif/negatif tergantung transType)
             group.totalQty += Number(row.rawAllocationQty) || 0;
 
-            if (!row.actualStartDatetime || !row.actualCompletedDatetime) {
+            if (!row.actualCompletedDatetime) {
                 group.missingDate = true;
-            }
-            if (row.actualStartDatetime && (group.start === null || row.actualStartDatetime < group.start)) {
-                group.start = row.actualStartDatetime;
             }
             if (row.actualCompletedDatetime && (group.completed === null || row.actualCompletedDatetime > group.completed)) {
                 group.completed = row.actualCompletedDatetime;
@@ -171,10 +166,9 @@ const calculateLotFifoAllocation = (
         }
     });
 
-    // 2. Urutkan grup berdasarkan kronologi start, completed, batch, lot
+    // 2. Urutkan grup berdasarkan kronologi completed datetime ASC, batch, lot, kemunculan file
     const sortedGroups = [...groups.values()].sort((a, b) => {
         return (
-            cmpNullLast(a.start, b.start) ||
             cmpNullLast(a.completed, b.completed) ||
             cmpNullLast(String(a.batchNumber), String(b.batchNumber)) ||
             cmpNullLast(String(a.lotNumber), String(b.lotNumber)) ||
@@ -232,9 +226,8 @@ const calculateLotFifoAllocation = (
     const allocatedGroups = [];
     const unallocatedGroups = [];
 
-    const passesDateFilter = (po, startDate, completedDate) => {
+    const passesDateFilter = (po, completedDate) => {
         if (!po.createdDate) return true;
-        if (startDate && startDate < po.createdDate) return false;
         if (completedDate && completedDate < po.createdDate) return false;
         return true;
     };
@@ -256,14 +249,13 @@ const calculateLotFifoAllocation = (
         if (group.totalQty === 0) return fail(REASONS.NET_ZERO);
 
         const lotDbId = existingLot ? existingLot.id : null;
-        const startDate = toDateOnly(group.start);
         const completedDate = toDateOnly(group.completed);
 
         if (group.totalQty > 0) {
             // ---------- PLUS: alokasi FIFO ----------
             const candidates = [...poStates.values()]
                 .filter((po) => po.productCode === group.itemCode)
-                .filter((po) => passesDateFilter(po, startDate, completedDate))
+                .filter((po) => passesDateFilter(po, completedDate))
                 .filter((po) => {
                     if (lotDbId === null) return true;
                     const existing = allocByPair.get(`${po.poDetailId}_${lotDbId}`);
@@ -275,8 +267,8 @@ const calculateLotFifoAllocation = (
 
             const withCapacity = candidates.filter((po) => po.baseQty - po.currentFulfilledQty > 0);
             const totalCapacity = withCapacity.reduce((sum, po) => sum + (po.baseQty - po.currentFulfilledQty), 0);
-            
-            // Aturan ketat: Jika kapasitas total tidak mencukupi, seluruh baris grup masuk unallocated (tidak diparuh paksa)
+
+            // Aturan: Jika kapasitas total tidak mencukupi, seluruh baris grup masuk unallocated (tidak diparuh paksa)
             if (totalCapacity < group.totalQty) return fail(REASONS.EXCEEDS_CAPACITY);
 
             let remaining = group.totalQty;
@@ -319,7 +311,7 @@ const calculateLotFifoAllocation = (
         if (withActivePo.length === 0) return fail(REASONS.PO_NOT_ACTIVE);
 
         const withDate = withActivePo.filter((e) =>
-            passesDateFilter(poStates.get(e.poDetailId), startDate, completedDate)
+            passesDateFilter(poStates.get(e.poDetailId), completedDate)
         );
         if (withDate.length === 0) return fail(REASONS.DATE_BEFORE_PO);
 
@@ -369,7 +361,6 @@ const calculateLotFifoAllocation = (
                 fulfilledQty: next,
                 addedQty: delta,
                 rowStatus: status,
-                actualStartDatetime: group.start,
                 actualCompletedDatetime: group.completed,
                 expiredDate: group.expiredDate,
                 actDate: group.completed ? group.completed.split(' ')[0] : null
@@ -398,7 +389,6 @@ const calculateLotFifoAllocation = (
             productCode: group.itemCode,
             idProduct: product.id_product,
             productName: product.product_name,
-            actualStartDatetime: group.start,
             actualCompletedDatetime: group.completed,
             expiredDate: group.expiredDate,
             formattedActualDate,
