@@ -1,4 +1,8 @@
 const { sipuroDb } = require('../../../config/db');
+const { safeError } = require('../../../helpers/safeError');
+
+// Batas atas jumlah baris per halaman (mencegah permintaan limit berukuran sangat besar).
+const MAX_PAGE_LIMIT = 100;
 
 /**
  * Mengambil daftar produk dan PO terkait yang masih outstanding
@@ -6,7 +10,7 @@ const { sipuroDb } = require('../../../config/db');
 exports.getOutstandingSummary = async (req, res) => {
     try {
         const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
-        const limitNum = Math.max(1, parseInt(req.query.limit, 10) || 10);
+        const limitNum = Math.min(MAX_PAGE_LIMIT, Math.max(1, parseInt(req.query.limit, 10) || 10));
         const offset = (pageNum - 1) * limitNum;
 
         const {
@@ -26,6 +30,17 @@ exports.getOutstandingSummary = async (req, res) => {
             `d.fulfilled_qty < d.base_qty`
         ];
         let queryParams = [];
+
+        // Customer hanya boleh melihat PO milik perusahaannya sendiri. Identitas diambil dari token login,
+        // bukan dari parameter request.
+        const user = req.user || {};
+        if (user.type === 'CUSTOMER') {
+            if (!user.customerId) {
+                return res.status(403).json({ success: false, message: 'You do not have permission to access this resource.' });
+            }
+            whereClauses.push(`h.customer_id = ?`);
+            queryParams.push(user.customerId);
+        }
 
         // Filter spesifik berdasarkan status item po_details jika dikirimkan oleh client
         if (status) {
@@ -66,7 +81,8 @@ exports.getOutstandingSummary = async (req, res) => {
 
         const targetSortColumn = allowedSortKeys[sortKey] || 'p.product_code';
         const targetSortOrder = String(sortOrder).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
-        const orderBySql = `ORDER BY ${targetSortColumn} ${targetSortOrder}`;
+        // p.id_product sebagai pembeda terakhir agar urutan antar halaman stabil.
+        const orderBySql = `ORDER BY ${targetSortColumn} ${targetSortOrder}, p.id_product ASC`;
 
         // Query menghitung total SKU
         const countQuery = `
@@ -151,6 +167,6 @@ exports.getOutstandingSummary = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching outstanding summary:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch outstanding batch summary.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch outstanding batch summary.', error: safeError(error) });
     }
 };

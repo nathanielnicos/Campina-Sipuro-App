@@ -35,7 +35,8 @@ exports.commitExcelAllocation = async (req, res) => {
             throw new BusinessError('Excel file is required.', 400);
         }
 
-        const userId = Number.parseInt(req.body.userId, 10);
+        // Pelaku selalu dari token login; userId dari body diabaikan.
+        const userId = Number.parseInt(req.user && req.user.id, 10);
         if (!Number.isInteger(userId) || userId <= 0) {
             throw new BusinessError('A valid user is required. Please log in again.', 400);
         }

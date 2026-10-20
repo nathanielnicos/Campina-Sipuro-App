@@ -43,6 +43,14 @@ sipuroDb.pool.on('connection', (connection) => {
       console.error('Gagal mengatur time_zone sesi database:', err.message);
     }
   });
+
+  // Batas panjang hasil GROUP_CONCAT. Bawaan MySQL (Aiven) hanya 1024 karakter sehingga hasil
+  // bisa terpotong diam-diam; MariaDB lokal sudah 1 MB, jadi masalah ini tidak terlihat di lokal.
+  connection.query('SET SESSION group_concat_max_len = 1048576', (err) => {
+    if (err) {
+      console.error('Gagal mengatur group_concat_max_len sesi database:', err.message);
+    }
+  });
 });
 
 module.exports = {

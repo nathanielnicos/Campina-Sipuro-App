@@ -29,7 +29,7 @@ exports.updateAllocationQty = async (req, res) => {
 
     try {
         const { allocationId } = req.params;
-        const { newAllocatedQty, reason, userId: bodyUserId } = req.body;
+        const { newAllocatedQty, reason } = req.body;
 
         // Validasi allocationId
         if (!allocationId || isNaN(allocationId)) {
@@ -57,7 +57,8 @@ exports.updateAllocationQty = async (req, res) => {
         await connection.beginTransaction();
         inTransaction = true;
 
-        const userId = await resolveValidUserId(connection, bodyUserId || (req.user ? req.user.id : null));
+        // Pelaku selalu dari token login; userId dari body diabaikan.
+        const userId = await resolveValidUserId(connection, req.user ? req.user.id : null);
 
         // 1. Fetch current allocation record along with po_details info
         const [[allocation]] = await connection.query(`

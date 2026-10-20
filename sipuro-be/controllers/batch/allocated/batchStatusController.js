@@ -13,7 +13,7 @@ exports.updateAllocationStatus = async (req, res) => {
 
     try {
         const { allocationId } = req.params;
-        const { action, reason, userId: bodyUserId } = req.body;
+        const { action, reason } = req.body;
 
         if (action !== 'FORCE_CLOSE') {
             throw new BusinessError('Invalid action type. Only "FORCE_CLOSE" action is supported.', 400);
@@ -23,7 +23,8 @@ exports.updateAllocationStatus = async (req, res) => {
         await connection.beginTransaction();
         inTransaction = true;
 
-        const userId = await resolveValidUserId(connection, bodyUserId || (req.user ? req.user.id : null));
+        // Pelaku selalu dari token login; userId dari body diabaikan.
+        const userId = await resolveValidUserId(connection, req.user ? req.user.id : null);
 
         // 1. Fetch current allocation detail along with po_details info
         const [[allocation]] = await connection.query(`
