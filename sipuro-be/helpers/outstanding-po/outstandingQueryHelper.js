@@ -9,6 +9,9 @@
  */
 
 const { BusinessError } = require('../businessError');
+const {
+    NOT_DELETED_SQL, APPROVED_HEADER_SQL, OPEN_ITEM_SQL, CLOSED_ITEM_SQL, REMAINING_SQL
+} = require('../po/openItemRules');
 
 const MAX_PAGE_LIMIT = 100;
 const DEFAULT_PAGE_LIMIT = 10;
@@ -23,16 +26,12 @@ const SORT_COLUMNS = {
     total_po_count: 'total_po_count'
 };
 
-// Sisa hanya dihitung untuk item yang masih berjalan; item Closed/Partially Closed sisanya sudah dilepas.
-const REMAINING_SQL = `CASE WHEN d.status IN ('Active', 'Close Requested')
-        THEN GREATEST(0, d.base_qty - IFNULL(d.fulfilled_qty, 0)) ELSE 0 END`;
-
 // Yang tampil: PO Approved; item yang masih berjalan dan belum terpenuhi, ditambah item yang sudah di-close.
 const BASE_CONDITIONS = [
-    'd.deleted_at IS NULL',
-    `h.status = 'Approved'`,
-    `((d.status IN ('Active', 'Close Requested') AND IFNULL(d.fulfilled_qty, 0) < d.base_qty)
-        OR d.status IN ('Closed', 'Partially Closed'))`
+    NOT_DELETED_SQL,
+    APPROVED_HEADER_SQL,
+    `((${OPEN_ITEM_SQL})
+        OR ${CLOSED_ITEM_SQL})`
 ];
 
 const asText = (value) => (typeof value === 'string' ? value.trim() : '');

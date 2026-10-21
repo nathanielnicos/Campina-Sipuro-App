@@ -101,11 +101,17 @@ const POPdfDocument = forwardRef(({ poData, seller, ppnPercentNum }, ref) => {
             {/* Metadata Dokumen */}
             <div style={{ fontSize: '10px', color: '#666', marginBottom: '24px', paddingBottom: '12px', borderBottom: '1px solid #ddd', lineHeight: '1.5' }}>
                 {/* 1. Informasi Pembuat / Pemrakarsa */}
-                <div>
-                    <strong>Created by:</strong> {header.creator_name || 'System'}
-                </div>
+                {header.suggester_name && !header.creator_name ? (
+                    <div>
+                        <strong>Suggested by PPIC:</strong> {header.suggester_name}
+                    </div>
+                ) : (
+                    <div>
+                        <strong>Created by:</strong> {header.creator_name || 'System'}
+                    </div>
+                )}
 
-                {/* 2. Informasi Customer yang Mengirim / Mempublikasikan (jika berasal dari sistem) */}
+                {/* 2. Informasi Customer yang Mengirim / Mempublikasikan (jika tidak dibuat oleh customer) */}
                 {!header.creator_name && header.updater_name && (
                     <div>
                         <strong>Submitted by:</strong> {header.updater_name}

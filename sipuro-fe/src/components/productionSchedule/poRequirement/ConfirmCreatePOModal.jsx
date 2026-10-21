@@ -73,6 +73,7 @@ const ConfirmCreatePOModal = ({
                                 boxSizing: 'border-box'
                             }}
                         >
+                            <option value="">-- Select customer --</option>
                             {customers.map(c => (
                                 <option key={c.customer_id} value={c.customer_id}>
                                     {c.company_name} ({c.customer_code})

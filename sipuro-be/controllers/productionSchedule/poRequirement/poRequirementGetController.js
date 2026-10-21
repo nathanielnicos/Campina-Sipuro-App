@@ -1,5 +1,8 @@
 const { sipuroDb } = require('../../../config/db');
 const { getDefaultRollingWeeks, generateWeekRange, getStartDateOfISOWeek } = require('../../../helpers/weekHelper');
+const {
+    NOT_DELETED_SQL, APPROVED_HEADER_SQL, OPEN_ITEM_SQL, REMAINING_SQL
+} = require('../../../helpers/po/openItemRules');
 
 const parseWeekString = (weekStr) => {
     if (!weekStr || !weekStr.includes('-W')) return null;
@@ -64,12 +67,12 @@ exports.getPORequirementSummary = async (req, res) => {
             LEFT JOIN (
                 SELECT 
                     d.id_product,
-                    SUM(GREATEST(0, d.base_qty - d.fulfilled_qty)) AS total_po_outstanding
+                    SUM(${REMAINING_SQL}) AS total_po_outstanding
                 FROM sipuro_db.po_details d
                 JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
-                WHERE d.deleted_at IS NULL
-                  AND h.status = 'Approved'
-                  AND d.fulfilled_qty < d.base_qty
+                WHERE ${NOT_DELETED_SQL}
+                  AND ${APPROVED_HEADER_SQL}
+                  AND ${OPEN_ITEM_SQL}
                 GROUP BY d.id_product
             ) po_summary ON p.id_product = po_summary.id_product
             LEFT JOIN (
@@ -152,14 +155,14 @@ exports.getPORequirementDetail = async (req, res) => {
                 h.po_number,
                 DATE_FORMAT(h.created_at, '%Y-%m-%d') AS created_date,
                 d.base_qty AS required_qty,
-                GREATEST(0, d.base_qty - d.fulfilled_qty) AS remaining_qty
+                ${REMAINING_SQL} AS remaining_qty
             FROM sipuro_db.po_details d
             JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
             WHERE d.id_product = ?
-              AND d.deleted_at IS NULL
-              AND h.status = 'Approved'
-              AND d.fulfilled_qty < d.base_qty
-            ORDER BY h.created_at ASC;
+              AND ${NOT_DELETED_SQL}
+              AND ${APPROVED_HEADER_SQL}
+              AND ${OPEN_ITEM_SQL}
+            ORDER BY h.created_at ASC, h.po_header_id ASC, d.po_detail_id ASC;
         `;
         const [poList] = await sipuroDb.query(poQuery, [id_product]);
 

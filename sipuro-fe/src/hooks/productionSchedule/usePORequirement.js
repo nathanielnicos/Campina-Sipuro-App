@@ -122,8 +122,9 @@ export const usePORequirement = () => {
             const custRes = await fetchCustomersList();
             if (custRes.success && custRes.data.length > 0) {
                 setCustomers(custRes.data);
-                setSelectedCustomerId(custRes.data[0].customer_id);
             }
+            // Customer harus dipilih secara sadar, bukan otomatis customer pertama.
+            setSelectedCustomerId('');
 
             // Reset description setiap kali modal konfirmasi dibuka
             setDescription('');

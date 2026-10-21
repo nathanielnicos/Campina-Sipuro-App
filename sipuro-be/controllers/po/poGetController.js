@@ -127,11 +127,13 @@ exports.getPODetail = async (req, res) => {
                 c.customer_code, 
                 c.address,
                 creator.full_name AS creator_name,
-                updater.full_name AS updater_name
+                updater.full_name AS updater_name,
+                suggester.full_name AS suggester_name
             FROM sipuro_db.po_headers h
             LEFT JOIN sipuro_db.customers c ON h.customer_id = c.customer_id
             LEFT JOIN sipuro_db.customer_users creator ON h.created_by = creator.customer_user_id
             LEFT JOIN sipuro_db.customer_users updater ON h.updated_by = updater.customer_user_id
+            LEFT JOIN sipuro_db.employees suggester ON h.suggested_by = suggester.id
             WHERE h.po_header_id = ?
         `;
         const [headerRows] = await sipuroDb.query(headerQuery, [id]);
