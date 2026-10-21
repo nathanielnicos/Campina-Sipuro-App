@@ -1,11 +1,23 @@
 import axios from './apiClient';
 import { API_BASE_URL } from './config';
 
-const BASE_URL = `${API_BASE_URL}/production-lot/upload`;
+const BASE_URL = `${API_BASE_URL}/production-lot`;
+
+export const fetchLotMapping = async (page = 1, limit = 10, filters = {}) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/mapping`, {
+            params: { page, limit, ...filters }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching lot mapping:', error);
+        return { success: false, message: error.response?.data?.message || 'Failed to fetch lot mapping.' };
+    }
+};
 
 export const previewProductionLotApi = async (formData) => {
     try {
-        const response = await axios.post(`${BASE_URL}/preview`, formData, {
+        const response = await axios.post(`${BASE_URL}/upload/preview`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;
@@ -19,7 +31,7 @@ export const previewProductionLotApi = async (formData) => {
 // Server menghitung ulang alokasi dari file tersebut dan menolak jika hasilnya berbeda dari preview.
 export const confirmProductionLotApi = async (payload) => {
     try {
-        const response = await axios.post(`${BASE_URL}/commit`, payload, {
+        const response = await axios.post(`${BASE_URL}/upload/commit`, payload, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;

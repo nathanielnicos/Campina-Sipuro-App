@@ -4,7 +4,7 @@ const productionLotController = require('../controllers/production-lot/productio
 const { handleExcelUpload } = require('../middleware/excelUpload');
 
 // 1. RUTE STATIS (GET)
-router.get('/list', productionLotController.getAllocatedLotMapping);
+router.get('/mapping', productionLotController.getAllocatedLotMapping);
 
 // 2. RUTE DINAMIS (GET dengan Parameter)
 

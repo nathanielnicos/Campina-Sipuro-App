@@ -85,7 +85,7 @@ exports.updatePOStatus = async (req, res) => {
             recipientId: targetPo.customer_id,
             senderType: 'EMPLOYEE',
             senderId: updated_by || null,
-            link: '/po-list?search=' + encodeURIComponent(targetPo.po_number)
+            link: '/po?search=' + encodeURIComponent(targetPo.po_number)
         });
 
         res.json({ success: true, message: `PO status successfully updated to ${status}.` });

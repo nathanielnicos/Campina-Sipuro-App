@@ -57,7 +57,7 @@ exports.createDraftPO = async (req, res) => {
             recipientId: customerId,
             senderType: 'EMPLOYEE',
             senderId: employeeId,
-            link: '/po-list?search=' + encodeURIComponent(poNumber)
+            link: '/po?search=' + encodeURIComponent(poNumber)
         });
 
         res.json({

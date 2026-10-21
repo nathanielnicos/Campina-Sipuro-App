@@ -239,7 +239,7 @@ exports.updatePO = async (req, res) => {
                 recipientDepartment: 'PPIC',
                 senderType: 'CUSTOMER',
                 senderId: updated_by || poData.customer_id,
-                link: '/po-list?search=' + encodeURIComponent(poData.po_number)
+                link: '/po?search=' + encodeURIComponent(poData.po_number)
             });
         }
 
@@ -360,7 +360,7 @@ exports.cancelPO = async (req, res) => {
                 recipientDepartment: 'PPIC',
                 senderType: 'CUSTOMER',
                 senderId: canceled_by || poData.customer_id,
-                link: '/po-list?search=' + encodeURIComponent(poData.po_number)
+                link: '/po?search=' + encodeURIComponent(poData.po_number)
             });
         }
 

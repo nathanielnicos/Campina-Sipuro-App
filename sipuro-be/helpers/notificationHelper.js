@@ -35,7 +35,7 @@ const createNotification = async ({
     recipientDepartment = null,
     senderType = null,
     senderId = null,
-    link = '/po-list'
+    link = '/po'
 }) => {
     try {
         // 1. Insert PLAIN TEXT notification record into database for Web UI

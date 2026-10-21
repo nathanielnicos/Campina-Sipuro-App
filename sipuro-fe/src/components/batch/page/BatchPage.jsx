@@ -1,5 +1,5 @@
 import Header from './Header';
-import AllocatedBatchTable from '../allocated-batch-tab/AllocatedBatchTable';
+import AllocatedBatchTable from '../allocated-batch/AllocatedBatchTable';
 
 // Custom Hooks
 import { useBatchPage } from '../../../hooks/batch/page/useBatchPage';

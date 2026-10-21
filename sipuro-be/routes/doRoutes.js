@@ -4,7 +4,7 @@ const deliveryOrderController = require('../controllers/do/deliveryOrderControll
 const { handleExcelUpload } = require('../middleware/excelUpload');
 
 // 1. RUTE STATIS (GET)
-router.get('/list', deliveryOrderController.getDeliveryOrderMapping);
+router.get('/mapping', deliveryOrderController.getDeliveryOrderMapping);
 
 // 2. RUTE DINAMIS (GET dengan Parameter)
 

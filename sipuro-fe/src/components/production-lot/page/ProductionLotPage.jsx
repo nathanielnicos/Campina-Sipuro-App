@@ -1,3 +1,4 @@
+import AllocatedLotTable from '../allocated-lot/AllocatedLotTable';
 import ProductionLotHeader from './ProductionLotHeader';
 
 // Custom Hooks
@@ -5,7 +6,7 @@ import { useProductionLotPage } from '../../../hooks/production-lot/page/useProd
 
 const ProductionLotPage = ({ currentUser }) => {
     const {
-        // reloadTrigger,
+        reloadTrigger,
         handleTriggerReload
     } = useProductionLotPage();
 
@@ -16,11 +17,10 @@ const ProductionLotPage = ({ currentUser }) => {
                 onSuccessSave={handleTriggerReload}
             />
 
-            {/* <ProductionLotList
+            <AllocatedLotTable
                 currentUser={currentUser}
                 reloadTrigger={reloadTrigger}
-                onRefreshAll={handleTriggerReload}
-            /> */}
+            />
         </div>
     );
 }

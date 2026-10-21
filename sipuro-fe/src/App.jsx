@@ -26,8 +26,6 @@ import { parseLegacyQuery, getRoleFlags } from './utils/outstandingPoHelpers';
 
 import { ModalProvider } from './context/ModalContext';
 
-// Menu Batch kini khusus PPIC. Customer dan tautan notifikasi lama
-// (/ppic-batch?po=...&product=...) dialihkan ke menu Outstanding PO.
 function BatchRoute({ user }) {
   const location = useLocation();
   const legacy = parseLegacyQuery(location.search);
@@ -76,9 +74,9 @@ function MainApp() {
   }, [navigate]);
 
   const getDefaultPath = (userData) => {
-    if (!userData) return '/po-list';
+    if (!userData) return '/po';
     const userMenus = getNavItemsByUser(userData);
-    return userMenus && userMenus.length > 0 ? userMenus[0].path : '/po-list';
+    return userMenus && userMenus.length > 0 ? userMenus[0].path : '/po';
   };
 
   const handleLoginSuccess = (userData) => {
@@ -149,26 +147,26 @@ function MainApp() {
 
       <Routes>
         <Route path="/" element={<Navigate to={defaultRedirect} replace />} />
-        <Route path="/po-list" element={
+        <Route path="/po" element={
           <POPage
             customerId={user.role === 'CUSTOMER' ? user.customer_id : null}
             user={user}
             refreshSignal={refreshKey}
           />
         } />
-        <Route path="/ppic-dashboard" element={<Dashboard />} />
-        <Route path="/ppic-batch" element={<BatchRoute user={user} />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/production-batch" element={<BatchRoute user={user} />} />
         <Route path="/outstanding-po" element={<OutstandingPoPage currentUser={user} />} />
-        <Route path="/ppic-production-lot" element={<ProductionLotPage currentUser={user} />} />
-        <Route path="/ppic-production-schedule" element={<ProductionSchedulePage />} />
+        <Route path="/production-lot" element={<ProductionLotPage currentUser={user} />} />
+        <Route path="/production-schedule" element={<ProductionSchedulePage />} />
         
         <Route path="/document-flow" element={<DocumentFlowPage currentUser={user} />} />
 
-        <Route path="/sa-employees" element={<EmployeeListPage />} />
-        <Route path="/sa-customers" element={<CustomerUserListPage />} />
-        <Route path="/sa-products" element={<ProductListPage />} />
-        <Route path="/sa-prices" element={<PriceListPage />} />
-        <Route path="/sa-settings" element={<SettingPage />} />
+        <Route path="/employees" element={<EmployeeListPage />} />
+        <Route path="/customers" element={<CustomerUserListPage />} />
+        <Route path="/products" element={<ProductListPage />} />
+        <Route path="/prices" element={<PriceListPage />} />
+        <Route path="/settings" element={<SettingPage />} />
 
         <Route path="/profile" element={
           <ProfilePage currentUser={user} onUserUpdated={handleUserUpdated} />
