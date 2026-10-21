@@ -2,8 +2,6 @@ import { useUploadProduction } from '../../../hooks/batch/page/useUploadProducti
 import ImportExcelModal from '../import-excel-modal/ImportExcelModal';
 
 const Header = ({
-    activeTab,
-    onTabChange,
     currentUser,
     onSuccessSave
 }) => {
@@ -29,46 +27,12 @@ const Header = ({
         <>
             <div style={{
                 display: 'flex',
-                justifyContent: 'space-between',
+                justifyContent: 'flex-end',
                 alignItems: 'center',
-                borderBottom: '2px solid #dee2e6',
                 marginBottom: '20px'
             }}>
-                <div style={{ display: 'flex' }}>
-                    <button
-                        onClick={() => onTabChange('summary')}
-                        style={{
-                            padding: '12px 20px',
-                            border: 'none',
-                            background: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            fontSize: '14px',
-                            borderBottom: activeTab === 'summary' ? '3px solid #0d6efd' : '3px solid transparent',
-                            color: activeTab === 'summary' ? '#0d6efd' : '#6c757d'
-                        }}
-                    >
-                        Outstanding PO
-                    </button>
-                    <button
-                        onClick={() => onTabChange('mapping')}
-                        style={{
-                            padding: '12px 20px',
-                            border: 'none',
-                            background: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            fontSize: '14px',
-                            borderBottom: activeTab === 'mapping' ? '3px solid #0d6efd' : '3px solid transparent',
-                            color: activeTab === 'mapping' ? '#0d6efd' : '#6c757d'
-                        }}
-                    >
-                        Allocated Batch
-                    </button>
-                </div>
-
                 {userRole !== 'CUSTOMER' && (
-                    <form onSubmit={handleUploadSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '6px 10px', borderRadius: '6px', border: '1px solid #dee2e6', marginBottom: '6px' }}>
+                    <form onSubmit={handleUploadSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '6px 10px', borderRadius: '6px', border: '1px solid #dee2e6', marginBottom: '0' }}>
                         <input
                             ref={fileInputRef}
                             type="file"

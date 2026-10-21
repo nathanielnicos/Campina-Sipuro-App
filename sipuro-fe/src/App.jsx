@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import POPage from './components/po/page/POPage';
 import BatchPage from './components/batch/page/BatchPage';
+import OutstandingPoPage from './components/outstanding-po/page/OutstandingPoPage';
 import ProductionLotPage from './components/production-lot/page/ProductionLotPage';
 import ProductionSchedulePage from './components/productionSchedule/page/ProductionSchedulePage';
 import Dashboard from './components/dashboard/Dashboard';
@@ -21,8 +22,23 @@ import GlobalNotificationBanner from './components/navigation/GlobalNotification
 import { markAsRead } from './services/notificationApi';
 import { getToken, clearSession, SESSION_EXPIRED_EVENT } from './services/apiClient';
 import { getNavItemsByUser } from './config/navigationConfig';
+import { parseLegacyQuery, getRoleFlags } from './utils/outstandingPoHelpers';
 
 import { ModalProvider } from './context/ModalContext';
+
+// Menu Batch kini khusus PPIC. Customer dan tautan notifikasi lama
+// (/ppic-batch?po=...&product=...) dialihkan ke menu Outstanding PO.
+function BatchRoute({ user }) {
+  const location = useLocation();
+  const legacy = parseLegacyQuery(location.search);
+  const hasLegacyFilter = Boolean(legacy.po || legacy.product);
+  const { isPpic } = getRoleFlags(user);
+
+  if (hasLegacyFilter || !isPpic) {
+    return <Navigate to={`/outstanding-po${location.search}`} replace />;
+  }
+  return <BatchPage currentUser={user} />;
+}
 
 function MainApp() {
   const [user, setUser] = useState(null);
@@ -141,7 +157,8 @@ function MainApp() {
           />
         } />
         <Route path="/ppic-dashboard" element={<Dashboard />} />
-        <Route path="/ppic-batch" element={<BatchPage currentUser={user} />} />
+        <Route path="/ppic-batch" element={<BatchRoute user={user} />} />
+        <Route path="/outstanding-po" element={<OutstandingPoPage currentUser={user} />} />
         <Route path="/ppic-production-lot" element={<ProductionLotPage currentUser={user} />} />
         <Route path="/ppic-production-schedule" element={<ProductionSchedulePage />} />
         

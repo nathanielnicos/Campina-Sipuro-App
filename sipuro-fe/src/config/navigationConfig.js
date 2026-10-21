@@ -2,8 +2,9 @@
 export const NAV_ITEMS = {
     PO_LIST: { id: 'po-list', label: 'Purchase Order', path: '/po-list' },
     PPIC_DASHBOARD: { id: 'ppic-dashboard', label: 'Dashboard', path: '/ppic-dashboard' },
+    OUTSTANDING_PO: { id: 'outstanding-po', label: 'Outstanding PO', path: '/outstanding-po' },
     PPIC_BATCH: { id: 'ppic-batch', label: 'Batch', path: '/ppic-batch' },
-    PRODUCTION_LOT: { id: 'ppic-production-lot', label: 'Production Lot', path: './ppic-production-lot'},
+    PRODUCTION_LOT: { id: 'ppic-production-lot', label: 'Production Lot', path: '/ppic-production-lot'},
     PPIC_PRODUCTION_SCHEDULE: { id: 'ppic-production-schedule', label: 'Production Schedule', path: '/ppic-production-schedule' },
     DOCUMENT_FLOW: { id: 'document-flow', label: 'Document Flow', path: '/document-flow' },
     SA_EMPLOYEES: { id: 'sa-employees', label: 'Employee User', path: '/sa-employees' },
@@ -23,7 +24,7 @@ export const getNavItemsByUser = (user) => {
     if (userRole === 'CUSTOMER') {
         return [
             NAV_ITEMS.PO_LIST,
-            NAV_ITEMS.PPIC_BATCH,
+            NAV_ITEMS.OUTSTANDING_PO,
             NAV_ITEMS.PROFILE
         ];
     }
@@ -32,7 +33,7 @@ export const getNavItemsByUser = (user) => {
         return [
             NAV_ITEMS.PPIC_DASHBOARD,
             NAV_ITEMS.PO_LIST,
-            NAV_ITEMS.PPIC_BATCH,
+            NAV_ITEMS.OUTSTANDING_PO,
             NAV_ITEMS.PRODUCTION_LOT,
             NAV_ITEMS.PPIC_PRODUCTION_SCHEDULE,
             NAV_ITEMS.DOCUMENT_FLOW,
@@ -49,6 +50,7 @@ export const getNavItemsByUser = (user) => {
         return [
             NAV_ITEMS.PPIC_DASHBOARD,
             NAV_ITEMS.PO_LIST,
+            NAV_ITEMS.OUTSTANDING_PO,
             NAV_ITEMS.PPIC_BATCH,
             NAV_ITEMS.PPIC_PRODUCTION_SCHEDULE,
             NAV_ITEMS.PROFILE

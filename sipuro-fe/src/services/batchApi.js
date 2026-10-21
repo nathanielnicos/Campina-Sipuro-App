@@ -1,19 +1,7 @@
 import axios from './apiClient';
 import { API_BASE_URL } from './config';
 
-// --- SUMMARY & BATCH ALLOCATION ENDPOINTS ---
-
-export const fetchOutstandingSummary = async (page = 1, limit = 10, filters = {}) => {
-    try {
-        const response = await axios.get(`${API_BASE_URL}/batch/outstanding-summary`, {
-            params: { page, limit, ...filters }
-        });
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching outstanding summary:', error);
-        return { success: false, message: error.response?.data?.message || 'Failed to fetch SKU summary.' };
-    }
-};
+// --- BATCH ALLOCATION ENDPOINTS ---
 
 export const fetchBatchMapping = async (page = 1, limit = 10, filters = {}) => {
     try {
@@ -24,40 +12,6 @@ export const fetchBatchMapping = async (page = 1, limit = 10, filters = {}) => {
     } catch (error) {
         console.error('Error fetching batch mapping:', error);
         return { success: false, message: error.response?.data?.message || 'Failed to fetch batch mapping.' };
-    }
-};
-
-// --- UNALLOCATED STOCKS ENDPOINTS ---
-
-export const fetchUnallocatedStocks = async (page = 1, limit = 10, filters = {}) => {
-    try {
-        const response = await axios.get(`${API_BASE_URL}/batch/unallocated`, {
-            params: { page, limit, ...filters }
-        });
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching unallocated stocks:', error);
-        return { success: false, message: error.response?.data?.message || 'Failed to fetch unallocated stock data.' };
-    }
-};
-
-export const fetchOpenAllocationsByProduct = async (productId) => {
-    try {
-        const response = await axios.get(`${API_BASE_URL}/batch/open-allocations/${productId}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching open allocations:', error);
-        return { success: false, message: error.response?.data?.message || 'Failed to fetch target allocation.' };
-    }
-};
-
-export const reallocateStockApi = async (payload) => {
-    try {
-        const response = await axios.post(`${API_BASE_URL}/batch/reallocate`, payload);
-        return response.data;
-    } catch (error) {
-        console.error('Error reallocating stock:', error);
-        return { success: false, message: error.response?.data?.message || 'Failed to reallocate stock.' };
     }
 };
 

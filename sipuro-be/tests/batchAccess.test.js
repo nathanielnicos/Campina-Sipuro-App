@@ -50,12 +50,10 @@ const USERS = {
     anonymous: undefined
 };
 
-const OUTSTANDING = ['customer', 'ppic', 'ppicManager', 'superadmin'];
 const PPIC_ONLY = ['ppic', 'ppicManager'];
 
 const POLICY = {
     'GET /export-batch-excel': PPIC_ONLY,
-    'GET /outstanding-summary': OUTSTANDING,
     'GET /batch-mapping': PPIC_ONLY,
     'GET /allocation-logs/:allocationId': PPIC_ONLY,
     'POST /production/preview': PPIC_ONLY,

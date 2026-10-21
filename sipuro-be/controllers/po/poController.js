@@ -3,7 +3,6 @@ const poCreateController = require('./poCreateController');
 const poUpdateController = require('./poUpdateController');
 const poStatusController = require('./poStatusController');
 const poExportController = require('./poExportController');
-const poDetailCloseController = require('./poDetailCloseController');
 const poSettingController = require('./poSettingController');
 
 module.exports = {
@@ -19,11 +18,6 @@ module.exports = {
 
     // PO Export
     exportPoExcel: poExportController.exportPoExcel,
-
-    // PO Detail Close
-    requestClosePoDetails: poDetailCloseController.requestClosePoDetails,
-    approveClosePoDetails: poDetailCloseController.approveClosePoDetails,
-    rejectClosePoDetails: poDetailCloseController.rejectClosePoDetails,
 
     // PO Setting
     getPoSettings: poSettingController.getPoSettings,

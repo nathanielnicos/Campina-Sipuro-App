@@ -1,6 +1,5 @@
 const exportBatch = require('./export/exportBatchController');
 const productionUpload = require('./import/productionUploadController');
-const outstandingSummary = require('./outstanding/outstandingSummaryController');
 const batchMapping = require('./allocated/batchMappingController');
 
 module.exports = {
@@ -10,9 +9,6 @@ module.exports = {
     // Import
     previewExcelUpload: productionUpload.previewExcelUpload,
     commitExcelAllocation: productionUpload.commitExcelAllocation,
-
-    // Outstanding
-    getOutstandingSummary: outstandingSummary.getOutstandingSummary,
 
     // Allocated
     getAllocatedBatchMapping: batchMapping.getAllocatedBatchMapping,

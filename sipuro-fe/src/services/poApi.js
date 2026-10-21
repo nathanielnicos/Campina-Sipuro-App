@@ -121,38 +121,3 @@ export const exportPoExcelApi = async (customerId, filters = {}) => {
         return { success: false, message: error.message };
     }
 };
-
-/**
- * API FITUR CLOSE PO DETAIL ITEMS
- */
-
-// 1. Customer mengajukan penutupan detail item
-// eslint-disable-next-line no-unused-vars
-export const requestClosePoDetailsApi = async (poHeaderId, poDetailIds, reason, requestedBy) => {
-    const res = await apiClientSoft.post('/po/details/request-close', {
-        po_header_id: poHeaderId,
-        po_detail_ids: poDetailIds,
-        reason
-    });
-    return res.data;
-};
-
-// 2. PPIC menyetujui pengajuan penutupan detail item
-// eslint-disable-next-line no-unused-vars
-export const approveClosePoDetailsApi = async (poHeaderId, poDetailIds, approvedBy) => {
-    const res = await apiClientSoft.post('/po/details/approve-close', {
-        po_header_id: poHeaderId,
-        po_detail_ids: poDetailIds
-    });
-    return res.data;
-};
-
-// 3. PPIC menolak pengajuan penutupan detail item
-// eslint-disable-next-line no-unused-vars
-export const rejectClosePoDetailsApi = async (poHeaderId, poDetailIds, rejectedBy) => {
-    const res = await apiClientSoft.post('/po/details/reject-close', {
-        po_header_id: poHeaderId,
-        po_detail_ids: poDetailIds
-    });
-    return res.data;
-};
