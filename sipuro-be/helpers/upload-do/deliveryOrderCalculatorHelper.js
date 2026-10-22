@@ -21,9 +21,14 @@ const calculateDeliveryOrderFifo = (
     // Sisa kuota per po_lot_allocation_id = allocated_qty - (sudah dialokasi ke DO sebelumnya)
     const allocPool = new Map();
     openLotAllocations.forEach((a) => {
+        // Sisa yang benar-benar bisa dikirim = Alokasi Lot - Yang Sudah Dikirim Sebelumnya
+        const allocated = Number(a.allocated_qty) || 0;
+        const alreadyDelivered = Number(a.already_delivered_qty) || 0;
+        const remainingDeliverable = Math.max(0, allocated - alreadyDelivered);
+
         allocPool.set(a.po_lot_allocation_id, {
             ...a,
-            availableToDeliver: Number(a.allocated_qty) || 0
+            availableToDeliver: remainingDeliverable
         });
     });
 

@@ -7,9 +7,9 @@ import PoLotViewRows from './PoLotViewRows';
 import BatchLotViewRows from './BatchLotViewRows';
 import LotViewRows from './LotViewRows';
 
-import useFilter from '../../../hooks/production-lot/page/useFilter';
-import useViewModeSwitcher from '../../../hooks/production-lot/page/useViewModeSwitcher';
-import useAllocatedLotTable from '../../../hooks/production-lot/page/useAllocatedLotTable';
+import useFilter from '../../../hooks/production-lot/allocated-lot/useFilter';
+import useViewModeSwitcher from '../../../hooks/production-lot/allocated-lot/useViewModeSwitcher';
+import useAllocatedLotTable from '../../../hooks/production-lot/allocated-lot/useAllocatedLotTable';
 
 const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
     const modeSwitcher = useViewModeSwitcher(currentUser?.role);
@@ -92,12 +92,13 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
                                     <>
                                         <th style={{ padding: '12px 14px' }}>Batch Number</th>
                                         <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Date & Status</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Completed Date</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Batch Status</th>
                                         <th style={{ padding: '12px 14px' }}>Lot Number</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
                                         <th style={{ padding: '12px 14px' }}>PO Number</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Allocation Status</th>
                                     </>
                                 )}
 
@@ -108,8 +109,9 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
                                         <th style={{ padding: '12px 14px' }}>Product</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Completed Date</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Allocated</th>
-                                        <th style={{ padding: '12px 14px' }}>PO Summary</th>
+                                        <th style={{ padding: '12px 14px' }}>PO Number</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Allocation Status</th>
                                     </>
                                 )}
                             </tr>

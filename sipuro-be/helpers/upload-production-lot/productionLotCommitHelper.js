@@ -79,7 +79,7 @@ const commitProductionAllocationTransaction = async (connection, {
 
     previewResults.forEach((group) => {
         if (!group.lotNumber) return;
-        
+
         // Validasi konflik produk jika lot sudah ada di DB
         if (existingLotProduct.has(group.lotNumber)) {
             if (Number(existingLotProduct.get(group.lotNumber)) !== Number(group.idProduct)) {
@@ -146,12 +146,11 @@ const commitProductionAllocationTransaction = async (connection, {
 
         if (!batchIdByNumber.has(group.batchNumber) && !processedBatchNumbers.has(group.batchNumber)) {
             processedBatchNumbers.add(group.batchNumber);
-            const completedDateOnly = dateOnly(group.actualCompletedDatetime);
             newBatchesToInsert.push([
                 group.batchNumber,
                 group.idProduct,
-                completedDateOnly || new Date().toISOString().split('T')[0],
-                group.actualCompletedDatetime || null,
+                null,
+                null,
                 group.actualCompletedDatetime || null,
                 group.expiredDate || null,
                 'Open',
@@ -348,21 +347,35 @@ const commitProductionAllocationTransaction = async (connection, {
         );
     }
 
-    // 8. Sinkronisasi status dua arah untuk `po_lot_allocations`
+    // 8. Sinkronisasi status dua arah untuk po_lot_allocations
     const [relatedAllocs] = await connection.query(
-        `SELECT id, po_detail_id, lot_id, allocated_qty, status
-         FROM po_lot_allocations
-         WHERE po_detail_id IN (?) AND status IN ('Open', 'Closed')`,
+        `SELECT pla.id, pla.po_detail_id, pla.lot_id, pla.allocated_qty, pla.status, bl.batch_id
+         FROM po_lot_allocations pla
+         LEFT JOIN batch_lots bl ON pla.lot_id = bl.lot_id
+         WHERE pla.po_detail_id IN (?) AND pla.status IN ('Open', 'Closed')`,
         [poDetailIds.length > 0 ? poDetailIds : [0]]
     );
 
     const changedToClosed = [];
     const changedToOpen = [];
     const syncLogs = [];
+
+    // Kumpulkan batch ID dari file saat ini DAN dari alokasi yang ikut tersinkronisasi
+    const allBatchIdsToRefresh = new Set(
+        previewResults.map((g) => batchIdByNumber.get(g.batchNumber)).filter(Boolean)
+    );
+
     relatedAllocs.forEach((a) => {
         const target = targetStatusByDetail.get(a.po_detail_id);
         if (!target || a.status === target) return;
+
         (target === 'Closed' ? changedToClosed : changedToOpen).push(a.id);
+
+        // TAMBAHKAN INI: Ikutkan batch lama ke antrean refresh jika status alokasinya berubah
+        if (a.batch_id) {
+            allBatchIdsToRefresh.add(a.batch_id);
+        }
+
         syncLogs.push({
             upload_log_id: uploadLogId,
             allocation_id: a.id,
@@ -393,15 +406,11 @@ const commitProductionAllocationTransaction = async (connection, {
         await logAllocationUpdate(connection, syncLogs, userId);
     }
 
-    // 9. Refresh status Header PO
-    const batchIdsToRefresh = [...new Set(
-        previewResults.map((g) => batchIdByNumber.get(g.batchNumber)).filter(Boolean)
-    )];
-
-    if (batchIdsToRefresh.length > 0) {
-        await refreshBatchStatuses(connection, batchIdsToRefresh);
+    // 9. Refresh status Batch & Header PO
+    if (allBatchIdsToRefresh.size > 0) {
+        await refreshBatchStatuses(connection, [...allBatchIdsToRefresh]);
     }
-    
+
     for (const poHeaderId of poHeaderIds) {
         await refreshPOStatus(connection, poHeaderId);
     }

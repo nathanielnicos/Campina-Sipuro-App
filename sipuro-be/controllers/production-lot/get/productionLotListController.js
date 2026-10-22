@@ -82,8 +82,8 @@ exports.getAllocatedLotMapping = async (req, res) => {
                 });
             }
 
-            const headerOrderBy = sortKey === 'po_number' 
-                ? `ORDER BY h.po_number ${order}` 
+            const headerOrderBy = sortKey === 'po_number'
+                ? `ORDER BY h.po_number ${order}`
                 : `ORDER BY h.created_at ${order}`;
 
             const poHeaderQuery = `
@@ -209,9 +209,9 @@ exports.getAllocatedLotMapping = async (req, res) => {
                 pagination: { totalItems, totalPages, currentPage: pageNum, limit: limitNum }
             });
 
-        // ==========================================
-        // MODE 2: BY BATCH (Batch -> Lot -> PO List)
-        // ==========================================
+            // ==========================================
+            // MODE 2: BY BATCH (Batch -> Lot -> PO List)
+            // ==========================================
         } else if (displayMode === 'BY_BATCH') {
             const countQuery = `
                 SELECT COUNT(DISTINCT b.id) AS total
@@ -312,9 +312,9 @@ exports.getAllocatedLotMapping = async (req, res) => {
                 pagination: { totalItems, totalPages, currentPage: pageNum, limit: limitNum }
             });
 
-        // ==========================================
-        // MODE 3: BY LOT (Lot Flat / Audit View)
-        // ==========================================
+            // ==========================================
+            // MODE 3: BY LOT (Lot Flat / Audit View)
+            // ==========================================
         } else {
             const countQuery = `
                 SELECT COUNT(DISTINCT l.id) AS total
@@ -340,8 +340,10 @@ exports.getAllocatedLotMapping = async (req, res) => {
                     b.batch_number,
                     p.product_code,
                     p.product_name,
-                    SUM(pla.allocated_qty) AS total_allocated_qty,
-                    GROUP_CONCAT(CONCAT(h.po_number, ' (', pla.allocated_qty, ' pcs, ', pla.status, ')') SEPARATOR ', ') AS po_summary
+                    pla.id AS allocation_id,
+                    pla.allocated_qty,
+                    pla.status AS allocation_status,
+                    h.po_number
                 FROM lots l
                 JOIN products p ON l.id_product = p.id_product
                 JOIN batch_lots bl ON l.id = bl.lot_id
@@ -350,8 +352,7 @@ exports.getAllocatedLotMapping = async (req, res) => {
                 JOIN po_details d ON pla.po_detail_id = d.po_detail_id
                 JOIN po_headers h ON d.po_header_id = h.po_header_id
                 ${whereSql}
-                GROUP BY l.id, l.lot_number, l.actual_completed_datetime, l.expired_date, b.batch_number, p.product_code, p.product_name
-                ORDER BY l.actual_completed_datetime ${order}
+                ORDER BY l.actual_completed_datetime ${order}, l.id ASC
                 LIMIT ${limitNum} OFFSET ${offset};
             `;
             const [rows] = await sipuroDb.query(query, queryParams);

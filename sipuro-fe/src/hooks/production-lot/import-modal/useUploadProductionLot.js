@@ -52,17 +52,24 @@ export const useUploadProductionLot = ({ currentUserId, onSuccessSave }) => {
             return;
         }
 
-        const formData = new FormData();
-        formData.append('file', actualFile);
-
         setUploading(true);
 
         try {
+            // SOLUSI: Baca isi file ke memory (ArrayBuffer) agar kebal dari ERR_UPLOAD_FILE_CHANGED
+            const fileBuffer = await actualFile.arrayBuffer();
+            const memoryFile = new File([fileBuffer], actualFile.name, {
+                type: actualFile.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+
+            const formData = new FormData();
+            formData.append('file', memoryFile);
+
             const res = await previewProductionLotApi(formData);
             setUploading(false);
 
             if (res && res.success) {
-                previewFileRef.current = actualFile;
+                // Simpan salinan memory, bukan pointer file disk
+                previewFileRef.current = memoryFile;
                 setPreviewData(res.data);
                 setIsPreviewOpen(true);
             } else {

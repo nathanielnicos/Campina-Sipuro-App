@@ -4,8 +4,8 @@ import { formatQty } from '../../../utils/formatters';
 import { formatDate } from '../../../utils/dateHelper';
 
 export const PoLotViewRows = ({ mappingList, currentUserRole, poTolerance }) => {
-    // 11 kolom jika non-customer (termasuk Lot, Exp Date), 9 kolom jika customer
-    const totalCols = currentUserRole === 'CUSTOMER' ? 9 : 12;
+    // 12 kolom untuk non-customer, 8 kolom untuk customer
+    const totalCols = currentUserRole === 'CUSTOMER' ? 8 : 12;
 
     if (!mappingList || mappingList.length === 0) {
         return (
@@ -18,6 +18,13 @@ export const PoLotViewRows = ({ mappingList, currentUserRole, poTolerance }) => 
     }
 
     const toleranceVal = Number(poTolerance ?? 100);
+
+    // Style seragam untuk semua cell
+    const cellStyle = {
+        padding: '12px 14px',
+        verticalAlign: 'top',
+        lineHeight: '1.4'
+    };
 
     return mappingList.map((poRow) => {
         const products = Array.isArray(poRow.products) ? poRow.products : [];
@@ -69,73 +76,74 @@ export const PoLotViewRows = ({ mappingList, currentUserRole, poTolerance }) => 
                             key={`${poRow.po_header_id}-${prodRow.po_detail_id}-${batchRow.batch_id || 'nb'}-${lot.allocation_id || lotIdx}`}
                             style={{ borderBottom: '1px solid #dee2e6' }}
                         >
-                            {/* LEVEL 1: PO HEADER (Rowspan seluruh PO) */}
+                            {/* LEVEL 1: PO HEADER */}
                             {renderPoHeaderCells && (
                                 <>
-                                    <td rowSpan={poRowSpan} style={{ padding: '12px 14px', verticalAlign: 'top', backgroundColor: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                    <td rowSpan={poRowSpan} style={{ ...cellStyle, backgroundColor: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                         {poRow.po_number}
                                     </td>
-                                    <td rowSpan={poRowSpan} style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'top', whiteSpace: 'nowrap', backgroundColor: '#fff' }}>
+                                    <td rowSpan={poRowSpan} style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap', backgroundColor: '#fff' }}>
                                         {formatDate(poRow.po_created_date)}
                                     </td>
                                 </>
                             )}
 
-                            {/* LEVEL 2: PRODUCT & PO QTY (Rowspan per Produk) */}
+                            {/* LEVEL 2: PRODUCT (Format Stacked: Kode di atas, Nama di bawah) */}
                             {renderProductCells && (
                                 <>
-                                    <td rowSpan={prodRowSpan} style={{ padding: '10px 14px', minWidth: '220px', verticalAlign: 'top', backgroundColor: '#fff' }}>
+                                    <td rowSpan={prodRowSpan} style={{ ...cellStyle, minWidth: '220px', backgroundColor: '#fff' }}>
                                         {currentUserRole !== 'CUSTOMER' ? (
                                             <>
-                                                <strong>{prodRow.product_code}</strong> - {prodRow.product_name}
+                                                <div style={{ fontWeight: 'bold', color: '#212529' }}>{prodRow.product_code}</div>
+                                                <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '2px' }}>{prodRow.product_name}</div>
                                             </>
                                         ) : (
-                                            prodRow.product_name
+                                            <div style={{ fontWeight: '500' }}>{prodRow.product_name}</div>
                                         )}
                                     </td>
-                                    <td rowSpan={prodRowSpan} style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', color: '#495057', verticalAlign: 'top', backgroundColor: '#fff', width: '90px' }}>
+                                    <td rowSpan={prodRowSpan} style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap', color: '#495057', backgroundColor: '#fff', width: '90px' }}>
                                         {prodRow.po_base_qty > 0 ? formatQty(prodRow.po_base_qty) : '-'}
                                     </td>
                                 </>
                             )}
 
-                            {/* LEVEL 3: BATCH (Rowspan per Batch) */}
+                            {/* LEVEL 3: BATCH */}
                             {currentUserRole !== 'CUSTOMER' && renderBatchCells && (
-                                <td rowSpan={batchRowSpan} style={{ padding: '10px 14px', fontWeight: '600', whiteSpace: 'nowrap', verticalAlign: 'top', backgroundColor: '#fcfcfc' }}>
+                                <td rowSpan={batchRowSpan} style={{ ...cellStyle, fontWeight: '600', whiteSpace: 'nowrap', backgroundColor: '#fcfcfc' }}>
                                     {batchRow.batch_number}
                                 </td>
                             )}
 
-                            {/* LEVEL 4: LOT DETAILS (Per Baris Lot) */}
+                            {/* LEVEL 4: LOT DETAILS */}
                             {currentUserRole !== 'CUSTOMER' && (
                                 <>
-                                    <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', verticalAlign: 'top' }}>
-                                        <span style={{ fontFamily: 'monospace', fontWeight: '500' }}>{lot.lot_number}</span>
+                                    <td style={{ ...cellStyle, whiteSpace: 'nowrap', fontFamily: 'monospace', fontWeight: '600' }}>
+                                        {lot.lot_number}
                                     </td>
-                                    <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap', verticalAlign: 'top', fontSize: '12px', color: '#6c757d' }}>
+                                    <td style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px', color: '#6c757d' }}>
                                         {formatDate(lot.expired_date)}
                                     </td>
-                                    <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'top', width: '100px', fontWeight: '500' }}>
+                                    <td style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap', width: '100px', fontWeight: '500' }}>
                                         {formatQty(lot.allocated_qty)}
                                     </td>
                                 </>
                             )}
 
-                            {/* STATUS & PERSENTASE PEMENUHAN PRODUK (Rowspan per Produk) */}
+                            {/* STATUS & PERSENTASE PEMENUHAN PRODUK */}
                             {renderProductCells && (
                                 <>
-                                    <td rowSpan={prodRowSpan} style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 'bold', verticalAlign: 'top', backgroundColor: '#fff', width: '100px' }}>
+                                    <td rowSpan={prodRowSpan} style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 'bold', backgroundColor: '#fff', width: '100px' }}>
                                         {formatQty(prodRow.po_fulfilled_qty)}
                                     </td>
-                                    <td rowSpan={prodRowSpan} style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', color: prodRow.remaining_qty > 0 ? '#dc3545' : '#198754', verticalAlign: 'top', backgroundColor: '#fff', width: '100px' }}>
+                                    <td rowSpan={prodRowSpan} style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap', color: prodRow.remaining_qty > 0 ? '#dc3545' : '#198754', backgroundColor: '#fff', width: '100px' }}>
                                         {formatQty(prodRow.remaining_qty)}
                                     </td>
-                                    <td rowSpan={prodRowSpan} style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', verticalAlign: 'top', backgroundColor: '#fff' }}>
+                                    <td rowSpan={prodRowSpan} style={{ ...cellStyle, textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', backgroundColor: '#fff' }}>
                                         <span style={{ color: percent >= toleranceVal ? '#198754' : percent > 0 ? '#fd7e14' : '#6c757d' }}>
                                             {percent}%
                                         </span>
                                     </td>
-                                    <td rowSpan={prodRowSpan} style={{ padding: '10px 14px', textAlign: 'center', verticalAlign: 'top', backgroundColor: '#fff' }}>
+                                    <td rowSpan={prodRowSpan} style={{ ...cellStyle, textAlign: 'center', backgroundColor: '#fff' }}>
                                         <span style={getStatusStyle(prodRow.status || (prodRow.remaining_qty === 0 ? 'Closed' : 'Open'))}>
                                             {prodRow.status || (prodRow.remaining_qty === 0 ? 'Closed' : 'Open')}
                                         </span>

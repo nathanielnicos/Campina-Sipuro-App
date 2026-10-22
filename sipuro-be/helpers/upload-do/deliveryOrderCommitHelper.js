@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { BusinessError } = require('../businessError');
 
 const chunk = (arr, size) => {
@@ -73,7 +74,9 @@ const commitDeliveryOrderTransaction = async (connection, {
             touchedPoDetailIds.add(alloc.poDetailId);
 
             // Simpan DO Header / Item
-            const doRowHash = `${group.shipmentNum}_${alloc.poLotAllocationId}_${uploadLogId}`;
+            const doRowHash = crypto.createHash('sha256')
+                .update(`${group.shipmentNum}_${alloc.poLotAllocationId}_${uploadLogId}`)
+                .digest('hex');
             const [doResult] = await connection.query(
                 `INSERT INTO delivery_orders 
                  (import_log_id, po_lot_allocation_id, po_number, customer_po_text, po_created_date, do_number, do_created_date, pick_up_date, product_id, qty_ctn, qty_pcs, row_hash)

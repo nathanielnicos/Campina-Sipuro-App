@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import POPage from './components/po/page/POPage';
 import BatchPage from './components/batch/page/BatchPage';
 import OutstandingPoPage from './components/outstanding-po/page/OutstandingPoPage';
@@ -13,6 +13,7 @@ import ProductListPage from './components/master/ProductListPage';
 import PriceListPage from './components/master/PriceListPage';
 import SettingPage from './components/master/SettingPage';
 
+import DoPage from './components/do/page/DoPage';
 import DocumentFlowPage from './components/documentFlow/page/DocumentFlowPage';
 import ProfilePage from './components/profile/ProfilePage';
 
@@ -22,21 +23,8 @@ import GlobalNotificationBanner from './components/navigation/GlobalNotification
 import { markAsRead } from './services/notificationApi';
 import { getToken, clearSession, SESSION_EXPIRED_EVENT } from './services/apiClient';
 import { getNavItemsByUser } from './config/navigationConfig';
-import { parseLegacyQuery, getRoleFlags } from './utils/outstandingPoHelpers';
 
 import { ModalProvider } from './context/ModalContext';
-
-function BatchRoute({ user }) {
-  const location = useLocation();
-  const legacy = parseLegacyQuery(location.search);
-  const hasLegacyFilter = Boolean(legacy.po || legacy.product);
-  const { isPpic } = getRoleFlags(user);
-
-  if (hasLegacyFilter || !isPpic) {
-    return <Navigate to={`/outstanding-po${location.search}`} replace />;
-  }
-  return <BatchPage currentUser={user} />;
-}
 
 function MainApp() {
   const [user, setUser] = useState(null);
@@ -155,11 +143,12 @@ function MainApp() {
           />
         } />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/production-batch" element={<BatchRoute user={user} />} />
+        <Route path="/production-batch" element={<BatchPage user={user} />} />
         <Route path="/outstanding-po" element={<OutstandingPoPage currentUser={user} />} />
         <Route path="/production-lot" element={<ProductionLotPage currentUser={user} />} />
         <Route path="/production-schedule" element={<ProductionSchedulePage />} />
         
+        <Route path="/do" element={<DoPage currentUser={user} />} />
         <Route path="/document-flow" element={<DocumentFlowPage currentUser={user} />} />
 
         <Route path="/employees" element={<EmployeeListPage />} />

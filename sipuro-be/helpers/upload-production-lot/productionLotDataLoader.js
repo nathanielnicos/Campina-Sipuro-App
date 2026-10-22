@@ -40,7 +40,7 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
     if (batchNumbers.length > 0) {
         for (const part of chunk(batchNumbers, 500)) {
             const [rows] = await queryable.query(
-                'SELECT id, batch_number FROM batches WHERE batch_number IN (?)',
+                'SELECT id, batch_number, id_product FROM batches WHERE batch_number IN (?)',
                 [part]
             );
             existingBatches.push(...rows);

@@ -47,6 +47,12 @@ const loadDeliveryOrderContext = async (queryable, rawRows, { forUpdate = false 
                     pla.po_detail_id,
                     pla.lot_id,
                     pla.allocated_qty,
+                    -- Hitung akumulasi yang sudah dikirim di DO sebelumnya
+                    COALESCE((
+                        SELECT SUM(doa.qty_pcs) 
+                        FROM delivery_order_allocations doa 
+                        WHERE doa.po_lot_allocation_id = pla.id
+                    ), 0) AS already_delivered_qty,
                     pla.status AS allocation_status,
                     pd.id_product,
                     pd.base_qty,
@@ -59,16 +65,16 @@ const loadDeliveryOrderContext = async (queryable, rawRows, { forUpdate = false 
                     l.actual_completed_datetime,
                     p.product_code,
                     p.pcs_per_ctn
-                 FROM po_lot_allocations pla
-                 JOIN po_details pd ON pla.po_detail_id = pd.po_detail_id
-                 JOIN po_headers ph ON pd.po_header_id = ph.po_header_id
-                 JOIN lots l ON pla.lot_id = l.id
-                 JOIN products p ON pd.id_product = p.id_product
-                 WHERE pla.lot_id IN (?)
-                   AND pla.status <> 'Canceled'
-                   AND pd.deleted_at IS NULL
-                   AND ph.status IN ('Approved', 'Production Completed')
-                 ORDER BY ph.created_at ASC, pla.id ASC${lock}`,
+                FROM po_lot_allocations pla
+                JOIN po_details pd ON pla.po_detail_id = pd.po_detail_id
+                JOIN po_headers ph ON pd.po_header_id = ph.po_header_id
+                JOIN lots l ON pla.lot_id = l.id
+                JOIN products p ON pd.id_product = p.id_product
+                WHERE pla.lot_id IN (?)
+                    AND pla.status <> 'Canceled'
+                    AND pd.deleted_at IS NULL
+                    AND ph.status IN ('Approved', 'Production Completed')
+                ORDER BY ph.created_at ASC, pla.id ASC${lock}`,
                 [part]
             );
             openLotAllocations.push(...rows);
