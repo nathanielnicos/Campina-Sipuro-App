@@ -313,11 +313,12 @@ exports.getAllocatedLotMapping = async (req, res) => {
             });
 
             // ==========================================
-            // MODE 3: BY LOT (Lot Flat / Audit View)
+            // MODE 3: BY LOT (Parent: lot_number -> Children: Batches, Products, POs)
             // ==========================================
         } else {
+            // 1. Hitung total Nomor Lot Unik
             const countQuery = `
-                SELECT COUNT(DISTINCT l.id) AS total
+                SELECT COUNT(DISTINCT l.lot_number) AS total
                 FROM lots l
                 JOIN products p ON l.id_product = p.id_product
                 JOIN batch_lots bl ON l.id = bl.lot_id
@@ -331,13 +332,46 @@ exports.getAllocatedLotMapping = async (req, res) => {
             const totalItems = Number(countRows[0]?.total || 0);
             const totalPages = Math.ceil(totalItems / limitNum);
 
+            if (totalItems === 0) {
+                return res.json({
+                    success: true,
+                    displayMode,
+                    data: [],
+                    pagination: { totalItems, totalPages, currentPage: pageNum, limit: limitNum }
+                });
+            }
+
+            // 2. Ambil Nomor Lot Unik dengan Pagination (Urutkan nomor lot agar berkumpul)
+            const distinctLotQuery = `
+                SELECT DISTINCT l.lot_number
+                FROM lots l
+                JOIN products p ON l.id_product = p.id_product
+                JOIN batch_lots bl ON l.id = bl.lot_id
+                JOIN batches b ON bl.batch_id = b.id
+                JOIN po_lot_allocations pla ON l.id = pla.lot_id
+                JOIN po_details d ON pla.po_detail_id = d.po_detail_id
+                JOIN po_headers h ON d.po_header_id = h.po_header_id
+                ${whereSql}
+                ORDER BY l.lot_number ${order}
+                LIMIT ${limitNum} OFFSET ${offset};
+            `;
+            const [lotRows] = await sipuroDb.query(distinctLotQuery, queryParams);
+            const lotNumbers = lotRows.map(r => r.lot_number);
+
+            const placeholders = lotNumbers.map(() => '?').join(',');
+            const detailQueryParams = [...queryParams, ...lotNumbers];
+            const detailWhereSql = whereSql ? `${whereSql} AND l.lot_number IN (${placeholders})` : `WHERE l.lot_number IN (${placeholders})`;
+
+            // 3. Ambil seluruh data turunan untuk nomor lot tersebut
             const query = `
                 SELECT 
                     l.id AS lot_id,
                     l.lot_number,
                     l.actual_completed_datetime,
                     l.expired_date,
+                    b.id AS batch_id,
                     b.batch_number,
+                    p.id_product,
                     p.product_code,
                     p.product_name,
                     pla.id AS allocation_id,
@@ -351,16 +385,52 @@ exports.getAllocatedLotMapping = async (req, res) => {
                 JOIN po_lot_allocations pla ON l.id = pla.lot_id
                 JOIN po_details d ON pla.po_detail_id = d.po_detail_id
                 JOIN po_headers h ON d.po_header_id = h.po_header_id
-                ${whereSql}
-                ORDER BY l.actual_completed_datetime ${order}, l.id ASC
-                LIMIT ${limitNum} OFFSET ${offset};
+                ${detailWhereSql}
+                ORDER BY l.lot_number ${order}, b.id ASC, pla.id ASC;
             `;
-            const [rows] = await sipuroDb.query(query, queryParams);
+            const [rows] = await sipuroDb.query(query, detailQueryParams);
+
+            // 4. Grouping: Lot Number -> Batch & Product -> PO Allocations
+            const lotMap = new Map();
+            rows.forEach(r => {
+                if (!lotMap.has(r.lot_number)) {
+                    lotMap.set(r.lot_number, {
+                        lot_number: r.lot_number,
+                        batches: new Map()
+                    });
+                }
+                const lotEntry = lotMap.get(r.lot_number);
+
+                // Kunci unik per kombinasi Batch + Produk
+                const batchKey = `${r.batch_number}_${r.id_product}`;
+                if (!lotEntry.batches.has(batchKey)) {
+                    lotEntry.batches.set(batchKey, {
+                        batch_number: r.batch_number,
+                        product_code: r.product_code,
+                        product_name: r.product_name,
+                        actual_completed_datetime: r.actual_completed_datetime,
+                        expired_date: r.expired_date,
+                        allocations: []
+                    });
+                }
+
+                lotEntry.batches.get(batchKey).allocations.push({
+                    allocation_id: r.allocation_id,
+                    po_number: r.po_number,
+                    allocated_qty: Number(r.allocated_qty) || 0,
+                    allocation_status: r.allocation_status
+                });
+            });
+
+            const formattedData = Array.from(lotMap.values()).map(lot => ({
+                lot_number: lot.lot_number,
+                batches: Array.from(lot.batches.values())
+            }));
 
             return res.json({
                 success: true,
                 displayMode,
-                data: rows,
+                data: formattedData,
                 pagination: { totalItems, totalPages, currentPage: pageNum, limit: limitNum }
             });
         }

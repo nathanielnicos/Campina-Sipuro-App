@@ -3,12 +3,6 @@ import { formatQty } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/dateHelper';
 import PaginationControl from '../../common/PaginationControl';
 
-// Qty bernilai minus ditampilkan dengan tanda minus (formatQty dipanggil dengan nilai absolut)
-const formatSignedQty = (value) => {
-    const n = Number(value) || 0;
-    return n < 0 ? `-${formatQty(Math.abs(n))}` : formatQty(n);
-};
-
 const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showReason = false }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
@@ -43,6 +37,9 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                             </tr>
                         ) : (
                             paginatedRows.map((row, idx) => {
+                                const isReturn = row.transType === 'WIP Completion Return' || Number(row.rawAllocationQty) < 0;
+                                const displayQty = Math.abs(Number(row.qtyPac) || 0);
+
                                 return (
                                     <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
                                         <td style={{ fontWeight: 'bold', padding: '8px' }}>{row.batchNumber || '-'}</td>
@@ -51,7 +48,14 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                                         <td style={{ textAlign: 'center', padding: '8px' }}>
                                             {row.lotStatus || '-'}
                                         </td>
-                                        <td style={{ textAlign: 'right', padding: '8px', color: Number(row.qtyPac) < 0 ? '#dc3545' : 'inherit' }}>{formatSignedQty(row.qtyPac)}</td>
+                                        <td style={{
+                                            textAlign: 'right',
+                                            padding: '8px',
+                                            fontWeight: 'bold',
+                                            color: isReturn ? '#dc3545' : 'inherit'
+                                        }}>
+                                            {isReturn ? `-${formatQty(displayQty)}` : formatQty(displayQty)}
+                                        </td>
                                         <td style={{ textAlign: 'center', padding: '8px' }}>{formatDateTime(row.actualCompletedDatetime) || '-'}</td>
                                         {showReason && <td style={{ padding: '8px', color: '#842029' }}>{row.reason || '-'}</td>}
                                     </tr>

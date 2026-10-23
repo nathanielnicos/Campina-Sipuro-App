@@ -42,7 +42,7 @@ const Filter = ({
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search Data</label>
                 <input
                     type="text"
-                    placeholder="Search Batch / Product / PO..."
+                    placeholder="Search Lot / Batch / Product / PO..."
                     value={searchQuery}
                     onChange={onSearchChange}
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px' }}
@@ -50,7 +50,7 @@ const Filter = ({
             </div>
 
             <DateRangePicker
-                label="Actual Prod. Date Range"
+                label="Production Completed Date Range"
                 fromDate={fromActualDate}
                 toDate={toActualDate}
                 onFromDateChange={(e) => onFromActualDateChange(getValue(e))}
@@ -66,7 +66,7 @@ const Filter = ({
             />
 
             <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Batch Status</label>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Allocation Status</label>
                 <select
                     value={batchStatus}
                     onChange={onStatusChange}

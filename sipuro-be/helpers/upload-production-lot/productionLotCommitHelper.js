@@ -64,38 +64,24 @@ const commitProductionAllocationTransaction = async (connection, {
         );
     }
 
-    // 3. Find-or-Create Master Lots (Deduplikasi unik per lot_number)
-    const lotNumbers = [...new Set(previewResults.map((r) => r.lotNumber).filter(Boolean))];
-    const existingLots = lotNumbers.length > 0 ? (await connection.query(
-        'SELECT id, lot_number, id_product FROM lots WHERE lot_number IN (?)',
-        [lotNumbers]
-    ))[0] : [];
-
-    const lotIdByNumber = new Map(existingLots.map((l) => [l.lot_number, l.id]));
-    const existingLotProduct = new Map(existingLots.map((l) => [l.lot_number, l.id_product]));
+    // 3. Find-or-Create Master Lots (Deduplikasi unik per Lot Number + ID Product)
+    const [existingLots] = await connection.query(
+        'SELECT id, lot_number, id_product FROM lots'
+    );
+    const lotIdByKey = new Map();
+    existingLots.forEach((l) => lotIdByKey.set(`${l.lot_number}_${l.id_product}`, l.id));
 
     const newLotsToInsert = [];
-    const processedLotNumbers = new Set();
+    const processedLotKeys = new Set();
 
     previewResults.forEach((group) => {
-        if (!group.lotNumber) return;
+        if (!group.lotNumber || !group.idProduct) return;
 
-        // Validasi konflik produk jika lot sudah ada di DB
-        if (existingLotProduct.has(group.lotNumber)) {
-            if (Number(existingLotProduct.get(group.lotNumber)) !== Number(group.idProduct)) {
-                problems.push(`Lot ${group.lotNumber} already belongs to another product.`);
-            }
-            return;
-        }
+        const key = `${group.lotNumber}_${group.idProduct}`;
 
-        if (!group.idProduct) {
-            problems.push(`Product ${group.productCode} was not found for lot ${group.lotNumber}.`);
-            return;
-        }
-
-        // Cegah duplikasi di array insert
-        if (!processedLotNumbers.has(group.lotNumber)) {
-            processedLotNumbers.add(group.lotNumber);
+        // Jika belum ada di database dan belum masuk antrean insert
+        if (!lotIdByKey.has(key) && !processedLotKeys.has(key)) {
+            processedLotKeys.add(key);
             newLotsToInsert.push([
                 group.lotNumber,
                 group.idProduct,
@@ -105,20 +91,16 @@ const commitProductionAllocationTransaction = async (connection, {
         }
     });
 
-    if (problems.length > 0) {
-        throw new BusinessError('Allocation validation failed.', 422, { problems });
-    }
-
     if (newLotsToInsert.length > 0) {
         await connection.query(
             `INSERT INTO lots (lot_number, id_product, actual_completed_datetime, expired_date) VALUES ?`,
             [newLotsToInsert]
         );
-        const [createdLots] = await connection.query(
-            'SELECT id, lot_number FROM lots WHERE lot_number IN (?)',
-            [[...processedLotNumbers]]
+        // Refresh Map lotIdByKey setelah insert
+        const [refreshedLots] = await connection.query(
+            'SELECT id, lot_number, id_product FROM lots'
         );
-        createdLots.forEach((l) => lotIdByNumber.set(l.lot_number, l.id));
+        refreshedLots.forEach((l) => lotIdByKey.set(`${l.lot_number}_${l.id_product}`, l.id));
     }
 
     // 4. Find-or-Create Master Batches (Deduplikasi unik per batch_number)
@@ -182,7 +164,7 @@ const commitProductionAllocationTransaction = async (connection, {
     const batchLotValues = [];
     previewResults.forEach((group) => {
         const batchId = batchIdByNumber.get(group.batchNumber);
-        const lotId = lotIdByNumber.get(group.lotNumber);
+        const lotId = lotIdByKey.get(`${group.lotNumber}_${group.idProduct}`);
         if (batchId && lotId) {
             const pairKey = `${batchId}_${lotId}`;
             if (!batchLotPairSet.has(pairKey)) {
@@ -203,7 +185,7 @@ const commitProductionAllocationTransaction = async (connection, {
     // 6. Upsert ke `po_lot_allocations`
     const items = new Map();
     detailedAllocations.forEach((a) => {
-        const lotId = lotIdByNumber.get(a.lotNumber);
+        const lotId = lotIdByKey.get(`${a.lotNumber}_${a.idProduct}`);
         if (!lotId || !a.poDetailId) {
             problems.push(`Missing lot ID or PO detail reference for lot ${a.lotNumber}.`);
             return;
@@ -418,7 +400,7 @@ const commitProductionAllocationTransaction = async (connection, {
     return {
         uploadLogId,
         savedBatchCount: batchNumbers.length,
-        savedLotCount: lotNumbers.length,
+        savedLotCount: previewResults.length,
         savedRowCount: newRows.length,
         allocationCount: upsertValues.length
     };

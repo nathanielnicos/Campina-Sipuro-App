@@ -185,8 +185,8 @@ const calculateLotFifoAllocation = (
     const batchByNumber = new Map();
     existingBatches.forEach((b) => batchByNumber.set(b.batch_number, b));
 
-    const lotByNumber = new Map();
-    existingLots.forEach((l) => lotByNumber.set(l.lot_number, l));
+    const lotByKey = new Map();
+    existingLots.forEach((l) => lotByKey.set(`${l.lot_number}_${l.id_product}`, l));
 
     // 3. State PO
     const poStates = new Map();
@@ -240,7 +240,7 @@ const calculateLotFifoAllocation = (
         if (group.missingDate) return fail(REASONS.MISSING_DATE);
 
         const existingBatch = batchByNumber.get(group.batchNumber) || null;
-        const existingLot = lotByNumber.get(group.lotNumber) || null;
+        const existingLot = lotByKey.get(`${group.lotNumber}_${product.id_product}`) || null;
 
         const conflictInFile = itemCodesByBatch.get(group.batchNumber).size > 1;
         const conflictInDb = existingBatch && Number(existingBatch.id_product) !== Number(product.id_product);
