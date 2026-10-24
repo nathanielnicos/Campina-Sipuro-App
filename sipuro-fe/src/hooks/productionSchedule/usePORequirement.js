@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     fetchPORequirementSummary,
     fetchPORequirementDetail,
@@ -6,15 +6,23 @@ import {
     createDraftPO
 } from '../../services/poRequirementApi';
 import { useGlobalModal } from '../../context/ModalContext';
-import { unformatThousand } from '../../utils/formatters';
+import { setRequiredQty, listRequiredItems, toDraftPayload } from '../../utils/requiredQty';
+import { getDefaultWeekRange, isValidWeekRange } from '../../utils/weekRange';
 
 export const usePORequirement = () => {
     // Modal Global Context
     const { showConfirm, showAlert } = useGlobalModal();
 
     const [search, setSearch] = useState('');
-    const [startWeek, setStartWeek] = useState('2026-W39');
-    const [endWeek, setEndWeek] = useState('2026-W47');
+    const [weekRange, setWeekRange] = useState(() => getDefaultWeekRange());
+    const { startWeek, endWeek } = weekRange;
+    const handleWeekRangeChange = useCallback((newStart, newEnd) => {
+        setWeekRange({ startWeek: newStart, endWeek: newEnd });
+    }, []);
+
+    // Hanya respons dari permintaan terakhir yang boleh mengubah tampilan.
+    const summaryRequestRef = useRef(0);
+    const detailRequestRef = useRef(0);
 
     const [data, setData] = useState([]);
     const [weeks, setWeeks] = useState([]);
@@ -37,6 +45,8 @@ export const usePORequirement = () => {
     const [creatingPO, setCreatingPO] = useState(false);
 
     const loadPORequirementSummary = useCallback(async () => {
+        if (!isValidWeekRange(startWeek, endWeek)) return;
+        const requestId = ++summaryRequestRef.current;
         setLoading(true);
         try {
             const res = await fetchPORequirementSummary({
@@ -45,6 +55,7 @@ export const usePORequirement = () => {
                 end_week: endWeek
             });
 
+            if (requestId !== summaryRequestRef.current) return;
             if (res.success) {
                 setData(res.data || []);
                 setWeeks(res.weeks || []);
@@ -52,7 +63,7 @@ export const usePORequirement = () => {
         } catch (error) {
             console.error('Error fetching PO Requirement Summary:', error);
         } finally {
-            setLoading(false);
+            if (requestId === summaryRequestRef.current) setLoading(false);
         }
     }, [search, startWeek, endWeek]);
 
@@ -64,24 +75,21 @@ export const usePORequirement = () => {
         return () => clearTimeout(timer);
     }, [loadPORequirementSummary]);
 
-    // Handler untuk membersihkan pemisah ribuan menggunakan unformatThousand
-    const handleRequiredQtyChange = (id_product, value) => {
-        const cleanVal = unformatThousand(value);
-        const numericVal = cleanVal === '' ? 0 : parseInt(cleanVal, 10);
+    // Required PO disimpan terpisah dari data tabel agar tidak hilang saat tabel dimuat ulang
+    // (pencarian, ganti rentang minggu).
+    const [requiredItems, setRequiredItems] = useState({});
 
-        setData(prevData =>
-            prevData.map(item =>
-                item.id_product === id_product
-                    ? { ...item, required_po_qty: numericVal }
-                    : item
-            )
-        );
-    };
+    const handleRequiredQtyChange = useCallback((product, value) => {
+        setRequiredItems((prev) => setRequiredQty(prev, product, value));
+    }, []);
 
-    const openDetailModal = async (product) => {
+    const confirmItems = useMemo(() => listRequiredItems(requiredItems), [requiredItems]);
+
+    const openDetailModal = useCallback(async (product) => {
         setSelectedProduct(product);
         setIsModalOpen(true);
         setModalLoading(true);
+        const requestId = ++detailRequestRef.current;
 
         try {
             const res = await fetchPORequirementDetail(product.id_product, {
@@ -89,17 +97,19 @@ export const usePORequirement = () => {
                 end_week: endWeek
             });
 
+            if (requestId !== detailRequestRef.current) return;
             if (res.success) {
                 setModalData(res);
             }
         } catch (error) {
             console.error('Error fetching PO Requirement Detail:', error);
         } finally {
-            setModalLoading(false);
+            if (requestId === detailRequestRef.current) setModalLoading(false);
         }
-    };
+    }, [startWeek, endWeek]);
 
     const closeModal = () => {
+        detailRequestRef.current += 1; // abaikan respons detail yang masih berjalan
         setIsModalOpen(false);
         setSelectedProduct(null);
         setModalData(null);
@@ -107,9 +117,7 @@ export const usePORequirement = () => {
 
     // Pemicu Klik Tombol Create Draft PO
     const handleInitCreateDraftPO = async () => {
-        const itemsToCreate = data.filter(item => item.required_po_qty > 0);
-
-        if (itemsToCreate.length === 0) {
+        if (confirmItems.length === 0) {
             showAlert({
                 type: 'warning',
                 title: 'Validation Error',
@@ -120,11 +128,10 @@ export const usePORequirement = () => {
 
         try {
             const custRes = await fetchCustomersList();
-            if (custRes.success && custRes.data.length > 0) {
-                setCustomers(custRes.data);
-            }
-            // Customer harus dipilih secara sadar, bukan otomatis customer pertama.
-            setSelectedCustomerId('');
+            const customerList = custRes.success ? custRes.data : [];
+            setCustomers(customerList);
+            // Satu-satunya customer langsung terpilih; jika lebih dari satu, harus dipilih secara sadar.
+            setSelectedCustomerId(customerList.length === 1 ? String(customerList[0].customer_id) : '');
 
             // Reset description setiap kali modal konfirmasi dibuka
             setDescription('');
@@ -156,6 +163,7 @@ export const usePORequirement = () => {
                 });
                 setIsConfirmModalOpen(false);
                 setDescription('');
+                setRequiredItems({});
                 loadPORequirementSummary();
             }
         } catch (error) {
@@ -172,7 +180,7 @@ export const usePORequirement = () => {
 
     // Eksekusi Submit Draft PO dengan modal konfirmasi global
     const handleConfirmSubmitPO = () => {
-        const itemsToCreate = data.filter(item => item.required_po_qty > 0);
+        const itemsToCreate = toDraftPayload(confirmItems);
 
         if (!selectedCustomerId) {
             showAlert({
@@ -195,12 +203,13 @@ export const usePORequirement = () => {
         search,
         setSearch,
         startWeek,
-        setStartWeek,
         endWeek,
-        setEndWeek,
+        handleWeekRangeChange,
         data,
         weeks,
         loading,
+        requiredItems,
+        confirmItems,
         handleRequiredQtyChange,
         isModalOpen,
         selectedProduct,

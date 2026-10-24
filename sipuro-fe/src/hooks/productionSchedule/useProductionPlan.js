@@ -1,47 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     fetchProductionPlansSummary,
     fetchProductionPlanDetail,
     saveProductionPlan
 } from '../../services/productionPlanApi';
-import { getWibDate, getWibDateString } from '../../utils/dateHelper';
+import { getWibDateString } from '../../utils/dateHelper';
+import { getDefaultWeekRange, isValidWeekRange } from '../../utils/weekRange';
 import { useGlobalModal } from '../../context/ModalContext';
 
-// Helper menghitung ISO Week & Year murni berbasis WibDate
-const getIsoWeekInfo = (dateObj) => {
-    const dWib = getWibDate(dateObj);
-    const d = new Date(Date.UTC(dWib.getFullYear(), dWib.getMonth(), dWib.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    return { year: d.getUTCFullYear(), week: weekNo };
-};
-
-// Helper mendapatkan ISO Week & Year saat ini dalam WIB
-const getCurrentIsoWeek = () => {
-    return getIsoWeekInfo(getWibDate());
-};
-
-// Helper menggeser week secara presisi dan konsisten lintas tahun (100% ISO-8601)
-const shiftIsoWeek = (year, week, delta) => {
-    const simpleThursday = new Date(Date.UTC(year, 0, 4));
-    const dayOfWeek = simpleThursday.getUTCDay() || 7;
-
-    const firstMonday = new Date(simpleThursday);
-    firstMonday.setUTCDate(simpleThursday.getUTCDate() - (dayOfWeek - 1));
-
-    const targetMonday = new Date(firstMonday);
-    targetMonday.setUTCDate(firstMonday.getUTCDate() + (week - 1 + delta) * 7);
-
-    return getIsoWeekInfo(targetMonday);
-};
-
 export const useProductionPlan = () => {
-    const { year: currentYear, week: currentWeek } = getCurrentIsoWeek();
-    const defaultStart = shiftIsoWeek(currentYear, currentWeek, 0);
-    const defaultEnd = shiftIsoWeek(currentYear, currentWeek, 8);
-
     // Modal Global Context
     const { showConfirm, showAlert } = useGlobalModal();
 
@@ -50,8 +17,15 @@ export const useProductionPlan = () => {
     const [weeks, setWeeks] = useState([]);
     const [search, setSearch] = useState('');
 
-    const [startWeek, setStartWeek] = useState(`${defaultStart.year}-W${String(defaultStart.week).padStart(2, '0')}`);
-    const [endWeek, setEndWeek] = useState(`${defaultEnd.year}-W${String(defaultEnd.week).padStart(2, '0')}`);
+    const [weekRange, setWeekRange] = useState(() => getDefaultWeekRange());
+    const { startWeek, endWeek } = weekRange;
+    const handleWeekRangeChange = useCallback((newStart, newEnd) => {
+        setWeekRange({ startWeek: newStart, endWeek: newEnd });
+    }, []);
+
+    // Hanya respons dari permintaan terakhir yang boleh mengubah tampilan.
+    const summaryRequestRef = useRef(0);
+    const detailRequestRef = useRef(0);
 
     const [pagination, setPagination] = useState({
         currentPage: 1,
@@ -66,6 +40,8 @@ export const useProductionPlan = () => {
     const [modalWeeks, setModalWeeks] = useState([]);
     const [modalStartWeek, setModalStartWeek] = useState(startWeek);
     const [modalEndWeek, setModalEndWeek] = useState(endWeek);
+    // Rentang minggu dari data yang benar-benar sedang tampil; inilah yang dikirim saat simpan.
+    const [loadedRange, setLoadedRange] = useState(null);
     const [revisions, setRevisions] = useState([]);
     const [initialRevisions, setInitialRevisions] = useState([]);
     const [hasExistingPlan, setHasExistingPlan] = useState(false);
@@ -74,6 +50,8 @@ export const useProductionPlan = () => {
 
     // Fetch Summary Data Halaman List
     const loadSummary = useCallback(async (page = 1, limit = 10, searchKeyword = search, sW = startWeek, eW = endWeek) => {
+        if (!isValidWeekRange(sW, eW)) return;
+        const requestId = ++summaryRequestRef.current;
         setLoading(true);
         try {
             const res = await fetchProductionPlansSummary({
@@ -83,6 +61,7 @@ export const useProductionPlan = () => {
                 start_week: sW,
                 end_week: eW
             });
+            if (requestId !== summaryRequestRef.current) return;
             if (res.success) {
                 setData(res.data || []);
                 setWeeks(res.weeks || []);
@@ -91,7 +70,7 @@ export const useProductionPlan = () => {
         } catch (err) {
             console.error('Error loadSummary Production Plan:', err);
         } finally {
-            setLoading(false);
+            if (requestId === summaryRequestRef.current) setLoading(false);
         }
     }, [search, startWeek, endWeek]);
 
@@ -109,13 +88,17 @@ export const useProductionPlan = () => {
 
     // Load Detail Product di Modal
     const loadModalDetail = useCallback(async (idProduct, sW = modalStartWeek, eW = modalEndWeek) => {
+        if (!isValidWeekRange(sW, eW)) return;
+        const requestId = ++detailRequestRef.current;
         setModalLoading(true);
         try {
             const res = await fetchProductionPlanDetail(idProduct, {
                 start_week: sW,
                 end_week: eW
             });
+            if (requestId !== detailRequestRef.current) return;
             if (res.success) {
+                setLoadedRange({ startWeek: sW, endWeek: eW });
                 setModalWeeks(res.weeks || []);
                 setHasExistingPlan(res.has_existing_plan || false);
 
@@ -150,7 +133,7 @@ export const useProductionPlan = () => {
         } catch (err) {
             console.error('Error openModal Production Plan:', err);
         } finally {
-            setModalLoading(false);
+            if (requestId === detailRequestRef.current) setModalLoading(false);
         }
     }, [modalStartWeek, modalEndWeek]);
 
@@ -163,31 +146,65 @@ export const useProductionPlan = () => {
         loadModalDetail(product.id_product, startWeek, endWeek);
     };
 
+    const hasUnsavedChanges = JSON.stringify(revisions) !== JSON.stringify(initialRevisions);
+
     const handleModalFilterChange = (newSW, newEW) => {
-        setModalStartWeek(newSW);
-        setModalEndWeek(newEW);
-        if (selectedProduct) {
-            loadModalDetail(selectedProduct.id_product, newSW, newEW);
+        const applyFilter = () => {
+            setModalStartWeek(newSW);
+            setModalEndWeek(newEW);
+            if (selectedProduct) {
+                loadModalDetail(selectedProduct.id_product, newSW, newEW);
+            }
+        };
+
+        // Rentang yang belum lengkap/valid hanya mengisi kolom input, tanpa memuat ulang data.
+        if (!isValidWeekRange(newSW, newEW)) {
+            setModalStartWeek(newSW);
+            setModalEndWeek(newEW);
+            return;
         }
+
+        if (hasUnsavedChanges) {
+            showConfirm({
+                title: 'Discard Unsaved Changes',
+                message: 'Changing the week range reloads the plan and discards your unsaved changes. Continue?',
+                confirmText: 'Discard & Change',
+                onConfirm: applyFilter
+            });
+            return;
+        }
+
+        applyFilter();
     };
 
     const closeModal = () => {
         if (saving) return;
+        detailRequestRef.current += 1; // abaikan respons detail yang masih berjalan
         setIsModalOpen(false);
         setSelectedProduct(null);
         setRevisions([]);
         setInitialRevisions([]);
         setHasExistingPlan(false);
+        setLoadedRange(null);
     };
 
     // Fungsi internal eksekusi API Simpan
     const executeSave = async () => {
+        if (!loadedRange) return;
         setSaving(true);
         try {
+            // Hanya minggu pada rentang yang tampil yang dikirim; server tidak menghapus minggu/revisi lain.
             const payload = {
                 id_product: selectedProduct.id_product,
-                revisions,
-                weeks: modalWeeks
+                start_week: loadedRange.startWeek,
+                end_week: loadedRange.endWeek,
+                revisions: revisions.map((rev) => ({
+                    id_revision: rev.id_revision,
+                    revision_type: rev.revision_type,
+                    revision_label: rev.revision_label,
+                    revision_date: rev.revision_date,
+                    weeks_data: rev.weeks_data
+                }))
             };
 
             const res = await saveProductionPlan(payload);
@@ -211,7 +228,7 @@ export const useProductionPlan = () => {
             showAlert({
                 type: 'error',
                 title: 'Error',
-                message: 'An error occurred while saving the data.'
+                message: err.response?.data?.message || 'An error occurred while saving the data.'
             });
         } finally {
             setSaving(false);
@@ -237,9 +254,8 @@ export const useProductionPlan = () => {
         search,
         setSearch,
         startWeek,
-        setStartWeek,
         endWeek,
-        setEndWeek,
+        handleWeekRangeChange,
         pagination,
         handlePageChange,
         handleLimitChange,

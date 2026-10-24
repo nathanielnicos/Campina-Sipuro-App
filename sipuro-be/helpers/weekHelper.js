@@ -95,7 +95,61 @@ function getDefaultRollingWeeks() {
     return generateWeekRange(currentWeekInfo.week_number, currentWeekInfo.year, 9);
 }
 
+const MAX_WEEK_SPAN = 104;
+
+/**
+ * Mengurai "YYYY-Www" (nilai input type="week") menjadi { year, week }.
+ * Ketat: harus tepat 4 digit tahun dan 2 digit minggu, dan minggu tersebut harus ada di tahun ISO itu.
+ */
+function parseWeekString(weekStr) {
+    if (typeof weekStr !== 'string') return null;
+    const match = /^(\d{4})-W(\d{2})$/.exec(weekStr);
+    if (!match) return null;
+    const year = parseInt(match[1], 10);
+    const week = parseInt(match[2], 10);
+    if (week < 1 || week > 53) return null;
+    const info = getWeekInfoFromDate(getStartDateOfISOWeek(week, year));
+    if (info.year !== year || info.week_number !== week) return null;
+    return { year, week };
+}
+
+/**
+ * Satu-satunya tempat yang menerjemahkan rentang minggu dari UI menjadi daftar minggu.
+ * - clamp=false (simpan data): rentang salah / terlalu panjang -> { ok: false, error }.
+ * - clamp=true  (tampilan): rentang terlalu panjang dipotong ke MAX_WEEK_SPAN.
+ */
+function resolveWeekRange(startStr, endStr, { clamp = false } = {}) {
+    const start = parseWeekString(startStr);
+    const end = parseWeekString(endStr);
+    if (!start || !end) {
+        return { ok: false, error: 'Invalid week range. Use the format YYYY-Www.' };
+    }
+
+    const startDate = getStartDateOfISOWeek(start.week, start.year);
+    const endDate = getStartDateOfISOWeek(end.week, end.year);
+    if (startDate > endDate) {
+        return { ok: false, error: 'Start week must not be after end week.' };
+    }
+
+    const count = Math.round((endDate.getTime() - startDate.getTime()) / 86400000 / 7) + 1;
+    if (count > MAX_WEEK_SPAN && !clamp) {
+        return { ok: false, error: `Week range must not exceed ${MAX_WEEK_SPAN} weeks.` };
+    }
+
+    return { ok: true, weeks: generateWeekRange(start.week, start.year, Math.min(count, MAX_WEEK_SPAN)) };
+}
+
+// Untuk tampilan: rentang tidak valid jatuh kembali ke rolling default.
+function getWeeksListBetween(startStr, endStr) {
+    const result = resolveWeekRange(startStr, endStr, { clamp: true });
+    return result.ok ? result.weeks : getDefaultRollingWeeks();
+}
+
 module.exports = {
+    MAX_WEEK_SPAN,
+    parseWeekString,
+    resolveWeekRange,
+    getWeeksListBetween,
     getWeekInfoFromDate,
     getStartDateOfISOWeek,
     generateWeekRange,

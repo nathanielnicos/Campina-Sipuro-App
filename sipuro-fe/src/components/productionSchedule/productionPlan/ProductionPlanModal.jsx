@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { formatQty, unformatThousand } from '../../../utils/formatters';
 import { getWibDateString, getWibFormattedLabel } from '../../../utils/dateHelper';
+import WeekRangeFilter from '../WeekRangeFilter';
 
 const ProductionPlanModal = ({
     isOpen,
@@ -148,24 +149,14 @@ const ProductionPlanModal = ({
                 {/* Body */}
                 <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
                     <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#495057' }}>
-                            <label style={{ fontWeight: '600' }}>Filter Week:</label>
-                            <input
-                                type="week"
-                                disabled={saving}
-                                value={startWeek}
-                                onChange={(e) => onFilterChange(e.target.value, endWeek)}
-                                style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '13px', outline: 'none' }}
-                            />
-                            <span>to</span>
-                            <input
-                                type="week"
-                                disabled={saving}
-                                value={endWeek}
-                                onChange={(e) => onFilterChange(startWeek, e.target.value)}
-                                style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '13px', outline: 'none' }}
-                            />
-                        </div>
+                        <WeekRangeFilter
+                            variant="inline"
+                            applyMode="manual"
+                            disabled={saving}
+                            startWeek={startWeek}
+                            endWeek={endWeek}
+                            onChange={onFilterChange}
+                        />
 
                         <button
                             onClick={handleAddRevision}

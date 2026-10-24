@@ -1,18 +1,21 @@
 import { usePORequirement } from '../../../hooks/productionSchedule/usePORequirement';
 import PORequirementDetailModal from './PORequirementDetailModal';
 import ConfirmCreatePOModal from './ConfirmCreatePOModal';
-import { formatQty, formatThousand, unformatThousand } from '../../../utils/formatters';
+import WeekRangeFilter from '../WeekRangeFilter';
+import PORequirementRow from './PORequirementRow';
+import { getRequiredQty } from '../../../utils/requiredQty';
 
 const PORequirementTab = () => {
     const {
         search,
         setSearch,
         startWeek,
-        setStartWeek,
         endWeek,
-        setEndWeek,
+        handleWeekRangeChange,
         data,
         loading,
+        requiredItems,
+        confirmItems,
         handleRequiredQtyChange,
         isModalOpen,
         selectedProduct,
@@ -70,38 +73,11 @@ const PORequirementTab = () => {
                 </div>
 
                 {/* Week Filter Range Group */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#212529' }}>
-                        Week Range Filter
-                    </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                            type="week"
-                            value={startWeek}
-                            onChange={(e) => setStartWeek(e.target.value)}
-                            style={{
-                                padding: '8px 12px',
-                                borderRadius: '4px',
-                                border: '1px solid #ced4da',
-                                fontSize: '13px',
-                                outline: 'none'
-                            }}
-                        />
-                        <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: '500' }}>to</span>
-                        <input
-                            type="week"
-                            value={endWeek}
-                            onChange={(e) => setEndWeek(e.target.value)}
-                            style={{
-                                padding: '8px 12px',
-                                borderRadius: '4px',
-                                border: '1px solid #ced4da',
-                                fontSize: '13px',
-                                outline: 'none'
-                            }}
-                        />
-                    </div>
-                </div>
+                <WeekRangeFilter
+                    startWeek={startWeek}
+                    endWeek={endWeek}
+                    onChange={handleWeekRangeChange}
+                />
             </div>
 
             {/* Tabel List Utama */}
@@ -148,64 +124,13 @@ const PORequirementTab = () => {
                                 </tr>
                             ) : (
                                 data.map((row) => (
-                                    <tr key={row.id_product} style={{ borderBottom: '1px solid #e9ecef' }}>
-                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#212529', borderRight: '1px solid #dee2e6' }}>
-                                            {row.product_code}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', color: '#212529', fontWeight: '500', borderRight: '1px solid #dee2e6' }}>
-                                            {row.product_name}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#212529', borderRight: '1px solid #dee2e6' }}>
-                                            {formatQty(row.po_outstanding_qty)}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#212529', borderRight: '1px solid #dee2e6' }}>
-                                            {formatQty(row.total_production_plan_qty)}
-                                        </td>
-                                        <td style={{
-                                            padding: '12px 16px',
-                                            textAlign: 'right',
-                                            fontWeight: 'bold',
-                                            color: row.remaining_qty < 0 ? '#dc3545' : '#198754',
-                                            borderRight: '1px solid #dee2e6'
-                                        }}>
-                                            {formatQty(row.remaining_qty)}
-                                        </td>
-                                        <td style={{ padding: '8px 12px', textAlign: 'center', borderRight: '1px solid #dee2e6' }}>
-                                            <input
-                                                type="text"
-                                                value={formatThousand(row.required_po_qty)}
-                                                onChange={(e) => handleRequiredQtyChange(row.id_product, unformatThousand(e.target.value))}
-                                                placeholder="0"
-                                                style={{
-                                                    width: '120px',
-                                                    padding: '6px 10px',
-                                                    borderRadius: '4px',
-                                                    border: '1px solid #ced4da',
-                                                    textAlign: 'right',
-                                                    fontSize: '13px',
-                                                    fontWeight: '600',
-                                                    outline: 'none'
-                                                }}
-                                            />
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                                            <button
-                                                onClick={() => openDetailModal(row)}
-                                                style={{
-                                                    backgroundColor: '#0d6efd',
-                                                    color: '#fff',
-                                                    border: 'none',
-                                                    padding: '6px 12px',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '12px',
-                                                    fontWeight: '600'
-                                                }}
-                                            >
-                                                View Detail
-                                            </button>
-                                        </td>
-                                    </tr>
+                                    <PORequirementRow
+                                        key={row.id_product}
+                                        row={row}
+                                        qty={getRequiredQty(requiredItems, row.id_product)}
+                                        onQtyChange={handleRequiredQtyChange}
+                                        onOpenDetail={openDetailModal}
+                                    />
                                 ))
                             )}
                         </tbody>
@@ -247,7 +172,7 @@ const PORequirementTab = () => {
             <ConfirmCreatePOModal
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}
-                items={data}
+                items={confirmItems}
                 customers={customers}
                 selectedCustomerId={selectedCustomerId}
                 setSelectedCustomerId={setSelectedCustomerId}

@@ -1,44 +1,8 @@
 const { sipuroDb } = require('../../../config/db');
-const { getDefaultRollingWeeks, generateWeekRange, getStartDateOfISOWeek } = require('../../../helpers/weekHelper');
+const { getWeeksListBetween } = require('../../../helpers/weekHelper');
+const { safeError } = require('../../../helpers/safeError');
 
-/**
- * Helper untuk memapar format "YYYY-Www" (contoh: "2026-W34" -> { year: 2026, week: 34 })
- */
-const parseWeekString = (weekStr) => {
-    if (!weekStr || !weekStr.includes('-W')) return null;
-    const parts = weekStr.split('-W');
-    const year = parseInt(parts[0], 10);
-    const week = parseInt(parts[1], 10);
-    if (isNaN(year) || isNaN(week)) return null;
-    return { year, week };
-};
-
-/**
- * Helper untuk menghitung jumlah minggu di antara dua rentang ISO Week secara akurat
- */
-const getWeeksListBetween = (startStr, endStr) => {
-    const startParsed = parseWeekString(startStr);
-    const endParsed = parseWeekString(endStr);
-
-    if (!startParsed || !endParsed) {
-        return getDefaultRollingWeeks();
-    }
-
-    const startDate = getStartDateOfISOWeek(startParsed.week, startParsed.year);
-    const endDate = getStartDateOfISOWeek(endParsed.week, endParsed.year);
-
-    if (startDate > endDate) {
-        return getDefaultRollingWeeks();
-    }
-
-    const diffTime = endDate.getTime() - startDate.getTime();
-    const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
-    const count = Math.floor(diffDays / 7) + 1;
-
-    const safeCount = Math.min(Math.max(count, 1), 104);
-
-    return generateWeekRange(startParsed.week, startParsed.year, safeCount);
-};
+const MAX_PAGE_LIMIT = 100;
 
 /**
  * 1. Menampilkan Halaman Utama Production Plan (List Master Produk + Campina's Plan)
@@ -46,7 +10,7 @@ const getWeeksListBetween = (startStr, endStr) => {
 exports.getProductionPlansSummary = async (req, res) => {
     try {
         const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
-        const limitNum = Math.max(1, parseInt(req.query.limit, 10) || 10);
+        const limitNum = Math.min(MAX_PAGE_LIMIT, Math.max(1, parseInt(req.query.limit, 10) || 10));
         const offset = (pageNum - 1) * limitNum;
 
         const { search, start_week, end_week } = req.query;
@@ -132,7 +96,7 @@ exports.getProductionPlansSummary = async (req, res) => {
         });
     } catch (error) {
         console.error('Error getProductionPlansSummary:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch Production Plan data.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch Production Plan data.', error: safeError(error) });
     }
 };
 
@@ -178,7 +142,7 @@ exports.getProductionPlanDetail = async (req, res) => {
             `SELECT id_revision, revision_type, revision_label, revision_date, created_at 
              FROM sipuro_db.production_plan_revisions 
              WHERE id_plan = ? 
-             ORDER BY id_revision ASC`,
+             ORDER BY (revision_type = 'CAMPINA_PLAN') ASC, id_revision ASC`,
             [id_plan]
         );
 
@@ -225,6 +189,6 @@ exports.getProductionPlanDetail = async (req, res) => {
 
     } catch (error) {
         console.error('Error getProductionPlanDetail:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch Production Plan detail.', error: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch Production Plan detail.', error: safeError(error) });
     }
 };

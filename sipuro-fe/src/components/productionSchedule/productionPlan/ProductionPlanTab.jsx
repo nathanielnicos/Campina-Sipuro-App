@@ -1,6 +1,7 @@
 import { useProductionPlan } from '../../../hooks/productionSchedule/useProductionPlan';
 import PaginationControl from '../../common/PaginationControl';
-import ProductionPlanModal from '../productionPlan/ProductionPlanModal';
+import ProductionPlanModal from './ProductionPlanModal';
+import WeekRangeFilter from '../WeekRangeFilter';
 import { formatQty } from '../../../utils/formatters';
 
 const ProductionPlanTab = () => {
@@ -11,9 +12,8 @@ const ProductionPlanTab = () => {
         search,
         setSearch,
         startWeek,
-        setStartWeek,
         endWeek,
-        setEndWeek,
+        handleWeekRangeChange,
         pagination,
         handlePageChange,
         handleLimitChange,
@@ -73,38 +73,11 @@ const ProductionPlanTab = () => {
                 </div>
 
                 {/* Week Filter Range Group */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#212529' }}>
-                        Week Range Filter
-                    </label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                            type="week"
-                            value={startWeek}
-                            onChange={(e) => setStartWeek(e.target.value)}
-                            style={{
-                                padding: '8px 12px',
-                                borderRadius: '4px',
-                                border: '1px solid #ced4da',
-                                fontSize: '13px',
-                                outline: 'none'
-                            }}
-                        />
-                        <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: '500' }}>to</span>
-                        <input
-                            type="week"
-                            value={endWeek}
-                            onChange={(e) => setEndWeek(e.target.value)}
-                            style={{
-                                padding: '8px 12px',
-                                borderRadius: '4px',
-                                border: '1px solid #ced4da',
-                                fontSize: '13px',
-                                outline: 'none'
-                            }}
-                        />
-                    </div>
-                </div>
+                <WeekRangeFilter
+                    startWeek={startWeek}
+                    endWeek={endWeek}
+                    onChange={handleWeekRangeChange}
+                />
             </div>
 
             {/* Tabel List Utama */}

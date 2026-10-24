@@ -1,40 +1,9 @@
 const { sipuroDb } = require('../../../config/db');
-const { getDefaultRollingWeeks, generateWeekRange, getStartDateOfISOWeek } = require('../../../helpers/weekHelper');
+const { getWeeksListBetween } = require('../../../helpers/weekHelper');
+const { safeError } = require('../../../helpers/safeError');
 const {
     NOT_DELETED_SQL, APPROVED_HEADER_SQL, OPEN_ITEM_SQL, REMAINING_SQL
 } = require('../../../helpers/po/openItemRules');
-
-const parseWeekString = (weekStr) => {
-    if (!weekStr || !weekStr.includes('-W')) return null;
-    const parts = weekStr.split('-W');
-    const year = parseInt(parts[0], 10);
-    const week = parseInt(parts[1], 10);
-    if (isNaN(year) || isNaN(week)) return null;
-    return { year, week };
-};
-
-const getWeeksListBetween = (startStr, endStr) => {
-    const startParsed = parseWeekString(startStr);
-    const endParsed = parseWeekString(endStr);
-
-    if (!startParsed || !endParsed) {
-        return getDefaultRollingWeeks();
-    }
-
-    const startDate = getStartDateOfISOWeek(startParsed.week, startParsed.year);
-    const endDate = getStartDateOfISOWeek(endParsed.week, endParsed.year);
-
-    if (startDate > endDate) {
-        return getDefaultRollingWeeks();
-    }
-
-    const diffTime = endDate.getTime() - startDate.getTime();
-    const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
-    const count = Math.floor(diffDays / 7) + 1;
-    const safeCount = Math.min(Math.max(count, 1), 104);
-
-    return generateWeekRange(startParsed.week, startParsed.year, safeCount);
-};
 
 /**
  * 1. Menampilkan Halaman Utama PO Requirement
@@ -123,7 +92,7 @@ exports.getPORequirementSummary = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch PO Requirement summary data.',
-            error: error.message
+            error: safeError(error)
         });
     }
 };
@@ -236,7 +205,7 @@ exports.getPORequirementDetail = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch PO Requirement detail.',
-            error: error.message
+            error: safeError(error)
         });
     }
 };

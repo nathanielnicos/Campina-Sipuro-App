@@ -1,134 +1,107 @@
 const { sipuroDb } = require('../../../config/db');
-const { getWibDate, getWibMysqlString } = require('../../../helpers/dateHelper');
+const { getWibDateTimeString } = require('../../../helpers/dateHelper');
+const { BusinessError, sendControllerError } = require('../../../helpers/businessError');
+const { validateSavePayload } = require('../../../helpers/productionPlanValidation');
 
 /**
- * Helper sederhana untuk mengekstrak string YYYY-MM-DD dari format tanggal / ISO String berbasis WIB
- */
-const formatDateOnly = (dateVal) => {
-    if (!dateVal) {
-        const nowWib = getWibDate();
-        const year = nowWib.getFullYear();
-        const month = String(nowWib.getMonth() + 1).padStart(2, '0');
-        const day = String(nowWib.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    if (typeof dateVal === 'string') {
-        return dateVal.split('T')[0];
-    }
-
-    if (dateVal instanceof Date) {
-        const dWib = getWibDate(dateVal);
-        const year = dWib.getFullYear();
-        const month = String(dWib.getMonth() + 1).padStart(2, '0');
-        const day = String(dWib.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    return dateVal;
-};
-
-/**
- * Menyimpan / Meng-update Production Plan & Revisions dari Modal Detail
+ * Menyimpan Production Plan & revisinya dari modal detail.
+ *
+ * Aturan:
+ * - Hanya minggu pada rentang yang tampil (start_week..end_week) yang ditulis (upsert); minggu lain tidak disentuh.
+ * - Tidak ada revisi atau item yang dihapus. Revisi lama dicocokkan lewat id_revision; yang tidak punya id dibuat baru.
+ * - Revisi lama hanya diubah qty-nya; tipe, label, tanggal, dan pembuat aslinya dipertahankan.
+ * - Aktor (created_by / updated_by) selalu dari token, bukan dari body.
+ * - Tepat satu CAMPINA_PLAN per produk.
  */
 exports.saveProductionPlan = async (req, res) => {
-    const connection = await sipuroDb.getConnection();
+    let connection;
     try {
-        const { id_product, revisions, weeks, created_by } = req.body;
+        const employeeId = req.user && req.user.id;
+        if (!employeeId) throw new BusinessError('Unauthorized.', 401);
 
-        if (!id_product || !Array.isArray(revisions) || revisions.length === 0) {
-            return res.status(400).json({ success: false, message: 'Invalid plan revision data.' });
-        }
+        const { idProduct, revisions } = validateSavePayload(req.body);
+
+        connection = await sipuroDb.getConnection();
+
+        const [prodRows] = await connection.query(
+            'SELECT id_product FROM sipuro_db.products WHERE id_product = ?',
+            [idProduct]
+        );
+        if (prodRows.length === 0) throw new BusinessError('Product not found.', 404);
 
         await connection.beginTransaction();
 
-        // 1. Dapatkan atau buat id_plan
-        let [planRows] = await connection.query(
-            `SELECT id_plan FROM sipuro_db.production_plans WHERE id_product = ?`,
-            [id_product]
+        // Buat plan jika belum ada (aman terhadap dua simpan bersamaan), lalu kunci barisnya.
+        await connection.query(
+            'INSERT IGNORE INTO sipuro_db.production_plans (id_product, created_by, updated_by) VALUES (?, ?, ?)',
+            [idProduct, employeeId, employeeId]
+        );
+        const [planRows] = await connection.query(
+            'SELECT id_plan FROM sipuro_db.production_plans WHERE id_product = ? FOR UPDATE',
+            [idProduct]
+        );
+        const idPlan = planRows[0].id_plan;
+
+        await connection.query(
+            'UPDATE sipuro_db.production_plans SET updated_at = ?, updated_by = ? WHERE id_plan = ?',
+            [getWibDateTimeString(), employeeId, idPlan]
         );
 
-        let id_plan;
-        if (planRows.length === 0) {
-            const [newPlan] = await connection.query(
-                `INSERT INTO sipuro_db.production_plans (id_product, created_by, updated_by) VALUES (?, ?, ?)`,
-                [id_product, created_by || null, created_by || null]
-            );
-            id_plan = newPlan.insertId;
-        } else {
-            id_plan = planRows[0].id_plan;
-            const wibNow = getWibMysqlString();
-            await connection.query(
-                `UPDATE sipuro_db.production_plans SET updated_at = ?, updated_by = ? WHERE id_plan = ?`,
-                [wibNow, created_by || null, id_plan]
-            );
-        }
-
-        // Hapus revisi & item terdahulu untuk mengganti dengan dataset revisi terbaru
-        const [oldRevs] = await connection.query(
-            `SELECT id_revision FROM sipuro_db.production_plan_revisions WHERE id_plan = ?`,
-            [id_plan]
+        const [existing] = await connection.query(
+            'SELECT id_revision, revision_type FROM sipuro_db.production_plan_revisions WHERE id_plan = ?',
+            [idPlan]
         );
+        const existingById = new Map(existing.map((r) => [r.id_revision, r.revision_type]));
 
-        if (oldRevs.length > 0) {
-            const oldIds = oldRevs.map(r => r.id_revision);
-            await connection.query(`DELETE FROM sipuro_db.production_plan_items WHERE id_revision IN (?)`, [oldIds]);
-            await connection.query(`DELETE FROM sipuro_db.production_plan_revisions WHERE id_plan = ?`, [id_plan]);
-        }
+        let finalCampinaCount = existing.filter((r) => r.revision_type === 'CAMPINA_PLAN').length;
 
-        // 2. Insert Ulang Seluruh Struktur Revisi
         for (const rev of revisions) {
-            const cleanRevisionDate = formatDateOnly(rev.revision_date);
-
-            const [insertedRev] = await connection.query(
-                `INSERT INTO sipuro_db.production_plan_revisions 
-                 (id_plan, revision_type, revision_label, revision_date, created_by) 
-                 VALUES (?, ?, ?, ?, ?)`,
-                [
-                    id_plan,
-                    rev.revision_type,
-                    rev.revision_label,
-                    cleanRevisionDate,
-                    created_by || null
-                ]
-            );
-
-            const id_revision = insertedRev.insertId;
-
-            // Insert item per week
-            if (rev.weeks_data) {
-                for (const w of weeks) {
-                    const key = `${w.year}_${w.week_number}`;
-                    const rawQty = rev.weeks_data[key];
-                    const qtyVal = Math.max(0, parseInt(rawQty, 10) || 0);
-
-                    const rawWeekStartDate = w.start_date || w.week_start_date || null;
-                    const cleanWeekStartDate = rawWeekStartDate ? formatDateOnly(rawWeekStartDate) : null;
-
-                    await connection.query(
-                        `INSERT INTO sipuro_db.production_plan_items 
-                         (id_revision, year, week_number, week_start_date, qty) 
-                         VALUES (?, ?, ?, ?, ?)`,
-                        [
-                            id_revision,
-                            w.year,
-                            w.week_number,
-                            cleanWeekStartDate,
-                            qtyVal
-                        ]
-                    );
+            if (rev.idRevision) {
+                if (!existingById.has(rev.idRevision)) {
+                    throw new BusinessError('This plan has changed. Please reload and try again.', 409);
                 }
+                if (existingById.get(rev.idRevision) !== rev.type) {
+                    throw new BusinessError('Revision type cannot be changed.', 400);
+                }
+            } else if (rev.type === 'CAMPINA_PLAN') {
+                finalCampinaCount += 1;
             }
+        }
+        if (finalCampinaCount !== 1) {
+            throw new BusinessError("This plan has changed. Please reload and try again.", 409);
+        }
+
+        for (const rev of revisions) {
+            let idRevision = rev.idRevision;
+
+            if (!idRevision) {
+                const [inserted] = await connection.query(
+                    `INSERT INTO sipuro_db.production_plan_revisions
+                     (id_plan, revision_type, revision_label, revision_date, created_by)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [idPlan, rev.type, rev.label, rev.date, employeeId]
+                );
+                idRevision = inserted.insertId;
+            }
+
+            const rows = rev.items.map((it) => [idRevision, it.year, it.week_number, it.week_start_date, it.qty]);
+            await connection.query(
+                `INSERT INTO sipuro_db.production_plan_items
+                 (id_revision, year, week_number, week_start_date, qty)
+                 VALUES ?
+                 ON DUPLICATE KEY UPDATE qty = VALUES(qty), week_start_date = VALUES(week_start_date)`,
+                [rows]
+            );
         }
 
         await connection.commit();
         res.json({ success: true, message: 'Production Plan successfully saved.' });
-
     } catch (error) {
-        await connection.rollback();
-        console.error('Error saveProductionPlan:', error);
-        res.status(500).json({ success: false, message: 'Failed to save Production Plan.', error: error.message });
+        if (connection) {
+            try { await connection.rollback(); } catch (rollbackError) { /* koneksi sudah putus */ }
+        }
+        sendControllerError(res, error, { label: 'Error saveProductionPlan', fallbackMessage: 'Failed to save Production Plan.' });
     } finally {
-        connection.release();
+        if (connection) connection.release();
     }
 };
