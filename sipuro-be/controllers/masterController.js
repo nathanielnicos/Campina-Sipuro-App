@@ -1,6 +1,7 @@
 const { sipuroDb } = require('../config/db');
 const { hasAccess } = require('../middleware/auth');
 const { safeError } = require('../helpers/safeError');
+const { currentPriceCondition } = require('../helpers/po/currentPriceRules');
 
 exports.getProducts = async (req, res) => {
     try {
@@ -8,7 +9,7 @@ exports.getProducts = async (req, res) => {
             SELECT p.id_product, p.product_code, p.product_name, p.base_uom, p.pcs_per_ctn, p.ctn_per_plt, sp.price AS base_price
             FROM sipuro_db.products p
             JOIN sipuro_db.product_selling_prices sp ON p.id_product = sp.id_product
-            WHERE p.is_active = 1 AND sp.start_date <= CURDATE() AND (sp.end_date IS NULL OR sp.end_date >= CURDATE())
+            WHERE p.is_active = 1 AND ${currentPriceCondition('sp')}
             ORDER BY p.product_name ASC
         `;
         const [rows] = await sipuroDb.query(query);

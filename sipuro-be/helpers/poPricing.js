@@ -1,6 +1,7 @@
 'use strict';
 
 const { calculateBaseQty } = require('./poHelper');
+const { currentPriceCondition } = require('./po/currentPriceRules');
 const {
     MAX_ITEM_QTY,
     mulDivRound,
@@ -81,12 +82,11 @@ async function fetchCurrentPrices(db, productIds) {
     if (productIds.length === 0) return new Map();
 
     const [rows] = await db.query(
-        `SELECT id_product, price
-         FROM sipuro_db.product_selling_prices
-         WHERE id_product IN (?)
-           AND start_date <= CURDATE()
-           AND (end_date IS NULL OR end_date >= CURDATE())
-         ORDER BY id_product ASC, start_date DESC, price_id DESC`,
+        `SELECT sp.id_product, sp.price
+         FROM sipuro_db.product_selling_prices sp
+         WHERE sp.id_product IN (?)
+           AND ${currentPriceCondition('sp')}
+         ORDER BY sp.id_product ASC, sp.start_date DESC, sp.price_id DESC`,
         [productIds]
     );
 

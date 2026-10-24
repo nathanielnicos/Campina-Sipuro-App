@@ -38,6 +38,7 @@ const calculateDeliveryOrderFifo = (
         const isRegistered = productByCode.has(row.itemCode);
         const isDuplicate = hashSet.has(row.rowHash);
         const isGood = row.lotStatus && row.lotStatus.toUpperCase() === 'GOOD';
+        const isRma = row.transType === 'RMA Receipt';
 
         if (!isRegistered) {
             row.rowStatusCategory = 'UNREGISTERED';
@@ -48,7 +49,15 @@ const calculateDeliveryOrderFifo = (
         } else if (!isGood) {
             row.rowStatusCategory = 'NON_GOOD';
             categorizedDetails.nonGoodRows.push(row);
+        } else if (isRma) {
+            // Baris Retur (RMA) dipisahkan ke unallocated / info khusus (tidak mengurangi DO pengiriman)
+            row.rowStatusCategory = 'UNALLOCATED';
+            categorizedDetails.unallocatedRows.push({
+                ...row,
+                reason: 'RMA Receipt (Return) is recorded separately and does not reduce Delivery Order shipments.'
+            });
         } else {
+            // Pengiriman riil (Sales order issue) dialokasikan penuh ke DO
             row.rowStatusCategory = 'NEW';
             categorizedDetails.newRows.push(row);
 

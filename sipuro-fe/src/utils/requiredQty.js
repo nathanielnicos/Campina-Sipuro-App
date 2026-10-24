@@ -5,7 +5,10 @@
 export const MAX_REQUIRED_QTY = 999999999;
 
 // Memasang qty satu produk. Nilai kosong atau 0 menghapus produk dari daftar.
+// Produk tanpa harga jual aktif tidak bisa ditambahkan (server akan menolaknya).
 export const setRequiredQty = (items, product, rawValue) => {
+    if (product.has_active_price === false && !items[product.id_product]) return items;
+
     const digits = String(rawValue === null || rawValue === undefined ? '' : rawValue).replace(/\D/g, '').slice(0, 9);
     const qty = digits ? Math.min(parseInt(digits, 10), MAX_REQUIRED_QTY) : 0;
 

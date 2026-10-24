@@ -25,6 +25,12 @@ const findCustomer = async (db, customerId) => {
     return rows.length > 0 ? rows[0] : null;
 };
 
+/** Nama perusahaan customer untuk teks notifikasi (null bila customer tidak ditemukan). */
+const getCustomerName = async (db, customerId) => {
+    const customer = await findCustomer(db, customerId);
+    return customer ? customer.company_name : null;
+};
+
 /** Persen PPN perusahaan saat ini. */
 const getCurrentPpnPercent = async (db) => {
     const [rows] = await db.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
@@ -148,4 +154,4 @@ const createPurchaseOrder = async (connection, input) => {
     return { poHeaderId, poNumber };
 };
 
-module.exports = { createPurchaseOrder, findCustomer, getCurrentPpnPercent };
+module.exports = { createPurchaseOrder, findCustomer, getCustomerName, getCurrentPpnPercent };

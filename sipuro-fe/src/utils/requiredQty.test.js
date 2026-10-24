@@ -36,6 +36,15 @@ describe('requiredQty', () => {
         ]);
     });
 
+    test('produk tanpa harga aktif tidak bisa ditambahkan, tetapi bisa dihapus bila sudah ada', () => {
+        const noPrice = { ...p1, has_active_price: false };
+        expect(Object.keys(setRequiredQty({}, noPrice, '10'))).toEqual([]);
+        expect(getRequiredQty(setRequiredQty({}, { ...p1, has_active_price: true }, '10'), 1)).toBe(10);
+
+        const existing = setRequiredQty({}, p1, '10');
+        expect(Object.keys(setRequiredQty(existing, noPrice, ''))).toEqual([]);
+    });
+
     test('qty produk yang tidak diisi bernilai 0', () => {
         expect(getRequiredQty({}, 99)).toBe(0);
     });

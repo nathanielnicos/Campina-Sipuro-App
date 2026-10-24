@@ -4,6 +4,7 @@ const { safeError } = require('../../../helpers/safeError');
 const {
     NOT_DELETED_SQL, APPROVED_HEADER_SQL, OPEN_ITEM_SQL, REMAINING_SQL
 } = require('../../../helpers/po/openItemRules');
+const { hasCurrentPriceSql } = require('../../../helpers/po/currentPriceRules');
 
 /**
  * 1. Menampilkan Halaman Utama PO Requirement
@@ -31,7 +32,8 @@ exports.getPORequirementSummary = async (req, res) => {
                 p.product_name,
                 p.base_uom,
                 IFNULL(po_summary.total_po_outstanding, 0) AS po_outstanding_qty,
-                IFNULL(plan_summary.total_plan_qty, 0) AS total_production_plan_qty
+                IFNULL(plan_summary.total_plan_qty, 0) AS total_production_plan_qty,
+                ${hasCurrentPriceSql('p')} AS has_active_price
             FROM sipuro_db.products p
             LEFT JOIN (
                 SELECT 
@@ -77,6 +79,7 @@ exports.getPORequirementSummary = async (req, res) => {
                 po_outstanding_qty: poOutstanding,
                 total_production_plan_qty: totalPlan,
                 remaining_qty: remaining,
+                has_active_price: Number(row.has_active_price) === 1,
                 required_po_qty: 0
             };
         });

@@ -91,44 +91,44 @@ const parseDeliveryOrderExcel = (fileBuffer) => {
         const rawTransType = row[1] ? String(row[1]).trim() : ''; // Kolom B
         const normTransType = rawTransType.toLowerCase();
 
-        // Case-Insensitive Check
+        // Aturan Baru: Hanya terima 'sales order issue' dan 'rma receipt'
         const isIssue = normTransType === 'sales order issue';
-        const isPick = normTransType === 'sales order pick';
+        const isRma = normTransType === 'rma receipt';
 
-        if (!isIssue && !isPick) {
+        if (!isIssue && !isRma) {
             continue;
         }
 
-        const transType = isIssue ? 'Sales order issue' : 'Sales Order Pick';
+        const transType = isIssue ? 'Sales order issue' : 'RMA Receipt';
         const status = row[2] ? String(row[2]).trim() : '';       // Kolom C
         const transDateRaw = row[3];                               // Kolom D
         const itemCode = row[4] ? String(row[4]).trim() : '';        // Kolom E
         const lotNumber = row[11] ? String(row[11]).trim() : '';    // Kolom L
-        const shipmentNum = row[25] ? String(row[25]).trim() : '';  // Kolom Z (index 25)
+        const shipmentNum = row[25] ? String(row[25]).trim() : '';  // Kolom Z
 
         const excelRowNumber = i + 1 + firstSheetRow;
 
-        // Kolom Z tidak boleh kosong
         if (!shipmentNum) {
             missingDoRows.push(excelRowNumber);
             continue;
         }
 
-        // Qty: Issue -> Qty Out (Kolom T / index 19), Pick -> Qty In (Kolom Q / index 16)
         let qtyIn = 0;
         let qtyOut = 0;
         let qtyToProcess = 0;
 
         if (isIssue) {
+            // PENGIRIMAN: Ambil dari Kolom T (Qty Out), nilai POSITIF
             const parsed = parseStrictInteger(row[19]);
             if (parsed.error) invalidQtyRows.push(`${excelRowNumber} Qty Out ("${row[19]}")`);
             qtyOut = Math.abs(parsed.value || 0);
-            qtyToProcess = qtyOut; // Issue = pengeluaran barang DO
+            qtyToProcess = qtyOut;
         } else {
+            // RETUR (RMA): Ambil dari Kolom Q (Qty In)
             const parsed = parseStrictInteger(row[16]);
             if (parsed.error) invalidQtyRows.push(`${excelRowNumber} Qty In ("${row[16]}")`);
             qtyIn = Math.abs(parsed.value || 0);
-            qtyToProcess = -qtyIn; // Pick = pengembalian / return DO
+            qtyToProcess = -qtyIn; // Ditandai minus
         }
 
         const transDate = parseDateOnly(transDateRaw);

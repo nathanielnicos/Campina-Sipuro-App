@@ -3,13 +3,22 @@ import { formatQty, formatThousand } from '../../../utils/formatters';
 
 // Satu baris tabel PO Requirement. Dibungkus memo agar mengetik di satu baris
 // tidak menggambar ulang ratusan baris lain.
-const PORequirementRow = memo(({ row, qty, onQtyChange, onOpenDetail }) => (
+const PORequirementRow = memo(({ row, qty, onQtyChange, onOpenDetail }) => {
+    // Tanpa harga jual aktif, server menolak PO untuk produk ini.
+    const noPrice = row.has_active_price === false;
+
+    return (
     <tr style={{ borderBottom: '1px solid #e9ecef' }}>
         <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#212529', borderRight: '1px solid #dee2e6' }}>
             {row.product_code}
         </td>
         <td style={{ padding: '12px 16px', color: '#212529', fontWeight: '500', borderRight: '1px solid #dee2e6' }}>
             {row.product_name}
+            {noPrice && (
+                <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: '600', color: '#dc3545' }}>
+                    No active selling price
+                </div>
+            )}
         </td>
         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#212529', borderRight: '1px solid #dee2e6' }}>
             {formatQty(row.po_outstanding_qty)}
@@ -33,7 +42,11 @@ const PORequirementRow = memo(({ row, qty, onQtyChange, onOpenDetail }) => (
                 value={qty > 0 ? formatThousand(qty) : ''}
                 onChange={(e) => onQtyChange(row, e.target.value)}
                 placeholder="0"
+                disabled={noPrice}
+                title={noPrice ? 'No active selling price. Add a price in the price master first.' : undefined}
                 style={{
+                    backgroundColor: noPrice ? '#e9ecef' : '#fff',
+                    cursor: noPrice ? 'not-allowed' : 'text',
                     width: '120px',
                     padding: '6px 10px',
                     borderRadius: '4px',
@@ -63,7 +76,8 @@ const PORequirementRow = memo(({ row, qty, onQtyChange, onOpenDetail }) => (
             </button>
         </td>
     </tr>
-));
+    );
+});
 
 PORequirementRow.displayName = 'PORequirementRow';
 

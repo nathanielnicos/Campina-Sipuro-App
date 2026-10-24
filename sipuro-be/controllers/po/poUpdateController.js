@@ -4,6 +4,7 @@ const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
 const { getWibDateTimeString } = require('../../helpers/dateHelper');
 const { priceItems } = require('../../helpers/poPricing');
 const { safeError } = require('../../helpers/safeError');
+const { getCustomerName, getCurrentPpnPercent } = require('../../services/poCreateService');
 
 const STATUS_DRAFT = 'Draft';
 const STATUS_WAITING = 'Waiting for Confirmation';
@@ -65,11 +66,7 @@ exports.updatePO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'A submitted PO cannot be changed back to Draft.' });
         }
 
-        const [customerRows] = await connection.query(
-            `SELECT company_name FROM sipuro_db.customers WHERE customer_id = ?`,
-            [poData.customer_id]
-        );
-        poData.company_name = customerRows.length > 0 ? customerRows[0].company_name : null;
+        poData.company_name = await getCustomerName(connection, poData.customer_id);
 
         // AMBIL STATUS DETAIL EKSISTING UNTUK CATATAN LOG
         const [existingDetails] = await connection.query(
@@ -82,8 +79,7 @@ exports.updatePO = async (req, res) => {
 
         // PPN: Draft memakai PPN perusahaan saat ini (belum final, seperti harga).
         // PO yang sudah dikirim (Waiting for Confirmation) memakai PPN yang tersimpan pada PO itu.
-        const [profileRows] = await connection.query(`SELECT ppn_percent FROM sipuro_db.company_profile LIMIT 1`);
-        const currentPpn = profileRows.length > 0 && profileRows[0].ppn_percent !== null ? parseFloat(profileRows[0].ppn_percent) : 11;
+        const currentPpn = await getCurrentPpnPercent(connection);
         const storedPpn = poData.ppn_percent !== null && poData.ppn_percent !== undefined ? parseFloat(poData.ppn_percent) : NaN;
         const ppn_percent = (poData.status === STATUS_WAITING && Number.isFinite(storedPpn)) ? storedPpn : currentPpn;
 
@@ -292,11 +288,7 @@ exports.cancelPO = async (req, res) => {
             return res.status(400).json({ success: false, message: 'PO cannot be canceled because of its current status.' });
         }
 
-        const [customerRows] = await connection.query(
-            `SELECT company_name FROM sipuro_db.customers WHERE customer_id = ?`,
-            [poData.customer_id]
-        );
-        poData.company_name = customerRows.length > 0 ? customerRows[0].company_name : null;
+        poData.company_name = await getCustomerName(connection, poData.customer_id);
 
         const nowWib = getWibDateTimeString();
 
