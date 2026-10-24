@@ -3,6 +3,9 @@ const { sipuroDb } = require('../config/db');
 const { getWibDate } = require('../helpers/dateHelper');
 const { getWeekInfoFromDate, generateWeekRange } = require('../helpers/weekHelper');
 const { createNotification } = require('../helpers/notificationHelper');
+const {
+    NOT_DELETED_SQL, APPROVED_HEADER_SQL, OPEN_ITEM_SQL, REMAINING_SQL
+} = require('../helpers/po/openItemRules');
 
 /**
  * Core Logic: Evaluate Outstanding PO vs Production Plan for the next 4 months (17 weeks)
@@ -18,7 +21,7 @@ async function checkPoVsProductionPlan() {
         const formattedWeekKeys = weekList.map(w => `${w.year}-${String(w.week_number).padStart(2, '0')}`);
 
         // 2. Query Outstanding PO per Customer and Production Plan summary
-        // Disesuaikan: Hanya mengambil item po_details yang berstatus 'Active'
+        // Definisi outstanding sama dengan menu Outstanding PO dan PO Requirement (helpers/po/openItemRules.js).
         const query = `
             SELECT 
                 h.customer_id,
@@ -31,15 +34,14 @@ async function checkPoVsProductionPlan() {
             INNER JOIN (
                 SELECT 
                     d.id_product,
-                    h_inner.customer_id,
-                    SUM(GREATEST(0, d.base_qty - d.fulfilled_qty)) AS total_po_outstanding
+                    h.customer_id,
+                    SUM(${REMAINING_SQL}) AS total_po_outstanding
                 FROM sipuro_db.po_details d
-                JOIN sipuro_db.po_headers h_inner ON d.po_header_id = h_inner.po_header_id
-                WHERE d.deleted_at IS NULL
-                  AND d.status = 'Active'
-                  AND h_inner.status = 'Approved'
-                  AND d.fulfilled_qty < d.base_qty
-                GROUP BY d.id_product, h_inner.customer_id
+                JOIN sipuro_db.po_headers h ON d.po_header_id = h.po_header_id
+                WHERE ${NOT_DELETED_SQL}
+                  AND ${APPROVED_HEADER_SQL}
+                  AND ${OPEN_ITEM_SQL}
+                GROUP BY d.id_product, h.customer_id
             ) po_summary ON p.id_product = po_summary.id_product
             JOIN sipuro_db.po_headers h ON h.customer_id = po_summary.customer_id
             LEFT JOIN (
