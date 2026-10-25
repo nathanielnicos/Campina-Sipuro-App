@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUnreadCount, getNotifications, markAsRead, markAllAsRead } from '../../services/notificationApi';
 import useOnClickOutside from '../../hooks/useOnClickOutside';
+import { createNotificationPoller } from '../../utils/notificationPoller';
 
 export const useNotifications = ({ user, onNewPoDetected, setShowBanner }) => {
     const [unreadCount, setUnreadCount] = useState(0);
@@ -20,51 +21,70 @@ export const useNotifications = ({ user, onNewPoDetected, setShowBanner }) => {
     const userId = user?.id;
     const userDepartment = user?.department;
 
+    // Nilai terbaru yang dibaca poller saat polling; perubahan nilai ini tidak memulai ulang polling.
+    const latestRef = useRef({ isOpen, page, onNewPoDetected });
+    useEffect(() => {
+        latestRef.current = { isOpen, page, onNewPoDetected };
+    });
+
+    const pollerRef = useRef(null);
+    const listRequestRef = useRef(0);
+
     useOnClickOutside(dropdownRef, () => {
         if (isOpen) {
             setIsOpen(false);
         }
     });
 
+    // Memuat halaman pertama daftar notifikasi; hanya permintaan terakhir yang dipakai.
+    const loadFirstPage = useCallback(async () => {
+        const requestId = ++listRequestRef.current;
+        const listRes = await getNotifications(userRole, userId, userDepartment, 1, 10);
+        if (requestId !== listRequestRef.current) return;
+        setNotifications(listRes?.data || []);
+        setHasMore(listRes?.pagination?.hasMore || false);
+    }, [userRole, userId, userDepartment]);
+
     useEffect(() => {
-        const fetchNotificationData = async () => {
-            if (document.hidden) return;
-
-            try {
+        const poller = createNotificationPoller({
+            fetchUnreadCount: async () => {
                 const countRes = await getUnreadCount(userRole, userId, userDepartment);
-                const currentCount = countRes?.count || 0;
-
-                if (currentCount > unreadCount && onNewPoDetected) {
-                    const listRes = await getNotifications(userRole, userId, userDepartment, 1, 10);
-                    const latestNotif = listRes?.data?.[0];
-                    onNewPoDetected(latestNotif);
-                }
-
-                setUnreadCount(currentCount);
-
-                if (isOpen && page === 1) {
-                    const listRes = await getNotifications(userRole, userId, userDepartment, 1, 10);
-                    setNotifications(listRes?.data || []);
-                    setHasMore(listRes?.pagination?.hasMore || false);
-                }
-            } catch (error) {
-                console.error('Error polling notification:', error);
-            }
-        };
-
-        fetchNotificationData();
-        const interval = setInterval(fetchNotificationData, 60000);
+                return Number(countRes?.count) || 0;
+            },
+            fetchLatest: async () => {
+                const listRes = await getNotifications(userRole, userId, userDepartment, 1, 10);
+                return listRes?.data?.[0];
+            },
+            refreshOpenList: loadFirstPage,
+            onCount: setUnreadCount,
+            onNew: (notif) => {
+                const handler = latestRef.current.onNewPoDetected;
+                if (handler) handler(notif);
+            },
+            canAnnounce: () => Boolean(latestRef.current.onNewPoDetected),
+            isListOpenOnFirstPage: () => latestRef.current.isOpen && latestRef.current.page === 1,
+            isHidden: () => document.hidden,
+            onError: (error) => console.error('Error polling notification:', error)
+        });
+        pollerRef.current = poller;
+        poller.start();
 
         const handleVisibilityChange = () => {
-            if (!document.hidden) fetchNotificationData();
+            if (!document.hidden) poller.poll();
         };
-
         document.addEventListener('visibilitychange', handleVisibilityChange);
+
         return () => {
-            clearInterval(interval);
+            poller.stop();
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            pollerRef.current = null;
         };
-    }, [isOpen, page, unreadCount, onNewPoDetected, userRole, userId, userDepartment]);
+    }, [userRole, userId, userDepartment, loadFirstPage]);
+
+    // Jumlah yang berubah lokal (ditandai dibaca) diberitahukan ke poller sebagai pembanding berikutnya.
+    useEffect(() => {
+        if (pollerRef.current) pollerRef.current.setCount(unreadCount);
+    }, [unreadCount]);
 
     const toggleDropdown = async () => {
         const nextState = !isOpen;
@@ -72,9 +92,7 @@ export const useNotifications = ({ user, onNewPoDetected, setShowBanner }) => {
         if (nextState) {
             try {
                 setPage(1);
-                const listRes = await getNotifications(userRole, userId, userDepartment, 1, 10);
-                setNotifications(listRes?.data || []);
-                setHasMore(listRes?.pagination?.hasMore || false);
+                await loadFirstPage();
             } catch (err) {
                 console.error(err);
             }
