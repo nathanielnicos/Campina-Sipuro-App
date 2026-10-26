@@ -24,11 +24,11 @@ exports.getDeliveryOrderMapping = async (req, res) => {
         }
 
         if (fromDoDate) {
-            whereClauses.push(`do.pick_up_date >= ?`);
+            whereClauses.push(`do.do_created_date >= ?`);
             queryParams.push(fromDoDate);
         }
         if (toDoDate) {
-            whereClauses.push(`do.pick_up_date <= ?`);
+            whereClauses.push(`do.do_created_date <= ?`);
             queryParams.push(toDoDate);
         }
 
@@ -63,7 +63,7 @@ exports.getDeliveryOrderMapping = async (req, res) => {
             }
 
             const distinctDoQuery = `
-                SELECT DISTINCT do.do_number, do.pick_up_date
+                SELECT DISTINCT do.do_number, do.do_created_date
                 FROM delivery_orders do
                 JOIN delivery_order_allocations doa ON do.id = doa.delivery_order_id
                 JOIN po_lot_allocations pla ON doa.po_lot_allocation_id = pla.id
@@ -72,7 +72,7 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                 JOIN lots l ON pla.lot_id = l.id
                 JOIN products p ON do.product_id = p.id_product
                 ${whereSql}
-                ORDER BY do.pick_up_date ${order}, do.do_number ${order}
+                ORDER BY do.do_created_date ${order}, do.do_number ${order}
                 LIMIT ${limitNum} OFFSET ${offset};
             `;
             const [doRows] = await sipuroDb.query(distinctDoQuery, queryParams);
@@ -86,16 +86,14 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                 SELECT 
                     do.id AS delivery_order_id,
                     do.do_number,
-                    do.pick_up_date,
-                    do.customer_po_text,
+                    do.do_created_date,
                     p.id_product,
                     p.product_code,
                     p.product_name,
                     p.pcs_per_ctn,
                     doa.qty_pcs AS allocation_qty_pcs,
                     l.lot_number,
-                    ph.po_number,
-                    ph.created_at AS po_created_date
+                    ph.po_number
                 FROM delivery_orders do
                 JOIN delivery_order_allocations doa ON do.id = doa.delivery_order_id
                 JOIN po_lot_allocations pla ON doa.po_lot_allocation_id = pla.id
@@ -104,7 +102,7 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                 JOIN lots l ON pla.lot_id = l.id
                 JOIN products p ON do.product_id = p.id_product
                 ${detailWhereSql}
-                ORDER BY do.pick_up_date ${order}, do.do_number ASC;
+                ORDER BY do.do_created_date ${order}, do.do_number ASC;
             `;
             const [rows] = await sipuroDb.query(query, detailQueryParams);
 
@@ -113,14 +111,11 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                 if (!doMap.has(r.do_number)) {
                     doMap.set(r.do_number, {
                         do_number: r.do_number,
-                        pick_up_date: r.pick_up_date,
-                        customer_po_text: r.customer_po_text,
-                        total_qty_pcs: 0,
+                        do_created_date: r.do_created_date,
                         items: new Map()
                     });
                 }
                 const doEntry = doMap.get(r.do_number);
-                doEntry.total_qty_pcs += Number(r.allocation_qty_pcs) || 0;
 
                 if (!doEntry.items.has(r.id_product)) {
                     doEntry.items.set(r.id_product, {
@@ -137,8 +132,7 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                 itemEntry.allocations.push({
                     po_number: r.po_number,
                     lot_number: r.lot_number,
-                    qty_pcs: Number(r.allocation_qty_pcs) || 0,
-                    po_created_date: r.po_created_date
+                    qty_pcs: Number(r.allocation_qty_pcs) || 0
                 });
             });
 
@@ -177,7 +171,6 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                 SELECT 
                     ph.po_header_id,
                     ph.po_number,
-                    ph.status AS po_status,
                     ph.created_at AS po_created_date,
                     pd.po_detail_id,
                     pd.base_qty,
@@ -186,7 +179,7 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                     p.product_code,
                     p.product_name,
                     do.do_number,
-                    do.pick_up_date,
+                    do.do_created_date,
                     l.lot_number,
                     doa.qty_pcs AS shipped_qty_pcs
                 FROM po_headers ph
@@ -208,7 +201,6 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                     poMap.set(r.po_header_id, {
                         po_header_id: r.po_header_id,
                         po_number: r.po_number,
-                        po_status: r.po_status,
                         po_created_date: r.po_created_date,
                         products: new Map()
                     });
@@ -223,13 +215,12 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                         base_qty: Number(r.base_qty) || 0,
                         fulfilled_qty: Number(r.fulfilled_qty) || 0,
                         delivered_qty: Number(r.delivered_qty) || 0,
-                        remaining_to_deliver: Math.max(0, (Number(r.fulfilled_qty) || 0) - (Number(r.delivered_qty) || 0)),
                         deliveries: []
                     });
                 }
                 poEntry.products.get(r.po_detail_id).deliveries.push({
                     do_number: r.do_number,
-                    pick_up_date: r.pick_up_date,
+                    do_created_date: r.do_created_date,
                     lot_number: r.lot_number,
                     qty_pcs: Number(r.shipped_qty_pcs) || 0
                 });
@@ -274,8 +265,9 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                     p.product_name,
                     l.actual_completed_datetime,
                     l.expired_date,
-                    SUM(doa.qty_pcs) AS total_shipped_qty,
-                    GROUP_CONCAT(CONCAT(do.do_number, ' -> ', ph.po_number, ' (', doa.qty_pcs, ' pcs)') SEPARATOR ' | ') AS shipment_summary
+                    do.do_number,
+                    ph.po_number,
+                    doa.qty_pcs AS shipped_qty
                 FROM lots l
                 JOIN po_lot_allocations pla ON l.id = pla.lot_id
                 JOIN delivery_order_allocations doa ON pla.id = doa.po_lot_allocation_id
@@ -284,8 +276,7 @@ exports.getDeliveryOrderMapping = async (req, res) => {
                 JOIN po_details pd ON pla.po_detail_id = pd.po_detail_id
                 JOIN po_headers ph ON pd.po_header_id = ph.po_header_id
                 ${whereSql}
-                GROUP BY l.id, l.lot_number, p.product_code, p.product_name, l.actual_completed_datetime, l.expired_date
-                ORDER BY l.actual_completed_datetime ${order}
+                ORDER BY l.actual_completed_datetime ${order}, l.id ASC, do.id ASC
                 LIMIT ${limitNum} OFFSET ${offset};
             `;
             const [rows] = await sipuroDb.query(query, queryParams);

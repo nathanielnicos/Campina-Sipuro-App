@@ -14,7 +14,7 @@ import PriceListPage from './components/master/PriceListPage';
 import SettingPage from './components/master/SettingPage';
 
 import DoPage from './components/do/page/DoPage';
-import DocumentFlowPage from './components/documentFlow/page/DocumentFlowPage';
+import SiPage from './components/si/page/SalesInvoicePage';
 import ProfilePage from './components/profile/ProfilePage';
 
 import Login from './components/auth/Login';
@@ -149,7 +149,7 @@ function MainApp() {
         <Route path="/production-schedule" element={<ProductionSchedulePage />} />
         
         <Route path="/do" element={<DoPage currentUser={user} />} />
-        <Route path="/document-flow" element={<DocumentFlowPage currentUser={user} />} />
+        <Route path="/si" element={<SiPage currentUser={user} />} />
 
         <Route path="/employees" element={<EmployeeListPage />} />
         <Route path="/customers" element={<CustomerUserListPage />} />

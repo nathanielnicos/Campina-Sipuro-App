@@ -61,7 +61,7 @@ const commitDeliveryOrderTransaction = async (connection, {
     const touchedPoDetailIds = new Set();
 
     for (const { group, doAllocations } of allocatedDoGroups) {
-        // Ambil ID Product
+        // Ambil ID Product & pcs_per_ctn
         const [pRows] = await connection.query(
             'SELECT id_product, pcs_per_ctn FROM products WHERE product_code = ? LIMIT 1',
             [group.itemCode]
@@ -73,23 +73,21 @@ const commitDeliveryOrderTransaction = async (connection, {
         for (const alloc of doAllocations) {
             touchedPoDetailIds.add(alloc.poDetailId);
 
-            // Simpan DO Header / Item
+            // Hash SHA256 tepat 64 char
             const doRowHash = crypto.createHash('sha256')
                 .update(`${group.shipmentNum}_${alloc.poLotAllocationId}_${uploadLogId}`)
                 .digest('hex');
+
+            // Simpan ke delivery_orders murni (kolom redundan sudah dibuang)
             const [doResult] = await connection.query(
                 `INSERT INTO delivery_orders 
-                 (import_log_id, po_lot_allocation_id, po_number, customer_po_text, po_created_date, do_number, do_created_date, pick_up_date, product_id, qty_ctn, qty_pcs, row_hash)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 (import_log_id, do_number, do_created_date, customer_po_text, product_id, qty_ctn, qty_pcs, row_hash)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     uploadLogId,
-                    alloc.poLotAllocationId,
-                    alloc.poNumber,
-                    alloc.customerPoText || null,
-                    alloc.poCreatedDate,
                     group.shipmentNum,
-                    group.transDate,
-                    group.transDate,
+                    group.transDate, // do_created_date dari Trans Date Excel
+                    alloc.customerPoText || null,
                     productId,
                     qtyCtn,
                     alloc.qtyPcs,
@@ -98,7 +96,7 @@ const commitDeliveryOrderTransaction = async (connection, {
             );
             const deliveryOrderId = doResult.insertId;
 
-            // Simpan ke delivery_order_allocations
+            // Simpan relasi ke delivery_order_allocations
             await connection.query(
                 `INSERT INTO delivery_order_allocations (delivery_order_id, po_lot_allocation_id, qty_pcs)
                  VALUES (?, ?, ?)`,

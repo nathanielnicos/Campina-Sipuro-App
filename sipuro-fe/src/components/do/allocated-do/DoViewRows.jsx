@@ -6,12 +6,18 @@ export const DoViewRows = ({ mappingList }) => {
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                     No Delivery Order data available.
                 </td>
             </tr>
         );
     }
+
+    const cellStyle = {
+        padding: '12px 14px',
+        verticalAlign: 'top',
+        lineHeight: '1.4'
+    };
 
     return mappingList.map((doRow) => {
         const items = Array.isArray(doRow.items) ? doRow.items : [];
@@ -37,50 +43,43 @@ export const DoViewRows = ({ mappingList }) => {
 
                 return (
                     <tr key={`${doRow.do_number}-${itemRow.id_product}-${alloc.lot_number}-${allocIdx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
-                        {/* 1. DO Number & 2. Pick-Up Date */}
+                        {/* 1. DO Number & 2. DO Date (Total di bawah DO sudah dibuang) */}
                         {renderDoHeaderCells && (
                             <>
-                                <td rowSpan={doRowSpan} style={{ padding: '12px 14px', verticalAlign: 'top', backgroundColor: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                    <div>{doRow.do_number}</div>
-                                    <div style={{ fontSize: '11px', color: '#6c757d', fontWeight: 'normal' }}>
-                                        Total: <strong>{formatQty(doRow.total_qty_pcs)} pcs</strong>
-                                    </div>
+                                <td rowSpan={doRowSpan} style={{ ...cellStyle, backgroundColor: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                    {doRow.do_number}
                                 </td>
-                                <td rowSpan={doRowSpan} style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'top', whiteSpace: 'nowrap', backgroundColor: '#fff' }}>
-                                    {formatDate(doRow.pick_up_date)}
+                                <td rowSpan={doRowSpan} style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap', backgroundColor: '#fff' }}>
+                                    {formatDate(doRow.do_created_date)}
                                 </td>
                             </>
                         )}
 
-                        {/* 3. Product & 4. Item Total Qty */}
+                        {/* 3. Product (Stacked) & 4. Total Item Qty */}
                         {renderItemCells && (
                             <>
-                                <td rowSpan={itemRowSpan} style={{ padding: '10px 14px', minWidth: '220px', verticalAlign: 'top', backgroundColor: '#fff' }}>
-                                    <strong>{itemRow.product_code}</strong> - {itemRow.product_name}
+                                <td rowSpan={itemRowSpan} style={{ ...cellStyle, minWidth: '220px', backgroundColor: '#fff' }}>
+                                    <div style={{ fontWeight: 'bold', color: '#212529' }}>{itemRow.product_code}</div>
+                                    <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '2px' }}>{itemRow.product_name}</div>
                                 </td>
-                                <td rowSpan={itemRowSpan} style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 'bold', verticalAlign: 'top', backgroundColor: '#fff', width: '100px' }}>
+                                <td rowSpan={itemRowSpan} style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 'bold', backgroundColor: '#fff', width: '100px' }}>
                                     {formatQty(itemRow.total_item_qty_pcs)}
                                 </td>
                             </>
                         )}
 
                         {/* 5. Lot Number */}
-                        <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontWeight: '500', whiteSpace: 'nowrap' }}>
+                        <td style={{ ...cellStyle, fontFamily: 'monospace', fontWeight: '600', whiteSpace: 'nowrap' }}>
                             {alloc.lot_number}
                         </td>
 
                         {/* 6. Target PO Number */}
-                        <td style={{ padding: '10px 14px', fontWeight: '500', whiteSpace: 'nowrap' }}>
+                        <td style={{ ...cellStyle, fontWeight: '500', whiteSpace: 'nowrap' }}>
                             {alloc.po_number}
                         </td>
 
-                        {/* 7. PO Created Date */}
-                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: '12px', color: '#6c757d', whiteSpace: 'nowrap' }}>
-                            {formatDate(alloc.po_created_date)}
-                        </td>
-
-                        {/* 8. Shipped Qty (Pcs) */}
-                        <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 'bold', color: '#198754', width: '100px' }}>
+                        {/* 7. Shipped Qty (Pcs) */}
+                        <td style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 'bold', color: '#198754', width: '100px' }}>
                             {formatQty(alloc.qty_pcs)}
                         </td>
                     </tr>

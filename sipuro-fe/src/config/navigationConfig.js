@@ -7,7 +7,7 @@ export const NAV_ITEMS = {
     PRODUCTION_LOT: { id: 'production-lot', label: 'Production Lot', path: '/production-lot'},
     PRODUCTION_SCHEDULE: { id: 'production-schedule', label: 'Production Schedule', path: '/production-schedule' },
     DO: { id: 'do', label: 'Delivery Order', path: '/do'},
-    DOCUMENT_FLOW: { id: 'document-flow', label: 'Document Flow', path: '/document-flow' },
+    SI: { id: 'si', label: 'Sales Invoice', path: '/si' },
     EMPLOYEES: { id: 'employees', label: 'Employee User', path: '/employees' },
     CUSTOMERS: { id: 'customers', label: 'Customer User', path: '/customers' },
     PRODUCTS: { id: 'products', label: 'Product', path: '/products' },
@@ -32,14 +32,6 @@ export const getNavItemsByUser = (user) => {
 
     if (userRole === 'SUPERADMIN') {
         return [
-            NAV_ITEMS.DASHBOARD,
-            NAV_ITEMS.PO,
-            NAV_ITEMS.OUTSTANDING_PO,
-            NAV_ITEMS.PRODUCTION_BATCH,
-            NAV_ITEMS.PRODUCTION_LOT,
-            NAV_ITEMS.PRODUCTION_SCHEDULE,
-            NAV_ITEMS.DO,
-            NAV_ITEMS.DOCUMENT_FLOW,
             NAV_ITEMS.EMPLOYEES,
             NAV_ITEMS.CUSTOMERS,
             NAV_ITEMS.PRODUCTS,
@@ -54,16 +46,22 @@ export const getNavItemsByUser = (user) => {
             NAV_ITEMS.DASHBOARD,
             NAV_ITEMS.PO,
             NAV_ITEMS.OUTSTANDING_PO,
-            NAV_ITEMS.PRODUCTION_BATCH,
             NAV_ITEMS.PRODUCTION_LOT,
             NAV_ITEMS.PRODUCTION_SCHEDULE,
             NAV_ITEMS.PROFILE
         ];
     }
 
-    if ((userDept === 'LOGISTICS' || userDept === 'LOGISTIC' || userDept === 'FINANCE') && (userRole === 'STAFF' || userRole === 'MANAGER')) {
+    if ((userDept === 'LOGISTICS' || userDept === 'LOGISTIC') && (userRole === 'STAFF' || userRole === 'MANAGER')) {
         return [
             NAV_ITEMS.DO,
+            NAV_ITEMS.PROFILE
+        ];
+    }
+
+    if ((userDept === 'FINANCE') && (userRole === 'STAFF' || userRole === 'MANAGER')) {
+        return [
+            NAV_ITEMS.SI,
             NAV_ITEMS.PROFILE
         ];
     }

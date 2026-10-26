@@ -10,7 +10,6 @@ const DoTable = ({ reloadTrigger }) => {
     // Mode: 'DO', 'PO', atau 'LOT'
     const [viewMode, setViewMode] = useState('DO');
 
-    // Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [fromDoDate, setFromDoDate] = useState('');
     const [toDoDate, setToDoDate] = useState('');
@@ -66,9 +65,9 @@ const DoTable = ({ reloadTrigger }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #dee2e6', backgroundColor: '#f8f9fa' }}>
                     <span style={{ fontSize: '13px', fontWeight: '600', color: '#495057' }}>Display DO By:</span>
                     <div style={{ display: 'flex', backgroundColor: '#e9ecef', borderRadius: '6px', padding: '3px', gap: '2px' }}>
-                        <button type="button" onClick={() => setViewMode('DO')} style={tabStyle(isDo)}>DO / Shipment No</button>
-                        <button type="button" onClick={() => setViewMode('PO')} style={tabStyle(isPo)}>PO Fulfillment</button>
-                        <button type="button" onClick={() => setViewMode('LOT')} style={tabStyle(isLot)}>Lot Traceability</button>
+                        <button type="button" onClick={() => setViewMode('DO')} style={tabStyle(isDo)}>DO Number</button>
+                        <button type="button" onClick={() => setViewMode('PO')} style={tabStyle(isPo)}>PO Number</button>
+                        <button type="button" onClick={() => setViewMode('LOT')} style={tabStyle(isLot)}>Lot Number</button>
                     </div>
                 </div>
 
@@ -76,41 +75,44 @@ const DoTable = ({ reloadTrigger }) => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
+                                {/* TAB 1: DO Number (Hanya tanggal DO, PO Date dibuang) */}
                                 {isDo && (
                                     <>
                                         <th style={{ padding: '12px 14px' }}>DO Number</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Pick-Up Date</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>DO Date</th>
                                         <th style={{ padding: '12px 14px' }}>Product</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Item Qty</th>
                                         <th style={{ padding: '12px 14px' }}>Lot Number</th>
                                         <th style={{ padding: '12px 14px' }}>Target PO</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>PO Date</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Shipped Qty</th>
                                     </>
                                 )}
 
+                                {/* TAB 2: PO Number (Hanya tanggal PO, status dibuang, DO number & date terpisah) */}
                                 {isPo && (
                                     <>
                                         <th style={{ padding: '12px 14px' }}>PO Number</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>PO Date</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status</th>
                                         <th style={{ padding: '12px 14px' }}>Product</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>PO Qty</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Delivered</th>
-                                        <th style={{ padding: '12px 14px' }}>DO Shipment</th>
+                                        <th style={{ padding: '12px 14px' }}>DO Number</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>DO Date</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Delivered Qty</th>
                                     </>
                                 )}
 
+                                {/* TAB 3: Lot Number (Hanya tanggal Lot, kolom terpisah) */}
                                 {isLot && (
                                     <>
                                         <th style={{ padding: '12px 14px' }}>Lot Number</th>
                                         <th style={{ padding: '12px 14px' }}>Product</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Date</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Shipped</th>
-                                        <th style={{ padding: '12px 14px' }}>Shipment Summary (DO &rarr; PO)</th>
+                                        <th style={{ padding: '12px 14px' }}>DO Number</th>
+                                        <th style={{ padding: '12px 14px' }}>Target PO</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Shipped Qty</th>
                                     </>
                                 )}
                             </tr>
