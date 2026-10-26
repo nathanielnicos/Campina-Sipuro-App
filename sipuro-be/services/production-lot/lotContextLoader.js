@@ -3,11 +3,13 @@
  * Dipakai oleh preview (tanpa lock) dan commit (dengan lock FOR UPDATE di dalam transaksi),
  * sehingga keduanya menghitung dari bentuk data yang sama.
  */
-const chunk = (arr, size) => {
-    const out = [];
-    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-    return out;
-};
+const { chunk } = require('../../helpers/arrayUtils');
+const { NOT_DELETED_SQL } = require('../../helpers/po/openItemRules');
+const {
+    ELIGIBLE_HEADER_STATUSES,
+    ELIGIBLE_DETAIL_STATUSES,
+    allocatedQtySql
+} = require('./lotAllocationRules');
 
 const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false } = {}) => {
     const lock = forUpdate ? ' FOR UPDATE' : '';
@@ -63,10 +65,10 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
     // 6. Lock berurutan (po_details) agar tidak deadlock antar-commit saat proses simpan
     if (forUpdate && productIds.length > 0) {
         await queryable.query(
-            `SELECT po_detail_id FROM po_details
-             WHERE id_product IN (?) AND deleted_at IS NULL AND status IN ('Active', 'Close Requested')
-             ORDER BY po_detail_id${lock}`,
-            [productIds]
+            `SELECT d.po_detail_id FROM po_details d
+             WHERE d.id_product IN (?) AND ${NOT_DELETED_SQL} AND d.status IN (?)
+             ORDER BY d.po_detail_id${lock}`,
+            [productIds, ELIGIBLE_DETAIL_STATUSES]
         );
     }
 
@@ -86,36 +88,32 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
         }
     }
 
-    // 8. Ambil PO yang layak. fulfilled_qty dihitung dari po_lot_allocations (bukan po_batch_allocations lagi)
+    // 8. Ambil PO yang layak. fulfilled_qty dihitung dari po_lot_allocations (rumus di lotAllocationRules)
     let openPoDetails = [];
     if (productIds.length > 0) {
         for (const part of chunk(productIds, 500)) {
             const [rows] = await queryable.query(
                 `SELECT
-                    pd.po_detail_id,
-                    pd.po_header_id,
-                    pd.id_product,
-                    pd.base_qty,
-                    COALESCE((
-                        SELECT SUM(pla.allocated_qty)
-                        FROM po_lot_allocations pla
-                        WHERE pla.po_detail_id = pd.po_detail_id AND pla.status <> 'Canceled'
-                    ), 0) AS fulfilled_qty,
-                    pd.status AS detail_status,
-                    ph.po_number,
-                    DATE_FORMAT(ph.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
-                    ph.status AS header_status,
+                    d.po_detail_id,
+                    d.po_header_id,
+                    d.id_product,
+                    d.base_qty,
+                    ${allocatedQtySql('d.po_detail_id')} AS fulfilled_qty,
+                    d.status AS detail_status,
+                    h.po_number,
+                    DATE_FORMAT(h.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
+                    h.status AS header_status,
                     p.product_code,
                     p.product_name
-                 FROM po_details pd
-                 JOIN po_headers ph ON pd.po_header_id = ph.po_header_id
-                 JOIN products p ON pd.id_product = p.id_product
-                 WHERE pd.deleted_at IS NULL
-                   AND ph.status IN ('Approved', 'Production Completed')
-                   AND pd.status IN ('Active', 'Close Requested')
-                   AND pd.id_product IN (?)
-                 ORDER BY ph.created_at ASC, pd.po_detail_id ASC`,
-                [part]
+                 FROM po_details d
+                 JOIN po_headers h ON d.po_header_id = h.po_header_id
+                 JOIN products p ON d.id_product = p.id_product
+                 WHERE ${NOT_DELETED_SQL}
+                   AND h.status IN (?)
+                   AND d.status IN (?)
+                   AND d.id_product IN (?)
+                 ORDER BY h.created_at ASC, d.po_detail_id ASC`,
+                [ELIGIBLE_HEADER_STATUSES, ELIGIBLE_DETAIL_STATUSES, part]
             );
             openPoDetails.push(...rows);
         }

@@ -1,5 +1,16 @@
 const { sipuroDb: db } = require('../../config/db');
 const { logPOHeader } = require('../../helpers/poLogHelper');
+const {
+    ALLOCATION_STATUS,
+    PO_DETAIL_STATUS,
+    ELIGIBLE_HEADER_STATUSES,
+    allocatedQtySql
+} = require('./lotAllocationRules');
+
+/**
+ * Layanan status modul Production Lot: status header PO, status batch, qty terpenuhi (fulfilled_qty),
+ * dan tanggal selesai batch. Semua fungsi menerima koneksi yang sedang berada di dalam transaksi.
+ */
 
 /**
  * Mengambil nilai toleransi PO dari database
@@ -17,11 +28,9 @@ async function getPOTolerance(dbOrConn) {
     return parseFloat(profile.po_tolerance_percent) / 100;
 }
 
-// Hanya header dengan status ini yang boleh diubah otomatis oleh refreshPOStatus
-const AUTO_STATUS_HEADER_STATUSES = ['Approved', 'Production Completed'];
-
 /**
  * Helper untuk menghitung & memperbarui status po_headers berbasis PO Lot Allocation.
+ * Hanya header dengan status di ELIGIBLE_HEADER_STATUSES yang boleh diubah otomatis.
  */
 async function refreshPOStatus(connection, poHeaderId) {
     const [[currentPO]] = await connection.query(
@@ -32,7 +41,7 @@ async function refreshPOStatus(connection, poHeaderId) {
     if (!currentPO) return;
     const oldStatus = currentPO.status;
 
-    if (!AUTO_STATUS_HEADER_STATUSES.includes(oldStatus)) return;
+    if (!ELIGIBLE_HEADER_STATUSES.includes(oldStatus)) return;
 
     const [details] = await connection.query(
         `SELECT po_detail_id, base_qty, status
@@ -43,10 +52,10 @@ async function refreshPOStatus(connection, poHeaderId) {
 
     let targetStatus = null;
 
-    if (details.some((d) => d.status === 'Close Requested')) {
+    if (details.some((d) => d.status === PO_DETAIL_STATUS.CLOSE_REQUESTED)) {
         targetStatus = 'Approved';
     } else {
-        const activeDetails = details.filter((d) => d.status === 'Active');
+        const activeDetails = details.filter((d) => d.status === PO_DETAIL_STATUS.ACTIVE);
 
         if (activeDetails.length === 0) {
             const hasClosedDetail = details.some(
@@ -59,8 +68,8 @@ async function refreshPOStatus(connection, poHeaderId) {
             const [sums] = await connection.query(
                 `SELECT
                     po_detail_id,
-                    COALESCE(SUM(CASE WHEN status <> 'Canceled' THEN allocated_qty ELSE 0 END), 0) AS total_allocated_qty,
-                    SUM(CASE WHEN status = 'Open' THEN 1 ELSE 0 END) AS open_count
+                    COALESCE(SUM(CASE WHEN status <> '${ALLOCATION_STATUS.CANCELED}' THEN allocated_qty ELSE 0 END), 0) AS total_allocated_qty,
+                    SUM(CASE WHEN status = '${ALLOCATION_STATUS.OPEN}' THEN 1 ELSE 0 END) AS open_count
                  FROM po_lot_allocations
                  WHERE po_detail_id IN (?)
                  GROUP BY po_detail_id`,
@@ -100,47 +109,16 @@ async function refreshPOStatus(connection, poHeaderId) {
 }
 
 // Aturan penentuan status batch dari status alokasi lot di dalamnya
-const resolveBatchStatus = (statuses, currentStatus) => {
-    if (statuses.every((s) => s === 'Canceled')) return 'Canceled';
-    if (statuses.includes('Open')) return 'Open';
-    if (statuses.includes('Force Closed')) return 'Force Closed';
-    return 'Closed';
+const resolveBatchStatus = (statuses) => {
+    if (statuses.every((s) => s === ALLOCATION_STATUS.CANCELED)) return ALLOCATION_STATUS.CANCELED;
+    if (statuses.includes(ALLOCATION_STATUS.OPEN)) return ALLOCATION_STATUS.OPEN;
+    if (statuses.includes(ALLOCATION_STATUS.FORCE_CLOSED)) return ALLOCATION_STATUS.FORCE_CLOSED;
+    return ALLOCATION_STATUS.CLOSED;
 };
 
 /**
- * Menyegarkan status Induk Batch (batches) berdasarkan alokasi lot di dalamnya
- */
-async function refreshBatchStatus(connection, batchId) {
-    const [[currentBatch]] = await connection.query(
-        `SELECT status FROM batches WHERE id = ?`,
-        [batchId]
-    );
-
-    if (!currentBatch) return;
-
-    // Ambil status alokasi lot yang terhubung dengan batch ini
-    const [allocations] = await connection.query(
-        `SELECT pla.status 
-         FROM batch_lots bl
-         JOIN po_lot_allocations pla ON bl.lot_id = pla.lot_id
-         WHERE bl.batch_id = ?`,
-        [batchId]
-    );
-
-    if (allocations.length === 0) return;
-
-    const targetStatus = resolveBatchStatus(allocations.map((a) => a.status), currentBatch.status);
-
-    if (targetStatus !== currentBatch.status) {
-        await connection.query(
-            `UPDATE batches SET status = ? WHERE id = ?`,
-            [targetStatus, batchId]
-        );
-    }
-}
-
-/**
- * Versi massal refreshBatchStatus (dioptimalkan untuk bulk update)
+ * Menyegarkan status Induk Batch (batches) berdasarkan alokasi lot di dalamnya.
+ * Satu fungsi untuk satu atau banyak batch (jumlah query tetap kecil).
  */
 async function refreshBatchStatuses(connection, batchIds = []) {
     const ids = [...new Set(batchIds.filter(Boolean))];
@@ -152,7 +130,7 @@ async function refreshBatchStatuses(connection, batchIds = []) {
     );
 
     const [allocations] = await connection.query(
-        `SELECT bl.batch_id, pla.status 
+        `SELECT bl.batch_id, pla.status
          FROM batch_lots bl
          JOIN po_lot_allocations pla ON bl.lot_id = pla.lot_id
          WHERE bl.batch_id IN (?)`,
@@ -169,7 +147,7 @@ async function refreshBatchStatuses(connection, batchIds = []) {
     batches.forEach((b) => {
         const statuses = statusesByBatch.get(b.id);
         if (!statuses || statuses.length === 0) return;
-        const target = resolveBatchStatus(statuses, b.status);
+        const target = resolveBatchStatus(statuses);
         if (target !== b.status) {
             if (!idsByTarget.has(target)) idsByTarget.set(target, []);
             idsByTarget.get(target).push(b.id);
@@ -185,50 +163,50 @@ async function refreshBatchStatuses(connection, batchIds = []) {
 }
 
 /**
- * Menyegarkan fulfilled_qty pada po_details dari alokasi po_lot_allocations
+ * Menyegarkan fulfilled_qty pada po_details dari alokasi po_lot_allocations.
+ * Satu-satunya penulis fulfilled_qty untuk alur lot; rumusnya di lotAllocationRules.allocatedQtySql.
  */
-async function refreshPODetailFulfilledQty(connection, poDetailId) {
+async function recalculateFulfilledQty(connection, poDetailIds = []) {
+    const ids = [...new Set(poDetailIds.filter(Boolean))];
+    if (ids.length === 0) return;
+
     await connection.query(
         `UPDATE po_details d
-         SET d.fulfilled_qty = (
-             SELECT COALESCE(SUM(pla.allocated_qty), 0)
-             FROM po_lot_allocations pla
-             WHERE pla.po_detail_id = d.po_detail_id AND pla.status != 'Canceled'
-         )
-         WHERE d.po_detail_id = ?`,
-        [poDetailId]
+         SET d.fulfilled_qty = ${allocatedQtySql('d.po_detail_id')}
+         WHERE d.po_detail_id IN (?)`,
+        [ids]
     );
 }
 
 /**
- * Update tanggal aktual produksi batch dari tabel log upload lot
+ * Tanggal selesai batch = MAX actual_completed_datetime dari baris upload batch itu sendiri
+ * (bukan dari tanggal lot, agar lot yang dipakai beberapa batch tidak membocorkan tanggalnya).
+ * Batch tidak punya tanggal mulai karena file lot tidak memuatnya.
+ * COLLATE pada join: kolom batch_number di dua tabel memakai collation berbeda.
  */
-async function updateBatchProductionDates(connection, batchNumber, currentUserId) {
-    const [[dates]] = await connection.query(`
-        SELECT 
-            MIN(actual_completed_datetime) AS min_completed,
-            MAX(actual_completed_datetime) AS max_completed
-        FROM production_lot_upload_details
-        WHERE batch_number = ?
-    `, [batchNumber]);
+async function syncBatchCompletedDates(connection, batchNumbers = [], updatedBy = null) {
+    const numbers = [...new Set(batchNumbers.filter(Boolean))];
+    if (numbers.length === 0) return;
 
-    if (dates && (dates.min_completed || dates.max_completed)) {
-        await connection.query(`
-            UPDATE batches 
-            SET 
-                actual_production_date = COALESCE(?, actual_production_date),
-                actual_completed_date = COALESCE(?, actual_completed_date),
-                updated_by = ?
-            WHERE batch_number = ?
-        `, [dates.min_completed, dates.max_completed, currentUserId, batchNumber]);
-    }
+    await connection.query(
+        `UPDATE batches b
+         JOIN (
+            SELECT batch_number, MAX(actual_completed_datetime) AS max_completed
+            FROM production_lot_upload_details
+            WHERE batch_number IN (?)
+            GROUP BY batch_number
+         ) d ON d.batch_number COLLATE utf8mb4_unicode_ci = b.batch_number
+         SET b.actual_completed_date = COALESCE(d.max_completed, b.actual_completed_date),
+             b.updated_by = ?`,
+        [numbers, updatedBy]
+    );
 }
 
 module.exports = {
     getPOTolerance,
     refreshPOStatus,
-    refreshBatchStatus,
+    resolveBatchStatus,
     refreshBatchStatuses,
-    refreshPODetailFulfilledQty,
-    updateBatchProductionDates
+    recalculateFulfilledQty,
+    syncBatchCompletedDates
 };

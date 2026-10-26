@@ -1,17 +1,30 @@
-const { refreshPOStatus, refreshBatchStatuses } = require('./lotStatusService');
-const { logAllocationInsert, logAllocationUpdate } = require('./lotAllocationLog');
+const { chunk } = require('../../helpers/arrayUtils');
 const { BusinessError } = require('../../helpers/businessError');
+const {
+    refreshPOStatus,
+    refreshBatchStatuses,
+    recalculateFulfilledQty,
+    syncBatchCompletedDates
+} = require('./lotStatusService');
+const { logAllocationInsert, logAllocationUpdate } = require('./lotAllocationLog');
+const {
+    ALLOCATION_STATUS,
+    ELIGIBLE_ALLOCATION_STATUSES,
+    allocationKey,
+    lotKey
+} = require('./lotAllocationRules');
 
 const SYNC_REASON = 'Auto status sync after production lot upload';
 
-const chunk = (arr, size) => {
-    const out = [];
-    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-    return out;
-};
-
-const dateOnly = (value) => (typeof value === 'string' ? value.split('T')[0].split(' ')[0] : value);
-
+/**
+ * Menyimpan hasil perhitungan alokasi lot ke database.
+ * `calculation` adalah hasil calculateLotFifoAllocation yang SUDAH dihitung ulang server di dalam transaksi ini.
+ * Dipanggil di dalam transaksi (BEGIN/COMMIT/ROLLBACK diatur controller).
+ *
+ * Pengecekan file duplikat (hash / process timestamp) dilakukan controller di bawah lock;
+ * kunci unik production_lot_upload_logs menjadi pengaman terakhir (ER_DUP_ENTRY -> 409).
+ * Seluruh kondisi tidak wajar melempar BusinessError sehingga transaksi di-rollback.
+ */
 const commitProductionAllocationTransaction = async (connection, {
     fileName,
     processTimestamp,
@@ -23,19 +36,7 @@ const commitProductionAllocationTransaction = async (connection, {
     const uploadReason = `Production lot upload: ${fileName || 'unnamed file'}`;
     const problems = [];
 
-    // 1. Cek duplikasi K1 (Process Timestamp) & Hash File sebelum INSERT agar melempar 409
-    const [existingLog] = await connection.query(
-        'SELECT id FROM production_lot_upload_logs WHERE process_timestamp = ? OR (file_hash IS NOT NULL AND file_hash = ?) LIMIT 1',
-        [processTimestamp, fileHash || '']
-    );
-    if (existingLog.length > 0) {
-        throw new BusinessError(
-            `File with process timestamp "${processTimestamp}" has already been uploaded previously. Duplicate upload is not allowed.`,
-            409
-        );
-    }
-
-    // Simpan log upload
+    // 1. Simpan log upload
     const [uploadLogResult] = await connection.query(
         'INSERT INTO production_lot_upload_logs (file_name, process_timestamp, file_hash, uploaded_by) VALUES (?, ?, ?, ?)',
         [fileName, processTimestamp, fileHash || null, userId]
@@ -57,50 +58,60 @@ const commitProductionAllocationTransaction = async (connection, {
             detail.rowHash
         ]);
         await connection.query(
-            `INSERT INTO production_lot_upload_details 
-            (upload_log_id, batch_number, lot_number, item_code, lot_status, trans_type, qty_pac, actual_completed_datetime, expired_date, row_hash) 
+            `INSERT INTO production_lot_upload_details
+            (upload_log_id, batch_number, lot_number, item_code, lot_status, trans_type, qty_pac, actual_completed_datetime, expired_date, row_hash)
             VALUES ?`,
             [detailValues]
         );
     }
 
-    // 3. Find-or-Create Master Lots (Deduplikasi unik per Lot Number + ID Product)
-    const [existingLots] = await connection.query(
-        'SELECT id, lot_number, id_product FROM lots'
-    );
-    const lotIdByKey = new Map();
-    existingLots.forEach((l) => lotIdByKey.set(`${l.lot_number}_${l.id_product}`, l.id));
-
-    const newLotsToInsert = [];
-    const processedLotKeys = new Set();
-
+    // 3. Upsert master lot (unik per nomor lot + produk).
+    //    Tanggal selesai lot = yang terbaru; expired_date yang sudah terisi tidak ditimpa.
+    const lotRows = new Map();
     previewResults.forEach((group) => {
         if (!group.lotNumber || !group.idProduct) return;
 
-        const key = `${group.lotNumber}_${group.idProduct}`;
-
-        // Jika belum ada di database dan belum masuk antrean insert
-        if (!lotIdByKey.has(key) && !processedLotKeys.has(key)) {
-            processedLotKeys.add(key);
-            newLotsToInsert.push([
+        const key = lotKey(group.lotNumber, group.idProduct);
+        const current = lotRows.get(key);
+        if (!current) {
+            lotRows.set(key, [
                 group.lotNumber,
                 group.idProduct,
                 group.actualCompletedDatetime || null,
                 group.expiredDate || null
             ]);
+            return;
         }
+
+        // Lot yang sama muncul di beberapa grup (batch berbeda) dalam satu file
+        if (group.actualCompletedDatetime && (!current[2] || group.actualCompletedDatetime > current[2])) {
+            current[2] = group.actualCompletedDatetime;
+        }
+        if (!current[3] && group.expiredDate) current[3] = group.expiredDate;
     });
 
-    if (newLotsToInsert.length > 0) {
+    const lotIdByKey = new Map();
+    if (lotRows.size > 0) {
         await connection.query(
-            `INSERT INTO lots (lot_number, id_product, actual_completed_datetime, expired_date) VALUES ?`,
-            [newLotsToInsert]
+            `INSERT INTO lots (lot_number, id_product, actual_completed_datetime, expired_date)
+             VALUES ?
+             ON DUPLICATE KEY UPDATE
+                actual_completed_datetime = GREATEST(
+                    COALESCE(actual_completed_datetime, VALUES(actual_completed_datetime)),
+                    COALESCE(VALUES(actual_completed_datetime), actual_completed_datetime)
+                ),
+                expired_date = COALESCE(expired_date, VALUES(expired_date))`,
+            [[...lotRows.values()]]
         );
-        // Refresh Map lotIdByKey setelah insert
-        const [refreshedLots] = await connection.query(
-            'SELECT id, lot_number, id_product FROM lots'
-        );
-        refreshedLots.forEach((l) => lotIdByKey.set(`${l.lot_number}_${l.id_product}`, l.id));
+
+        const lotNumbers = [...new Set([...lotRows.values()].map((row) => row[0]))];
+        for (const part of chunk(lotNumbers, 500)) {
+            const [rows] = await connection.query(
+                'SELECT id, lot_number, id_product FROM lots WHERE lot_number IN (?)',
+                [part]
+            );
+            rows.forEach((l) => lotIdByKey.set(lotKey(l.lot_number, l.id_product), l.id));
+        }
     }
 
     // 4. Find-or-Create Master Batches (Deduplikasi unik per batch_number)
@@ -128,12 +139,13 @@ const commitProductionAllocationTransaction = async (connection, {
 
         if (!batchIdByNumber.has(group.batchNumber) && !processedBatchNumbers.has(group.batchNumber)) {
             processedBatchNumbers.add(group.batchNumber);
+            // Tanggal selesai batch diisi syncBatchCompletedDates (satu aturan di satu tempat)
             newBatchesToInsert.push([
                 group.batchNumber,
                 group.idProduct,
                 null,
                 null,
-                group.actualCompletedDatetime || null,
+                null,
                 group.expiredDate || null,
                 'Open',
                 userId,
@@ -159,12 +171,15 @@ const commitProductionAllocationTransaction = async (connection, {
         createdBatches.forEach((b) => batchIdByNumber.set(b.batch_number, b.id));
     }
 
+    // Tanggal selesai batch = MAX dari seluruh baris upload batch tersebut (termasuk upload sebelumnya)
+    await syncBatchCompletedDates(connection, batchNumbers, userId);
+
     // 5. Hubungkan Relasi `batch_lots`
     const batchLotPairSet = new Set();
     const batchLotValues = [];
     previewResults.forEach((group) => {
         const batchId = batchIdByNumber.get(group.batchNumber);
-        const lotId = lotIdByKey.get(`${group.lotNumber}_${group.idProduct}`);
+        const lotId = lotIdByKey.get(lotKey(group.lotNumber, group.idProduct));
         if (batchId && lotId) {
             const pairKey = `${batchId}_${lotId}`;
             if (!batchLotPairSet.has(pairKey)) {
@@ -176,7 +191,7 @@ const commitProductionAllocationTransaction = async (connection, {
 
     if (batchLotValues.length > 0) {
         await connection.query(
-            `INSERT INTO batch_lots (batch_id, lot_id) VALUES ? 
+            `INSERT INTO batch_lots (batch_id, lot_id) VALUES ?
              ON DUPLICATE KEY UPDATE id = id`,
             [batchLotValues]
         );
@@ -185,12 +200,12 @@ const commitProductionAllocationTransaction = async (connection, {
     // 6. Upsert ke `po_lot_allocations`
     const items = new Map();
     detailedAllocations.forEach((a) => {
-        const lotId = lotIdByKey.get(`${a.lotNumber}_${a.idProduct}`);
+        const lotId = lotIdByKey.get(lotKey(a.lotNumber, a.idProduct));
         if (!lotId || !a.poDetailId) {
             problems.push(`Missing lot ID or PO detail reference for lot ${a.lotNumber}.`);
             return;
         }
-        const key = `${a.poDetailId}_${lotId}`;
+        const key = allocationKey(a.poDetailId, lotId);
         const current = items.get(key);
         if (current) {
             current.addedQty += Number(a.addedQty) || 0;
@@ -210,7 +225,7 @@ const commitProductionAllocationTransaction = async (connection, {
         'SELECT id, po_detail_id, lot_id, allocated_qty, status FROM po_lot_allocations WHERE lot_id IN (?) FOR UPDATE',
         [lotIds.length > 0 ? lotIds : [0]]
     );
-    const existingByPair = new Map(existingAllocRows.map((a) => [`${a.po_detail_id}_${a.lot_id}`, a]));
+    const existingByPair = new Map(existingAllocRows.map((a) => [allocationKey(a.po_detail_id, a.lot_id), a]));
 
     const upsertValues = [];
     const insertLogs = [];
@@ -225,7 +240,7 @@ const commitProductionAllocationTransaction = async (connection, {
             problems.push(`Allocation for PO detail ${item.poDetailId} and lot ID ${item.lotId} would become negative.`);
             return;
         }
-        if (existing && !['Open', 'Closed'].includes(existing.status)) {
+        if (existing && !ELIGIBLE_ALLOCATION_STATUSES.includes(existing.status)) {
             problems.push(`Allocation for PO detail ${item.poDetailId} and lot ID ${item.lotId} is ${existing.status} and cannot be changed.`);
             return;
         }
@@ -281,9 +296,9 @@ const commitProductionAllocationTransaction = async (connection, {
             'SELECT id, po_detail_id, lot_id FROM po_lot_allocations WHERE (po_detail_id, lot_id) IN (?)',
             [pairs]
         );
-        const idByPair = new Map(createdAllocs.map((a) => [`${a.po_detail_id}_${a.lot_id}`, a.id]));
+        const idByPair = new Map(createdAllocs.map((a) => [allocationKey(a.po_detail_id, a.lot_id), a.id]));
         insertLogs.forEach((l) => {
-            l.allocation_id = idByPair.get(`${l.po_detail_id}_${l.lot_id}`);
+            l.allocation_id = idByPair.get(allocationKey(l.po_detail_id, l.lot_id));
         });
         await logAllocationInsert(connection, insertLogs, userId);
     }
@@ -293,16 +308,7 @@ const commitProductionAllocationTransaction = async (connection, {
 
     // 7. Hitung Ulang fulfilled_qty pada `po_details` dari `po_lot_allocations`
     const poDetailIds = [...new Set([...items.values()].map((i) => i.poDetailId))];
-    await connection.query(
-        `UPDATE po_details d
-         SET d.fulfilled_qty = (
-             SELECT COALESCE(SUM(pla.allocated_qty), 0)
-             FROM po_lot_allocations pla
-             WHERE pla.po_detail_id = d.po_detail_id AND pla.status <> 'Canceled'
-         )
-         WHERE d.po_detail_id IN (?)`,
-        [poDetailIds.length > 0 ? poDetailIds : [0]]
-    );
+    await recalculateFulfilledQty(connection, poDetailIds);
 
     const [poDetailRows] = await connection.query(
         'SELECT po_detail_id, po_header_id, base_qty, fulfilled_qty FROM po_details WHERE po_detail_id IN (?)',
@@ -318,7 +324,7 @@ const commitProductionAllocationTransaction = async (connection, {
             problems.push(`PO detail ${pd.po_detail_id} would have fulfilled quantity ${fulfilled} against PO quantity ${base}.`);
         }
         if (pd.po_header_id) poHeaderIds.add(pd.po_header_id);
-        targetStatusByDetail.set(pd.po_detail_id, fulfilled >= base ? 'Closed' : 'Open');
+        targetStatusByDetail.set(pd.po_detail_id, fulfilled >= base ? ALLOCATION_STATUS.CLOSED : ALLOCATION_STATUS.OPEN);
     });
 
     if (problems.length > 0) {
@@ -334,13 +340,16 @@ const commitProductionAllocationTransaction = async (connection, {
         `SELECT pla.id, pla.po_detail_id, pla.lot_id, pla.allocated_qty, pla.status, bl.batch_id
          FROM po_lot_allocations pla
          LEFT JOIN batch_lots bl ON pla.lot_id = bl.lot_id
-         WHERE pla.po_detail_id IN (?) AND pla.status IN ('Open', 'Closed')`,
-        [poDetailIds.length > 0 ? poDetailIds : [0]]
+         WHERE pla.po_detail_id IN (?) AND pla.status IN (?)`,
+        [poDetailIds.length > 0 ? poDetailIds : [0], ELIGIBLE_ALLOCATION_STATUSES]
     );
 
-    const changedToClosed = [];
-    const changedToOpen = [];
+    const idsByTargetStatus = new Map([
+        [ALLOCATION_STATUS.CLOSED, []],
+        [ALLOCATION_STATUS.OPEN, []]
+    ]);
     const syncLogs = [];
+    const handledAllocationIds = new Set();
 
     // Kumpulkan batch ID dari file saat ini DAN dari alokasi yang ikut tersinkronisasi
     const allBatchIdsToRefresh = new Set(
@@ -351,13 +360,14 @@ const commitProductionAllocationTransaction = async (connection, {
         const target = targetStatusByDetail.get(a.po_detail_id);
         if (!target || a.status === target) return;
 
-        (target === 'Closed' ? changedToClosed : changedToOpen).push(a.id);
+        // Ikutkan batch lama ke antrean refresh jika status alokasinya berubah
+        if (a.batch_id) allBatchIdsToRefresh.add(a.batch_id);
 
-        // TAMBAHKAN INI: Ikutkan batch lama ke antrean refresh jika status alokasinya berubah
-        if (a.batch_id) {
-            allBatchIdsToRefresh.add(a.batch_id);
-        }
+        // Satu alokasi bisa muncul beberapa kali (lot yang sama ada di banyak batch): ubah dan catat sekali
+        if (handledAllocationIds.has(a.id)) return;
+        handledAllocationIds.add(a.id);
 
+        idsByTargetStatus.get(target).push(a.id);
         syncLogs.push({
             upload_log_id: uploadLogId,
             allocation_id: a.id,
@@ -372,16 +382,11 @@ const commitProductionAllocationTransaction = async (connection, {
         });
     });
 
-    if (changedToClosed.length > 0) {
+    for (const [status, ids] of idsByTargetStatus.entries()) {
+        if (ids.length === 0) continue;
         await connection.query(
-            `UPDATE po_lot_allocations SET status = 'Closed', updated_by = ? WHERE id IN (?)`,
-            [userId, changedToClosed]
-        );
-    }
-    if (changedToOpen.length > 0) {
-        await connection.query(
-            `UPDATE po_lot_allocations SET status = 'Open', updated_by = ? WHERE id IN (?)`,
-            [userId, changedToOpen]
+            `UPDATE po_lot_allocations SET status = ?, updated_by = ? WHERE id IN (?)`,
+            [status, userId, ids]
         );
     }
     if (syncLogs.length > 0) {

@@ -35,11 +35,13 @@ const EXPECTED_EXPORTS = {
     'services/production-lot/lotStatusService': [
         'getPOTolerance',
         'refreshPOStatus',
-        'refreshBatchStatus',
+        'resolveBatchStatus',
         'refreshBatchStatuses',
-        'refreshPODetailFulfilledQty',
-        'updateBatchProductionDates'
+        'recalculateFulfilledQty',
+        'syncBatchCompletedDates'
     ],
+    'services/production-lot/lotAllocationRules': ['allocatedQtySql', 'allocationKey', 'lotKey'],
+    'helpers/arrayUtils': ['chunk'],
     'services/production-lot/lotAllocationLog': ['logAllocationInsert', 'logAllocationUpdate', 'getAllocationLogs']
 };
 
