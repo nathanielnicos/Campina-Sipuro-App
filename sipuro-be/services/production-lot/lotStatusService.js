@@ -1,5 +1,5 @@
-const { sipuroDb: db } = require('../config/db');
-const { logPOHeader } = require('./poLogHelper');
+const { sipuroDb: db } = require('../../config/db');
+const { logPOHeader } = require('../../helpers/poLogHelper');
 
 /**
  * Mengambil nilai toleransi PO dari database

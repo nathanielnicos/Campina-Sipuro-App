@@ -1,5 +1,5 @@
 const { sipuroDb } = require('../../../config/db');
-const { getPOTolerance } = require('../../../helpers/lotBatchHelper');
+const { getPOTolerance } = require('../../../services/production-lot/lotStatusService');
 
 exports.getAllocatedLotMapping = async (req, res) => {
     try {

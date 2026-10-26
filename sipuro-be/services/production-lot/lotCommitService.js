@@ -1,6 +1,6 @@
-const { refreshPOStatus, refreshBatchStatuses } = require('../lotBatchHelper');
-const { logAllocationInsert, logAllocationUpdate } = require('../poLotAllocationLogHelper');
-const { BusinessError } = require('../businessError');
+const { refreshPOStatus, refreshBatchStatuses } = require('./lotStatusService');
+const { logAllocationInsert, logAllocationUpdate } = require('./lotAllocationLog');
+const { BusinessError } = require('../../helpers/businessError');
 
 const SYNC_REASON = 'Auto status sync after production lot upload';
 

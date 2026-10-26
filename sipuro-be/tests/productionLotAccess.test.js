@@ -36,7 +36,9 @@ Module._load = function patchedLoad(request) {
     if (request.endsWith('/config/db')) return { sipuroDb: null };
     if (request.endsWith('/helpers/tokenHelper')) return { verifyToken() { throw new Error('tidak dipakai di tes'); } };
     if (request.endsWith('/middleware/excelUpload')) return { handleExcelUpload: uploadMiddleware };
-    if (request.endsWith('/controllers/production-lot/productionLotController')) return controllerStub;
+    if (request.endsWith('/controllers/production-lot/allocation/lotMappingListController')) return controllerStub;
+    if (request.endsWith('/controllers/production-lot/import/lotUploadPreviewController')) return controllerStub;
+    if (request.endsWith('/controllers/production-lot/import/lotUploadCommitController')) return controllerStub;
     return originalLoad.apply(this, arguments);
 };
 

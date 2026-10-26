@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const productionLotController = require('../controllers/production-lot/productionLotController');
+const { getAllocatedLotMapping } = require('../controllers/production-lot/allocation/lotMappingListController');
+const { previewExcelUpload } = require('../controllers/production-lot/import/lotUploadPreviewController');
+const { commitExcelAllocation } = require('../controllers/production-lot/import/lotUploadCommitController');
 const { handleExcelUpload } = require('../middleware/excelUpload');
 const { requireAccess } = require('../middleware/auth');
 
@@ -12,12 +14,12 @@ const { requireAccess } = require('../middleware/auth');
 const ppicOnly = requireAccess('PPIC');
 
 // 1. RUTE STATIS (GET)
-router.get('/mapping', ppicOnly, productionLotController.getAllocatedLotMapping);
+router.get('/mapping', ppicOnly, getAllocatedLotMapping);
 
 // 2. RUTE DINAMIS (GET dengan Parameter)
 
 // 3. RUTE ACTION / MUTASI (POST)
-router.post('/upload/preview', ppicOnly, handleExcelUpload, productionLotController.previewExcelUpload);
-router.post('/upload/commit', ppicOnly, handleExcelUpload, productionLotController.commitExcelAllocation);
+router.post('/upload/preview', ppicOnly, handleExcelUpload, previewExcelUpload);
+router.post('/upload/commit', ppicOnly, handleExcelUpload, commitExcelAllocation);
 
 module.exports = router;

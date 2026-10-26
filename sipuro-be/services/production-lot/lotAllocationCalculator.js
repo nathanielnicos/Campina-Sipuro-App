@@ -14,7 +14,7 @@
  *  - Filter tanggal PO berlaku untuk mencocokkan completed date lot terhadap po_headers.created_at.
  */
 const crypto = require('crypto');
-const { BusinessError } = require('../businessError');
+const { BusinessError } = require('../../helpers/businessError');
 
 const ELIGIBLE_HEADER_STATUSES = ['Approved', 'Production Completed'];
 const ELIGIBLE_ALLOCATION_STATUSES = ['Open', 'Closed'];

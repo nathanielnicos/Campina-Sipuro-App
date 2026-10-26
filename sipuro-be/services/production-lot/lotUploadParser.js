@@ -1,7 +1,7 @@
 const xlsx = require('xlsx');
 const crypto = require('crypto');
-const { BusinessError } = require('../businessError');
-const { MAX_UPLOAD_ROWS } = require('../uploadConfig');
+const { BusinessError } = require('../../helpers/businessError');
+const { MAX_UPLOAD_ROWS } = require('../../helpers/uploadConfig');
 
 const pad = (n) => String(n).padStart(2, '0');
 
