@@ -133,3 +133,42 @@ test('getPOTolerance', async () => {
         await assert.rejects(svc.getPOTolerance({ query: async () => bad }), /not configured/);
     }
 });
+
+test('syncAllocationStatuses: menyamakan status alokasi Open/Closed per item PO, mencatat riwayat, mengembalikan batch yang berubah', async () => {
+    const allocs = [
+        { id: 1, po_detail_id: 3, lot_id: 5, id_batch: 11, allocated_qty: 10, status: 'Closed' },
+        { id: 2, po_detail_id: 3, lot_id: 6, id_batch: 12, allocated_qty: 20, status: 'Closed' },
+        { id: 3, po_detail_id: 3, lot_id: 7, id_batch: 12, allocated_qty: 5, status: 'Open' },
+        { id: 4, po_detail_id: 4, lot_id: 5, id_batch: 11, allocated_qty: 5, status: 'Open' }
+    ];
+    const c = fakeConn((sql) => (/^SELECT id, po_detail_id/.test(sql.replace(/\s+/g, ' ').trim()) ? [allocs] : [{}]));
+    const batches = await svc.syncAllocationStatuses(c, {
+        targetStatusByDetail: new Map([[3, 'Open'], [4, 'Closed']]),
+        userId: 9, uploadLogId: 77, reason: 'sync alasan'
+    });
+
+    assert.deepEqual(batches.sort(), [11, 12]);
+    const updates = c.calls.filter((x) => /^UPDATE po_lot_allocations/.test(x.sql.trim()));
+    assert.deepEqual(updates.map((u) => u.params), [['Closed', 9, [4]], ['Open', 9, [1, 2]]]);
+
+    const log = c.calls.find((x) => /po_lot_allocation_logs/.test(x.sql));
+    const rows = log.params[0];
+    assert.deepEqual(rows.map((r) => r[1]).sort(), [1, 2, 4]);
+    assert.ok(rows.every((r) => r[4] === 11 || r[4] === 12));
+    assert.ok(rows.every((r) => r[5] === 'UPDATE' && r[0] === 77 && r[10] === 'sync alasan' && r[11] === 9));
+    // qty tidak berubah pada log sinkron
+    assert.ok(rows.every((r) => r[6] === r[7]));
+    assert.deepEqual(rows.map((r) => [r[1], r[8], r[9]]).sort((a, b) => a[0] - b[0]), [[1, 'Closed', 'Open'], [2, 'Closed', 'Open'], [4, 'Open', 'Closed']]);
+});
+
+test('syncAllocationStatuses: hanya Open/Closed dibaca, tanpa target -> tanpa query, status sudah sesuai -> tanpa update', async () => {
+    const none = fakeConn(() => [[]]);
+    assert.deepEqual(await svc.syncAllocationStatuses(none, { targetStatusByDetail: new Map(), userId: 1, reason: 'x' }), []);
+    assert.equal(none.calls.length, 0);
+
+    const c = fakeConn((sql) => (/^SELECT/.test(sql.trim()) ? [[{ id: 1, po_detail_id: 3, lot_id: 5, id_batch: 11, allocated_qty: 1, status: 'Open' }]] : [{}]));
+    const out = await svc.syncAllocationStatuses(c, { targetStatusByDetail: new Map([[3, 'Open']]), userId: 1, reason: 'x' });
+    assert.deepEqual(out, []);
+    assert.equal(c.calls.length, 1);
+    assert.deepEqual(c.calls[0].params[1], ['Open', 'Closed']);
+});

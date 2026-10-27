@@ -4,6 +4,7 @@ const {
     refreshPOStatus,
     refreshBatchStatuses,
     recalculateFulfilledQty,
+    syncAllocationStatuses,
     syncBatchCompletedDates
 } = require('./lotStatusService');
 const { logAllocationInsert, logAllocationUpdate } = require('./lotAllocationLog');
@@ -317,57 +318,18 @@ const commitProductionAllocationTransaction = async (connection, {
     }
 
     // 7. Sinkronisasi status dua arah untuk seluruh alokasi (lot, batch) pada item PO yang sama
-    const [relatedAllocs] = await connection.query(
-        `SELECT id, po_detail_id, lot_id, id_batch, allocated_qty, status
-         FROM po_lot_allocations
-         WHERE po_detail_id IN (?) AND status IN (?)`,
-        [poDetailIds.length > 0 ? poDetailIds : [0], ELIGIBLE_ALLOCATION_STATUSES]
-    );
-
-    const idsByTargetStatus = new Map([
-        [ALLOCATION_STATUS.CLOSED, []],
-        [ALLOCATION_STATUS.OPEN, []]
-    ]);
-    const syncLogs = [];
-
-    // Kumpulkan batch ID dari file saat ini DAN dari alokasi yang ikut tersinkronisasi
-    const allBatchIdsToRefresh = new Set(
-        previewResults.map((g) => batchIdByNumber.get(g.batchNumber)).filter(Boolean)
-    );
-
-    relatedAllocs.forEach((a) => {
-        const target = targetStatusByDetail.get(a.po_detail_id);
-        if (!target || a.status === target) return;
-
-        // Ikutkan batch alokasi ini ke antrean refresh karena statusnya berubah
-        allBatchIdsToRefresh.add(a.id_batch);
-
-        idsByTargetStatus.get(target).push(a.id);
-        syncLogs.push({
-            upload_log_id: uploadLogId,
-            allocation_id: a.id,
-            po_detail_id: a.po_detail_id,
-            lot_id: a.lot_id,
-            id_batch: a.id_batch,
-            old_allocated_qty: Number(a.allocated_qty) || 0,
-            new_allocated_qty: Number(a.allocated_qty) || 0,
-            old_status: a.status,
-            new_status: target,
-            reason: SYNC_REASON,
-            created_by: userId
-        });
+    const syncedBatchIds = await syncAllocationStatuses(connection, {
+        targetStatusByDetail,
+        userId,
+        uploadLogId,
+        reason: SYNC_REASON
     });
 
-    for (const [status, ids] of idsByTargetStatus.entries()) {
-        if (ids.length === 0) continue;
-        await connection.query(
-            `UPDATE po_lot_allocations SET status = ?, updated_by = ? WHERE id IN (?)`,
-            [status, userId, ids]
-        );
-    }
-    if (syncLogs.length > 0) {
-        await logAllocationUpdate(connection, syncLogs, userId);
-    }
+    // Batch dari file ini DAN dari alokasi yang ikut tersinkronisasi
+    const allBatchIdsToRefresh = new Set([
+        ...previewResults.map((g) => batchIdByNumber.get(g.batchNumber)).filter(Boolean),
+        ...syncedBatchIds
+    ]);
 
     // 8. Refresh status Batch & Header PO
     if (allBatchIdsToRefresh.size > 0) {

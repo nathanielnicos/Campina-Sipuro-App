@@ -2,6 +2,7 @@ const xlsx = require('xlsx');
 const crypto = require('crypto');
 const { BusinessError } = require('../../helpers/businessError');
 const { MAX_UPLOAD_ROWS } = require('../../helpers/uploadConfig');
+const { TRANS_TYPE } = require('./lotAllocationRules');
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -58,15 +59,21 @@ const parseDateOnly = (val) => {
     return dt ? dt.split(' ')[0] : null;
 };
 
-const parseStrictInteger = (raw) => {
-    if (raw === undefined || raw === null) return { value: 0 };
-    if (typeof raw === 'string' && raw.trim() === '') return { value: 0 };
+/**
+ * Membaca qty dari sel Excel. Tidak menolak apa pun di sini: apakah desimal boleh atau tidak
+ * bergantung pada produknya (hanya produk terdaftar yang wajib bilangan bulat; lihat kalkulator).
+ * isWhole=false bila desimal atau bukan angka.
+ */
+const parseQuantity = (raw) => {
+    if (raw === undefined || raw === null) return { value: 0, isWhole: true };
     if (typeof raw === 'number') {
-        return Number.isInteger(raw) ? { value: raw } : { error: true };
+        return Number.isFinite(raw) ? { value: raw, isWhole: Number.isInteger(raw) } : { value: 0, isWhole: false };
     }
     const text = String(raw).trim();
-    if (/^[+-]?\d+$/.test(text)) return { value: parseInt(text, 10) };
-    return { error: true };
+    if (text === '') return { value: 0, isWhole: true };
+    if (/^[+-]?\d+$/.test(text)) return { value: parseInt(text, 10), isWhole: true };
+    if (/^[+-]?\d+\.\d+$/.test(text)) return { value: parseFloat(text), isWhole: false };
+    return { value: 0, isWhole: false };
 };
 
 const parseProductionExcel = (fileBuffer) => {
@@ -100,7 +107,6 @@ const parseProductionExcel = (fileBuffer) => {
     }
 
     const rawRows = [];
-    const invalidQtyRows = [];
 
     // Mulai dari baris ke-7 (index 6)
     for (let i = 6; i < rawData.length; i++) {
@@ -118,7 +124,7 @@ const parseProductionExcel = (fileBuffer) => {
             continue;
         }
 
-        const transType = isCompletion ? 'WIP Completion' : 'WIP Completion Return';
+        const transType = isCompletion ? TRANS_TYPE.COMPLETION : TRANS_TYPE.RETURN;
         const status = row[2] ? String(row[2]).trim() : ''; // Kolom C
         const transDateRaw = row[3];                         // Kolom D (Trans Date)
         const itemCode = row[4] ? String(row[4]).trim() : '';  // Kolom E (Item)
@@ -137,13 +143,8 @@ const parseProductionExcel = (fileBuffer) => {
 
         // WIP Completion: Col Q (index 16), WIP Completion Return: Col T (index 19)
         const rawQty = isCompletion ? row[16] : row[19];
-        const qtyResult = parseStrictInteger(rawQty);
-
-        if (qtyResult.error) {
-            invalidQtyRows.push(`${excelRowNumber} ("${String(rawQty).trim()}")`);
-        }
-        const qtyPac = qtyResult.error ? 0 : qtyResult.value;
-        const storedQtyPac = Math.abs(qtyPac);
+        const qtyResult = parseQuantity(rawQty);
+        const storedQtyPac = Math.abs(qtyResult.value);
 
         const actualCompletedDatetime = parseExcelDateTime(transDateRaw);
         const expiredDate = parseDateOnly(expDateRaw);
@@ -171,17 +172,10 @@ const parseProductionExcel = (fileBuffer) => {
             actualCompletedDatetime,
             expiredDate,
             rowHash,
-            excelRowNumber
+            excelRowNumber,
+            qtyIsWhole: qtyResult.isWhole,
+            rawQtyText: String(rawQty === undefined || rawQty === null ? '' : rawQty).trim()
         });
-    }
-
-    if (invalidQtyRows.length > 0) {
-        const shown = invalidQtyRows.slice(0, 20).join(', ');
-        const more = invalidQtyRows.length > 20 ? ` and ${invalidQtyRows.length - 20} more` : '';
-        throw new BusinessError(
-            `Quantity must be a whole number. Please fix Excel row(s): ${shown}${more}.`,
-            422
-        );
     }
 
     if (rawRows.length > MAX_UPLOAD_ROWS) {
@@ -199,6 +193,7 @@ const parseProductionExcel = (fileBuffer) => {
 };
 
 module.exports = {
+    parseQuantity,
     parseExcelDateTime,
     parseProductionExcel
 };

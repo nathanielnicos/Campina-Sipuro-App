@@ -233,3 +233,28 @@ test('fingerprint stabil dan berubah saat hasil berubah', () => {
     assert.equal(a, b);
     assert.notEqual(a, c);
 });
+
+// ---------- qty desimal: hanya produk terdaftar yang ditolak ----------
+
+test('qty desimal pada produk terdaftar ditolak 422 dengan nomor baris Excel dan nilai aslinya', () => {
+    const rows = [row({ excelRowNumber: 11 }), row({ excelRowNumber: 12, qtyIsWhole: false, rawQtyText: '10.5' })];
+    assert.throws(() => run(rows, [po(1)]), (e) => e.status === 422
+        && /registered product must be a whole number/.test(e.message) && /12 \("10\.5"\)/.test(e.message) && !/11 \(/.test(e.message));
+});
+
+test('qty desimal pada produk TIDAK terdaftar tidak ditolak dan tidak disimpan (hanya tampil di preview)', () => {
+    const r = run([row({ itemCode: 'ZZ', rawAllocationQty: 10.5, qtyPac: 10.5, qtyIsWhole: false, rawQtyText: '10.5' })], [po(1)]);
+    assert.equal(r.unregisteredRows.length, 1);
+    assert.equal(r.unregisteredRows[0].qtyPac, 10.5);
+    assert.equal(r.newRows.length, 0);
+    assert.equal(r.canSave, false);
+});
+
+test('campuran: desimal tak terdaftar diabaikan, desimal terdaftar tetap ditolak', () => {
+    const rows = [row({ itemCode: 'ZZ', qtyIsWhole: false, rawQtyText: '1.5' }), row({ qtyIsWhole: false, rawQtyText: 'abc', excelRowNumber: 99 })];
+    assert.throws(() => run(rows, [po(1)]), (e) => /99 \("abc"\)/.test(e.message));
+});
+
+test('baris tanpa penanda qtyIsWhole dianggap bulat (kompatibel)', () => {
+    assert.doesNotThrow(() => run([row()], [po(1)]));
+});

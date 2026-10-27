@@ -28,6 +28,12 @@ const PO_DETAIL_STATUS = Object.freeze({
     CLOSE_REQUESTED: 'Close Requested'
 });
 
+// Jenis transaksi pada file produksi (disimpan apa adanya di production_lot_upload_details.trans_type)
+const TRANS_TYPE = Object.freeze({
+    COMPLETION: 'WIP Completion',
+    RETURN: 'WIP Completion Return'
+});
+
 // Header PO yang boleh dialokasikan (dan yang statusnya boleh diubah otomatis oleh refreshPOStatus)
 const ELIGIBLE_HEADER_STATUSES = Object.freeze(['Approved', 'Production Completed']);
 
@@ -59,6 +65,7 @@ const lotKey = (lotNumber, idProduct) => `${lotNumber}_${idProduct}`;
 module.exports = {
     ALLOCATION_STATUS,
     PO_DETAIL_STATUS,
+    TRANS_TYPE,
     ELIGIBLE_HEADER_STATUSES,
     ELIGIBLE_DETAIL_STATUSES,
     ELIGIBLE_ALLOCATION_STATUSES,

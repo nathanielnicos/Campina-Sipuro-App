@@ -6,6 +6,7 @@ const path = require('path');
 const Module = require('module');
 
 const statusCalls = [];
+let syncedBatchIds = [];
 const originalLoad = Module._load;
 Module._load = function patched(request) {
     if (request.endsWith('/config/db')) return { sipuroDb: null };
@@ -15,6 +16,7 @@ Module._load = function patched(request) {
             refreshPOStatus: async (_c, id) => statusCalls.push(['po', id]),
             refreshBatchStatuses: async (_c, ids) => statusCalls.push(['batches', [...ids].sort()]),
             recalculateFulfilledQty: async (_c, ids) => statusCalls.push(['recalc', ids]),
+            syncAllocationStatuses: async (_c, args) => { statusCalls.push(['sync-status', args]); return syncedBatchIds; },
             syncBatchCompletedDates: async (_c, nums, by) => statusCalls.push(['sync', nums, by])
         };
     }
@@ -62,7 +64,7 @@ const calculation = (over = {}) => ({
 const args = (calc = calculation()) => ({ fileName: 'f.xlsx', processTimestamp: '2026-02-01 10:00:00', fileHash: 'abc', userId: 4, calculation: calc });
 const find = (conn, re) => conn.calls.filter((c) => re.test(c.sql.replace(/\s+/g, ' ')));
 
-test.beforeEach(() => { statusCalls.length = 0; });
+test.beforeEach(() => { statusCalls.length = 0; syncedBatchIds = []; });
 
 test('alur normal: upsert lot, batch baru, alokasi baru, log, hitung ulang, refresh', async () => {
     const conn = makeConn();
@@ -151,26 +153,28 @@ test('batch sudah milik produk lain: 422 sebelum menulis batch/alokasi', async (
     assert.equal(find(conn, /^INSERT INTO po_lot_allocations/).length, 0);
 });
 
-test('sinkronisasi status: alokasi saudara (lot/batch lain, item PO sama) diubah dan batch-nya ikut di-refresh', async () => {
-    const conn = makeConn({
-        existingBatches: [{ id: 11, batch_number: 'B1', id_product: 1 }],
-        relatedAllocs: [
-            { id: 901, po_detail_id: 3, lot_id: 6, id_batch: 12, allocated_qty: 10, status: 'Closed' },
-            { id: 902, po_detail_id: 3, lot_id: 6, id_batch: 13, allocated_qty: 10, status: 'Closed' }
-        ],
-        poDetails: [{ po_detail_id: 3, po_header_id: 30, base_qty: 100, fulfilled_qty: 50 }]
-    });
+test('sinkronisasi status: memakai fungsi bersama dengan target per item PO; batch yang ikut berubah di-refresh', async () => {
+    syncedBatchIds = [12, 13];
+    const conn = makeConn({ poDetails: [{ po_detail_id: 3, po_header_id: 30, base_qty: 100, fulfilled_qty: 100 }] });
     await commitProductionAllocationTransaction(conn, args());
-    const updates = find(conn, /^UPDATE po_lot_allocations SET status/);
-    assert.equal(updates.length, 1);
-    assert.deepEqual(updates[0].params, ['Open', 4, [901, 902]]);
-    // Log sinkronisasi membawa id_batch tiap alokasi saudara
-    const syncLog = find(conn, /INSERT INTO sipuro_db\.po_lot_allocation_logs/).pop();
-    assert.deepEqual(syncLog.params[0].map((r) => r[4]), [12, 13]);
-    // Query saudara tidak lagi memakai batch_lots
+
+    const call = statusCalls.find((c) => c[0] === 'sync-status')[1];
+    assert.deepEqual([...call.targetStatusByDetail.entries()], [[3, 'Closed']]);
+    assert.equal(call.userId, 4);
+    assert.equal(call.uploadLogId, 77);
+    assert.equal(call.reason, 'Auto status sync after production lot upload');
+
+    assert.deepEqual(statusCalls.find((c) => c[0] === 'batches')[1], [11, 12, 13]);
+    // Commit tidak lagi memuat logika sinkron sendiri
+    assert.equal(find(conn, /UPDATE po_lot_allocations SET status/).length, 0);
     assert.ok(!find(conn, /LEFT JOIN batch_lots/).length);
-    const refreshed = statusCalls.find((c) => c[0] === 'batches')[1];
-    assert.deepEqual(refreshed, [11, 12, 13]);
+});
+
+test('sinkronisasi status: target Open bila item PO belum terpenuhi', async () => {
+    const conn = makeConn();
+    await commitProductionAllocationTransaction(conn, args());
+    const call = statusCalls.find((c) => c[0] === 'sync-status')[1];
+    assert.deepEqual([...call.targetStatusByDetail.entries()], [[3, 'Open']]);
 });
 
 test('lot yang sama di dua batch: dua alokasi terpisah per (item PO, lot, batch)', async () => {

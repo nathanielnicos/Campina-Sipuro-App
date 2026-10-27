@@ -121,8 +121,14 @@ const calculateLotFifoAllocation = (
     const groups = new Map();
     const newRowsInFileOrder = [];
 
+    const invalidQtyRows = [];
+
     rawRows.forEach((row, index) => {
         const isRegistered = productByCode.has(row.itemCode);
+        // Qty desimal hanya ditolak untuk produk terdaftar (produk tidak terdaftar tidak disimpan).
+        if (isRegistered && row.qtyIsWhole === false) {
+            invalidQtyRows.push(`${row.excelRowNumber} ("${row.rawQtyText}")`);
+        }
         const isDuplicate = hashSet.has(row.rowHash);
         const isLotGood = row.lotStatus && row.lotStatus.toUpperCase() === 'GOOD';
 
@@ -178,6 +184,15 @@ const calculateLotFifoAllocation = (
             }
         }
     });
+
+    if (invalidQtyRows.length > 0) {
+        const shown = invalidQtyRows.slice(0, 20).join(', ');
+        const more = invalidQtyRows.length > 20 ? ` and ${invalidQtyRows.length - 20} more` : '';
+        throw new BusinessError(
+            `Quantity of a registered product must be a whole number. Please fix Excel row(s): ${shown}${more}.`,
+            422
+        );
+    }
 
     // 2. Urutkan grup berdasarkan kronologi completed datetime ASC, batch, lot, kemunculan file
     const sortedGroups = [...groups.values()].sort((a, b) => {

@@ -1,9 +1,11 @@
 const { sipuroDb: db } = require('../../config/db');
 const { logPOHeader } = require('../../helpers/poLogHelper');
+const { logAllocationUpdate } = require('./lotAllocationLog');
 const {
     ALLOCATION_STATUS,
     PO_DETAIL_STATUS,
     ELIGIBLE_HEADER_STATUSES,
+    ELIGIBLE_ALLOCATION_STATUSES,
     allocatedQtySql
 } = require('./lotAllocationRules');
 
@@ -178,6 +180,67 @@ async function recalculateFulfilledQty(connection, poDetailIds = []) {
 }
 
 /**
+ * Menyamakan status seluruh alokasi Open/Closed (semua lot dan batch) pada item PO yang sama
+ * dengan status targetnya: Closed bila total alokasi item >= qty PO, selain itu Open.
+ * Alokasi Force Closed dan Canceled tidak disentuh. Dipakai commit upload dan edit qty.
+ *
+ * @param {Map<number, string>} targetStatusByDetail  po_detail_id -> status target
+ * @returns {Promise<number[]>} id batch yang statusnya ikut berubah (untuk refreshBatchStatuses)
+ */
+async function syncAllocationStatuses(connection, { targetStatusByDetail, userId, uploadLogId = null, reason }) {
+    const detailIds = [...targetStatusByDetail.keys()];
+    if (detailIds.length === 0) return [];
+
+    const [allocations] = await connection.query(
+        `SELECT id, po_detail_id, lot_id, id_batch, allocated_qty, status
+         FROM po_lot_allocations
+         WHERE po_detail_id IN (?) AND status IN (?)`,
+        [detailIds, ELIGIBLE_ALLOCATION_STATUSES]
+    );
+
+    const idsByTarget = new Map([
+        [ALLOCATION_STATUS.CLOSED, []],
+        [ALLOCATION_STATUS.OPEN, []]
+    ]);
+    const logs = [];
+    const batchIds = new Set();
+
+    allocations.forEach((a) => {
+        const target = targetStatusByDetail.get(a.po_detail_id);
+        if (!target || a.status === target) return;
+
+        idsByTarget.get(target).push(a.id);
+        batchIds.add(a.id_batch);
+        logs.push({
+            upload_log_id: uploadLogId,
+            allocation_id: a.id,
+            po_detail_id: a.po_detail_id,
+            lot_id: a.lot_id,
+            id_batch: a.id_batch,
+            old_allocated_qty: Number(a.allocated_qty) || 0,
+            new_allocated_qty: Number(a.allocated_qty) || 0,
+            old_status: a.status,
+            new_status: target,
+            reason,
+            created_by: userId
+        });
+    });
+
+    for (const [status, ids] of idsByTarget.entries()) {
+        if (ids.length === 0) continue;
+        await connection.query(
+            `UPDATE po_lot_allocations SET status = ?, updated_by = ? WHERE id IN (?)`,
+            [status, userId, ids]
+        );
+    }
+    if (logs.length > 0) {
+        await logAllocationUpdate(connection, logs, userId);
+    }
+
+    return [...batchIds];
+}
+
+/**
  * Tanggal selesai batch = MAX actual_completed_datetime dari baris upload batch itu sendiri
  * (bukan dari tanggal lot, agar lot yang dipakai beberapa batch tidak membocorkan tanggalnya).
  * Batch tidak punya tanggal mulai karena file lot tidak memuatnya.
@@ -207,5 +270,6 @@ module.exports = {
     resolveBatchStatus,
     refreshBatchStatuses,
     recalculateFulfilledQty,
+    syncAllocationStatuses,
     syncBatchCompletedDates
 };
