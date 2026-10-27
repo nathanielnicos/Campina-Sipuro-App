@@ -40,7 +40,7 @@ const EXPECTED_EXPORTS = {
         'recalculateFulfilledQty',
         'syncBatchCompletedDates'
     ],
-    'services/production-lot/lotAllocationRules': ['allocatedQtySql', 'allocationKey', 'lotKey'],
+    'services/production-lot/lotAllocationRules': ['allocatedQtySql', 'allocationKey', 'lotBatchKey', 'lotKey'],
     'helpers/arrayUtils': ['chunk'],
     'services/production-lot/lotAllocationLog': ['logAllocationInsert', 'logAllocationUpdate', 'getAllocationLogs']
 };

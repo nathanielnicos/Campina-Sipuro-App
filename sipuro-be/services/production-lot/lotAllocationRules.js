@@ -4,11 +4,11 @@
  * Aturan bersama modul Production Lot. Satu-satunya tempat yang mendefinisikan:
  *  - status PO / alokasi yang boleh ikut proses alokasi lot,
  *  - rumus "qty teralokasi" sebuah item PO (SQL),
- *  - bentuk kunci pasangan alokasi dan kunci lot.
+ *  - bentuk kunci alokasi (item PO, lot, batch), kunci (lot, batch), dan kunci lot.
  * Kalkulator, loader, commit, dan layanan status wajib memakai yang ada di sini.
  *
  * KONTRAK DATA: po_details.fulfilled_qty = jumlah allocated_qty dari po_lot_allocations
- * yang statusnya bukan 'Canceled' (lihat allocatedQtySql). Hanya recalculateFulfilledQty
+ * yang statusnya bukan 'Canceled' (lihat allocatedQtySql). Granularitas alokasi: (item PO, lot, batch). Hanya recalculateFulfilledQty
  * (lotStatusService) yang menulis kolom itu untuk alur lot.
  *
  * Catatan perbedaan dengan helpers/po/openItemRules.js (Outstanding PO / PO Requirement):
@@ -47,8 +47,11 @@ const allocatedQtySql = (detailRef) => `COALESCE((
         WHERE pla.po_detail_id = ${detailRef} AND pla.status <> '${ALLOCATION_STATUS.CANCELED}'
     ), 0)`;
 
-// Kunci pasangan alokasi (item PO, lot)
-const allocationKey = (poDetailId, lotId) => `${poDetailId}_${lotId}`;
+// Kunci alokasi: satu baris po_lot_allocations = (item PO, lot, batch)
+const allocationKey = (poDetailId, lotId, batchId) => `${poDetailId}_${lotId}_${batchId}`;
+
+// Kunci pasangan (lot, batch): batas jumlah produksi bersih dan retur berlaku per pasangan ini
+const lotBatchKey = (lotId, batchId) => `${lotId}_${batchId}`;
 
 // Kunci lot: nomor lot + produk (satu nomor lot bisa dipakai banyak produk)
 const lotKey = (lotNumber, idProduct) => `${lotNumber}_${idProduct}`;
@@ -61,5 +64,6 @@ module.exports = {
     ELIGIBLE_ALLOCATION_STATUSES,
     allocatedQtySql,
     allocationKey,
+    lotBatchKey,
     lotKey
 };

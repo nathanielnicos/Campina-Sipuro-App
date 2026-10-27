@@ -10,7 +10,7 @@
  *    kalau tidak seluruh baris grup menjadi Unallocated.
  *  - Urutan grup: completed datetime ASC, batch number ASC, lot number ASC, urutan kemunculan di file.
  *  - Total bersih positif: FIFO berdasarkan po_headers.created_at (lalu po_detail_id).
- *  - Total bersih negatif: mengurangi alokasi lot yang sudah ada, PO TERBARU lebih dulu.
+ *  - Total bersih negatif: mengurangi alokasi (lot, batch) yang sama yang sudah ada, PO TERBARU lebih dulu.
  *  - Filter tanggal PO berlaku untuk mencocokkan completed date lot terhadap po_headers.created_at.
  *  - Grup tanpa nomor batch, tanpa nomor lot, atau tanpa tanggal selesai tidak dialokasikan
  *    dan menjadi Unallocated dengan alasan yang jelas (bukan menggagalkan commit).
@@ -23,6 +23,7 @@ const {
     ELIGIBLE_HEADER_STATUSES,
     ELIGIBLE_ALLOCATION_STATUSES,
     allocationKey,
+    lotBatchKey,
     lotKey
 } = require('./lotAllocationRules');
 
@@ -222,19 +223,21 @@ const calculateLotFifoAllocation = (
             });
         });
 
-    // State alokasi berdasarkan pasangan (po_detail_id, lot_id) dan per lot_id
-    const allocByPair = new Map();
-    const allocsByLot = new Map();
+    // State alokasi: per (item PO, lot, batch) dan dikelompokkan per (lot, batch)
+    const allocByKey = new Map();
+    const allocsByLotBatch = new Map();
     existingAllocations.forEach((a) => {
         const entry = {
             poDetailId: a.po_detail_id,
             lotId: a.lot_id,
+            batchId: a.id_batch,
             allocatedQty: Number(a.allocated_qty) || 0,
             status: a.status
         };
-        allocByPair.set(allocationKey(a.po_detail_id, a.lot_id), entry);
-        if (!allocsByLot.has(a.lot_id)) allocsByLot.set(a.lot_id, []);
-        allocsByLot.get(a.lot_id).push(entry);
+        allocByKey.set(allocationKey(a.po_detail_id, a.lot_id, a.id_batch), entry);
+        const groupKey = lotBatchKey(a.lot_id, a.id_batch);
+        if (!allocsByLotBatch.has(groupKey)) allocsByLotBatch.set(groupKey, []);
+        allocsByLotBatch.get(groupKey).push(entry);
     });
 
     const allocatedGroups = [];
@@ -265,6 +268,9 @@ const calculateLotFifoAllocation = (
         if (group.totalQty === 0) return fail(REASONS.NET_ZERO);
 
         const lotDbId = existingLot ? existingLot.id : null;
+        const batchDbId = existingBatch ? existingBatch.id : null;
+        // Alokasi lama hanya mungkin ada bila lot dan batch-nya sudah tersimpan
+        const hasStoredPair = lotDbId !== null && batchDbId !== null;
         const completedDate = toDateOnly(group.completed);
 
         if (group.totalQty > 0) {
@@ -273,8 +279,8 @@ const calculateLotFifoAllocation = (
                 .filter((po) => po.productCode === group.itemCode)
                 .filter((po) => passesDateFilter(po, completedDate))
                 .filter((po) => {
-                    if (lotDbId === null) return true;
-                    const existing = allocByPair.get(allocationKey(po.poDetailId, lotDbId));
+                    if (!hasStoredPair) return true;
+                    const existing = allocByKey.get(allocationKey(po.poDetailId, lotDbId, batchDbId));
                     return !existing || ELIGIBLE_ALLOCATION_STATUSES.includes(existing.status);
                 })
                 .sort(cmpFifo);
@@ -300,8 +306,8 @@ const calculateLotFifoAllocation = (
                 allocations.push({ po, delta: take, previous, next: po.currentFulfilledQty });
                 remaining -= take;
 
-                if (lotDbId !== null) {
-                    const existing = allocByPair.get(allocationKey(po.poDetailId, lotDbId));
+                if (hasStoredPair) {
+                    const existing = allocByKey.get(allocationKey(po.poDetailId, lotDbId, batchDbId));
                     if (existing) existing.allocatedQty += take;
                 }
             }
@@ -312,9 +318,10 @@ const calculateLotFifoAllocation = (
 
         // ---------- MINUS: kurangi alokasi lot yang sudah ada ----------
         const amount = -group.totalQty;
-        if (lotDbId === null) return fail(REASONS.NO_EXISTING_ALLOCATION);
+        if (!hasStoredPair) return fail(REASONS.NO_EXISTING_ALLOCATION);
 
-        const eligibleEntries = (allocsByLot.get(lotDbId) || []).filter((e) =>
+        // Retur hanya mengurangi alokasi pada pasangan (lot, batch) yang sama
+        const eligibleEntries = (allocsByLotBatch.get(lotBatchKey(lotDbId, batchDbId)) || []).filter((e) =>
             ELIGIBLE_ALLOCATION_STATUSES.includes(e.status)
         );
         if (eligibleEntries.length === 0) return fail(REASONS.NO_EXISTING_ALLOCATION);

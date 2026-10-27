@@ -38,9 +38,9 @@ const makeConn = (state = {}) => {
             if (/^SELECT id, batch_number, id_product FROM batches/.test(s)) return [state.existingBatches || []];
             if (/^SELECT id, batch_number FROM batches/.test(s)) return [[{ id: 11, batch_number: 'B1' }]];
             if (/FROM po_lot_allocations WHERE lot_id IN/.test(s)) return [state.existingAllocs || []];
-            if (/FROM po_lot_allocations WHERE \(po_detail_id, lot_id\) IN/.test(s)) return [[{ id: 900, po_detail_id: 3, lot_id: 5 }]];
+            if (/FROM po_lot_allocations WHERE \(po_detail_id, lot_id, id_batch\) IN/.test(s)) return [[{ id: 900, po_detail_id: 3, lot_id: 5, id_batch: 11 }]];
             if (/FROM po_details WHERE po_detail_id IN/.test(s)) return [state.poDetails || [{ po_detail_id: 3, po_header_id: 30, base_qty: 100, fulfilled_qty: 50 }]];
-            if (/LEFT JOIN batch_lots/.test(s)) return [state.relatedAllocs || []];
+            if (/^SELECT id, po_detail_id, lot_id, id_batch, allocated_qty, status FROM po_lot_allocations WHERE po_detail_id IN/.test(s)) return [state.relatedAllocs || []];
             return [{}];
         }
     };
@@ -55,7 +55,7 @@ const calculation = (over = {}) => ({
         batchNumber: 'B1', lotNumber: 'L1', idProduct: 1,
         actualCompletedDatetime: '2026-02-01 10:00:00', expiredDate: '2027-02-01'
     }],
-    detailedAllocations: [{ poDetailId: 3, lotNumber: 'L1', idProduct: 1, addedQty: 50, rowStatus: 'Open' }],
+    detailedAllocations: [{ poDetailId: 3, batchNumber: 'B1', lotNumber: 'L1', idProduct: 1, addedQty: 50, rowStatus: 'Open' }],
     ...over
 });
 
@@ -89,10 +89,12 @@ test('alur normal: upsert lot, batch baru, alokasi baru, log, hitung ulang, refr
 
     // Alokasi
     const alloc = find(conn, /^INSERT INTO po_lot_allocations/)[0];
-    assert.deepEqual(alloc.params[0], [[3, 5, 50, 'Open', 4, 4]]);
+    assert.deepEqual(alloc.params[0], [[3, 5, 11, 50, 'Open', 4, 4]]);
+    assert.match(alloc.sql, /\(po_detail_id, lot_id, id_batch, allocated_qty/);
     const logInsert = find(conn, /INSERT INTO sipuro_db\.po_lot_allocation_logs/);
     assert.equal(logInsert.length, 1);
     assert.equal(logInsert[0].params[0][0][3], 5); // lot_id
+    assert.equal(logInsert[0].params[0][0][4], 11); // id_batch
     assert.equal(logInsert[0].params[0][0][1], 900); // allocation_id hasil pencarian
 
     assert.deepEqual(statusCalls.find((c) => c[0] === 'recalc'), ['recalc', [3]]);
@@ -101,12 +103,12 @@ test('alur normal: upsert lot, batch baru, alokasi baru, log, hitung ulang, refr
 });
 
 test('alokasi sudah ada: qty ditambah dan log update', async () => {
-    const conn = makeConn({ existingAllocs: [{ id: 900, po_detail_id: 3, lot_id: 5, allocated_qty: 20, status: 'Open' }] });
+    const conn = makeConn({ existingAllocs: [{ id: 900, po_detail_id: 3, lot_id: 5, id_batch: 11, allocated_qty: 20, status: 'Open' }] });
     await commitProductionAllocationTransaction(conn, args());
     const alloc = find(conn, /^INSERT INTO po_lot_allocations/)[0];
-    assert.deepEqual(alloc.params[0], [[3, 5, 70, 'Open', 4, 4]]);
+    assert.deepEqual(alloc.params[0], [[3, 5, 11, 70, 'Open', 4, 4]]);
     // Tidak ada query pencarian id alokasi baru (karena bukan insert)
-    assert.equal(find(conn, /WHERE \(po_detail_id, lot_id\) IN/).length, 0);
+    assert.equal(find(conn, /WHERE \(po_detail_id, lot_id, id_batch\) IN/).length, 0);
 });
 
 test('lot sama di dua grup: digabung dengan MAX tanggal, satu baris upsert', async () => {
@@ -123,14 +125,14 @@ test('lot sama di dua grup: digabung dengan MAX tanggal, satu baris upsert', asy
 });
 
 test('qty alokasi menjadi negatif: 422 dan tidak ada tulis alokasi', async () => {
-    const conn = makeConn({ existingAllocs: [{ id: 900, po_detail_id: 3, lot_id: 5, allocated_qty: 10, status: 'Open' }] });
-    const calc = calculation({ detailedAllocations: [{ poDetailId: 3, lotNumber: 'L1', idProduct: 1, addedQty: -30, rowStatus: 'Open' }] });
+    const conn = makeConn({ existingAllocs: [{ id: 900, po_detail_id: 3, lot_id: 5, id_batch: 11, allocated_qty: 10, status: 'Open' }] });
+    const calc = calculation({ detailedAllocations: [{ poDetailId: 3, batchNumber: 'B1', lotNumber: 'L1', idProduct: 1, addedQty: -30, rowStatus: 'Open' }] });
     await assert.rejects(commitProductionAllocationTransaction(conn, args(calc)), (e) => e.status === 422);
     assert.equal(find(conn, /^INSERT INTO po_lot_allocations/).length, 0);
 });
 
 test('alokasi lama berstatus Force Closed tidak boleh diubah: 422', async () => {
-    const conn = makeConn({ existingAllocs: [{ id: 900, po_detail_id: 3, lot_id: 5, allocated_qty: 10, status: 'Force Closed' }] });
+    const conn = makeConn({ existingAllocs: [{ id: 900, po_detail_id: 3, lot_id: 5, id_batch: 11, allocated_qty: 10, status: 'Force Closed' }] });
     await assert.rejects(commitProductionAllocationTransaction(conn, args()), (e) => e.status === 422);
 });
 
@@ -146,19 +148,52 @@ test('batch sudah milik produk lain: 422 sebelum menulis batch/alokasi', async (
     assert.equal(find(conn, /^INSERT INTO po_lot_allocations/).length, 0);
 });
 
-test('sinkronisasi status: alokasi saudara diubah sekali dan batch lamanya ikut di-refresh', async () => {
+test('sinkronisasi status: alokasi saudara (lot/batch lain, item PO sama) diubah dan batch-nya ikut di-refresh', async () => {
     const conn = makeConn({
         existingBatches: [{ id: 11, batch_number: 'B1', id_product: 1 }],
         relatedAllocs: [
-            { id: 901, po_detail_id: 3, lot_id: 6, allocated_qty: 10, status: 'Closed', batch_id: 12 },
-            { id: 901, po_detail_id: 3, lot_id: 6, allocated_qty: 10, status: 'Closed', batch_id: 13 }
+            { id: 901, po_detail_id: 3, lot_id: 6, id_batch: 12, allocated_qty: 10, status: 'Closed' },
+            { id: 902, po_detail_id: 3, lot_id: 6, id_batch: 13, allocated_qty: 10, status: 'Closed' }
         ],
         poDetails: [{ po_detail_id: 3, po_header_id: 30, base_qty: 100, fulfilled_qty: 50 }]
     });
     await commitProductionAllocationTransaction(conn, args());
     const updates = find(conn, /^UPDATE po_lot_allocations SET status/);
     assert.equal(updates.length, 1);
-    assert.deepEqual(updates[0].params, ['Open', 4, [901]]);
+    assert.deepEqual(updates[0].params, ['Open', 4, [901, 902]]);
+    // Log sinkronisasi membawa id_batch tiap alokasi saudara
+    const syncLog = find(conn, /INSERT INTO sipuro_db\.po_lot_allocation_logs/).pop();
+    assert.deepEqual(syncLog.params[0].map((r) => r[4]), [12, 13]);
+    // Query saudara tidak lagi memakai batch_lots
+    assert.ok(!find(conn, /LEFT JOIN batch_lots/).length);
     const refreshed = statusCalls.find((c) => c[0] === 'batches')[1];
     assert.deepEqual(refreshed, [11, 12, 13]);
+});
+
+test('lot yang sama di dua batch: dua alokasi terpisah per (item PO, lot, batch)', async () => {
+    const conn = makeConn({
+        existingBatches: [{ id: 11, batch_number: 'B1', id_product: 1 }, { id: 12, batch_number: 'B2', id_product: 1 }],
+        poDetails: [{ po_detail_id: 3, po_header_id: 30, base_qty: 100, fulfilled_qty: 60 }]
+    });
+    const calc = calculation({
+        previewResults: [
+            { batchNumber: 'B1', lotNumber: 'L1', idProduct: 1, actualCompletedDatetime: '2026-02-01 10:00:00', expiredDate: null },
+            { batchNumber: 'B2', lotNumber: 'L1', idProduct: 1, actualCompletedDatetime: '2026-02-02 10:00:00', expiredDate: null }
+        ],
+        detailedAllocations: [
+            { poDetailId: 3, batchNumber: 'B1', lotNumber: 'L1', idProduct: 1, addedQty: 30, rowStatus: 'Open' },
+            { poDetailId: 3, batchNumber: 'B2', lotNumber: 'L1', idProduct: 1, addedQty: 30, rowStatus: 'Open' }
+        ]
+    });
+    await commitProductionAllocationTransaction(conn, args(calc));
+    const alloc = find(conn, /^INSERT INTO po_lot_allocations/)[0];
+    assert.deepEqual(alloc.params[0], [[3, 5, 11, 30, 'Open', 4, 4], [3, 5, 12, 30, 'Open', 4, 4]]);
+});
+
+test('batch tidak ditemukan untuk alokasi: 422', async () => {
+    const conn = makeConn();
+    const calc = calculation({
+        detailedAllocations: [{ poDetailId: 3, batchNumber: 'BX', lotNumber: 'L1', idProduct: 1, addedQty: 5, rowStatus: 'Open' }]
+    });
+    await assert.rejects(commitProductionAllocationTransaction(conn, args(calc)), (e) => e.status === 422);
 });

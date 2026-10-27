@@ -14,6 +14,7 @@ exports.logAllocationInsert = async (connection, allocations, createdBy = null) 
         item.allocation_id || item.id,
         item.po_detail_id || item.poDetailId,
         item.lot_id || item.lotId,
+        item.id_batch || item.idBatch,
         'INSERT',
         0,
         Number(item.allocated_qty) || 0,
@@ -26,7 +27,7 @@ exports.logAllocationInsert = async (connection, allocations, createdBy = null) 
     const query = `
         INSERT INTO sipuro_db.po_lot_allocation_logs 
         (
-            upload_log_id, allocation_id, po_detail_id, lot_id, action_type,
+            upload_log_id, allocation_id, po_detail_id, lot_id, id_batch, action_type,
             old_allocated_qty, new_allocated_qty, old_status, new_status,
             reason, created_by
         ) 
@@ -48,6 +49,7 @@ exports.logAllocationUpdate = async (connection, updates, createdBy = null) => {
         item.allocation_id || item.allocationId || item.id,
         item.po_detail_id || item.poDetailId,
         item.lot_id || item.lotId,
+        item.id_batch || item.idBatch,
         'UPDATE',
         Number(item.old_allocated_qty) || 0,
         Number(item.new_allocated_qty) || 0,
@@ -60,7 +62,7 @@ exports.logAllocationUpdate = async (connection, updates, createdBy = null) => {
     const query = `
         INSERT INTO sipuro_db.po_lot_allocation_logs 
         (
-            upload_log_id, allocation_id, po_detail_id, lot_id, action_type,
+            upload_log_id, allocation_id, po_detail_id, lot_id, id_batch, action_type,
             old_allocated_qty, new_allocated_qty, old_status, new_status,
             reason, created_by
         ) 
@@ -93,6 +95,7 @@ exports.getAllocationLogs = async (db, allocationId, page = 1, limit = 10) => {
             log.allocation_id,
             log.po_detail_id,
             log.lot_id,
+            log.id_batch,
             log.action_type,
             log.old_allocated_qty,
             log.new_allocated_qty,

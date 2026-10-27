@@ -72,13 +72,13 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
         );
     }
 
-    // 7. Muat alokasi PO lama berdasarkan Lot (dari po_lot_allocations)
+    // 7. Muat alokasi PO lama berdasarkan Lot (dari po_lot_allocations); id_batch membedakan batch
     let existingAllocations = [];
     const lotIds = existingLots.map((l) => l.id);
     if (lotIds.length > 0) {
         for (const part of chunk(lotIds, 500)) {
             const [rows] = await queryable.query(
-                `SELECT id, po_detail_id, lot_id, allocated_qty, status
+                `SELECT id, po_detail_id, lot_id, id_batch, allocated_qty, status
                  FROM po_lot_allocations
                  WHERE lot_id IN (?)
                  ORDER BY id${lock}`,

@@ -54,7 +54,7 @@ test('resolveBatchStatus', () => {
 test('refreshBatchStatuses: hanya batch yang berubah di-update, dikelompokkan per status', async () => {
     const c = fakeConn((sql) => {
         if (/FROM batches/.test(sql)) return [[{ id: 1, status: 'Open' }, { id: 2, status: 'Open' }, { id: 3, status: 'Open' }, { id: 4, status: 'Open' }]];
-        if (/FROM batch_lots/.test(sql)) return [[
+        if (/FROM po_lot_allocations/.test(sql)) return [[
             { batch_id: 1, status: 'Closed' }, { batch_id: 2, status: 'Closed' },
             { batch_id: 3, status: 'Open' }
         ]];
@@ -64,6 +64,11 @@ test('refreshBatchStatuses: hanya batch yang berubah di-update, dikelompokkan pe
     const updates = c.calls.filter((x) => /^UPDATE batches/.test(x.sql.trim()));
     assert.equal(updates.length, 1);
     assert.deepEqual(updates[0].params, ['Closed', [1, 2]]);
+
+    // Status batch dibaca dari alokasi yang menunjuk batch itu, bukan dari batch_lots
+    const read = c.calls.find((x) => /FROM po_lot_allocations/.test(x.sql));
+    assert.match(read.sql, /id_batch IN \(\?\)/);
+    assert.ok(!c.calls.some((x) => /batch_lots/.test(x.sql)));
 
     const none = fakeConn(() => [[]]);
     await svc.refreshBatchStatuses(none, []);

@@ -29,8 +29,10 @@ test('allocatedQtySql mengecualikan alokasi Canceled dan memakai referensi kolom
     assert.match(sql, /^COALESCE\(/);
 });
 
-test('kunci alokasi dan kunci lot', () => {
-    assert.equal(rules.allocationKey(5, 9), '5_9');
+test('kunci alokasi (item PO, lot, batch), kunci (lot, batch), dan kunci lot', () => {
+    assert.equal(rules.allocationKey(5, 9, 2), '5_9_2');
+    assert.notEqual(rules.allocationKey(5, 9, 2), rules.allocationKey(5, 9, 3));
+    assert.equal(rules.lotBatchKey(9, 2), '9_2');
     assert.equal(rules.lotKey('L1', 3), 'L1_3');
     assert.notEqual(rules.lotKey('L1', 3), rules.lotKey('L1', 4));
 });

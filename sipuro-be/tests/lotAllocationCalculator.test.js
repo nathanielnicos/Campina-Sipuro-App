@@ -111,9 +111,10 @@ test('net nol: Unallocated', () => {
 test('net negatif mengurangi PO terbaru lebih dulu', () => {
     const ctx = {
         existingLots: [{ id: 7, lot_number: 'L1', id_product: 1 }],
+        existingBatches: [{ id: 9, batch_number: 'B1', id_product: 1 }],
         existingAllocations: [
-            { po_detail_id: 1, lot_id: 7, allocated_qty: 60, status: 'Open' },
-            { po_detail_id: 2, lot_id: 7, allocated_qty: 30, status: 'Open' }
+            { po_detail_id: 1, lot_id: 7, id_batch: 9, allocated_qty: 60, status: 'Open' },
+            { po_detail_id: 2, lot_id: 7, id_batch: 9, allocated_qty: 30, status: 'Open' }
         ]
     };
     const r = run([row({ rawAllocationQty: -40 })], [po(1, { fulfilled_qty: 60 }), po(2, { fulfilled_qty: 30 })], ctx);
@@ -126,7 +127,8 @@ test('retur tanpa alokasi lama dan retur melebihi alokasi', () => {
 
     const ctx = {
         existingLots: [{ id: 7, lot_number: 'L1', id_product: 1 }],
-        existingAllocations: [{ po_detail_id: 1, lot_id: 7, allocated_qty: 20, status: 'Open' }]
+        existingBatches: [{ id: 9, batch_number: 'B1', id_product: 1 }],
+        existingAllocations: [{ po_detail_id: 1, lot_id: 7, id_batch: 9, allocated_qty: 20, status: 'Open' }]
     };
     const over = run([row({ rawAllocationQty: -50 })], [po(1, { fulfilled_qty: 20 })], ctx);
     assert.equal(over.unallocatedRows[0].reason, REASONS.REDUCTION_EXCEEDS);
@@ -143,6 +145,58 @@ test('kategori: tidak terdaftar, duplikat, bukan GOOD', () => {
     assert.equal(r.duplicateStatusUpdateRows.length, 1);
 });
 
+// Lot L1 sudah teralokasi di batch B1 (PO1) dan B2 (PO1); data tersimpan untuk dua batch
+const twoBatchCtx = () => ({
+    existingLots: [{ id: 7, lot_number: 'L1', id_product: 1 }],
+    existingBatches: [{ id: 9, batch_number: 'B1', id_product: 1 }, { id: 10, batch_number: 'B2', id_product: 1 }],
+    existingAllocations: [
+        { po_detail_id: 1, lot_id: 7, id_batch: 9, allocated_qty: 30, status: 'Open' },
+        { po_detail_id: 1, lot_id: 7, id_batch: 10, allocated_qty: 40, status: 'Open' }
+    ]
+});
+
+test('retur batch B1 hanya mengurangi alokasi (lot, batch) yang sama, bukan batch lain', () => {
+    const r = run([row({ batchNumber: 'B1', rawAllocationQty: -20 })], [po(1, { fulfilled_qty: 70 })], twoBatchCtx());
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.batchNumber, x.addedQty]), [['B1', -20]]);
+    assert.equal(r.detailedAllocations[0].fulfilledQty, 50);
+});
+
+test('retur batch B2 (id berbeda) hanya mengurangi alokasi B2', () => {
+    const r = run([row({ batchNumber: 'B2', rawAllocationQty: -25 })], [po(1, { fulfilled_qty: 70 })], twoBatchCtx());
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.batchNumber, x.addedQty]), [['B2', -25]]);
+    // 35 melebihi alokasi B1 (30) tetapi masih di bawah alokasi B2 (40): harus lolos untuk B2
+    const fits = run([row({ batchNumber: 'B2', rawAllocationQty: -35 })], [po(1, { fulfilled_qty: 70 })], twoBatchCtx());
+    assert.deepEqual(fits.detailedAllocations.map((x) => [x.batchNumber, x.addedQty]), [['B2', -35]]);
+    const tooMuch = run([row({ batchNumber: 'B2', rawAllocationQty: -45 })], [po(1, { fulfilled_qty: 70 })], twoBatchCtx());
+    assert.equal(tooMuch.unallocatedRows[0].reason, REASONS.REDUCTION_EXCEEDS);
+});
+
+test('retur lebih besar dari alokasi batch itu ditolak walau lot yang sama punya alokasi di batch lain', () => {
+    const r = run([row({ batchNumber: 'B1', rawAllocationQty: -35 })], [po(1, { fulfilled_qty: 70 })], twoBatchCtx());
+    assert.equal(r.unallocatedRows[0].reason, REASONS.REDUCTION_EXCEEDS);
+});
+
+test('retur untuk batch baru (belum tersimpan) pada lot yang sudah punya alokasi di batch lain: tidak ada alokasi', () => {
+    const r = run([row({ batchNumber: 'B3', rawAllocationQty: -5 })], [po(1, { fulfilled_qty: 70 })], twoBatchCtx());
+    assert.equal(r.unallocatedRows[0].reason, REASONS.NO_EXISTING_ALLOCATION);
+});
+
+test('lot yang sama di batch baru: alokasi batch lain tidak menghalangi dan tidak ikut berubah', () => {
+    const ctx = twoBatchCtx();
+    const r = run([row({ batchNumber: 'B3', rawAllocationQty: 20 })], [po(1, { fulfilled_qty: 70 })], ctx);
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.batchNumber, x.addedQty]), [['B3', 20]]);
+    assert.equal(ctx.existingAllocations[0].allocated_qty, 30);
+});
+
+test('plus pada batch yang sudah punya alokasi Force Closed di PO itu: PO itu dilewati, batch lain tidak', () => {
+    const ctx = twoBatchCtx();
+    ctx.existingAllocations[0].status = 'Force Closed';
+    const r = run([row({ batchNumber: 'B1', rawAllocationQty: 10 })], [po(1, { fulfilled_qty: 70 }), po(2)], ctx);
+    assert.deepEqual(r.detailedAllocations.map((x) => x.poDetailId), [2]);
+    const r2 = run([row({ batchNumber: 'B2', rawAllocationQty: 10 })], [po(1, { fulfilled_qty: 70 })], twoBatchCtx());
+    assert.deepEqual(r2.detailedAllocations.map((x) => x.poDetailId), [1]);
+});
+
 test('PO Force Closed / header tidak eligible tidak menerima alokasi', () => {
     const r = run([row()], [po(1, { header_status: 'Draft' })]);
     assert.equal(r.unallocatedRows[0].reason, REASONS.NO_MATCHING_PO);
@@ -151,7 +205,8 @@ test('PO Force Closed / header tidak eligible tidak menerima alokasi', () => {
 test('alokasi lama Force Closed pada PO itu dilewati', () => {
     const ctx = {
         existingLots: [{ id: 7, lot_number: 'L1', id_product: 1 }],
-        existingAllocations: [{ po_detail_id: 1, lot_id: 7, allocated_qty: 10, status: 'Force Closed' }]
+        existingBatches: [{ id: 9, batch_number: 'B1', id_product: 1 }],
+        existingAllocations: [{ po_detail_id: 1, lot_id: 7, id_batch: 9, allocated_qty: 10, status: 'Force Closed' }]
     };
     const r = run([row()], [po(1, { fulfilled_qty: 10 }), po(2)], ctx);
     assert.deepEqual(r.detailedAllocations.map((x) => x.poDetailId), [2]);

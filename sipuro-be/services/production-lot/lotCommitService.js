@@ -174,7 +174,8 @@ const commitProductionAllocationTransaction = async (connection, {
     // Tanggal selesai batch = MAX dari seluruh baris upload batch tersebut (termasuk upload sebelumnya)
     await syncBatchCompletedDates(connection, batchNumbers, userId);
 
-    // 5. Hubungkan Relasi `batch_lots`
+    // 5. Relasi `batch_lots`: sementara masih ditulis hanya untuk daftar mapping lama (dibangun ulang di L4,
+    //    lalu langkah ini dihapus). Status batch dan alokasi sudah memakai po_lot_allocations.id_batch.
     const batchLotPairSet = new Set();
     const batchLotValues = [];
     previewResults.forEach((group) => {
@@ -201,11 +202,12 @@ const commitProductionAllocationTransaction = async (connection, {
     const items = new Map();
     detailedAllocations.forEach((a) => {
         const lotId = lotIdByKey.get(lotKey(a.lotNumber, a.idProduct));
-        if (!lotId || !a.poDetailId) {
-            problems.push(`Missing lot ID or PO detail reference for lot ${a.lotNumber}.`);
+        const batchId = batchIdByNumber.get(a.batchNumber);
+        if (!lotId || !batchId || !a.poDetailId) {
+            problems.push(`Missing lot, batch, or PO detail reference for lot ${a.lotNumber} / batch ${a.batchNumber}.`);
             return;
         }
-        const key = allocationKey(a.poDetailId, lotId);
+        const key = allocationKey(a.poDetailId, lotId, batchId);
         const current = items.get(key);
         if (current) {
             current.addedQty += Number(a.addedQty) || 0;
@@ -214,6 +216,7 @@ const commitProductionAllocationTransaction = async (connection, {
             items.set(key, {
                 poDetailId: a.poDetailId,
                 lotId,
+                batchId,
                 addedQty: Number(a.addedQty) || 0,
                 rowStatus: a.rowStatus
             });
@@ -222,10 +225,10 @@ const commitProductionAllocationTransaction = async (connection, {
 
     const lotIds = [...new Set([...items.values()].map((i) => i.lotId))];
     const [existingAllocRows] = await connection.query(
-        'SELECT id, po_detail_id, lot_id, allocated_qty, status FROM po_lot_allocations WHERE lot_id IN (?) FOR UPDATE',
+        'SELECT id, po_detail_id, lot_id, id_batch, allocated_qty, status FROM po_lot_allocations WHERE lot_id IN (?) FOR UPDATE',
         [lotIds.length > 0 ? lotIds : [0]]
     );
-    const existingByPair = new Map(existingAllocRows.map((a) => [allocationKey(a.po_detail_id, a.lot_id), a]));
+    const existingByPair = new Map(existingAllocRows.map((a) => [allocationKey(a.po_detail_id, a.lot_id, a.id_batch), a]));
 
     const upsertValues = [];
     const insertLogs = [];
@@ -237,15 +240,15 @@ const commitProductionAllocationTransaction = async (connection, {
         const newQty = oldQty + item.addedQty;
 
         if (newQty < 0) {
-            problems.push(`Allocation for PO detail ${item.poDetailId} and lot ID ${item.lotId} would become negative.`);
+            problems.push(`Allocation for PO detail ${item.poDetailId}, lot ID ${item.lotId}, batch ID ${item.batchId} would become negative.`);
             return;
         }
         if (existing && !ELIGIBLE_ALLOCATION_STATUSES.includes(existing.status)) {
-            problems.push(`Allocation for PO detail ${item.poDetailId} and lot ID ${item.lotId} is ${existing.status} and cannot be changed.`);
+            problems.push(`Allocation for PO detail ${item.poDetailId}, lot ID ${item.lotId}, batch ID ${item.batchId} is ${existing.status} and cannot be changed.`);
             return;
         }
 
-        upsertValues.push([item.poDetailId, item.lotId, newQty, item.rowStatus, userId, userId]);
+        upsertValues.push([item.poDetailId, item.lotId, item.batchId, newQty, item.rowStatus, userId, userId]);
 
         if (existing) {
             updateLogs.push({
@@ -253,6 +256,7 @@ const commitProductionAllocationTransaction = async (connection, {
                 allocation_id: existing.id,
                 po_detail_id: item.poDetailId,
                 lot_id: item.lotId,
+                id_batch: item.batchId,
                 old_allocated_qty: oldQty,
                 new_allocated_qty: newQty,
                 old_status: existing.status,
@@ -265,6 +269,7 @@ const commitProductionAllocationTransaction = async (connection, {
                 upload_log_id: uploadLogId,
                 po_detail_id: item.poDetailId,
                 lot_id: item.lotId,
+                id_batch: item.batchId,
                 allocated_qty: newQty,
                 status: item.rowStatus,
                 reason: uploadReason,
@@ -279,7 +284,7 @@ const commitProductionAllocationTransaction = async (connection, {
 
     if (upsertValues.length > 0) {
         await connection.query(
-            `INSERT INTO po_lot_allocations (po_detail_id, lot_id, allocated_qty, status, created_by, updated_by)
+            `INSERT INTO po_lot_allocations (po_detail_id, lot_id, id_batch, allocated_qty, status, created_by, updated_by)
              VALUES ?
              ON DUPLICATE KEY UPDATE
                 allocated_qty = VALUES(allocated_qty),
@@ -291,14 +296,14 @@ const commitProductionAllocationTransaction = async (connection, {
 
     // Catat Log Alokasi
     if (insertLogs.length > 0) {
-        const pairs = insertLogs.map((l) => [l.po_detail_id, l.lot_id]);
+        const triples = insertLogs.map((l) => [l.po_detail_id, l.lot_id, l.id_batch]);
         const [createdAllocs] = await connection.query(
-            'SELECT id, po_detail_id, lot_id FROM po_lot_allocations WHERE (po_detail_id, lot_id) IN (?)',
-            [pairs]
+            'SELECT id, po_detail_id, lot_id, id_batch FROM po_lot_allocations WHERE (po_detail_id, lot_id, id_batch) IN (?)',
+            [triples]
         );
-        const idByPair = new Map(createdAllocs.map((a) => [allocationKey(a.po_detail_id, a.lot_id), a.id]));
+        const idByKey = new Map(createdAllocs.map((a) => [allocationKey(a.po_detail_id, a.lot_id, a.id_batch), a.id]));
         insertLogs.forEach((l) => {
-            l.allocation_id = idByPair.get(allocationKey(l.po_detail_id, l.lot_id));
+            l.allocation_id = idByKey.get(allocationKey(l.po_detail_id, l.lot_id, l.id_batch));
         });
         await logAllocationInsert(connection, insertLogs, userId);
     }
@@ -335,12 +340,11 @@ const commitProductionAllocationTransaction = async (connection, {
         );
     }
 
-    // 8. Sinkronisasi status dua arah untuk po_lot_allocations
+    // 8. Sinkronisasi status dua arah untuk seluruh alokasi (lot, batch) pada item PO yang sama
     const [relatedAllocs] = await connection.query(
-        `SELECT pla.id, pla.po_detail_id, pla.lot_id, pla.allocated_qty, pla.status, bl.batch_id
-         FROM po_lot_allocations pla
-         LEFT JOIN batch_lots bl ON pla.lot_id = bl.lot_id
-         WHERE pla.po_detail_id IN (?) AND pla.status IN (?)`,
+        `SELECT id, po_detail_id, lot_id, id_batch, allocated_qty, status
+         FROM po_lot_allocations
+         WHERE po_detail_id IN (?) AND status IN (?)`,
         [poDetailIds.length > 0 ? poDetailIds : [0], ELIGIBLE_ALLOCATION_STATUSES]
     );
 
@@ -349,7 +353,6 @@ const commitProductionAllocationTransaction = async (connection, {
         [ALLOCATION_STATUS.OPEN, []]
     ]);
     const syncLogs = [];
-    const handledAllocationIds = new Set();
 
     // Kumpulkan batch ID dari file saat ini DAN dari alokasi yang ikut tersinkronisasi
     const allBatchIdsToRefresh = new Set(
@@ -360,12 +363,8 @@ const commitProductionAllocationTransaction = async (connection, {
         const target = targetStatusByDetail.get(a.po_detail_id);
         if (!target || a.status === target) return;
 
-        // Ikutkan batch lama ke antrean refresh jika status alokasinya berubah
-        if (a.batch_id) allBatchIdsToRefresh.add(a.batch_id);
-
-        // Satu alokasi bisa muncul beberapa kali (lot yang sama ada di banyak batch): ubah dan catat sekali
-        if (handledAllocationIds.has(a.id)) return;
-        handledAllocationIds.add(a.id);
+        // Ikutkan batch alokasi ini ke antrean refresh karena statusnya berubah
+        allBatchIdsToRefresh.add(a.id_batch);
 
         idsByTargetStatus.get(target).push(a.id);
         syncLogs.push({
@@ -373,6 +372,7 @@ const commitProductionAllocationTransaction = async (connection, {
             allocation_id: a.id,
             po_detail_id: a.po_detail_id,
             lot_id: a.lot_id,
+            id_batch: a.id_batch,
             old_allocated_qty: Number(a.allocated_qty) || 0,
             new_allocated_qty: Number(a.allocated_qty) || 0,
             old_status: a.status,

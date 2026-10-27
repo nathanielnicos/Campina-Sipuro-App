@@ -117,7 +117,7 @@ const resolveBatchStatus = (statuses) => {
 };
 
 /**
- * Menyegarkan status Induk Batch (batches) berdasarkan alokasi lot di dalamnya.
+ * Menyegarkan status Induk Batch (batches) dari alokasi yang menunjuk batch itu (po_lot_allocations.id_batch).
  * Satu fungsi untuk satu atau banyak batch (jumlah query tetap kecil).
  */
 async function refreshBatchStatuses(connection, batchIds = []) {
@@ -130,10 +130,9 @@ async function refreshBatchStatuses(connection, batchIds = []) {
     );
 
     const [allocations] = await connection.query(
-        `SELECT bl.batch_id, pla.status
-         FROM batch_lots bl
-         JOIN po_lot_allocations pla ON bl.lot_id = pla.lot_id
-         WHERE bl.batch_id IN (?)`,
+        `SELECT id_batch AS batch_id, status
+         FROM po_lot_allocations
+         WHERE id_batch IN (?)`,
         [ids]
     );
 
