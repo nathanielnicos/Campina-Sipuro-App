@@ -174,31 +174,7 @@ const commitProductionAllocationTransaction = async (connection, {
     // Tanggal selesai batch = MAX dari seluruh baris upload batch tersebut (termasuk upload sebelumnya)
     await syncBatchCompletedDates(connection, batchNumbers, userId);
 
-    // 5. Relasi `batch_lots`: sementara masih ditulis hanya untuk daftar mapping lama (dibangun ulang di L4,
-    //    lalu langkah ini dihapus). Status batch dan alokasi sudah memakai po_lot_allocations.id_batch.
-    const batchLotPairSet = new Set();
-    const batchLotValues = [];
-    previewResults.forEach((group) => {
-        const batchId = batchIdByNumber.get(group.batchNumber);
-        const lotId = lotIdByKey.get(lotKey(group.lotNumber, group.idProduct));
-        if (batchId && lotId) {
-            const pairKey = `${batchId}_${lotId}`;
-            if (!batchLotPairSet.has(pairKey)) {
-                batchLotPairSet.add(pairKey);
-                batchLotValues.push([batchId, lotId]);
-            }
-        }
-    });
-
-    if (batchLotValues.length > 0) {
-        await connection.query(
-            `INSERT INTO batch_lots (batch_id, lot_id) VALUES ?
-             ON DUPLICATE KEY UPDATE id = id`,
-            [batchLotValues]
-        );
-    }
-
-    // 6. Upsert ke `po_lot_allocations`
+    // 5. Upsert ke `po_lot_allocations` (satu baris per item PO + lot + batch)
     const items = new Map();
     detailedAllocations.forEach((a) => {
         const lotId = lotIdByKey.get(lotKey(a.lotNumber, a.idProduct));
@@ -311,7 +287,7 @@ const commitProductionAllocationTransaction = async (connection, {
         await logAllocationUpdate(connection, updateLogs, userId);
     }
 
-    // 7. Hitung Ulang fulfilled_qty pada `po_details` dari `po_lot_allocations`
+    // 6. Hitung Ulang fulfilled_qty pada `po_details` dari `po_lot_allocations`
     const poDetailIds = [...new Set([...items.values()].map((i) => i.poDetailId))];
     await recalculateFulfilledQty(connection, poDetailIds);
 
@@ -340,7 +316,7 @@ const commitProductionAllocationTransaction = async (connection, {
         );
     }
 
-    // 8. Sinkronisasi status dua arah untuk seluruh alokasi (lot, batch) pada item PO yang sama
+    // 7. Sinkronisasi status dua arah untuk seluruh alokasi (lot, batch) pada item PO yang sama
     const [relatedAllocs] = await connection.query(
         `SELECT id, po_detail_id, lot_id, id_batch, allocated_qty, status
          FROM po_lot_allocations
@@ -393,7 +369,7 @@ const commitProductionAllocationTransaction = async (connection, {
         await logAllocationUpdate(connection, syncLogs, userId);
     }
 
-    // 9. Refresh status Batch & Header PO
+    // 8. Refresh status Batch & Header PO
     if (allBatchIdsToRefresh.size > 0) {
         await refreshBatchStatuses(connection, [...allBatchIdsToRefresh]);
     }

@@ -9,6 +9,7 @@
  */
 
 const { BusinessError } = require('../businessError');
+const { asText, parsePageParams, parseDateParam, escapeLike } = require('../queryParams');
 const {
     NOT_DELETED_SQL, APPROVED_HEADER_SQL, OPEN_ITEM_SQL, CLOSED_ITEM_SQL, REMAINING_SQL
 } = require('../po/openItemRules');
@@ -33,30 +34,6 @@ const BASE_CONDITIONS = [
     `((${OPEN_ITEM_SQL})
         OR ${CLOSED_ITEM_SQL})`
 ];
-
-const asText = (value) => (typeof value === 'string' ? value.trim() : '');
-
-const parsePositiveInt = (value, fallback) => {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-};
-
-const parseDateParam = (value, label) => {
-    const text = asText(value);
-    if (!text) return null;
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
-    if (match) {
-        const [, year, month, day] = match.map(Number);
-        const date = new Date(Date.UTC(year, month - 1, day));
-        if (date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
-            return text;
-        }
-    }
-    throw new BusinessError(`${label} must be a valid date (YYYY-MM-DD).`, 400);
-};
-
-// Karakter khusus LIKE (% _ \) dianggap teks biasa.
-const escapeLike = (text) => text.replace(/[\\%_]/g, '\\$&');
 
 /**
  * @param {object} query  req.query
@@ -115,9 +92,7 @@ const buildListQuery = (query = {}, user) => {
         params.push(`${toDate} 23:59:59`);
     }
 
-    const page = parsePositiveInt(query.page, 1);
-    const limit = Math.min(MAX_PAGE_LIMIT, parsePositiveInt(query.limit, DEFAULT_PAGE_LIMIT));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = parsePageParams(query, { defaultLimit: DEFAULT_PAGE_LIMIT, maxLimit: MAX_PAGE_LIMIT });
 
     const sortKey = asText(query.sortKey);
     const sortColumn = Object.prototype.hasOwnProperty.call(SORT_COLUMNS, sortKey) ? SORT_COLUMNS[sortKey] : 'p.product_code';

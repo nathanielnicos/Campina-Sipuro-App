@@ -26,6 +26,7 @@ Module._load = function patchedLoad(request) {
 
 const EXPECTED_EXPORTS = {
     'controllers/production-lot/allocation/lotMappingListController': ['getAllocatedLotMapping'],
+    'controllers/production-lot/allocation/lotAllocationLogController': ['getAllocationHistory'],
     'controllers/production-lot/import/lotUploadPreviewController': ['previewExcelUpload'],
     'controllers/production-lot/import/lotUploadCommitController': ['commitExcelAllocation'],
     'services/production-lot/lotUploadParser': ['parseProductionExcel', 'parseExcelDateTime'],
@@ -42,6 +43,9 @@ const EXPECTED_EXPORTS = {
     ],
     'services/production-lot/lotAllocationRules': ['allocatedQtySql', 'allocationKey', 'lotBatchKey', 'lotKey'],
     'helpers/arrayUtils': ['chunk'],
+    'helpers/queryParams': ['asText', 'parsePositiveInt', 'parsePageParams', 'parseDateParam', 'escapeLike'],
+    'services/production-lot/lotMappingFilters': ['buildMappingFilters', 'parseMappingRequest'],
+    'services/production-lot/lotMappingQuery': ['fetchMappingPage', 'shapeByPo', 'shapeByBatch', 'shapeByLot'],
     'services/production-lot/lotAllocationLog': ['logAllocationInsert', 'logAllocationUpdate', 'getAllocationLogs']
 };
 

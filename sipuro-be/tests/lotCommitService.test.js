@@ -82,6 +82,9 @@ test('alur normal: upsert lot, batch baru, alokasi baru, log, hitung ulang, refr
     // Tidak ada pembacaan seluruh tabel lots
     find(conn, /FROM lots/).forEach((c) => assert.match(c.sql, /WHERE lot_number IN/));
 
+    // batch_lots tidak lagi ditulis
+    assert.equal(find(conn, /batch_lots/).length, 0);
+
     // Batch baru tanpa tanggal selesai (diisi sync)
     const batchInsert = find(conn, /^INSERT INTO batches/)[0];
     assert.equal(batchInsert.params[0][0][4], null);
