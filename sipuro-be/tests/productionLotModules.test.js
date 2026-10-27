@@ -21,12 +21,14 @@ Module._load = function patchedLoad(request) {
     if (request === 'xlsx') return { utils: {}, SSF: {} };
     if (request.endsWith('/config/db')) return { sipuroDb: null };
     if (request.endsWith('/helpers/poLogHelper')) return { logPOHeader: async () => {} };
+    if (request.endsWith('/helpers/dateHelper')) return { getWibDate: () => new Date() };
     return originalLoad.apply(this, arguments);
 };
 
 const EXPECTED_EXPORTS = {
     'controllers/production-lot/allocation/lotMappingListController': ['getAllocatedLotMapping'],
     'controllers/production-lot/allocation/lotAllocationLogController': ['getAllocationHistory'],
+    'controllers/production-lot/export/lotExportController': ['exportLotMappingExcel'],
     'controllers/production-lot/import/lotUploadPreviewController': ['previewExcelUpload'],
     'controllers/production-lot/import/lotUploadCommitController': ['commitExcelAllocation'],
     'services/production-lot/lotUploadParser': ['parseProductionExcel', 'parseExcelDateTime'],
@@ -43,6 +45,9 @@ const EXPECTED_EXPORTS = {
     ],
     'services/production-lot/lotAllocationRules': ['allocatedQtySql', 'allocationKey', 'lotBatchKey', 'lotKey'],
     'helpers/arrayUtils': ['chunk'],
+    'helpers/excelDate': ['toExcelDate'],
+    'services/production-lot/lotExportQuery': ['fetchExportData'],
+    'services/production-lot/lotExportWorkbook': ['buildAllocationRows', 'buildPoItemRows', 'buildExportWorkbookBuffer', 'buildExportFileName'],
     'helpers/queryParams': ['asText', 'parsePositiveInt', 'parsePageParams', 'parseDateParam', 'escapeLike'],
     'services/production-lot/lotMappingFilters': ['buildMappingFilters', 'parseMappingRequest'],
     'services/production-lot/lotMappingQuery': ['fetchMappingPage', 'shapeByPo', 'shapeByBatch', 'shapeByLot'],

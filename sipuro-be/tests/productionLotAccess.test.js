@@ -2,7 +2,7 @@
 
 /**
  * Tes pembatasan akses rute Production Lot (routes/productionLotRoutes.js):
- * seluruh rute (mapping, riwayat, preview, commit) hanya untuk PPIC (STAFF / MANAGER).
+ * seluruh rute (mapping, export, riwayat, preview, commit) hanya untuk PPIC (STAFF / MANAGER).
  * Express diganti tiruan; middleware auth yang asli dipakai. Tidak menyentuh database.
  */
 
@@ -38,6 +38,7 @@ Module._load = function patchedLoad(request) {
     if (request.endsWith('/middleware/excelUpload')) return { handleExcelUpload: uploadMiddleware };
     if (request.endsWith('/controllers/production-lot/allocation/lotMappingListController')) return controllerStub;
     if (request.endsWith('/controllers/production-lot/allocation/lotAllocationLogController')) return controllerStub;
+    if (request.endsWith('/controllers/production-lot/export/lotExportController')) return controllerStub;
     if (request.endsWith('/controllers/production-lot/import/lotUploadPreviewController')) return controllerStub;
     if (request.endsWith('/controllers/production-lot/import/lotUploadCommitController')) return controllerStub;
     return originalLoad.apply(this, arguments);
@@ -59,6 +60,7 @@ const PPIC_ONLY = ['ppic', 'ppicManager'];
 
 const POLICY = {
     'GET /mapping': PPIC_ONLY,
+    'GET /export': PPIC_ONLY,
     'GET /allocations/:allocationId/logs': PPIC_ONLY,
     'POST /upload/preview': PPIC_ONLY,
     'POST /upload/commit': PPIC_ONLY
