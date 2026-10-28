@@ -7,8 +7,8 @@ const {
 } = require('../services/production-lot/lotAllocationCalculator');
 
 const PRODUCTS = [
-    { product_code: 'P1', id_product: 1, product_name: 'Prod 1' },
-    { product_code: 'P2', id_product: 2, product_name: 'Prod 2' }
+    { product_code: 'P1', id_product: 1, product_name: 'Prod 1', is_active: 1 },
+    { product_code: 'P2', id_product: 2, product_name: 'Prod 2', is_active: 1 }
 ];
 
 const po = (id, over = {}) => ({
@@ -27,7 +27,7 @@ const row = (over = {}) => {
     };
 };
 
-const run = (rows, pos, ctx = {}, hashes = []) => calculateLotFifoAllocation(rows, hashes, pos, PRODUCTS, ctx);
+const run = (rows, pos, ctx = {}, hashes = [], products = PRODUCTS) => calculateLotFifoAllocation(rows, hashes, pos, products, ctx);
 
 test('satu PO menerima alokasi penuh dan status Open bila belum penuh', () => {
     const r = run([row()], [po(1)]);
@@ -347,4 +347,61 @@ test('sidik jari berubah bila PO tujuan berubah (pemetaan memengaruhi hasil)', (
     const withMap = run([row({ rowHash: 'fx' })], [poP2(1)], MAP12);
     const without = run([row({ rowHash: 'fx' })], [poP2(1)]);
     assert.notEqual(computeAllocationFingerprint(withMap), computeAllocationFingerprint(without));
+});
+
+// ---------- penjagaan produk aktif pada fallback pemetaan ----------
+
+const withActive = (p1, p2) => [
+    { product_code: 'P1', id_product: 1, product_name: 'Prod 1', is_active: p1 },
+    { product_code: 'P2', id_product: 2, product_name: 'Prod 2', is_active: p2 }
+];
+
+test('fallback pemetaan: produk tujuan nonaktif dilewati, langsung Unallocated (alasan asli)', () => {
+    const r = run([row()], [poP2(1)], MAP12, [], withActive(1, 0));
+    assert.equal(r.previewResults.length, 0);
+    assert.equal(r.unallocatedRows[0].reason, REASONS.NO_MATCHING_PO);
+    assert.equal(r.canSave, false);
+});
+
+test('fallback pemetaan: produk tujuan aktif dipakai walau produk asal produksi nonaktif', () => {
+    const r = run([row()], [poP2(1)], MAP12, [], withActive(0, 1));
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.viaMapping]), [[1, true]]);
+});
+
+test('is_active: 1 / "1" / true aktif; 0, "0", false, kosong dianggap nonaktif', () => {
+    for (const [value, ok] of [[1, true], ['1', true], [true, true], [0, false], ['0', false], [false, false], [null, false], [undefined, false]]) {
+        const r = run([row()], [poP2(1)], MAP12, [], withActive(1, value));
+        assert.equal(r.previewResults.length === 1, ok, String(value));
+    }
+});
+
+test('gabungan FIFO saat PO sendiri kurang: PO produk nonaktif di keluarga tidak ikut, PO sendiri tetap', () => {
+    const rows = [row({ rawAllocationQty: 100 })];
+    const pos = [poP2(1, { base_qty: 70, created_at: '2026-01-01 08:00:00' }), po(2, { base_qty: 60, created_at: '2026-01-02 08:00:00' })];
+    const inactiveFamily = run(rows, pos, MAP12, [], withActive(1, 0));
+    assert.equal(inactiveFamily.previewResults.length, 0);            // 60 < 100, PO P2 nonaktif tidak membantu
+    const activeFamily = run([row({ rawAllocationQty: 100 })], pos, MAP12, [], withActive(1, 1));
+    assert.deepEqual(activeFamily.detailedAllocations.map((x) => [x.poDetailId, x.addedQty]), [[1, 70], [2, 30]]);
+});
+
+test('produk sendiri nonaktif: alokasi ke PO berkode sama tidak berubah (penjagaan hanya untuk tujuan fallback)', () => {
+    const r = run([row()], [po(1)], MAP12, [], withActive(0, 1));
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.viaMapping]), [[1, false]]);
+});
+
+test('retur tidak dipengaruhi status aktif produk PO', () => {
+    const ctx = {
+        existingLots: [{ id: 7, lot_number: 'L1', id_product: 1 }],
+        existingBatches: [{ id: 9, batch_number: 'B1', id_product: 1 }],
+        existingAllocations: [{ po_detail_id: 1, lot_id: 7, id_batch: 9, allocated_qty: 60, status: 'Open' }],
+        ...MAP12
+    };
+    const r = run([row({ rawAllocationQty: -25 })], [poP2(1, { fulfilled_qty: 60 })], ctx, [], withActive(1, 0));
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.addedQty]), [[1, -25]]);
+});
+
+test('produk sendiri nonaktif tetap bagian gabungan FIFO bersama PO produk setara yang aktif', () => {
+    const pos = [po(1, { base_qty: 60, created_at: '2026-01-01 08:00:00' }), poP2(2, { base_qty: 70, created_at: '2026-01-02 08:00:00' })];
+    const r = run([row({ rawAllocationQty: 100 })], pos, MAP12, [], withActive(0, 1));
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.addedQty, x.viaMapping]), [[1, 60, false], [2, 40, true]]);
 });

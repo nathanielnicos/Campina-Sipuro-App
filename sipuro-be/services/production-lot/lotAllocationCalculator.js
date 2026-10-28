@@ -10,8 +10,8 @@
  *    kalau tidak seluruh baris grup menjadi Unallocated.
  *  - Urutan grup: completed datetime ASC, batch number ASC, lot number ASC, urutan kemunculan di file.
  *  - Total bersih positif: FIFO berdasarkan po_headers.created_at (lalu po_detail_id). PO berkode sama dahulu;
- *    hanya bila grup akan menjadi Unallocated, dicoba PO seluruh produk sekeluarga (pemetaan kode produk),
- *    tetap FIFO dan semua-atau-tidak.
+ *    hanya bila grup akan menjadi Unallocated, dicoba PO produk sekeluarga (pemetaan kode produk) yang AKTIF
+ *    (produk nonaktif di keluarga dilewati), tetap FIFO dan semua-atau-tidak.
  *  - Total bersih negatif: mengurangi alokasi (lot, batch) yang sama yang sudah ada, PO TERBARU lebih dulu.
  *  - Filter tanggal PO berlaku untuk mencocokkan completed date lot terhadap po_headers.created_at.
  *  - Grup tanpa nomor batch, tanpa nomor lot, atau tanpa tanggal selesai tidak dialokasikan
@@ -91,6 +91,7 @@ const calculateLotFifoAllocation = (
     const productByCode = new Map();
     allProducts.forEach((p) => productByCode.set(p.product_code, p));
     const families = buildFamilyIndex(context.productMappings || []);
+    const activeProductIds = new Set(allProducts.filter((p) => Number(p.is_active) === 1).map((p) => Number(p.id_product)));
 
     // 0. Blokir jika produk di file memiliki po_details dengan status 'Close Requested'
     const codesInFile = new Set();
@@ -319,9 +320,12 @@ const calculateLotFifoAllocation = (
             let plan = planPlus((po) => po.productCode === group.itemCode);
             if (plan.reason) {
                 // Sebelum Unallocated: coba PO produk setara menurut pemetaan kode produk
+                // Produk lain di keluarga hanya jadi tujuan bila aktif; PO produk sendiri sudah dicoba di atas
+                // dan tetap ikut sebagai bagian gabungan FIFO.
                 const family = families.familyOf(product.id_product);
                 if (family.length > 1) {
-                    const familyPlan = planPlus((po) => family.includes(Number(po.idProduct)));
+                    const familyPlan = planPlus((po) => po.productCode === group.itemCode
+                        || (family.includes(Number(po.idProduct)) && activeProductIds.has(Number(po.idProduct))));
                     if (!familyPlan.reason) plan = familyPlan;
                 }
             }

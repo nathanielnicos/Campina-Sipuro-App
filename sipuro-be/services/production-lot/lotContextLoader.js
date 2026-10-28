@@ -48,7 +48,7 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
 
     // 1. Ambil seluruh master products
     const [allProducts] = await queryable.query(
-        'SELECT id_product, product_code, product_name FROM products'
+        'SELECT id_product, product_code, product_name, is_active FROM products'
     );
 
     // 2. Cek Hash baris yang sudah ada di tabel log upload lot yang baru

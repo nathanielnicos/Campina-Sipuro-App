@@ -5,9 +5,9 @@ const assert = require('node:assert/strict');
 const { loadProductionLotContext } = require('../services/production-lot/lotContextLoader');
 
 const PRODUCTS = [
-    { id_product: 1, product_code: 'P1', product_name: 'Prod 1' },
-    { id_product: 2, product_code: 'P2', product_name: 'Prod 2' },
-    { id_product: 3, product_code: 'P3', product_name: 'Prod 3' }
+    { id_product: 1, product_code: 'P1', product_name: 'Prod 1', is_active: 1 },
+    { id_product: 2, product_code: 'P2', product_name: 'Prod 2', is_active: 0 },
+    { id_product: 3, product_code: 'P3', product_name: 'Prod 3', is_active: 1 }
 ];
 
 const makeDb = (over = {}) => {
@@ -115,4 +115,11 @@ test('query PO memakai satu rumus qty teralokasi dan hanya status layak', async 
     assert.match(q.sql, /d\.status IN \(\?\)/);
     assert.deepEqual(q.params[0], ['Approved', 'Production Completed']);
     assert.deepEqual(q.params[1], ['Active', 'Close Requested']);
+});
+
+test('master produk dimuat bersama status aktif (dipakai penjagaan fallback pemetaan)', async () => {
+    const db = makeDb();
+    const out = await loadProductionLotContext(db, [row('P1')]);
+    assert.match(find(db, /FROM products$/)[0].sql, /SELECT id_product, product_code, product_name, is_active FROM products/);
+    assert.deepEqual(out.allProducts.map((p) => [p.id_product, p.is_active]), [[1, 1], [2, 0], [3, 1]]);
 });
