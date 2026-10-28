@@ -63,9 +63,9 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
     }
 
     // 3. Tentukan produk yang ada di file Excel, lalu perluas ke seluruh produk sekeluarga
-    //    (pemetaan kode produk): PO produk setara ikut dimuat sebagai kandidat alokasi.
+    //    (pemetaan kode produk AKTIF): PO produk setara ikut dimuat sebagai kandidat alokasi.
     const [productMappings] = await queryable.query(
-        'SELECT id_product_old, id_product_new FROM product_code_mappings'
+        'SELECT id_product_old, id_product_new FROM product_code_mappings WHERE is_active = 1'
     );
     const families = buildFamilyIndex(productMappings);
     const codesInFile = new Set(rawRows.map((r) => r.itemCode));

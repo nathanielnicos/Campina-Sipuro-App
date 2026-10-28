@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Tes pembatasan akses rute pemetaan kode produk: hanya SUPERADMIN (bukan PPIC).
+ * Tes pembatasan akses rute pemetaan kode produk: hanya SUPERADMIN (bukan PPIC). Tidak ada rute hapus.
  * Express diganti tiruan; middleware auth yang asli dipakai. Tidak menyentuh database.
  */
 
@@ -50,7 +50,7 @@ const USERS = {
 const POLICY = {
     'GET /': ['superadmin'],
     'POST /': ['superadmin'],
-    'DELETE /:mappingId': ['superadmin']
+    'PATCH /:mappingId/status': ['superadmin']
 };
 
 const runAccess = (handler, user) => {
@@ -71,6 +71,10 @@ test('setiap rute: pembatasan akses dahulu, controller terakhir', () => {
         assert.ok(!controllerList.includes(route.handlers[0]));
         assert.ok(controllerList.includes(route.handlers[1]));
     }
+});
+
+test('tidak ada rute DELETE', () => {
+    assert.ok(!routes.some((r) => r.method === 'DELETE'));
 });
 
 test('hanya SUPERADMIN yang lolos; PPIC, customer, logistik, finance ditolak 403; anonim 401', () => {

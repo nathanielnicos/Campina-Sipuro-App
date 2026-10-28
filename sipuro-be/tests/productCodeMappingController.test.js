@@ -25,7 +25,7 @@ const fakeDb = { getConnection: async () => { getConnectionCalls += 1; return co
 
 const calls = [];
 let createImpl;
-let deleteImpl;
+let statusImpl;
 let listImpl;
 
 const originalLoad = Module._load;
@@ -38,12 +38,12 @@ const svcPath = require.resolve(path.join('..', 'services/product-code-mapping/p
 require.cache[svcPath].exports = {
     ...realSvc,
     createMapping: async (...a) => { calls.push(['create', ...a]); return createImpl(...a); },
-    deleteMapping: async (...a) => { calls.push(['delete', ...a]); return deleteImpl(...a); },
+    setMappingActive: async (...a) => { calls.push(['status', ...a]); return statusImpl(...a); },
     listMappings: async (...a) => { calls.push(['list', ...a]); return listImpl(...a); }
 };
 const { listProductCodeMappings } = require(path.join('..', 'controllers/product-code-mapping/productCodeMappingListController'));
 const { createProductCodeMapping } = require(path.join('..', 'controllers/product-code-mapping/productCodeMappingCreateController'));
-const { deleteProductCodeMapping } = require(path.join('..', 'controllers/product-code-mapping/productCodeMappingDeleteController'));
+const { updateProductCodeMappingStatus } = require(path.join('..', 'controllers/product-code-mapping/productCodeMappingStatusController'));
 const { BusinessError } = require('../helpers/businessError');
 
 const makeRes = () => {
@@ -56,7 +56,7 @@ const makeRes = () => {
 test.beforeEach(() => {
     events = []; calls.length = 0; lockAcquired = 1; actorExists = true; getConnectionCalls = 0;
     createImpl = async () => ({ id: 55, id_product_old: 1, id_product_new: 2 });
-    deleteImpl = async () => ({ id: 7 });
+    statusImpl = async (c, args) => ({ id: args.mappingId, is_active: args.isActive });
     listImpl = async () => ({ data: [{ id: 1 }], pagination: { totalItems: 1, totalPages: 1, currentPage: 1, limit: 10 } });
 });
 const originalError = console.error;
@@ -124,29 +124,58 @@ test('tambah: pelaku tidak ada -> 400 rollback; lock sibuk -> 409; error bisnis 
     assert.ok(!/secret/.test(JSON.stringify(res.body)));
 });
 
-// ---------- hapus ----------
+// ---------- status ----------
 
-test('hapus: sukses; id salah -> 400 tanpa koneksi; tidak ada -> 404 dengan rollback', async () => {
+test('status: aktifkan/nonaktifkan sukses; pelaku dari token; pesan sesuai', async () => {
     let res = makeRes();
-    await deleteProductCodeMapping(reqOf({ params: { mappingId: '7' } }), res);
+    await updateProductCodeMappingStatus(reqOf({ params: { mappingId: '7' }, body: { isActive: false, userId: 999 } }), res);
     assert.equal(res.code, 200);
-    assert.deepEqual(res.body, { success: true, message: 'Product code mapping successfully deleted.' });
-    assert.deepEqual(calls[0].slice(2), [{ mappingId: 7, userId: 4 }]);
+    assert.deepEqual(res.body, { success: true, message: 'Product code mapping successfully deactivated.', data: { id: 7, is_active: false } });
+    assert.deepEqual(calls[0].slice(2), [{ mappingId: 7, isActive: false, userId: 4 }]);
+    assert.deepEqual(events.map((e) => e[0]).filter((k) => k !== 'query'), ['begin', 'commit', 'release']);
 
-    calls.length = 0; getConnectionCalls = 0;
-    for (const req of [reqOf({ params: { mappingId: 'abc' } }), reqOf({ params: {} }), reqOf({ params: { mappingId: '1' }, user: {} })]) {
-        res = makeRes();
-        await deleteProductCodeMapping(req, res);
-        assert.equal(res.code, 400);
+    res = makeRes();
+    await updateProductCodeMappingStatus(reqOf({ params: { mappingId: '7' }, body: { isActive: true } }), res);
+    assert.equal(res.body.message, 'Product code mapping successfully activated.');
+});
+
+test('status: id salah, isActive bukan boolean, tanpa token -> 400 tanpa koneksi', async () => {
+    const bad = [
+        reqOf({ params: { mappingId: 'abc' }, body: { isActive: true } }),
+        reqOf({ params: {}, body: { isActive: true } }),
+        reqOf({ params: { mappingId: '7' }, body: { isActive: 'true' } }),
+        reqOf({ params: { mappingId: '7' }, body: { isActive: 1 } }),
+        reqOf({ params: { mappingId: '7' }, body: {} }),
+        reqOf({ params: { mappingId: '7' }, body: undefined }),
+        reqOf({ params: { mappingId: '7' }, body: { isActive: true }, user: {} })
+    ];
+    for (const req of bad) {
+        const res = makeRes();
+        await updateProductCodeMappingStatus(req, res);
+        assert.equal(res.code, 400, JSON.stringify(req.body));
     }
     assert.equal(getConnectionCalls, 0);
+    assert.equal(calls.length, 0);
+});
 
-    events = [];
-    deleteImpl = async () => { throw new BusinessError('not found', 404); };
-    res = makeRes();
-    await deleteProductCodeMapping(reqOf({ params: { mappingId: '7' } }), res);
-    assert.equal(res.code, 404);
+test('status: error bisnis diteruskan dengan rollback; lock sibuk 409; sistem -> 500 generik', async () => {
+    statusImpl = async () => { throw new BusinessError('already inactive', 400); };
+    let res = makeRes();
+    await updateProductCodeMappingStatus(reqOf({ params: { mappingId: '7' }, body: { isActive: false } }), res);
+    assert.equal(res.code, 400);
     assert.ok(events.some((e) => e[0] === 'rollback'));
+
+    events = []; lockAcquired = 0;
+    res = makeRes();
+    await updateProductCodeMappingStatus(reqOf({ params: { mappingId: '7' }, body: { isActive: false } }), res);
+    assert.equal(res.code, 409);
+
+    lockAcquired = 1; statusImpl = async () => { throw new Error('boom SELECT'); };
+    res = makeRes();
+    await updateProductCodeMappingStatus(reqOf({ params: { mappingId: '7' }, body: { isActive: false } }), res);
+    assert.equal(res.code, 500);
+    assert.equal(res.body.message, 'Internal server error while updating product code mapping status.');
+    assert.ok(!/SELECT/.test(JSON.stringify(res.body)));
 });
 
 // ---------- daftar ----------

@@ -405,3 +405,41 @@ test('produk sendiri nonaktif tetap bagian gabungan FIFO bersama PO produk setar
     const r = run([row({ rawAllocationQty: 100 })], pos, MAP12, [], withActive(0, 1));
     assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.addedQty, x.viaMapping]), [[1, 60, false], [2, 40, true]]);
 });
+
+// ---------- rantai pemetaan (3 produk sekeluarga) ----------
+
+const THREE = [
+    { product_code: 'P1', id_product: 1, product_name: 'Prod 1', is_active: 1 },
+    { product_code: 'P2', id_product: 2, product_name: 'Prod 2', is_active: 1 },
+    { product_code: 'P3', id_product: 3, product_name: 'Prod 3', is_active: 1 }
+];
+const poP3 = (id, over = {}) => po(id, { id_product: 3, product_code: 'P3', product_name: 'Prod 3', ...over });
+const CHAIN = { productMappings: [{ id_product_old: 1, id_product_new: 2 }, { id_product_old: 2, id_product_new: 3 }] };
+
+test('rantai P1->P2->P3 (semua aktif): produksi P1 mengisi PO P3, dan sebaliknya', () => {
+    const a = run([row()], [poP3(1)], CHAIN, [], THREE);
+    assert.deepEqual(a.detailedAllocations.map((x) => [x.poProductCode, x.viaMapping]), [['P3', true]]);
+    const b = run([row({ itemCode: 'P3' })], [po(1)], CHAIN, [], THREE);
+    assert.deepEqual(b.detailedAllocations.map((x) => [x.poProductCode, x.viaMapping]), [['P1', true]]);
+});
+
+test('rantai putus (salah satu pemetaan tidak aktif, tidak dikirim loader): Unallocated', () => {
+    const r = run([row()], [poP3(1)], { productMappings: [{ id_product_old: 1, id_product_new: 2 }] }, [], THREE);
+    assert.equal(r.previewResults.length, 0);
+    assert.equal(r.unallocatedRows[0].reason, REASONS.NO_MATCHING_PO);
+});
+
+test('rantai: produk perantara nonaktif dilewati, produk tujuan aktif tetap dapat dialokasikan', () => {
+    const mid = THREE.map((p) => (p.id_product === 2 ? { ...p, is_active: 0 } : p));
+    const r = run([row()], [poP3(1)], CHAIN, [], mid);
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.poProductCode]), [[1, 'P3']]);
+});
+
+test('rantai: gabungan FIFO lintas tiga produk, perantara nonaktif tidak ikut', () => {
+    const pos = [poP3(1, { base_qty: 40, created_at: '2026-01-01 08:00:00' }), poP2(2, { base_qty: 40, created_at: '2026-01-02 08:00:00' }), po(3, { base_qty: 40, created_at: '2026-01-03 08:00:00' })];
+    const all = run([row({ rawAllocationQty: 100 })], pos, CHAIN, [], THREE);
+    assert.deepEqual(all.detailedAllocations.map((x) => [x.poDetailId, x.addedQty]), [[1, 40], [2, 40], [3, 20]]);
+    const midOff = THREE.map((p) => (p.id_product === 2 ? { ...p, is_active: 0 } : p));
+    const skip = run([row({ rawAllocationQty: 70 })], pos, CHAIN, [], midOff);
+    assert.deepEqual(skip.detailedAllocations.map((x) => [x.poDetailId, x.addedQty]), [[1, 40], [3, 30]]);
+});

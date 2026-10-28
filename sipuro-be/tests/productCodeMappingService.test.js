@@ -9,7 +9,7 @@ const makeConn = (over = {}) => {
     const st = {
         products: [{ id_product: 1 }, { id_product: 2 }],
         pairs: [],
-        mapping: { id: 7, id_product_old: 1, id_product_new: 2 },
+        mapping: { id: 7, id_product_old: 1, id_product_new: 2, is_active: 1 },
         insertId: 55,
         insertError: null,
         count: 2,
@@ -22,12 +22,13 @@ const makeConn = (over = {}) => {
             const s = sql.replace(/\s+/g, ' ').trim();
             calls.push({ sql: s, params });
             if (/^SELECT id_product FROM products WHERE id_product IN/.test(s)) return [st.products];
-            if (/^SELECT id_product_old, id_product_new FROM product_code_mappings$/.test(s)) return [st.pairs];
+            if (/^SELECT id_product_old, id_product_new, is_active FROM product_code_mappings$/.test(s)) return [st.pairs];
             if (/^INSERT INTO product_code_mappings/.test(s)) {
                 if (st.insertError) throw st.insertError;
                 return [{ insertId: st.insertId }];
             }
             if (/FROM product_code_mappings WHERE id = \? FOR UPDATE/.test(s)) return [[st.mapping]];
+            if (/^UPDATE product_code_mappings SET is_active/.test(s)) return [{}];
             if (/^SELECT COUNT\(\*\)/.test(s)) return [[{ total: st.count }]];
             if (/^SELECT m\.id/.test(s)) return [st.rows];
             return [{}];
@@ -49,7 +50,7 @@ test('parseProductId / parseMappingId: bilangan bulat positif', () => {
 test('createMapping: sukses menyimpan pasangan dan mencatat riwayat CREATE', async () => {
     const c = makeConn();
     const out = await svc.createMapping(c, { idProductOld: 1, idProductNew: 2, userId: 4 });
-    assert.deepEqual(out, { id: 55, id_product_old: 1, id_product_new: 2 });
+    assert.deepEqual(out, { id: 55, id_product_old: 1, id_product_new: 2, is_active: true });
     assert.deepEqual(find(c, /^INSERT INTO product_code_mappings/)[0].params, [1, 2, 4]);
     assert.deepEqual(find(c, /product_code_mapping_logs/)[0].params, [55, 1, 2, 'CREATE', 4]);
 });
@@ -67,21 +68,32 @@ test('createMapping: produk lama/baru tidak ada -> 404 yang menyebut sisinya', a
         (e) => e.status === 404 && /New product not found/.test(e.message));
 });
 
-test('createMapping: sudah sekeluarga (langsung, terbalik, atau lewat rantai) -> 409 tanpa tulis', async () => {
+test('createMapping: pasangan sudah ada (arah mana pun, aktif atau nonaktif) -> 409 tanpa tulis', async () => {
     const cases = [
-        [{ id_product_old: 1, id_product_new: 2 }],
-        [{ id_product_old: 2, id_product_new: 1 }],
-        [{ id_product_old: 1, id_product_new: 9 }, { id_product_old: 9, id_product_new: 2 }]
+        [[{ id_product_old: 1, id_product_new: 2, is_active: 1 }], /already mapped\./],
+        [[{ id_product_old: 2, id_product_new: 1, is_active: 1 }], /already mapped\./],
+        [[{ id_product_old: 1, id_product_new: 2, is_active: 0 }], /inactive\. Activate it instead/],
+        [[{ id_product_old: 2, id_product_new: 1, is_active: 0 }], /inactive\. Activate it instead/]
     ];
-    for (const pairs of cases) {
+    for (const [pairs, re] of cases) {
         const c = makeConn({ pairs });
-        await assert.rejects(svc.createMapping(c, { idProductOld: 1, idProductNew: 2, userId: 4 }), (e) => e.status === 409 && /already linked/.test(e.message));
+        await assert.rejects(svc.createMapping(c, { idProductOld: 1, idProductNew: 2, userId: 4 }), (e) => e.status === 409 && re.test(e.message));
         assert.equal(find(c, /^INSERT/).length, 0);
     }
 });
 
+test('createMapping: sudah terhubung lewat rantai pemetaan AKTIF -> 409; lewat pemetaan nonaktif tidak dihitung', async () => {
+    const chain = [{ id_product_old: 1, id_product_new: 9, is_active: 1 }, { id_product_old: 9, id_product_new: 2, is_active: 1 }];
+    const c = makeConn({ pairs: chain });
+    await assert.rejects(svc.createMapping(c, { idProductOld: 1, idProductNew: 2, userId: 4 }), (e) => e.status === 409 && /through other active mappings/.test(e.message));
+    assert.equal(find(c, /^INSERT/).length, 0);
+
+    const broken = makeConn({ pairs: [{ id_product_old: 1, id_product_new: 9, is_active: 1 }, { id_product_old: 9, id_product_new: 2, is_active: 0 }] });
+    await assert.doesNotReject(svc.createMapping(broken, { idProductOld: 1, idProductNew: 2, userId: 4 }));
+});
+
 test('createMapping: menyambung dua keluarga berbeda diperbolehkan', async () => {
-    const c = makeConn({ pairs: [{ id_product_old: 1, id_product_new: 8 }, { id_product_old: 2, id_product_new: 9 }] });
+    const c = makeConn({ pairs: [{ id_product_old: 1, id_product_new: 8, is_active: 1 }, { id_product_old: 2, id_product_new: 9, is_active: 1 }] });
     await assert.doesNotReject(svc.createMapping(c, { idProductOld: 1, idProductNew: 2, userId: 4 }));
 });
 
@@ -92,22 +104,43 @@ test('createMapping: ER_DUP_ENTRY (balapan) menjadi 409; error lain dilempar apa
     await assert.rejects(svc.createMapping(makeConn({ insertError: other }), { idProductOld: 1, idProductNew: 2, userId: 4 }), (e) => e === other);
 });
 
-test('deleteMapping: mengunci baris, menghapus, mencatat riwayat DELETE; tidak ada -> 404', async () => {
-    const c = makeConn();
-    const out = await svc.deleteMapping(c, { mappingId: 7, userId: 4 });
-    assert.deepEqual(out, { id: 7 });
-    assert.equal(find(c, /FOR UPDATE/).length, 1);
-    assert.deepEqual(find(c, /^DELETE FROM product_code_mappings/)[0].params, [7]);
-    assert.deepEqual(find(c, /product_code_mapping_logs/)[0].params, [7, 1, 2, 'DELETE', 4]);
+test('parseIsActive: hanya boolean sungguhan', () => {
+    assert.equal(svc.parseIsActive(true), true);
+    assert.equal(svc.parseIsActive(false), false);
+    for (const bad of [undefined, null, 'true', 'false', 1, 0, '', {}, []]) {
+        assert.throws(() => svc.parseIsActive(bad), (e) => e.status === 400 && /true or false/.test(e.message), String(bad));
+    }
+});
+
+test('setMappingActive: nonaktifkan dan aktifkan; mengunci baris, memperbarui, mencatat DEACTIVATE/ACTIVATE', async () => {
+    const off = makeConn();
+    assert.deepEqual(await svc.setMappingActive(off, { mappingId: 7, isActive: false, userId: 4 }), { id: 7, is_active: false });
+    assert.equal(find(off, /FOR UPDATE/).length, 1);
+    assert.deepEqual(find(off, /^UPDATE product_code_mappings SET is_active/)[0].params, [0, 7]);
+    assert.deepEqual(find(off, /product_code_mapping_logs/)[0].params, [7, 1, 2, 'DEACTIVATE', 4]);
+    assert.equal(find(off, /^DELETE/).length, 0);
+
+    const on = makeConn({ mapping: { id: 7, id_product_old: 1, id_product_new: 2, is_active: 0 } });
+    assert.deepEqual(await svc.setMappingActive(on, { mappingId: 7, isActive: true, userId: 4 }), { id: 7, is_active: true });
+    assert.deepEqual(find(on, /^UPDATE product_code_mappings SET is_active/)[0].params, [1, 7]);
+    assert.deepEqual(find(on, /product_code_mapping_logs/)[0].params, [7, 1, 2, 'ACTIVATE', 4]);
+});
+
+test('setMappingActive: status sama -> 400 tanpa tulis; tidak ada -> 404', async () => {
+    const same = makeConn();
+    await assert.rejects(svc.setMappingActive(same, { mappingId: 7, isActive: true, userId: 4 }), (e) => e.status === 400 && /already active/.test(e.message));
+    assert.equal(find(same, /^UPDATE/).length, 0);
+    const sameOff = makeConn({ mapping: { id: 7, id_product_old: 1, id_product_new: 2, is_active: '0' } });
+    await assert.rejects(svc.setMappingActive(sameOff, { mappingId: 7, isActive: false, userId: 4 }), (e) => e.status === 400 && /already inactive/.test(e.message));
 
     const none = makeConn({ mapping: undefined });
-    await assert.rejects(svc.deleteMapping(none, { mappingId: 7, userId: 4 }), (e) => e.status === 404);
-    assert.equal(find(none, /^DELETE/).length, 0);
+    await assert.rejects(svc.setMappingActive(none, { mappingId: 7, isActive: false, userId: 4 }), (e) => e.status === 404);
+    assert.equal(find(none, /^UPDATE/).length, 0);
 });
 
 test('listMappings: pencarian ber-escape, halaman, dan bentuk hasil', async () => {
     const rows = [{
-        id: 7, created_at: '2026-10-27 10:00:00', created_by_name: 'Admin',
+        id: 7, is_active: 1, created_at: '2026-10-27 10:00:00', created_by_name: 'Admin',
         old_id: 1, old_code: 'FG-OLD', old_name: 'Lama', old_active: 0,
         new_id: 2, new_code: 'FG-NEW', new_name: 'Baru', new_active: 1
     }];
@@ -117,6 +150,7 @@ test('listMappings: pencarian ber-escape, halaman, dan bentuk hasil', async () =
     assert.deepEqual(out.pagination, { totalItems: 23, totalPages: 3, currentPage: 2, limit: 10 });
     assert.deepEqual(out.data[0], {
         id: 7,
+        is_active: true,
         old_product: { id_product: 1, product_code: 'FG-OLD', product_name: 'Lama', is_active: false },
         new_product: { id_product: 2, product_code: 'FG-NEW', product_name: 'Baru', is_active: true },
         created_by_name: 'Admin',

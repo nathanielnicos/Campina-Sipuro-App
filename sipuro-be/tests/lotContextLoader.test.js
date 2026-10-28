@@ -123,3 +123,9 @@ test('master produk dimuat bersama status aktif (dipakai penjagaan fallback peme
     assert.match(find(db, /FROM products$/)[0].sql, /SELECT id_product, product_code, product_name, is_active FROM products/);
     assert.deepEqual(out.allProducts.map((p) => [p.id_product, p.is_active]), [[1, 1], [2, 0], [3, 1]]);
 });
+
+test('hanya pemetaan AKTIF yang dibaca (pemetaan nonaktif tidak membentuk keluarga)', async () => {
+    const db = makeDb();
+    await loadProductionLotContext(db, [row('P1')]);
+    assert.match(find(db, /FROM product_code_mappings/)[0].sql, /WHERE is_active = 1$/);
+});
