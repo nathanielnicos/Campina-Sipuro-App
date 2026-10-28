@@ -12,7 +12,7 @@ const formatSignedQty = (value) => {
     return n < 0 ? `-${formatQty(Math.abs(n))}` : formatQty(n);
 };
 
-export const useUploadProductionLot = ({ currentUserId, onSuccessSave }) => {
+export const useUploadProductionLot = ({ onSuccessSave }) => {
     // Context Modal Global
     const { showAlert, showConfirm } = useGlobalModal();
 
@@ -111,7 +111,6 @@ export const useUploadProductionLot = ({ currentUserId, onSuccessSave }) => {
         try {
             const payload = new FormData();
             payload.append('file', fileToCommit);
-            payload.append('userId', String(currentUserId));
             payload.append('fingerprint', previewData.fingerprint || '');
 
             const res = await confirmProductionLotApi(payload);
@@ -152,15 +151,6 @@ export const useUploadProductionLot = ({ currentUserId, onSuccessSave }) => {
                 type: 'warning',
                 title: 'Cannot Save',
                 message: previewData.warningMessage || 'This file has already been uploaded previously.'
-            });
-            return;
-        }
-
-        if (!currentUserId) {
-            showAlert({
-                type: 'error',
-                title: 'Cannot Save',
-                message: 'User information is missing. Please log in again.'
             });
             return;
         }

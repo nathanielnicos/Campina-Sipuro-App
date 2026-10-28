@@ -15,7 +15,7 @@ export const useAllocatedLotTable = (currentUser, reloadTrigger, filterState, vi
     const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, limit: 10 });
 
     const searchQuery = filterState?.searchQuery || '';
-    const status = filterState?.batchStatus || '';
+    const status = filterState?.status || '';
     const fromActualDate = filterState?.fromActualDate || '';
     const toActualDate = filterState?.toActualDate || '';
     const fromCreatedDate = filterState?.fromCreatedDate || '';

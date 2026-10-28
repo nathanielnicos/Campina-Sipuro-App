@@ -12,10 +12,7 @@ const ProductionLotPage = ({ currentUser }) => {
 
     return (
         <div style={{ padding: '0px 20px 20px 20px', fontFamily: 'sans-serif' }}>
-            <ProductionLotHeader
-                currentUser={currentUser}
-                onSuccessSave={handleTriggerReload}
-            />
+            <ProductionLotHeader onSuccessSave={handleTriggerReload} />
 
             <AllocatedLotTable
                 currentUser={currentUser}

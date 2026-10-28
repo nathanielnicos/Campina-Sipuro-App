@@ -13,7 +13,7 @@ import useAllocatedLotTable from '../../../hooks/production-lot/allocated-lot/us
 
 const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
     const modeSwitcher = useViewModeSwitcher(currentUser?.role);
-    const filter = useFilter(modeSwitcher.viewMode);
+    const filter = useFilter();
     const tableData = useAllocatedLotTable(currentUser, reloadTrigger, filter, modeSwitcher.viewMode);
 
     const isPo = modeSwitcher.viewMode === 'PO' || modeSwitcher.viewMode === 'BY_PO';
@@ -40,12 +40,11 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
 
             <Filter
                 searchQuery={filter.searchQuery}
-                batchStatus={filter.batchStatus}
+                status={filter.status}
                 fromActualDate={filter.fromActualDate}
                 toActualDate={filter.toActualDate}
                 fromCreatedDate={filter.fromCreatedDate}
                 toCreatedDate={filter.toCreatedDate}
-                currentUserRole={currentUser?.role}
                 exporting={filter.exporting}
                 onSearchChange={(e) => filter.handleSearchChange(e, tableData.setPage)}
                 onStatusChange={(e) => filter.handleStatusChange(e, tableData.setPage)}
@@ -54,6 +53,7 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
                 onFromCreatedDateChange={(val) => filter.handleDateChange(filter.setFromCreatedDate, val, tableData.setPage)}
                 onToCreatedDateChange={(val) => filter.handleDateChange(filter.setToCreatedDate, val, tableData.setPage)}
                 onResetFilters={() => filter.handleResetFilters(tableData.setPage)}
+                onExportExcel={filter.handleExportExcel}
             />
 
             <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>

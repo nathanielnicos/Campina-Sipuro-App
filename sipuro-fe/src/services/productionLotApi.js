@@ -1,5 +1,6 @@
 import axios from './apiClient';
 import { API_BASE_URL } from './config';
+import { saveBlobResponse, readBlobErrorMessage } from '../utils/downloadBlob';
 
 const BASE_URL = `${API_BASE_URL}/production-lot`;
 
@@ -38,5 +39,23 @@ export const confirmProductionLotApi = async (payload) => {
     } catch (error) {
         console.error('Error confirming production:', error);
         return { success: false, message: error.response?.data?.message || 'Failed to save allocation data.' };
+    }
+};
+
+// Ekspor mapping ke Excel dengan filter yang sama dengan daftar mapping (tanpa halaman dan urutan).
+export const exportLotExcelApi = async (filters = {}) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/export`, {
+            params: filters,
+            responseType: 'blob'
+        });
+        saveBlobResponse(response, 'Export_Production_Lot.xlsx');
+        return { success: true };
+    } catch (error) {
+        console.error('Error exporting lot mapping:', error);
+        return {
+            success: false,
+            message: await readBlobErrorMessage(error, 'Failed to download Excel file.')
+        };
     }
 };

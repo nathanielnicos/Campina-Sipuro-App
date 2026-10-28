@@ -2,12 +2,11 @@ import DateRangePicker from '../../common/DateRangePicker';
 
 const Filter = ({
     searchQuery,
-    batchStatus,
+    status,
     fromActualDate,
     toActualDate,
     fromCreatedDate,
     toCreatedDate,
-    currentUserRole,
     exporting,
     onSearchChange,
     onStatusChange,
@@ -19,7 +18,7 @@ const Filter = ({
     onExportExcel
 }) => {
     const isFilterActive = Boolean(
-        searchQuery || batchStatus ||
+        searchQuery || status ||
         fromActualDate || toActualDate ||
         fromCreatedDate || toCreatedDate
     );
@@ -68,7 +67,7 @@ const Filter = ({
             <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Allocation Status</label>
                 <select
-                    value={batchStatus}
+                    value={status}
                     onChange={onStatusChange}
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px' }}
                 >
@@ -99,27 +98,25 @@ const Filter = ({
                 >
                     Reset
                 </button>
-                {currentUserRole !== 'CUSTOMER' && (
-                    <button
-                        onClick={onExportExcel}
-                        disabled={exporting}
-                        style={{
-                            flex: 1,
-                            padding: '8px 12px',
-                            backgroundColor: '#198754',
-                            color: '#fff',
-                            border: '1px solid #198754',
-                            borderRadius: '4px',
-                            cursor: exporting ? 'not-allowed' : 'pointer',
-                            fontWeight: 'bold',
-                            whiteSpace: 'nowrap',
-                            height: '38px',
-                            transition: 'all 0.2s ease'
-                        }}
-                    >
-                        {exporting ? 'Downloading...' : 'Export Excel'}
-                    </button>
-                )}
+                <button
+                    onClick={onExportExcel}
+                    disabled={exporting}
+                    style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        backgroundColor: '#198754',
+                        color: '#fff',
+                        border: '1px solid #198754',
+                        borderRadius: '4px',
+                        cursor: exporting ? 'not-allowed' : 'pointer',
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap',
+                        height: '38px',
+                        transition: 'all 0.2s ease'
+                    }}
+                >
+                    {exporting ? 'Downloading...' : 'Export Excel'}
+                </button>
             </div>
         </div>
     );

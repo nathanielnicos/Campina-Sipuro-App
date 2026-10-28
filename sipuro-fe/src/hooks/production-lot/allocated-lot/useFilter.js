@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { exportBatchExcelApi } from '../../../services/batchApi';
+import { exportLotExcelApi } from '../../../services/productionLotApi';
 import { useGlobalModal } from '../../../context/ModalContext';
 
-export const useFilter = (viewMode) => {
+export const useFilter = () => {
     const { showAlert } = useGlobalModal();
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [batchStatus, setBatchStatus] = useState('');
+    const [status, setStatus] = useState('');
 
     const [fromActualDate, setFromActualDate] = useState('');
     const [toActualDate, setToActualDate] = useState('');
@@ -21,7 +21,7 @@ export const useFilter = (viewMode) => {
     };
 
     const handleStatusChange = (e, resetPage) => {
-        setBatchStatus(e.target.value);
+        setStatus(e.target.value);
         if (resetPage) resetPage(1);
     };
 
@@ -32,7 +32,7 @@ export const useFilter = (viewMode) => {
 
     const handleResetFilters = (resetPage) => {
         setSearchQuery('');
-        setBatchStatus('');
+        setStatus('');
         setFromActualDate('');
         setToActualDate('');
         setFromCreatedDate('');
@@ -42,10 +42,9 @@ export const useFilter = (viewMode) => {
 
     const handleExportExcel = async () => {
         setExporting(true);
-        const res = await exportBatchExcelApi({
+        const res = await exportLotExcelApi({
             search: searchQuery,
-            batchStatus,
-            displayMode: viewMode === 'PO' ? 'BY_PO' : 'BY_BATCH',
+            status,
             fromActualDate, toActualDate,
             fromCreatedDate, toCreatedDate,
         });
@@ -62,7 +61,7 @@ export const useFilter = (viewMode) => {
 
     return {
         searchQuery,
-        batchStatus,
+        status,
         fromActualDate, setFromActualDate,
         toActualDate, setToActualDate,
         fromCreatedDate, setFromCreatedDate,
