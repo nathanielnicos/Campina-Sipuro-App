@@ -31,14 +31,14 @@ const ImportProductionLotModal = ({
             alertBg: '#d1e7dd',
             alertColor: '#0f5132',
             alertBorder: '#badbcc',
-            alertMessage: 'The data below is valid and successfully allocated to matching POs. This data will be saved to the database when you click Save.'
+            alertMessage: 'The data below is valid and allocated to matching POs, including POs of a mapped product code (marked "via mapping"). This data will be saved to the database when you click Save.'
         },
         unallocated: {
             title: 'Unallocated Data',
             alertBg: '#cff4fc',
             alertColor: '#055160',
             alertBorder: '#b6effb',
-            alertMessage: 'The rows below did not produce a PO allocation (for example: exceeding PO capacity, no matching open PO, net quantity of zero, or missing production date). See the Reason column. These rows are displayed for information only and will not be saved.'
+            alertMessage: 'The rows below did not produce a PO allocation (for example: missing batch, lot or production date, no matching open PO, exceeding PO capacity, net quantity of zero, a return with no allocation to reduce, or a decimal quantity for a registered product). See the Reason column and the Excel Row number to find the row in your file. These rows are displayed for information only and will not be saved.'
         },
         duplicate: {
             title: 'Duplicate Rows (Skipped)',
@@ -52,7 +52,7 @@ const ImportProductionLotModal = ({
             alertBg: '#e2e3e5',
             alertColor: '#41464b',
             alertBorder: '#d3d6d8',
-            alertMessage: 'The rows below were previously imported but now have a different lot status. They are displayed for information only and are not processed. Use the recall feature to adjust allocations.'
+            alertMessage: 'The rows below were previously imported but now have a different lot status. They are displayed for information only and are not processed. To adjust an existing allocation, use the Edit Quantity or Force Close action on the Production Lot page.'
         },
         non_good: {
             title: 'Non-GOOD Status Rows',

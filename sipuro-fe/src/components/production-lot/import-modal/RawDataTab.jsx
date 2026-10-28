@@ -18,6 +18,7 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead>
                         <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
+                            <th style={{ textAlign: 'center', width: '70px', padding: '8px', whiteSpace: 'nowrap' }}>Excel Row</th>
                             <th style={{ textAlign: 'left', width: '100px', padding: '8px' }}>Batch Number</th>
                             <th style={{ textAlign: 'left', padding: '8px' }}>Lot Number</th>
                             <th style={{ textAlign: 'left', padding: '8px' }}>Item Code</th>
@@ -31,7 +32,7 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                     <tbody>
                         {paginatedRows.length === 0 ? (
                             <tr>
-                                <td colSpan={showReason ? 7 : 6} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                <td colSpan={showReason ? 8 : 7} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                     {emptyMessage}
                                 </td>
                             </tr>
@@ -42,6 +43,7 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
 
                                 return (
                                     <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
+                                        <td style={{ textAlign: 'center', padding: '8px', color: '#6c757d' }}>{row.excelRowNumber || '-'}</td>
                                         <td style={{ fontWeight: 'bold', padding: '8px' }}>{row.batchNumber || '-'}</td>
                                         <td style={{ padding: '8px' }}>{row.lotNumber || '-'}</td>
                                         <td style={{ padding: '8px' }}>{row.itemCode || '-'}</td>

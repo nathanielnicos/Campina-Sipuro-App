@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { formatQty } from '../../../utils/formatters';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import PaginationControl from '../../common/PaginationControl';
+import CrossCodeTag from '../allocated-lot/CrossCodeTag';
 
 // Qty bernilai minus (adjustment) ditampilkan merah dengan tanda minus
 const formatSignedQty = (value) => {
@@ -36,6 +37,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead>
                         <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '1px solid #dee2e6' }}>
+                            <th style={{ textAlign: 'center', width: '40px', padding: '8px' }}>No</th>
                             <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Batch Number</th>
                             <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Lot Number</th>
                             <th style={{ textAlign: 'left', minWidth: '180px', padding: '8px' }}>Product</th>
@@ -51,7 +53,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                     <tbody>
                         {paginatedResults.length === 0 ? (
                             <tr>
-                                <td colSpan="10" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                <td colSpan="11" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                     No valid allocated data available to save.
                                 </td>
                             </tr>
@@ -59,6 +61,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                             paginatedResults.map((item, localIdx) => {
                                 const actualIndex = (mainCurrentPage - 1) * mainPageSize + localIdx;
 
+                                const rowNo = actualIndex + 1;
                                 const batchNo = item.batchNumber || '-';
                                 const lotNo = item.lotNumber || '-';
                                 const prodCode = item.productCode || '';
@@ -74,6 +77,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                 if (allocList.length === 0) {
                                     return (
                                         <tr key={`${actualIndex}_none`} style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #dee2e6' }}>
+                                            <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', color: '#6c757d' }}>{rowNo}</td>
                                             <td style={{ fontWeight: 'bold', verticalAlign: 'top', padding: '8px' }}>{batchNo}</td>
                                             <td style={{ verticalAlign: 'top', padding: '8px' }}>{lotNo}</td>
                                             <td style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>{productTitle}</td>
@@ -102,6 +106,9 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                         <tr key={`${actualIndex}_${aIdx}`} style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #dee2e6' }}>
                                             {aIdx === 0 && (
                                                 <>
+                                                    <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', color: '#6c757d' }}>
+                                                        {rowNo}
+                                                    </td>
                                                     <td rowSpan={rowSpan} style={{ fontWeight: 'bold', verticalAlign: 'top', padding: '8px' }}>
                                                         {batchNo}
                                                     </td>
@@ -118,6 +125,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                             )}
                                             <td style={{ fontWeight: '500', padding: '8px', whiteSpace: 'nowrap' }}>
                                                 {poNum}
+                                                <CrossCodeTag show={alloc.viaMapping} caption="PO product" productCode={alloc.poProductCode} />
                                             </td>
                                             <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '8px' }}>
                                                 {formatQty(poQty)}
