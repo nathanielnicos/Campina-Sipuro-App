@@ -23,6 +23,7 @@ const MAPPING_FROM_SQL = `FROM po_lot_allocations pla
     JOIN po_headers h ON d.po_header_id = h.po_header_id
     JOIN products p ON d.id_product = p.id_product
     JOIN lots l ON pla.lot_id = l.id
+    JOIN products lp ON l.id_product = lp.id_product
     JOIN batches b ON pla.id_batch = b.id`;
 
 const orderOf = (sortOrder) => (asText(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC');
@@ -38,8 +39,9 @@ const buildMappingFilters = (query = {}) => {
     const search = asText(query.search);
     if (search) {
         const like = `%${escapeLike(search)}%`;
-        conditions.push('(b.batch_number LIKE ? OR l.lot_number LIKE ? OR p.product_code LIKE ? OR p.product_name LIKE ? OR h.po_number LIKE ?)');
-        params.push(like, like, like, like, like);
+        // p = produk PO, lp = produk lot (berbeda bila dialokasikan lewat pemetaan kode produk)
+        conditions.push('(b.batch_number LIKE ? OR l.lot_number LIKE ? OR p.product_code LIKE ? OR p.product_name LIKE ? OR lp.product_code LIKE ? OR lp.product_name LIKE ? OR h.po_number LIKE ?)');
+        params.push(like, like, like, like, like, like, like);
     }
 
     const status = asText(query.status);

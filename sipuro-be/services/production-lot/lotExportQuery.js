@@ -42,7 +42,9 @@ const fetchExportData = async (db, { whereSql, params }) => {
             ${DATETIME_SQL('l.actual_completed_datetime')} AS lot_completed_at,
             DATE_FORMAT(l.expired_date, '%Y-%m-%d') AS lot_expired_date,
             pla.allocated_qty,
-            pla.status AS allocation_status
+            pla.status AS allocation_status,
+            lp.product_code AS lot_product_code,
+            (l.id_product <> d.id_product) AS via_mapping
          ${MAPPING_FROM_SQL}
          WHERE ${whereSql}
          ORDER BY h.created_at DESC, h.po_number ASC, p.product_code ASC, b.batch_number ASC, l.lot_number ASC, pla.id ASC`,

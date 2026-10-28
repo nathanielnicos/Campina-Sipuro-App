@@ -127,3 +127,45 @@ test('shapeByLot: lot yang sama di dua batch tampil per batch, tiap alokasi seka
     assert.equal(out.length, 1);
     assert.deepEqual(out[0].batches.map((b) => [b.batch_number, b.allocations.length, b.allocations[0].allocated_qty]), [['B1', 1, 5], ['B2', 1, 9]]);
 });
+
+test('shapeByPo: lot membawa kode produk lot dan penanda lintas kode', () => {
+    const base = {
+        po_header_id: 1, po_number: 'PO1', po_detail_id: 10, po_base_qty: 100, po_fulfilled_qty: 0, id_product: 2, product_code: 'NEW',
+        batch_id: 5, batch_number: 'B1', allocated_qty: 1, allocation_status: 'Open'
+    };
+    const out = shapeByPo([
+        { ...base, lot_id: 1, lot_number: 'L1', allocation_id: 1, lot_product_code: 'NEW', lot_product_name: 'N', is_cross_code: '0' },
+        { ...base, lot_id: 2, lot_number: 'L2', allocation_id: 2, lot_product_code: 'OLD', lot_product_name: 'O', is_cross_code: '1' }
+    ]);
+    const lots = out[0].products[0].batches[0].lots;
+    assert.deepEqual(lots.map((l) => [l.lot_number, l.lot_product_code, l.is_cross_code]), [['L1', 'NEW', false], ['L2', 'OLD', true]]);
+});
+
+test('shapeByBatch / shapeByLot: alokasi membawa kode produk PO dan penanda lintas kode', () => {
+    const b = shapeByBatch([{
+        batch_id: 1, batch_number: 'B1', product_code: 'OLD', lot_id: 2, lot_number: 'L1', allocation_id: 1, allocated_qty: 5,
+        allocation_status: 'Open', po_number: 'PO1', po_product_code: 'NEW', is_cross_code: 1
+    }]);
+    assert.equal(b[0].product_code, 'OLD');
+    assert.deepEqual([b[0].lots[0].po_allocations[0].po_product_code, b[0].lots[0].po_allocations[0].is_cross_code], ['NEW', true]);
+
+    const l = shapeByLot([{
+        lot_number: 'L1', batch_id: 1, batch_number: 'B1', id_product: 1, product_code: 'OLD', allocation_id: 1, allocated_qty: 5,
+        allocation_status: 'Open', po_number: 'PO1', po_product_code: 'NEW', is_cross_code: 0
+    }]);
+    assert.deepEqual([l[0].batches[0].product_code, l[0].batches[0].allocations[0].po_product_code, l[0].batches[0].allocations[0].is_cross_code], ['OLD', 'NEW', false]);
+});
+
+test('query daftar: produk lot (lp) dipakai untuk mode batch dan lot, produk PO untuk mode PO', async () => {
+    const sqls = [];
+    const db = { query: async (sql) => { sqls.push(sql.replace(/\s+/g, ' ')); return [[{ total: 1, page_key: 1 }]]; } };
+    for (const displayMode of ['BY_PO', 'BY_BATCH', 'BY_LOT']) {
+        sqls.length = 0;
+        await fetchMappingPage(db, { displayMode, whereSql: 'x', params: [], limit: 10, offset: 0, order: 'DESC', sortKey: '' });
+        const detail = sqls[sqls.length - 1];
+        assert.match(detail, /JOIN products lp ON l\.id_product = lp\.id_product/);
+        assert.match(detail, /\(l\.id_product <> d\.id_product\) AS is_cross_code/);
+        if (displayMode === 'BY_PO') assert.match(detail, /lp\.product_code AS lot_product_code/);
+        else assert.match(detail, /lp\.product_code, lp\.product_name, p\.product_code AS po_product_code/);
+    }
+});

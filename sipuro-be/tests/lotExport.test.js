@@ -41,7 +41,7 @@ test.beforeEach(() => { state.replies = []; state.queries = []; state.dbError = 
 const alloc = (o = {}) => ({
     product_code: 'P1', product_name: 'Produk 1', po_number: 'PO1', po_created_at: '2026-01-01 08:00:00',
     batch_number: 'B1', lot_number: 'L1', lot_completed_at: '2026-02-01 10:00:00', lot_expired_date: '2027-02-01',
-    allocated_qty: '30', allocation_status: 'Open', ...o
+    allocated_qty: '30', allocation_status: 'Open', lot_product_code: 'P1', via_mapping: 0, ...o
 });
 const item = (o = {}) => ({
     po_number: 'PO1', po_created_at: '2026-01-01 08:00:00', product_code: 'P1', product_name: 'Produk 1', base_qty: '100', total_allocated: '70', ...o
@@ -91,7 +91,7 @@ test('melebihi batas baris ditolak 400 sebelum mengambil data', async () => {
 test('judul kolom kedua sheet persis sesuai kesepakatan', () => {
     assert.deepEqual(wb.ALLOCATION_HEADERS, [
         'Product Code', 'Product Name', 'PO Number', 'PO Created Date', 'Batch Number', 'Lot Number',
-        'Lot Completed Date', 'Lot Expired Date', 'Allocated Qty (Pcs)', 'Allocation Status'
+        'Lot Completed Date', 'Lot Expired Date', 'Allocated Qty (Pcs)', 'Allocation Status', 'Lot Product Code', 'Via Mapping'
     ]);
     assert.deepEqual(wb.PO_ITEM_HEADERS, [
         'PO Number', 'PO Created Date', 'Product Code', 'Product Name',
@@ -174,15 +174,15 @@ test('workbook: dua sheet bernama Allocations dan PO Items, lebar kolom, filter 
     assert.deepEqual(parsed.opts, { type: 'buffer', bookType: 'xlsx' });
     assert.deepEqual(parsed.sheets.map((s) => s.name), ['Allocations', 'PO Items']);
     assert.equal(parsed.sheets[0].aoa.length, 3);
-    assert.equal(parsed.sheets[0].cols.length, 10);
-    assert.deepEqual(parsed.sheets[0].filter, { ref: 'A1:J3' });
+    assert.equal(parsed.sheets[0].cols.length, 12);
+    assert.deepEqual(parsed.sheets[0].filter, { ref: 'A1:L3' });
     assert.deepEqual(parsed.sheets[1].filter, { ref: 'A1:H2' });
 });
 
 test('workbook tanpa data tetap berisi baris judul', () => {
     const parsed = JSON.parse(wb.buildExportWorkbookBuffer({ allocations: [], poItems: [] }).toString());
     assert.equal(parsed.sheets[0].aoa.length, 1);
-    assert.deepEqual(parsed.sheets[0].filter, { ref: 'A1:J1' });
+    assert.deepEqual(parsed.sheets[0].filter, { ref: 'A1:L1' });
 });
 
 test('nama file memakai waktu WIB', () => {
@@ -225,4 +225,23 @@ test('controller: filter tidak valid 400 tanpa query; kelebihan baris 400; error
     assert.equal(err.status, 500);
     assert.equal(err.body.message, 'Failed to export Excel data.');
     assert.ok(!JSON.stringify(err.body).includes('secret'));
+});
+
+test('kolom pemetaan: kode produk lot dan penanda Via Mapping (Yes/No)', () => {
+    const rows = wb.buildAllocationRows([
+        alloc(),
+        alloc({ lot_product_code: 'P0', via_mapping: 1 }),
+        alloc({ lot_product_code: null, via_mapping: '1' })
+    ]);
+    assert.deepEqual([rows[1][10], rows[1][11]], ['P1', 'No']);
+    assert.deepEqual([rows[2][10], rows[2][11]], ['P0', 'Yes']);
+    assert.deepEqual([rows[3][10], rows[3][11]], [null, 'Yes']);
+});
+
+test('query alokasi mengambil kode produk lot dan penanda lintas kode dari id produk', async () => {
+    state.replies = [[{ total: 1 }], [], []];
+    await fetchExportData(fakeDb, { whereSql: 'x', params: [] });
+    assert.match(state.queries[1].sql, /lp\.product_code AS lot_product_code/);
+    assert.match(state.queries[1].sql, /\(l\.id_product <> d\.id_product\) AS via_mapping/);
+    assert.match(state.queries[1].sql, /JOIN products lp ON l\.id_product = lp\.id_product/);
 });

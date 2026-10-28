@@ -10,6 +10,7 @@ test('FROM bersama: satu baris = satu alokasi, batch dari po_lot_allocations.id_
     assert.match(MAPPING_FROM_SQL, /FROM po_lot_allocations pla/);
     assert.match(MAPPING_FROM_SQL, /JOIN batches b ON pla\.id_batch = b\.id/);
     assert.match(MAPPING_FROM_SQL, /JOIN lots l ON pla\.lot_id = l\.id/);
+    assert.match(MAPPING_FROM_SQL, /JOIN products lp ON l\.id_product = lp\.id_product/);
     assert.doesNotMatch(MAPPING_FROM_SQL, /batch_lots/);
 });
 
@@ -19,10 +20,10 @@ test('tanpa filter: hanya item PO yang belum dihapus', () => {
     assert.deepEqual(f.params, []);
 });
 
-test('pencarian: lima kolom, karakter LIKE di-escape, urutan parameter sama dengan urutan klausa', () => {
+test('pencarian: tujuh kolom (termasuk produk lot), karakter LIKE di-escape, urutan parameter sama dengan urutan klausa', () => {
     const f = buildMappingFilters({ search: ' 50%_ ', status: 'Open', fromCreatedDate: '2026-01-01' });
-    assert.match(f.whereSql, /b\.batch_number LIKE \? OR l\.lot_number LIKE \? OR p\.product_code LIKE \? OR p\.product_name LIKE \? OR h\.po_number LIKE \?/);
-    assert.deepEqual(f.params, [...Array(5).fill('%50\\%\\_%'), 'Open', '2026-01-01 00:00:00']);
+    assert.match(f.whereSql, /b\.batch_number LIKE \? OR l\.lot_number LIKE \? OR p\.product_code LIKE \? OR p\.product_name LIKE \? OR lp\.product_code LIKE \? OR lp\.product_name LIKE \? OR h\.po_number LIKE \?/);
+    assert.deepEqual(f.params, [...Array(7).fill('%50\\%\\_%'), 'Open', '2026-01-01 00:00:00']);
     const order = ['LIKE', 'pla.status = ?', 'h.created_at >= ?'].map((t) => f.whereSql.indexOf(t));
     assert.deepEqual([...order].sort((a, b) => a - b), order);
 });

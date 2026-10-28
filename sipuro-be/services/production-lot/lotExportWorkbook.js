@@ -3,6 +3,7 @@
 /**
  * Menyusun workbook ekspor mapping Production Lot.
  * Sheet "Allocations": satu baris per alokasi, tanpa nilai tingkat PO (qty PO, sisa, persen) agar pivot tidak menghitung ganda.
+ * Kolom akhir: kode produk lot dan penanda alokasi lewat pemetaan kode produk (kode lot berbeda dari kode PO).
  * Sheet "PO Items": satu baris per item PO dengan qty PO, total teralokasi, sisa, dan persen.
  */
 
@@ -19,7 +20,9 @@ const ALLOCATION_HEADERS = [
     'Lot Completed Date',
     'Lot Expired Date',
     'Allocated Qty (Pcs)',
-    'Allocation Status'
+    'Allocation Status',
+    'Lot Product Code',
+    'Via Mapping'
 ];
 
 const PO_ITEM_HEADERS = [
@@ -49,7 +52,9 @@ const buildAllocationRows = (allocations) => [
         toExcelDate(r.lot_completed_at),
         toExcelDate(r.lot_expired_date, { dateOnly: true }),
         Number(r.allocated_qty) || 0,
-        blankIfEmpty(r.allocation_status)
+        blankIfEmpty(r.allocation_status),
+        blankIfEmpty(r.lot_product_code),
+        Number(r.via_mapping) ? 'Yes' : 'No'
     ])
 ];
 
@@ -80,7 +85,7 @@ const addSheet = (workbook, name, rows, widths) => {
 
 const buildExportWorkbookBuffer = ({ allocations, poItems }) => {
     const workbook = XLSX.utils.book_new();
-    addSheet(workbook, 'Allocations', buildAllocationRows(allocations), [18, 45, 22, 22, 20, 20, 22, 18, 20, 18]);
+    addSheet(workbook, 'Allocations', buildAllocationRows(allocations), [18, 45, 22, 22, 20, 20, 22, 18, 20, 18, 18, 14]);
     addSheet(workbook, 'PO Items', buildPoItemRows(poItems), [22, 22, 18, 45, 18, 22, 18, 16]);
     return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 };

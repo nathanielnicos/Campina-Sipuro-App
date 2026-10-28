@@ -21,6 +21,7 @@ const MODES = {
                  p.id_product, p.product_code, p.product_name,
                  b.id AS batch_id, b.batch_number, b.status AS batch_status,
                  l.id AS lot_id, l.lot_number, l.actual_completed_datetime, l.expired_date,
+                 lp.product_code AS lot_product_code, lp.product_name AS lot_product_name, (l.id_product <> d.id_product) AS is_cross_code,
                  pla.id AS allocation_id, pla.allocated_qty, pla.status AS allocation_status`
     },
     BY_BATCH: {
@@ -29,7 +30,7 @@ const MODES = {
         pageOrder: (order) => `b.id ${order}`,
         detailOrder: (order) => `b.id ${order}, l.id ASC, pla.id ASC`,
         select: `b.id AS batch_id, b.batch_number, b.status AS batch_status, b.actual_completed_date,
-                 p.product_code, p.product_name,
+                 lp.product_code, lp.product_name, p.product_code AS po_product_code, (l.id_product <> d.id_product) AS is_cross_code,
                  l.id AS lot_id, l.lot_number, l.actual_completed_datetime, l.expired_date,
                  pla.id AS allocation_id, pla.allocated_qty, pla.status AS allocation_status,
                  h.po_number`
@@ -41,13 +42,16 @@ const MODES = {
         detailOrder: (order) => `l.lot_number ${order}, b.id ASC, pla.id ASC`,
         select: `l.id AS lot_id, l.lot_number, l.actual_completed_datetime, l.expired_date,
                  b.id AS batch_id, b.batch_number,
-                 p.id_product, p.product_code, p.product_name,
+                 lp.id_product, lp.product_code, lp.product_name, p.product_code AS po_product_code, (l.id_product <> d.id_product) AS is_cross_code,
                  pla.id AS allocation_id, pla.allocated_qty, pla.status AS allocation_status,
                  h.po_number`
     }
 };
 
 // ---------- Perakit hasil (fungsi murni) ----------
+
+// Alokasi lintas kode: produk lot berbeda dari produk PO (lewat pemetaan kode produk)
+const isCrossCode = (row) => Boolean(Number(row.is_cross_code));
 
 const shapeByPo = (rows) => {
     const poMap = new Map();
@@ -92,6 +96,9 @@ const shapeByPo = (rows) => {
             allocation_id: row.allocation_id,
             lot_id: row.lot_id,
             lot_number: row.lot_number,
+            lot_product_code: row.lot_product_code,
+            lot_product_name: row.lot_product_name,
+            is_cross_code: isCrossCode(row),
             allocated_qty: Number(row.allocated_qty) || 0,
             status: row.allocation_status,
             actual_completed_datetime: row.actual_completed_datetime,
@@ -136,6 +143,8 @@ const shapeByBatch = (rows) => {
         batch.lots.get(r.lot_id).po_allocations.push({
             allocation_id: r.allocation_id,
             po_number: r.po_number,
+            po_product_code: r.po_product_code,
+            is_cross_code: isCrossCode(r),
             allocated_qty: Number(r.allocated_qty) || 0,
             status: r.allocation_status
         });
@@ -168,6 +177,8 @@ const shapeByLot = (rows) => {
         lot.batches.get(batchKey).allocations.push({
             allocation_id: r.allocation_id,
             po_number: r.po_number,
+            po_product_code: r.po_product_code,
+            is_cross_code: isCrossCode(r),
             allocated_qty: Number(r.allocated_qty) || 0,
             allocation_status: r.allocation_status
         });
