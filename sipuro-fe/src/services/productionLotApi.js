@@ -59,3 +59,40 @@ export const exportLotExcelApi = async (filters = {}) => {
         };
     }
 };
+
+// Ubah qty alokasi. payload: { newAllocatedQty, reason }. Pelaku dari token login di server.
+export const updateLotAllocationQtyApi = async (allocationId, payload) => {
+    try {
+        const response = await axios.patch(`${BASE_URL}/allocations/${allocationId}/qty`, payload);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating allocation quantity:', error);
+        return { success: false, message: error.response?.data?.message || 'Failed to update allocated quantity.' };
+    }
+};
+
+// Force Close satu alokasi. Alasan wajib (maksimal 50 karakter, divalidasi server).
+export const forceCloseLotAllocationApi = async (allocationId, reason) => {
+    try {
+        const response = await axios.patch(`${BASE_URL}/allocations/${allocationId}/status`, {
+            action: 'FORCE_CLOSE',
+            reason
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error force closing allocation:', error);
+        return { success: false, message: error.response?.data?.message || 'Failed to force close allocation.' };
+    }
+};
+
+export const fetchLotAllocationLogsApi = async (allocationId, page = 1, limit = 10) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/allocations/${allocationId}/logs`, {
+            params: { page, limit }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching allocation logs:', error);
+        return { success: false, message: error.response?.data?.message || 'Failed to fetch allocation history.' };
+    }
+};

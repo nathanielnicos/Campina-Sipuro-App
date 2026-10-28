@@ -1,16 +1,14 @@
-import React from 'react';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import { formatQty } from '../../../utils/formatters';
 import { formatDate } from '../../../utils/dateHelper';
+import AllocationActions from './AllocationActions';
+import CrossCodeTag from './CrossCodeTag';
 
-export const PoLotViewRows = ({ mappingList, currentUserRole, poTolerance }) => {
-    // 12 kolom untuk non-customer, 8 kolom untuk customer
-    const totalCols = currentUserRole === 'CUSTOMER' ? 8 : 12;
-
+export const PoLotViewRows = ({ mappingList, poTolerance, actions }) => {
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>
-                <td colSpan={totalCols} style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                <td colSpan="13" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                     No PO lot mapping data available.
                 </td>
             </tr>
@@ -62,7 +60,7 @@ export const PoLotViewRows = ({ mappingList, currentUserRole, poTolerance }) => 
 
                 // 3. Hitung total baris (rowspan) untuk Batch
                 const batchRowSpan = lots.length;
-                
+
                 return lots.map((lot, lotIdx) => {
                     const renderPoHeaderCells = isFirstProductInPo && isFirstBatchInProd && lotIdx === 0;
                     const renderProductCells = isFirstBatchInProd && lotIdx === 0;
@@ -70,6 +68,19 @@ export const PoLotViewRows = ({ mappingList, currentUserRole, poTolerance }) => 
 
                     if (renderPoHeaderCells) isFirstProductInPo = false;
                     if (renderProductCells) isFirstBatchInProd = false;
+
+                    // Data baris alokasi untuk aksi. Produk PO = produk item PO; produk lot = produk yang diproduksi.
+                    const allocation = {
+                        allocation_id: lot.allocation_id,
+                        status: lot.status,
+                        allocated_qty: lot.allocated_qty,
+                        po_number: poRow.po_number,
+                        po_product_code: prodRow.product_code,
+                        lot_number: lot.lot_number,
+                        batch_number: batchRow.batch_number,
+                        product_code: lot.lot_product_code || prodRow.product_code,
+                        product_name: lot.lot_product_name || prodRow.product_name
+                    };
 
                     return (
                         <tr
@@ -92,14 +103,8 @@ export const PoLotViewRows = ({ mappingList, currentUserRole, poTolerance }) => 
                             {renderProductCells && (
                                 <>
                                     <td rowSpan={prodRowSpan} style={{ ...cellStyle, minWidth: '220px', backgroundColor: '#fff' }}>
-                                        {currentUserRole !== 'CUSTOMER' ? (
-                                            <>
-                                                <div style={{ fontWeight: 'bold', color: '#212529' }}>{prodRow.product_code}</div>
-                                                <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '2px' }}>{prodRow.product_name}</div>
-                                            </>
-                                        ) : (
-                                            <div style={{ fontWeight: '500' }}>{prodRow.product_name}</div>
-                                        )}
+                                        <div style={{ fontWeight: 'bold', color: '#212529' }}>{prodRow.product_code}</div>
+                                        <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '2px' }}>{prodRow.product_name}</div>
                                     </td>
                                     <td rowSpan={prodRowSpan} style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap', color: '#495057', backgroundColor: '#fff', width: '90px' }}>
                                         {prodRow.po_base_qty > 0 ? formatQty(prodRow.po_base_qty) : '-'}
@@ -108,26 +113,23 @@ export const PoLotViewRows = ({ mappingList, currentUserRole, poTolerance }) => 
                             )}
 
                             {/* LEVEL 3: BATCH */}
-                            {currentUserRole !== 'CUSTOMER' && renderBatchCells && (
+                            {renderBatchCells && (
                                 <td rowSpan={batchRowSpan} style={{ ...cellStyle, fontWeight: '600', whiteSpace: 'nowrap', backgroundColor: '#fcfcfc' }}>
                                     {batchRow.batch_number}
                                 </td>
                             )}
 
                             {/* LEVEL 4: LOT DETAILS */}
-                            {currentUserRole !== 'CUSTOMER' && (
-                                <>
-                                    <td style={{ ...cellStyle, whiteSpace: 'nowrap', fontFamily: 'monospace', fontWeight: '600' }}>
-                                        {lot.lot_number}
-                                    </td>
-                                    <td style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px', color: '#6c757d' }}>
-                                        {formatDate(lot.expired_date)}
-                                    </td>
-                                    <td style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap', width: '100px', fontWeight: '500' }}>
-                                        {formatQty(lot.allocated_qty)}
-                                    </td>
-                                </>
-                            )}
+                            <td style={{ ...cellStyle, whiteSpace: 'nowrap', fontFamily: 'monospace', fontWeight: '600' }}>
+                                {lot.lot_number}
+                                <CrossCodeTag show={lot.is_cross_code} caption="Lot product" productCode={lot.lot_product_code} />
+                            </td>
+                            <td style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px', color: '#6c757d' }}>
+                                {formatDate(lot.expired_date)}
+                            </td>
+                            <td style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap', width: '100px', fontWeight: '500' }}>
+                                {formatQty(lot.allocated_qty)}
+                            </td>
 
                             {/* STATUS & PERSENTASE PEMENUHAN PRODUK */}
                             {renderProductCells && (
@@ -150,6 +152,11 @@ export const PoLotViewRows = ({ mappingList, currentUserRole, poTolerance }) => 
                                     </td>
                                 </>
                             )}
+
+                            {/* AKSI per baris alokasi */}
+                            <td style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                <AllocationActions allocation={allocation} {...actions} />
+                            </td>
                         </tr>
                     );
                 });

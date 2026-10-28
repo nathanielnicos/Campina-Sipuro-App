@@ -1,13 +1,14 @@
-import React from 'react';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import { formatQty } from '../../../utils/formatters';
 import { formatDate, formatDateTime } from '../../../utils/dateHelper';
+import AllocationActions from './AllocationActions';
+import CrossCodeTag from './CrossCodeTag';
 
-export const LotViewRows = ({ mappingList }) => {
+export const LotViewRows = ({ mappingList, actions }) => {
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                     No lot mapping data available.
                 </td>
             </tr>
@@ -47,9 +48,22 @@ export const LotViewRows = ({ mappingList }) => {
                 if (renderLotCells) isFirstBatchInLot = false;
                 if (renderBatchCells) isFirstAllocInBatch = false;
 
+                // Data baris alokasi untuk aksi (edit qty, Force Close, riwayat)
+                const allocation = {
+                    allocation_id: alloc.allocation_id,
+                    status: alloc.allocation_status,
+                    allocated_qty: alloc.allocated_qty,
+                    po_number: alloc.po_number,
+                    po_product_code: alloc.po_product_code,
+                    lot_number: lotGroup.lot_number,
+                    batch_number: batchItem.batch_number,
+                    product_code: batchItem.product_code,
+                    product_name: batchItem.product_name
+                };
+
                 return (
-                    <tr 
-                        key={`${lotGroup.lot_number}-${batchItem.batch_number}-${batchItem.product_code}-${alloc.allocation_id || aIdx}`} 
+                    <tr
+                        key={`${lotGroup.lot_number}-${batchItem.batch_number}-${batchItem.product_code}-${alloc.allocation_id || aIdx}`}
                         style={{ borderBottom: '1px solid #dee2e6' }}
                     >
                         {/* LEVEL 1: Lot Number (Rowspan seluruh Lot) */}
@@ -62,23 +76,19 @@ export const LotViewRows = ({ mappingList }) => {
                         {/* LEVEL 2: Batch, Product, Completed Date, Exp Date (Rowspan per Batch/Produk) */}
                         {renderBatchCells && (
                             <>
-                                {/* 2. Batch Number */}
                                 <td rowSpan={batchRowSpan} style={{ ...cellStyle, fontWeight: '600', whiteSpace: 'nowrap', backgroundColor: '#fcfcfc' }}>
                                     {batchItem.batch_number}
                                 </td>
 
-                                {/* 3. Product (Stacked) */}
                                 <td rowSpan={batchRowSpan} style={{ ...cellStyle, minWidth: '220px', backgroundColor: '#fcfcfc' }}>
                                     <div style={{ fontWeight: 'bold', color: '#212529' }}>{batchItem.product_code}</div>
                                     <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '2px' }}>{batchItem.product_name}</div>
                                 </td>
 
-                                {/* 4. Completed Date */}
                                 <td rowSpan={batchRowSpan} style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px', backgroundColor: '#fcfcfc' }}>
                                     {formatDateTime(batchItem.actual_completed_datetime)}
                                 </td>
 
-                                {/* 5. Exp Date */}
                                 <td rowSpan={batchRowSpan} style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px', backgroundColor: '#fcfcfc' }}>
                                     {formatDate(batchItem.expired_date)}
                                 </td>
@@ -86,23 +96,25 @@ export const LotViewRows = ({ mappingList }) => {
                         )}
 
                         {/* LEVEL 3: PO Allocations (Baris Child Tersendiri) */}
-                        {/* 6. PO Number */}
                         <td style={{ ...cellStyle, fontWeight: '500', whiteSpace: 'nowrap' }}>
                             {alloc.po_number || '-'}
+                            <CrossCodeTag show={alloc.is_cross_code} caption="PO product" productCode={alloc.po_product_code} />
                         </td>
 
-                        {/* 7. Allocated Qty */}
                         <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                             {formatQty(alloc.allocated_qty)}
                         </td>
 
-                        {/* 8. Allocation Status */}
                         <td style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap' }}>
                             {alloc.allocation_status && alloc.allocation_status !== '-' ? (
                                 <span style={getStatusStyle(alloc.allocation_status)}>
                                     {alloc.allocation_status}
                                 </span>
                             ) : '-'}
+                        </td>
+
+                        <td style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <AllocationActions allocation={allocation} {...actions} />
                         </td>
                     </tr>
                 );

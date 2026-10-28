@@ -1,6 +1,4 @@
-import React from 'react';
-
-const ViewModeSwitcher = ({ viewMode, onViewModeChange, currentUserRole }) => {
+const ViewModeSwitcher = ({ viewMode, onViewModeChange }) => {
     const isPoMode = viewMode === 'PO' || viewMode === 'BY_PO';
     const isBatchMode = viewMode === 'BATCH' || viewMode === 'BY_BATCH';
     const isLotMode = viewMode === 'LOT' || viewMode === 'BY_LOT';
@@ -39,24 +37,20 @@ const ViewModeSwitcher = ({ viewMode, onViewModeChange, currentUserRole }) => {
                     PO Number
                 </button>
 
-                {currentUserRole !== 'CUSTOMER' && (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => onViewModeChange('BATCH')}
-                            style={buttonStyle(isBatchMode)}
-                        >
-                            Batch Number
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => onViewModeChange('LOT')}
-                            style={buttonStyle(isLotMode)}
-                        >
-                            Lot Number
-                        </button>
-                    </>
-                )}
+                <button
+                    type="button"
+                    onClick={() => onViewModeChange('BATCH')}
+                    style={buttonStyle(isBatchMode)}
+                >
+                    Batch Number
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onViewModeChange('LOT')}
+                    style={buttonStyle(isLotMode)}
+                >
+                    Lot Number
+                </button>
             </div>
         </div>
     );

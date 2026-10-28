@@ -17,6 +17,7 @@ const ProductionLotPage = ({ currentUser }) => {
             <AllocatedLotTable
                 currentUser={currentUser}
                 reloadTrigger={reloadTrigger}
+                onRefreshAll={handleTriggerReload}
             />
         </div>
     );

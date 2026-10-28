@@ -1,4 +1,3 @@
-import React from 'react';
 import PaginationControl from '../../common/PaginationControl';
 import SortableHeader from '../../common/SortableHeader';
 import Filter from './Filter';
@@ -6,15 +5,33 @@ import ViewModeSwitcher from './ViewModeSwitcher';
 import PoLotViewRows from './PoLotViewRows';
 import BatchLotViewRows from './BatchLotViewRows';
 import LotViewRows from './LotViewRows';
+import EditAllocationQtyModal from './EditAllocationQtyModal';
+import AllocationHistoryModal from './AllocationHistoryModal';
 
 import useFilter from '../../../hooks/production-lot/allocated-lot/useFilter';
 import useViewModeSwitcher from '../../../hooks/production-lot/allocated-lot/useViewModeSwitcher';
 import useAllocatedLotTable from '../../../hooks/production-lot/allocated-lot/useAllocatedLotTable';
+import useEditAllocationQty from '../../../hooks/production-lot/allocated-lot/useEditAllocationQty';
+import useForceCloseAllocation from '../../../hooks/production-lot/allocated-lot/useForceCloseAllocation';
+import useAllocationHistory from '../../../hooks/production-lot/allocated-lot/useAllocationHistory';
 
-const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
-    const modeSwitcher = useViewModeSwitcher(currentUser?.role);
+const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
+    const modeSwitcher = useViewModeSwitcher();
     const filter = useFilter();
     const tableData = useAllocatedLotTable(currentUser, reloadTrigger, filter, modeSwitcher.viewMode);
+
+    // Setelah edit qty / Force Close, muat ulang lewat pemicu halaman (atau langsung bila tidak ada)
+    const refreshAfterAction = onRefreshAll || tableData.refreshData;
+    const editQty = useEditAllocationQty(refreshAfterAction);
+    const forceClose = useForceCloseAllocation(refreshAfterAction);
+    const history = useAllocationHistory();
+
+    const actions = {
+        busy: editQty.loading || forceClose.closing,
+        onEditQty: editQty.handleOpen,
+        onForceClose: forceClose.handleForceClose,
+        onHistory: history.handleOpen
+    };
 
     const isPo = modeSwitcher.viewMode === 'PO' || modeSwitcher.viewMode === 'BY_PO';
     const isBatch = modeSwitcher.viewMode === 'BATCH' || modeSwitcher.viewMode === 'BY_BATCH';
@@ -60,7 +77,6 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
                 <ViewModeSwitcher
                     viewMode={modeSwitcher.viewMode}
                     onViewModeChange={modeSwitcher.handleViewModeChange}
-                    currentUserRole={currentUser?.role}
                 />
 
                 <div style={{ overflowX: 'auto' }}>
@@ -73,18 +89,15 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
                                         <SortableHeader label="PO Created Date" sortKey="po_created_date" currentSortKey={tableData.sortKey} currentSortOrder={tableData.sortOrder} onSort={tableData.handleSort} align="center" />
                                         <th style={{ padding: '12px 14px' }}>Product</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>PO Qty</th>
-                                        {currentUser?.role !== 'CUSTOMER' && (
-                                            <>
-                                                <th style={{ padding: '12px 14px' }}>Batch No</th>
-                                                <th style={{ padding: '12px 14px' }}>Lot No</th>
-                                                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
-                                                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty</th>
-                                            </>
-                                        )}
+                                        <th style={{ padding: '12px 14px' }}>Batch No</th>
+                                        <th style={{ padding: '12px 14px' }}>Lot No</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Remaining</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>%</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Action</th>
                                     </>
                                 )}
 
@@ -99,6 +112,7 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
                                         <th style={{ padding: '12px 14px' }}>PO Number</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Allocation Status</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Action</th>
                                     </>
                                 )}
 
@@ -112,6 +126,7 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
                                         <th style={{ padding: '12px 14px' }}>PO Number</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Allocation Status</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Action</th>
                                     </>
                                 )}
                             </tr>
@@ -120,20 +135,20 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
                             {isPo && (
                                 <PoLotViewRows
                                     mappingList={tableData.mappingList}
-                                    currentUserRole={currentUser?.role}
                                     poTolerance={tableData.poTolerance}
+                                    actions={actions}
                                 />
                             )}
                             {isBatch && (
                                 <BatchLotViewRows
                                     mappingList={tableData.mappingList}
-                                    currentUserRole={currentUser?.role}
+                                    actions={actions}
                                 />
                             )}
                             {isLot && (
                                 <LotViewRows
                                     mappingList={tableData.mappingList}
-                                    currentUserRole={currentUser?.role}
+                                    actions={actions}
                                 />
                             )}
                         </tbody>
@@ -149,6 +164,26 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger }) => {
                     }}
                 />
             </div>
+
+            <EditAllocationQtyModal
+                isOpen={editQty.isOpen}
+                onClose={editQty.handleClose}
+                allocation={editQty.selectedAllocation}
+                onSubmit={editQty.handleSave}
+                loading={editQty.loading}
+            />
+
+            <AllocationHistoryModal
+                isOpen={history.isOpen}
+                onClose={history.handleClose}
+                allocation={history.selectedAllocation}
+                logs={history.logs}
+                loading={history.loading}
+                error={history.error}
+                pagination={history.pagination}
+                onPageChange={history.handlePageChange}
+                onLimitChange={history.handleLimitChange}
+            />
         </div>
     );
 };
