@@ -4,6 +4,8 @@
  * Kapasitas alokasi sebuah pasangan (lot, batch): produksi bersih dikurangi alokasi PO lain.
  * Produksi bersih = completion dikurangi return dari baris upload yang tersimpan
  * (production_lot_upload_details). qty_pac tersimpan positif; jenis transaksi menentukan tandanya.
+ * Produk yang dipakai adalah produk LOT (bukan produk PO): alokasi lewat pemetaan kode produk boleh
+ * berasal dari lot berkode lain.
  */
 
 const { ALLOCATION_STATUS, TRANS_TYPE } = require('./lotAllocationRules');
@@ -24,12 +26,14 @@ const getNetProducedQty = async (connection, { batchNumber, lotNumber, itemCode 
  * @returns {Promise<{ netProduced: number, otherAllocated: number, available: number }>}
  *   available = qty maksimum untuk alokasi yang sedang diedit (tidak pernah negatif)
  */
-const getLotBatchCapacity = async (connection, { lotId, batchId, productId, excludeAllocationId }) => {
+const getLotBatchCapacity = async (connection, { lotId, batchId, excludeAllocationId }) => {
     const [[names]] = await connection.query(
         `SELECT l.lot_number, b.batch_number, p.product_code
-         FROM lots l, batches b, products p
-         WHERE l.id = ? AND b.id = ? AND p.id_product = ?`,
-        [lotId, batchId, productId]
+         FROM lots l
+         JOIN products p ON p.id_product = l.id_product
+         CROSS JOIN batches b
+         WHERE l.id = ? AND b.id = ?`,
+        [lotId, batchId]
     );
     if (!names) return { netProduced: 0, otherAllocated: 0, available: 0 };
 

@@ -51,7 +51,7 @@ const makeConn = (over = {}) => {
             if (/FROM po_details d WHERE d.po_detail_id = \?/.test(s)) return [[st.detail]];
             if (/FROM po_lot_allocations WHERE po_detail_id = \? ORDER BY id FOR UPDATE/.test(s)) return [st.siblings];
             if (/FROM po_headers WHERE po_header_id/.test(s)) return [[st.header]];
-            if (/FROM lots l, batches b, products p/.test(s)) return [[{ lot_number: 'L1', batch_number: 'B1', product_code: 'P1' }]];
+            if (/FROM lots l JOIN products p ON p.id_product = l.id_product CROSS JOIN batches b/.test(s)) return [[{ lot_number: 'L1', batch_number: 'B1', product_code: 'P1' }]];
             if (/FROM production_lot_upload_details/.test(s)) return [[{ net_qty: st.net }]];
             if (/WHERE lot_id = \? AND id_batch = \? AND id <> \?/.test(s)) return [[{ total: st.others }]];
             return [{}];

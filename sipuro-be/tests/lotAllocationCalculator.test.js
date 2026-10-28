@@ -258,3 +258,93 @@ test('campuran: desimal tak terdaftar diabaikan, desimal terdaftar tetap ditolak
 test('baris tanpa penanda qtyIsWhole dianggap bulat (kompatibel)', () => {
     assert.doesNotThrow(() => run([row()], [po(1)]));
 });
+
+// ---------- pemetaan kode produk: alokasi lintas kode ----------
+
+const MAP12 = { productMappings: [{ id_product_old: 1, id_product_new: 2 }] };
+const poP2 = (id, over = {}) => po(id, { id_product: 2, product_code: 'P2', product_name: 'Prod 2', ...over });
+
+test('tanpa pemetaan: produksi P1 tanpa PO P1 tetap Unallocated (perilaku lama)', () => {
+    const r = run([row()], [poP2(1)]);
+    assert.equal(r.previewResults.length, 0);
+    assert.equal(r.unallocatedRows[0].reason, REASONS.NO_MATCHING_PO);
+});
+
+test('pemetaan: produksi kode lama dialokasikan ke PO kode baru; lot tetap milik produk produksi', () => {
+    const r = run([row()], [poP2(1)], MAP12);
+    assert.equal(r.previewResults.length, 1);
+    const d = r.detailedAllocations[0];
+    assert.deepEqual([d.poDetailId, d.addedQty, d.productCode, d.idProduct, d.poProductCode, d.viaMapping], [1, 50, 'P1', 1, 'P2', true]);
+    const a = r.previewResults[0].allocations[0];
+    assert.deepEqual([a.poProductCode, a.viaMapping], ['P2', true]);
+    assert.equal(r.previewResults[0].idProduct, 1);
+    assert.equal(r.canSave, true);
+});
+
+test('pemetaan dua arah: produksi kode baru dialokasikan ke PO kode lama', () => {
+    const r = run([row({ itemCode: 'P2' })], [po(1)], MAP12);
+    assert.equal(r.previewResults.length, 1);
+    assert.deepEqual([r.detailedAllocations[0].poDetailId, r.detailedAllocations[0].poProductCode, r.detailedAllocations[0].viaMapping], [1, 'P1', true]);
+});
+
+test('PO berkode sama didahulukan walau PO produk setara lebih tua; tidak ada penanda mapping', () => {
+    const r = run([row()], [poP2(1, { created_at: '2026-01-01 08:00:00' }), po(2, { created_at: '2026-01-05 08:00:00' })], MAP12);
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.viaMapping]), [[2, false]]);
+});
+
+test('kapasitas PO sendiri kurang: gabungan PO sekeluarga FIFO (yang tertua dahulu), semua-atau-tidak', () => {
+    const rows = [row({ rawAllocationQty: 100 })];
+    const r = run(rows, [poP2(1, { base_qty: 70, created_at: '2026-01-01 08:00:00' }), po(2, { base_qty: 60, created_at: '2026-01-02 08:00:00' })], MAP12);
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.addedQty, x.viaMapping]), [[1, 70, true], [2, 30, false]]);
+
+    const short = run([row({ rawAllocationQty: 200 })], [poP2(1, { base_qty: 70 }), po(2, { base_qty: 60 })], MAP12);
+    assert.equal(short.previewResults.length, 0);
+    assert.equal(short.unallocatedRows[0].reason, REASONS.EXCEEDS_CAPACITY);
+});
+
+test('gagal di keluarga juga: alasan asli dipertahankan dan kapasitas PO tidak terpakai', () => {
+    const rows = [row({ rawAllocationQty: 500 }), row({ itemCode: 'P2', batchNumber: 'B9', lotNumber: 'L9', rawAllocationQty: 40 })];
+    const r = run(rows, [poP2(1, { base_qty: 100 })], MAP12);
+    // grup P1 (500) tidak muat di keluarga: tetap Unallocated dengan alasan asli (tidak ada PO P1)
+    assert.equal(r.unallocatedRows[0].reason, REASONS.NO_MATCHING_PO);
+    // kapasitas PO P2 tidak berkurang oleh upaya yang gagal: grup P2 (40) mendapat PO itu dari 0
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.addedQty, x.viaMapping]), [[1, 40, false]]);
+    assert.equal(r.detailedAllocations[0].fulfilledQty, 40);
+    assert.equal(r.previewResults[0].allocations[0].previousFulfilledQty, 0);
+});
+
+test('filter tanggal tetap berlaku pada PO produk setara', () => {
+    const r = run([row({ actualCompletedDatetime: '2026-02-01 10:00:00' })], [poP2(1, { created_at: '2026-03-01 08:00:00' })], MAP12);
+    assert.equal(r.previewResults.length, 0);
+    assert.equal(r.unallocatedRows[0].reason, REASONS.NO_MATCHING_PO);
+});
+
+test('PO produk setara yang tidak aktif tidak dipakai', () => {
+    const r = run([row()], [poP2(1, { detail_status: 'Close Requested' })], MAP12);
+    // Close Requested pada produk lain (bukan produk di file) tidak memblokir upload, hanya tidak dipakai
+    assert.equal(r.previewResults.length, 0);
+});
+
+test('produk tidak sekeluarga tidak dipakai walau ada pemetaan lain', () => {
+    const r = run([row({ itemCode: 'P1' })], [po(1, { id_product: 3, product_code: 'P3' })], { productMappings: [{ id_product_old: 1, id_product_new: 2 }] });
+    assert.equal(r.previewResults.length, 0);
+});
+
+test('retur kode lama mengurangi alokasi lot pada PO kode baru (lintas kode)', () => {
+    const ctx = {
+        existingLots: [{ id: 7, lot_number: 'L1', id_product: 1 }],
+        existingBatches: [{ id: 9, batch_number: 'B1', id_product: 1 }],
+        existingAllocations: [{ po_detail_id: 1, lot_id: 7, id_batch: 9, allocated_qty: 60, status: 'Open' }],
+        ...MAP12
+    };
+    const r = run([row({ rawAllocationQty: -25 })], [poP2(1, { fulfilled_qty: 60 })], ctx);
+    assert.equal(r.previewResults.length, 1);
+    assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.addedQty, x.poProductCode, x.viaMapping]), [[1, -25, 'P2', true]]);
+    assert.equal(r.detailedAllocations[0].fulfilledQty, 35);
+});
+
+test('sidik jari berubah bila PO tujuan berubah (pemetaan memengaruhi hasil)', () => {
+    const withMap = run([row({ rowHash: 'fx' })], [poP2(1)], MAP12);
+    const without = run([row({ rowHash: 'fx' })], [poP2(1)]);
+    assert.notEqual(computeAllocationFingerprint(withMap), computeAllocationFingerprint(without));
+});

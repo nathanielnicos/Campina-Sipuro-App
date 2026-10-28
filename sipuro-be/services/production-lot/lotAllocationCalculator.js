@@ -9,7 +9,9 @@
  *    (plus dan minus dijumlahkan) harus teralokasi PENUH (boleh dipecah ke beberapa PO), 
  *    kalau tidak seluruh baris grup menjadi Unallocated.
  *  - Urutan grup: completed datetime ASC, batch number ASC, lot number ASC, urutan kemunculan di file.
- *  - Total bersih positif: FIFO berdasarkan po_headers.created_at (lalu po_detail_id).
+ *  - Total bersih positif: FIFO berdasarkan po_headers.created_at (lalu po_detail_id). PO berkode sama dahulu;
+ *    hanya bila grup akan menjadi Unallocated, dicoba PO seluruh produk sekeluarga (pemetaan kode produk),
+ *    tetap FIFO dan semua-atau-tidak.
  *  - Total bersih negatif: mengurangi alokasi (lot, batch) yang sama yang sudah ada, PO TERBARU lebih dulu.
  *  - Filter tanggal PO berlaku untuk mencocokkan completed date lot terhadap po_headers.created_at.
  *  - Grup tanpa nomor batch, tanpa nomor lot, atau tanpa tanggal selesai tidak dialokasikan
@@ -17,6 +19,7 @@
  */
 const crypto = require('crypto');
 const { BusinessError } = require('../../helpers/businessError');
+const { buildFamilyIndex } = require('../product-code-mapping/productFamilies');
 const {
     ALLOCATION_STATUS,
     PO_DETAIL_STATUS,
@@ -87,6 +90,7 @@ const calculateLotFifoAllocation = (
 
     const productByCode = new Map();
     allProducts.forEach((p) => productByCode.set(p.product_code, p));
+    const families = buildFamilyIndex(context.productMappings || []);
 
     // 0. Blokir jika produk di file memiliki po_details dengan status 'Close Requested'
     const codesInFile = new Set();
@@ -290,23 +294,39 @@ const calculateLotFifoAllocation = (
 
         if (group.totalQty > 0) {
             // ---------- PLUS: alokasi FIFO ----------
-            const candidates = [...poStates.values()]
-                .filter((po) => po.productCode === group.itemCode)
-                .filter((po) => passesDateFilter(po, completedDate))
-                .filter((po) => {
-                    if (!hasStoredPair) return true;
-                    const existing = allocByKey.get(allocationKey(po.poDetailId, lotDbId, batchDbId));
-                    return !existing || ELIGIBLE_ALLOCATION_STATUSES.includes(existing.status);
-                })
-                .sort(cmpFifo);
+            // Rencana alokasi untuk satu himpunan PO; tidak mengubah state sebelum berhasil.
+            const planPlus = (poFilter) => {
+                const candidates = [...poStates.values()]
+                    .filter(poFilter)
+                    .filter((po) => passesDateFilter(po, completedDate))
+                    .filter((po) => {
+                        if (!hasStoredPair) return true;
+                        const existing = allocByKey.get(allocationKey(po.poDetailId, lotDbId, batchDbId));
+                        return !existing || ELIGIBLE_ALLOCATION_STATUSES.includes(existing.status);
+                    })
+                    .sort(cmpFifo);
 
-            if (candidates.length === 0) return fail(REASONS.NO_MATCHING_PO);
+                if (candidates.length === 0) return { reason: REASONS.NO_MATCHING_PO };
 
-            const withCapacity = candidates.filter((po) => po.baseQty - po.currentFulfilledQty > 0);
-            const totalCapacity = withCapacity.reduce((sum, po) => sum + (po.baseQty - po.currentFulfilledQty), 0);
+                const withCapacity = candidates.filter((po) => po.baseQty - po.currentFulfilledQty > 0);
+                const totalCapacity = withCapacity.reduce((sum, po) => sum + (po.baseQty - po.currentFulfilledQty), 0);
 
-            // Aturan: Jika kapasitas total tidak mencukupi, seluruh baris grup masuk unallocated (tidak diparuh paksa)
-            if (totalCapacity < group.totalQty) return fail(REASONS.EXCEEDS_CAPACITY);
+                // Aturan: Jika kapasitas total tidak mencukupi, seluruh baris grup masuk unallocated (tidak diparuh paksa)
+                if (totalCapacity < group.totalQty) return { reason: REASONS.EXCEEDS_CAPACITY };
+                return { withCapacity };
+            };
+
+            let plan = planPlus((po) => po.productCode === group.itemCode);
+            if (plan.reason) {
+                // Sebelum Unallocated: coba PO produk setara menurut pemetaan kode produk
+                const family = families.familyOf(product.id_product);
+                if (family.length > 1) {
+                    const familyPlan = planPlus((po) => family.includes(Number(po.idProduct)));
+                    if (!familyPlan.reason) plan = familyPlan;
+                }
+            }
+            if (plan.reason) return fail(plan.reason);
+            const { withCapacity } = plan;
 
             let remaining = group.totalQty;
             const allocations = [];
@@ -342,8 +362,8 @@ const calculateLotFifoAllocation = (
         if (eligibleEntries.length === 0) return fail(REASONS.NO_EXISTING_ALLOCATION);
 
         const withActivePo = eligibleEntries.filter((e) => {
-            const po = poStates.get(e.poDetailId);
-            return po && po.productCode === group.itemCode;
+            // Lot sudah menentukan produknya; PO boleh berkode lain (alokasi lewat pemetaan kode produk)
+            return Boolean(poStates.get(e.poDetailId));
         });
         if (withActivePo.length === 0) return fail(REASONS.PO_NOT_ACTIVE);
 
@@ -395,6 +415,8 @@ const calculateLotFifoAllocation = (
                 productCode: group.itemCode,
                 idProduct: product.id_product,
                 productName: product.product_name,
+                poProductCode: po.productCode,
+                viaMapping: po.productCode !== group.itemCode,
                 fulfilledQty: next,
                 addedQty: delta,
                 rowStatus: status,
@@ -406,6 +428,8 @@ const calculateLotFifoAllocation = (
             return {
                 poDetailId: po.poDetailId,
                 poNumber: po.poNumber,
+                poProductCode: po.productCode,
+                viaMapping: po.productCode !== group.itemCode,
                 poQty: po.baseQty,
                 previousFulfilledQty: previous,
                 addedQty: delta,

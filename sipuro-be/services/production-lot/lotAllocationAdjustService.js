@@ -148,7 +148,6 @@ const adjustAllocationQty = async (connection, { allocationId, newQty, reason, u
     const capacity = await getLotBatchCapacity(connection, {
         lotId: allocation.lot_id,
         batchId: allocation.id_batch,
-        productId: detail.id_product,
         excludeAllocationId: allocation.id
     });
     if (newQty > capacity.available) {
