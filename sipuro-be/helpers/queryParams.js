@@ -14,6 +14,15 @@ const parsePositiveInt = (value, fallback) => {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+// ID dari path/body: bilangan bulat positif (teks digit atau angka); selain itu BusinessError 400.
+const parseIdParam = (raw, label) => {
+    const id = Number(raw);
+    if (!/^\d+$/.test(String(raw)) || !Number.isSafeInteger(id) || id <= 0) {
+        throw new BusinessError(`A valid ${label} is required.`, 400);
+    }
+    return id;
+};
+
 // Halaman dan batas per halaman; limit tidak boleh melebihi maxLimit.
 const parsePageParams = (query = {}, { defaultLimit = 10, maxLimit = 100 } = {}) => {
     const page = parsePositiveInt(query.page, 1);
@@ -39,4 +48,4 @@ const parseDateParam = (value, label) => {
 // Karakter khusus LIKE (% _ \) dianggap teks biasa.
 const escapeLike = (text) => text.replace(/[\\%_]/g, '\\$&');
 
-module.exports = { asText, parsePositiveInt, parsePageParams, parseDateParam, escapeLike };
+module.exports = { asText, parsePositiveInt, parseIdParam, parsePageParams, parseDateParam, escapeLike };

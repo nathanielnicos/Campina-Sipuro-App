@@ -8,6 +8,7 @@
  */
 
 const { BusinessError } = require('../../helpers/businessError');
+const { parseIdParam } = require('../../helpers/queryParams');
 const { NOT_DELETED_SQL } = require('../../helpers/po/openItemRules');
 const { logAllocationUpdate } = require('./lotAllocationLog');
 const { getLotBatchCapacity } = require('./lotProductionTotals');
@@ -32,13 +33,7 @@ const formatThousand = (value) => Number(value).toLocaleString('id-ID');
 
 // ---------- Pembacaan input (murni) ----------
 
-const parseAllocationId = (raw) => {
-    const id = Number(raw);
-    if (!/^\d+$/.test(String(raw)) || !Number.isSafeInteger(id) || id <= 0) {
-        throw new BusinessError('A valid Allocation ID is required.', 400);
-    }
-    return id;
-};
+const parseAllocationId = (raw) => parseIdParam(raw, 'Allocation ID');
 
 const parseReason = (raw) => {
     const reason = typeof raw === 'string' ? raw.trim() : '';

@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { asText, parsePositiveInt, parsePageParams, parseDateParam, escapeLike } = require('../helpers/queryParams');
+const { asText, parsePositiveInt, parseIdParam, parsePageParams, parseDateParam, escapeLike } = require('../helpers/queryParams');
 
 test('asText: hanya teks, dipangkas; selain teks menjadi kosong', () => {
     assert.equal(asText('  abc '), 'abc');
@@ -34,4 +34,12 @@ test('parseDateParam: tanggal kalender yang ada; kosong null; salah 400', () => 
 test('escapeLike: % _ \\ menjadi teks biasa', () => {
     assert.equal(escapeLike('50%_a\\b'), '50\\%\\_a\\\\b');
     assert.equal(escapeLike('abc'), 'abc');
+});
+
+test('parseIdParam: ID bilangan bulat positif dengan pesan berlabel', () => {
+    assert.equal(parseIdParam('15', 'Thing ID'), 15);
+    assert.equal(parseIdParam(15, 'Thing ID'), 15);
+    for (const bad of ['abc', '0', '-1', '1.5', '', undefined, null, '12abc', '9007199254740993', 1.5, {}, []]) {
+        assert.throws(() => parseIdParam(bad, 'Thing ID'), (e) => e.status === 400 && e.message === 'A valid Thing ID is required.', String(bad));
+    }
 });
