@@ -3,7 +3,6 @@ export const NAV_ITEMS = {
     PO: { id: 'po', label: 'Purchase Order', path: '/po' },
     DASHBOARD: { id: 'dashboard', label: 'Dashboard', path: '/dashboard' },
     OUTSTANDING_PO: { id: 'outstanding-po', label: 'Outstanding Purchase Order', path: '/outstanding-po' },
-    PRODUCTION_BATCH: { id: 'production-batch', label: 'Production Batch', path: '/production-batch' },
     PRODUCTION_LOT: { id: 'production-lot', label: 'Production Lot', path: '/production-lot'},
     PRODUCTION_SCHEDULE: { id: 'production-schedule', label: 'Production Schedule', path: '/production-schedule' },
     DO: { id: 'do', label: 'Delivery Order', path: '/do'},
@@ -11,6 +10,7 @@ export const NAV_ITEMS = {
     EMPLOYEES: { id: 'employees', label: 'Employee User', path: '/employees' },
     CUSTOMERS: { id: 'customers', label: 'Customer User', path: '/customers' },
     PRODUCTS: { id: 'products', label: 'Product', path: '/products' },
+    PRODUCT_CODE_MAPPING: { id: 'product-code-mappings', label: 'Product Code Mapping', path: '/product-code-mappings' },
     PRICES: { id: 'prices', label: 'Selling Price', path: '/prices' },
     SETTINGS: { id: 'settings', label: 'Setting', path: '/settings'},
     PROFILE: { id: 'profile', label: 'Profile', path: '/profile' }
@@ -35,6 +35,7 @@ export const getNavItemsByUser = (user) => {
             NAV_ITEMS.EMPLOYEES,
             NAV_ITEMS.CUSTOMERS,
             NAV_ITEMS.PRODUCTS,
+            NAV_ITEMS.PRODUCT_CODE_MAPPING,
             NAV_ITEMS.PRICES,
             NAV_ITEMS.SETTINGS,
             NAV_ITEMS.PROFILE

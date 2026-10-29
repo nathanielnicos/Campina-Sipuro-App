@@ -19,6 +19,7 @@ const STATUS_MAP = {
     'Force Closed': { backgroundColor: '#ffe8cc', color: '#d9480f', border: '1px solid #ffd8a8' },
 
     // Status Detail / Item PO
+    'Inactive': { backgroundColor: '#f1f3f5', color: '#868e96', border: '1px solid #dee2e6' },
     'Active': { backgroundColor: '#e7f5ff', color: '#1971c2', border: '1px solid #a5d8ff' },
     'Close Requested': { backgroundColor: '#fff9db', color: '#f59f00', border: '1px solid #ffe066' },
     'Closed': { backgroundColor: '#ebfbee', color: '#2b8a3e', border: '1px solid #b2f2bb' },

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import POPage from './components/po/page/POPage';
-import BatchPage from './components/batch/page/BatchPage';
 import OutstandingPoPage from './components/outstanding-po/page/OutstandingPoPage';
 import ProductionLotPage from './components/production-lot/page/ProductionLotPage';
 import ProductionSchedulePage from './components/productionSchedule/page/ProductionSchedulePage';
@@ -10,6 +9,7 @@ import Dashboard from './components/dashboard/Dashboard';
 import EmployeeListPage from './components/master/EmployeeListPage';
 import CustomerUserListPage from './components/master/CustomerUserListPage';
 import ProductListPage from './components/master/ProductListPage';
+import ProductCodeMappingPage from './components/master/product-code-mapping/ProductCodeMappingPage';
 import PriceListPage from './components/master/PriceListPage';
 import SettingPage from './components/master/SettingPage';
 
@@ -143,7 +143,6 @@ function MainApp() {
           />
         } />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/production-batch" element={<BatchPage user={user} />} />
         <Route path="/outstanding-po" element={<OutstandingPoPage currentUser={user} />} />
         <Route path="/production-lot" element={<ProductionLotPage currentUser={user} />} />
         <Route path="/production-schedule" element={<ProductionSchedulePage />} />
@@ -154,6 +153,7 @@ function MainApp() {
         <Route path="/employees" element={<EmployeeListPage />} />
         <Route path="/customers" element={<CustomerUserListPage />} />
         <Route path="/products" element={<ProductListPage />} />
+        <Route path="/product-code-mappings" element={<ProductCodeMappingPage />} />
         <Route path="/prices" element={<PriceListPage />} />
         <Route path="/settings" element={<SettingPage />} />
 
