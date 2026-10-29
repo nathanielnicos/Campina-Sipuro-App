@@ -3,8 +3,8 @@ const { parseProductionExcel } = require('../../../services/production-lot/lotUp
 const { calculateLotFifoAllocation, computeAllocationFingerprint } = require('../../../services/production-lot/lotAllocationCalculator');
 const { loadProductionLotContext } = require('../../../services/production-lot/lotContextLoader');
 const { commitProductionAllocationTransaction } = require('../../../services/production-lot/lotCommitService');
-const { runInLockedTransaction } = require('../../../services/production-lot/lotLockedTransaction');
-const { parseActorId, assertActorExists } = require('../../../services/production-lot/lotActor');
+const { runInLockedTransaction } = require('../../../helpers/lockedTransaction');
+const { parseActorId, assertActorExists } = require('../../../helpers/actorHelper');
 const { BusinessError, sendControllerError } = require('../../../helpers/businessError');
 
 const BUSY_MESSAGE = 'Another production lot upload is being saved. Please try again in a moment.';

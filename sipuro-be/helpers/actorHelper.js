@@ -5,7 +5,7 @@
  * Selalu dari token login; userId dari body request diabaikan.
  */
 
-const { BusinessError } = require('../../helpers/businessError');
+const { BusinessError } = require('./businessError');
 
 const parseActorId = (req) => {
     const userId = Number.parseInt(req && req.user && req.user.id, 10);

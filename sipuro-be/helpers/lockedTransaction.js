@@ -9,8 +9,8 @@
  * Gagal: ROLLBACK, lock dan koneksi selalu dilepas, error asli dilempar ulang.
  */
 
-const { BusinessError } = require('../../helpers/businessError');
-const { COMMIT_LOCK_NAME, COMMIT_LOCK_TIMEOUT_SECONDS } = require('../../helpers/uploadConfig');
+const { BusinessError } = require('./businessError');
+const { COMMIT_LOCK_NAME, COMMIT_LOCK_TIMEOUT_SECONDS } = require('./uploadConfig');
 
 const DEFAULT_BUSY_MESSAGE = 'Another allocation change is being saved. Please try again in a moment.';
 

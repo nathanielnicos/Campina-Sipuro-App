@@ -49,8 +49,8 @@ const EXPECTED_EXPORTS = {
     'services/production-lot/lotAllocationRules': ['allocatedQtySql', 'allocationKey', 'lotBatchKey', 'lotKey'],
     'helpers/arrayUtils': ['chunk'],
     'helpers/excelDate': ['toExcelDate'],
-    'services/production-lot/lotLockedTransaction': ['runInLockedTransaction'],
-    'services/production-lot/lotActor': ['parseActorId', 'assertActorExists'],
+    'helpers/lockedTransaction': ['runInLockedTransaction'],
+    'helpers/actorHelper': ['parseActorId', 'assertActorExists'],
     'services/production-lot/lotProductionTotals': ['getNetProducedQty', 'getLotBatchCapacity'],
     'services/production-lot/lotAllocationAdjustService': ['parseAllocationId', 'parseReason', 'parseNewQty', 'adjustAllocationQty', 'forceCloseAllocation'],
     'services/production-lot/lotExportQuery': ['fetchExportData'],
@@ -76,7 +76,10 @@ const REMOVED_PATHS = [
     'controllers/batch',
     'helpers/batchHelper.js',
     'helpers/poBatchAllocationLogHelper.js',
-    'helpers/upload-production'
+    'helpers/upload-production',
+    // Dipindah ke helpers (dipakai juga di luar modul lot)
+    'services/production-lot/lotActor.js',
+    'services/production-lot/lotLockedTransaction.js'
 ];
 
 for (const [modulePath, names] of Object.entries(EXPECTED_EXPORTS)) {

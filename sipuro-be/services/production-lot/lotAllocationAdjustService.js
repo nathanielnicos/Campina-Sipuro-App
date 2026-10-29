@@ -2,7 +2,7 @@
 
 /**
  * Perubahan manual pada satu alokasi (item PO, lot, batch): ubah qty dan Force Close.
- * Semua fungsi berjalan di dalam transaksi ber-lock (lotLockedTransaction); alasan wajib dan dicatat di riwayat.
+ * Semua fungsi berjalan di dalam transaksi ber-lock (helpers/lockedTransaction); alasan wajib dan dicatat di riwayat.
  *
  * Urutan penguncian baris sama dengan commit upload: po_details dahulu, baru po_lot_allocations.
  */

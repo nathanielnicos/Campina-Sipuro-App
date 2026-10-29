@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseActorId, assertActorExists } = require('../services/production-lot/lotActor');
+const { parseActorId, assertActorExists } = require('../helpers/actorHelper');
 
 test('pelaku diambil dari token, bukan dari body', () => {
     assert.equal(parseActorId({ user: { id: 7 }, body: { userId: 99 } }), 7);

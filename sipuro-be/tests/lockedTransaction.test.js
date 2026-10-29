@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { runInLockedTransaction } = require('../services/production-lot/lotLockedTransaction');
+const { runInLockedTransaction } = require('../helpers/lockedTransaction');
 const { COMMIT_LOCK_NAME, COMMIT_LOCK_TIMEOUT_SECONDS } = require('../helpers/uploadConfig');
 
 const makeDb = ({ acquired = 1, getConnectionError = null, commitError = null } = {}) => {
