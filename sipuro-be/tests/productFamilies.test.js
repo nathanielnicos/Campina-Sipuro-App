@@ -58,3 +58,24 @@ test('keluarga besar dengan jalur panjang tetap benar (kompresi jalur)', () => {
     assert.equal(f.familyOf(100).length, 200);
     assert.equal(f.sameFamily(1, 200), true);
 });
+
+test('ancestorsOf: kode lama menurut arah, bertingkat, tanpa diri sendiri', () => {
+    const chain = buildFamilyIndex([pair(1, 2), pair(2, 3)]);
+    assert.deepEqual(chain.ancestorsOf(3), [1, 2]);
+    assert.deepEqual(chain.ancestorsOf(2), [1]);
+    assert.deepEqual(chain.ancestorsOf(1), []);
+});
+
+test('ancestorsOf: banyak kode lama satu pengganti; produk tanpa pemetaan kosong; saudara bukan leluhur', () => {
+    const f = buildFamilyIndex([pair(1, 3), pair(2, 3)]);
+    assert.deepEqual(f.ancestorsOf(3), [1, 2]);
+    assert.deepEqual(f.ancestorsOf(1), []);
+    assert.deepEqual(f.ancestorsOf(99), []);
+    assert.deepEqual(buildFamilyIndex().ancestorsOf(1), []);
+});
+
+test('ancestorsOf: aman terhadap siklus data yang salah', () => {
+    const f = buildFamilyIndex([pair(1, 2), pair(2, 1)]);
+    assert.deepEqual(f.ancestorsOf(1), [2]);
+    assert.deepEqual(f.ancestorsOf(2), [1]);
+});

@@ -8,8 +8,11 @@
 
 /**
  * @param {Array<{id_product_old:number, id_product_new:number}>} pairs
- * @returns {{ familyOf: (idProduct:number) => number[], sameFamily: (a:number, b:number) => boolean }}
+ * @returns {{ familyOf: (idProduct:number) => number[], sameFamily: (a:number, b:number) => boolean,
+ *   ancestorsOf: (idProduct:number) => number[] }}
  *   familyOf: anggota keluarga (urut naik, termasuk produk itu sendiri); produk tanpa pemetaan = [id].
+ *   ancestorsOf: seluruh kode LAMA produk itu menurut arah pemetaan (lama -> baru), bertingkat:
+ *   pada A->B->C, leluhur C adalah [A, B]. Tidak termasuk produk itu sendiri; urut naik.
  */
 const buildFamilyIndex = (pairs = []) => {
     const parent = new Map();
@@ -32,7 +35,14 @@ const buildFamilyIndex = (pairs = []) => {
         if (ra !== rb) parent.set(ra, rb);
     };
 
-    pairs.forEach((p) => union(Number(p.id_product_old), Number(p.id_product_new)));
+    const oldsOf = new Map();
+    pairs.forEach((p) => {
+        const oldId = Number(p.id_product_old);
+        const newId = Number(p.id_product_new);
+        union(oldId, newId);
+        if (!oldsOf.has(newId)) oldsOf.set(newId, new Set());
+        oldsOf.get(newId).add(oldId);
+    });
 
     const membersByRoot = new Map();
     [...parent.keys()].forEach((id) => {
@@ -49,7 +59,23 @@ const buildFamilyIndex = (pairs = []) => {
     };
     const sameFamily = (a, b) => Number(a) === Number(b) || familyOf(a).includes(Number(b));
 
-    return { familyOf, sameFamily };
+    const ancestorsOf = (idProduct) => {
+        const start = Number(idProduct);
+        const seen = new Set();
+        const stack = [start];
+        while (stack.length > 0) {
+            const current = stack.pop();
+            (oldsOf.get(current) || []).forEach((oldId) => {
+                if (oldId !== start && !seen.has(oldId)) {
+                    seen.add(oldId);
+                    stack.push(oldId);
+                }
+            });
+        }
+        return [...seen].sort((a, b) => a - b);
+    };
+
+    return { familyOf, sameFamily, ancestorsOf };
 };
 
 module.exports = { buildFamilyIndex };

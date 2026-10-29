@@ -9,9 +9,10 @@
  *    (plus dan minus dijumlahkan) harus teralokasi PENUH (boleh dipecah ke beberapa PO), 
  *    kalau tidak seluruh baris grup menjadi Unallocated.
  *  - Urutan grup: completed datetime ASC, batch number ASC, lot number ASC, urutan kemunculan di file.
- *  - Total bersih positif: FIFO berdasarkan po_headers.created_at (lalu po_detail_id). PO berkode sama dahulu;
- *    hanya bila grup akan menjadi Unallocated, dicoba PO produk sekeluarga (pemetaan kode produk) yang AKTIF
- *    (produk nonaktif di keluarga dilewati), tetap FIFO dan semua-atau-tidak.
+ *  - Total bersih positif: FIFO berdasarkan po_headers.created_at (lalu po_detail_id), semua-atau-tidak.
+ *    Urutan prioritas PO: (1) PO kode LAMA produk itu menurut pemetaan (leluhur bertingkat, produknya boleh
+ *    nonaktif selama PO-nya aktif dan terbuka), (2) PO berkode sama. Bila gabungan keduanya belum cukup,
+ *    dicoba juga PO produk sekeluarga lainnya yang AKTIF (nonaktif dilewati); leluhur tetap didahulukan.
  *  - Total bersih negatif: mengurangi alokasi (lot, batch) yang sama yang sudah ada, PO TERBARU lebih dulu.
  *  - Filter tanggal PO berlaku untuk mencocokkan completed date lot terhadap po_headers.created_at.
  *  - Grup tanpa nomor batch, tanpa nomor lot, atau tanpa tanggal selesai tidak dialokasikan
@@ -295,38 +296,44 @@ const calculateLotFifoAllocation = (
 
         if (group.totalQty > 0) {
             // ---------- PLUS: alokasi FIFO ----------
+            const ancestorIds = new Set(families.ancestorsOf(product.id_product));
+            const isAncestorPo = (po) => ancestorIds.has(Number(po.idProduct));
+            const capacityOf = (list) => list.reduce((sum, po) => sum + Math.max(po.baseQty - po.currentFulfilledQty, 0), 0);
+
             // Rencana alokasi untuk satu himpunan PO; tidak mengubah state sebelum berhasil.
+            // PO kode lama (leluhur) selalu didahulukan, lalu FIFO.
             const planPlus = (poFilter) => {
-                const candidates = [...poStates.values()]
+                const eligible = [...poStates.values()]
                     .filter(poFilter)
-                    .filter((po) => passesDateFilter(po, completedDate))
                     .filter((po) => {
                         if (!hasStoredPair) return true;
                         const existing = allocByKey.get(allocationKey(po.poDetailId, lotDbId, batchDbId));
                         return !existing || ELIGIBLE_ALLOCATION_STATUSES.includes(existing.status);
-                    })
-                    .sort(cmpFifo);
+                    });
+                if (eligible.length === 0) return { reason: REASONS.NO_MATCHING_PO };
 
-                if (candidates.length === 0) return { reason: REASONS.NO_MATCHING_PO };
-
-                const withCapacity = candidates.filter((po) => po.baseQty - po.currentFulfilledQty > 0);
-                const totalCapacity = withCapacity.reduce((sum, po) => sum + (po.baseQty - po.currentFulfilledQty), 0);
+                const candidates = eligible
+                    .filter((po) => passesDateFilter(po, completedDate))
+                    .sort((a, b) => (isAncestorPo(b) - isAncestorPo(a)) || cmpFifo(a, b));
 
                 // Aturan: Jika kapasitas total tidak mencukupi, seluruh baris grup masuk unallocated (tidak diparuh paksa)
-                if (totalCapacity < group.totalQty) return { reason: REASONS.EXCEEDS_CAPACITY };
-                return { withCapacity };
+                if (capacityOf(candidates) < group.totalQty) {
+                    // Cukup bila PO yang lebih baru dari tanggal produksi ikut dihitung: penyebabnya tanggal.
+                    return { reason: capacityOf(eligible) >= group.totalQty ? REASONS.DATE_BEFORE_PO : REASONS.EXCEEDS_CAPACITY };
+                }
+                return { withCapacity: candidates.filter((po) => po.baseQty - po.currentFulfilledQty > 0) };
             };
 
-            let plan = planPlus((po) => po.productCode === group.itemCode);
+            // 1) PO kode lama + PO kode sendiri (kode lama dahulu)
+            let plan = planPlus((po) => po.productCode === group.itemCode || isAncestorPo(po));
             if (plan.reason) {
-                // Sebelum Unallocated: coba PO produk setara menurut pemetaan kode produk
-                // Produk lain di keluarga hanya jadi tujuan bila aktif; PO produk sendiri sudah dicoba di atas
-                // dan tetap ikut sebagai bagian gabungan FIFO.
+                // 2) Sebelum Unallocated: tambahkan PO produk sekeluarga lainnya yang AKTIF.
+                // Alasan yang dilaporkan berasal dari pencarian terluas yang dicoba.
                 const family = families.familyOf(product.id_product);
                 if (family.length > 1) {
-                    const familyPlan = planPlus((po) => po.productCode === group.itemCode
+                    plan = planPlus((po) => po.productCode === group.itemCode
+                        || isAncestorPo(po)
                         || (family.includes(Number(po.idProduct)) && activeProductIds.has(Number(po.idProduct))));
-                    if (!familyPlan.reason) plan = familyPlan;
                 }
             }
             if (plan.reason) return fail(plan.reason);
