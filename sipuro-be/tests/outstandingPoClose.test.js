@@ -34,7 +34,7 @@ Module._load = function patchedLoad(request) {
             logPODetails: async (_conn, id, logs) => { world.events.push('logDetails'); world.detailLogs.push({ id, logs }); }
         };
     }
-    if (request.endsWith('/batchHelper')) {
+    if (request.endsWith('/services/production-lot/lotStatusService')) {
         return { refreshPOStatus: async (_conn, id) => { world.events.push('sync'); world.syncCalls.push(id); } };
     }
     return originalLoad.apply(this, arguments);

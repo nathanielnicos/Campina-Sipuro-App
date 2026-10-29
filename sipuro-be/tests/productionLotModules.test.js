@@ -70,7 +70,13 @@ const REMOVED_PATHS = [
     'controllers/production-lot/import/productionLotCommitController.js',
     'helpers/upload-production-lot',
     'helpers/lotBatchHelper.js',
-    'helpers/poLotAllocationLogHelper.js'
+    'helpers/poLotAllocationLogHelper.js',
+    // Modul Batch lama (digantikan Production Lot)
+    'routes/batchRoutes.js',
+    'controllers/batch',
+    'helpers/batchHelper.js',
+    'helpers/poBatchAllocationLogHelper.js',
+    'helpers/upload-production'
 ];
 
 for (const [modulePath, names] of Object.entries(EXPECTED_EXPORTS)) {

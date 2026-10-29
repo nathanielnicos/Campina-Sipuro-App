@@ -3,12 +3,12 @@
 /**
  * Satu-satunya titik sambung modul Outstanding PO ke perhitungan status header PO.
  *
- * Saat ini menunjuk ke refreshPOStatus (helpers/batchHelper.js), yang membaca po_batch_allocations.
- * Ketika upload produksi dirombak ke po_lot_allocations, cukup fungsi ini yang diganti;
+ * Menunjuk ke refreshPOStatus modul Production Lot (services/production-lot/lotStatusService.js),
+ * yang membaca po_lot_allocations. Bila perhitungan status berubah lagi, cukup fungsi ini yang diganti;
  * controller Outstanding PO tidak perlu diubah.
  */
 
-const { refreshPOStatus } = require('../batchHelper');
+const { refreshPOStatus } = require('../../services/production-lot/lotStatusService');
 
 const syncHeaderStatus = (connection, poHeaderId) => refreshPOStatus(connection, poHeaderId);
 

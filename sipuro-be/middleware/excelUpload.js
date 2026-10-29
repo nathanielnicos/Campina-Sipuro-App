@@ -1,11 +1,6 @@
 const multer = require('multer');
 const { MAX_UPLOAD_FILE_BYTES } = require('../helpers/uploadConfig');
 
-/**
- * Shared Excel upload middleware (single file, field name "file", .xlsx / .xls only).
- * Extracted from routes/batchRoutes.js so Production upload and Document Flow upload behave the same.
- * Upload errors are returned as clear JSON.
- */
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_UPLOAD_FILE_BYTES, files: 1 },
