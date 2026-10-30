@@ -1,4 +1,4 @@
-const ViewModeSwitcher = ({ viewMode, onViewModeChange }) => {
+const ViewModeSwitcher = ({ viewMode, onViewModeChange, detailLevel = 'SUMMARY', onDetailLevelChange }) => {
     const isPoMode = viewMode === 'PO' || viewMode === 'BY_PO';
     const isBatchMode = viewMode === 'BATCH' || viewMode === 'BY_BATCH';
     const isLotMode = viewMode === 'LOT' || viewMode === 'BY_LOT';
@@ -16,6 +16,7 @@ const ViewModeSwitcher = ({ viewMode, onViewModeChange }) => {
     });
 
     return (
+        <>
         <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -53,6 +54,29 @@ const ViewModeSwitcher = ({ viewMode, onViewModeChange }) => {
                 </button>
             </div>
         </div>
+
+        {/* Tingkat detail: hanya untuk By PO dan By Batch (By Lot memang per lot) */}
+        {!isLotMode && onDetailLevelChange && (
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 16px',
+                borderBottom: '1px solid #dee2e6',
+                backgroundColor: '#fff'
+            }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#6c757d' }}>Detail Level:</span>
+                <div role="group" aria-label="Detail level" style={{ display: 'flex', backgroundColor: '#e9ecef', borderRadius: '6px', padding: '3px', gap: '2px' }}>
+                    <button type="button" onClick={() => onDetailLevelChange('SUMMARY')} style={buttonStyle(detailLevel === 'SUMMARY')}>
+                        Summary
+                    </button>
+                    <button type="button" onClick={() => onDetailLevelChange('LOT')} style={buttonStyle(detailLevel === 'LOT')}>
+                        Per Lot
+                    </button>
+                </div>
+            </div>
+        )}
+        </>
     );
 };
 

@@ -48,7 +48,7 @@ export const LotViewRows = ({ mappingList, actions }) => {
                 if (renderLotCells) isFirstBatchInLot = false;
                 if (renderBatchCells) isFirstAllocInBatch = false;
 
-                // Data baris alokasi untuk aksi (edit qty, Force Close, riwayat)
+                // Data baris alokasi untuk aksi (edit qty, riwayat)
                 const allocation = {
                     allocation_id: alloc.allocation_id,
                     status: alloc.allocation_status,

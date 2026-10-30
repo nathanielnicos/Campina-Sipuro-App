@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { formatQty } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/dateHelper';
 import { getStatusStyle } from '../../../utils/statusHelper';
@@ -44,11 +44,15 @@ const ValidDataTab = ({ previewResults = [] }) => {
                     const entry = map.get(key);
                     entry.productionOutput += Number(item.totalQtyOutput) || 0;
                     entry.finalQty += Number(item.totalQtyOutput) || 0;
+                    if (item.actualCompletedDatetime && (!entry.maxCompletedDate || item.actualCompletedDatetime > entry.maxCompletedDate)) {
+                        entry.maxCompletedDate = item.actualCompletedDatetime;
+                    }
                 }
             } else {
                 allocList.forEach((alloc) => {
                     const poNum = alloc.poNumber || '-';
-                    const key = `${batchNo}_${poNum}`;
+                    // Satu PO bisa punya beberapa item (produk), jadi dikelompokkan per item PO, bukan per nomor PO
+                    const key = `${batchNo}_${alloc.poDetailId !== undefined ? alloc.poDetailId : poNum}`;
 
                     if (!map.has(key)) {
                         map.set(key, {
@@ -57,6 +61,8 @@ const ValidDataTab = ({ previewResults = [] }) => {
                             productCode: item.productCode || '',
                             productName: item.productName || '',
                             poNumber: poNum,
+                            viaMapping: alloc.viaMapping,
+                            poProductCode: alloc.poProductCode,
                             poQty: Number(alloc.poQty) || 0,
                             // Qty awal PO sebelum batch ini masuk
                             previousFulfilledQty: Number(alloc.previousFulfilledQty) || 0,
@@ -76,8 +82,11 @@ const ValidDataTab = ({ previewResults = [] }) => {
                         }
                     }
 
-                    // Final Qty = Previous + Total Output batch ini
-                    entry.finalQty = entry.previousFulfilledQty + entry.productionOutput;
+                    // Final Qty = hasil akhir item PO setelah lot terakhir batch ini (sama dengan tab Detail).
+                    // Qty bertambah berurutan, jadi nilai dari alokasi terakhir sudah mencakup semua lot sebelumnya.
+                    entry.finalQty = alloc.newFulfilledQty !== undefined
+                        ? Number(alloc.newFulfilledQty) || 0
+                        : entry.previousFulfilledQty + entry.productionOutput;
                     entry.status = alloc.status || entry.status;
                 });
             }
@@ -97,9 +106,10 @@ const ValidDataTab = ({ previewResults = [] }) => {
     const [summaryPageSize, setSummaryPageSize] = useState(10);
     const summaryTotalItems = summaryRows.length;
     const summaryTotalPages = Math.ceil(summaryTotalItems / summaryPageSize) || 1;
+    const summaryPage = Math.min(summaryCurrentPage, summaryTotalPages);
     const paginatedSummary = summaryRows.slice(
-        (summaryCurrentPage - 1) * summaryPageSize,
-        summaryCurrentPage * summaryPageSize
+        (summaryPage - 1) * summaryPageSize,
+        summaryPage * summaryPageSize
     );
 
     // ----------------------------------------------------
@@ -109,9 +119,10 @@ const ValidDataTab = ({ previewResults = [] }) => {
     const [mainPageSize, setMainPageSize] = useState(10);
     const mainTotalItems = previewResults.length;
     const mainTotalPages = Math.ceil(mainTotalItems / mainPageSize) || 1;
+    const mainPage = Math.min(mainCurrentPage, mainTotalPages);
     const paginatedResults = previewResults.slice(
-        (mainCurrentPage - 1) * mainPageSize,
-        mainCurrentPage * mainPageSize
+        (mainPage - 1) * mainPageSize,
+        mainPage * mainPageSize
     );
 
     const renderAllocationStatusBadge = (status) => {
@@ -186,7 +197,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                     </tr>
                                 ) : (
                                     paginatedSummary.map((row, idx) => {
-                                        const rowNo = (summaryCurrentPage - 1) * summaryPageSize + idx + 1;
+                                        const rowNo = (summaryPage - 1) * summaryPageSize + idx + 1;
                                         return (
                                             <tr key={`${row.batchNumber}-${row.poNumber}-${idx}`} style={{ borderBottom: '1px solid #dee2e6', verticalAlign: 'top' }}>
                                                 {/* 1. No. */}
@@ -207,7 +218,10 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                                 </td>
 
                                                 {/* 5. PO Number */}
-                                                <td style={{ fontWeight: '500', padding: '8px', whiteSpace: 'nowrap' }}>{row.poNumber}</td>
+                                                <td style={{ fontWeight: '500', padding: '8px', whiteSpace: 'nowrap' }}>
+                                                    {row.poNumber}
+                                                    <CrossCodeTag show={row.viaMapping} caption="PO product" productCode={row.poProductCode} />
+                                                </td>
 
                                                 {/* 6. Previous Fulfilled (Pcs) */}
                                                 <td style={{ textAlign: 'right', color: '#6c757d', padding: '8px' }}>
@@ -248,7 +262,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
 
                     <PaginationControl
                         pagination={{
-                            currentPage: summaryCurrentPage,
+                            currentPage: summaryPage,
                             totalPages: summaryTotalPages,
                             totalItems: summaryTotalItems,
                             limit: summaryPageSize
@@ -288,7 +302,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                     </tr>
                                 ) : (
                                     paginatedResults.map((item, localIdx) => {
-                                        const actualIndex = (mainCurrentPage - 1) * mainPageSize + localIdx;
+                                        const actualIndex = (mainPage - 1) * mainPageSize + localIdx;
 
                                         const rowNo = actualIndex + 1;
                                         const batchNo = item.batchNumber || '-';
@@ -380,7 +394,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
 
                     <PaginationControl
                         pagination={{
-                            currentPage: mainCurrentPage,
+                            currentPage: mainPage,
                             totalPages: mainTotalPages,
                             totalItems: mainTotalItems,
                             limit: mainPageSize

@@ -18,6 +18,7 @@ const MODES = {
         detailOrder: (order) => `h.created_at ${order}, h.po_header_id ASC, d.po_detail_id ASC, b.id ASC, l.actual_completed_datetime ASC, pla.id ASC`,
         select: `h.po_header_id, h.po_number, h.status AS po_header_status, h.created_at AS po_created_date,
                  d.po_detail_id, d.base_qty AS po_base_qty, d.fulfilled_qty AS po_fulfilled_qty,
+                 d.status AS po_item_status, d.close_reason AS po_close_reason,
                  p.id_product, p.product_code, p.product_name,
                  b.id AS batch_id, b.batch_number, b.status AS batch_status,
                  l.id AS lot_id, l.lot_number, l.actual_completed_datetime, l.expired_date,
@@ -77,6 +78,9 @@ const shapeByPo = (rows) => {
                 product_name: row.product_name,
                 po_base_qty: baseQty,
                 po_fulfilled_qty: fulfilledQty,
+                // Status item PO (Active, Close Requested, Closed, Partially Closed) dan alasan close dari Outstanding PO
+                item_status: row.po_item_status || null,
+                close_reason: row.po_close_reason || null,
                 remaining_qty: Math.max(0, baseQty - fulfilledQty),
                 fulfillment_percentage: baseQty > 0 ? Number(((fulfilledQty / baseQty) * 100).toFixed(1)) : 0,
                 batches: new Map()

@@ -98,6 +98,23 @@ test('shapeByPo: PO -> item -> batch -> lot; persentase dan sisa dihitung; angka
     assert.deepEqual(product.batches.map((b) => [b.batch_number, b.lots[0].allocated_qty]), [['B1', 30], ['B2', 40]]);
 });
 
+test('shapeByPo: status item PO dan alasan close ikut dibawa (kosong menjadi null)', () => {
+    const base = { po_header_id: 1, po_number: 'P', po_detail_id: 1, po_base_qty: 10, po_fulfilled_qty: 4, batch_id: 1, lot_id: 1, allocation_id: 1, allocated_qty: 1 };
+    const closed = shapeByPo([{ ...base, po_item_status: 'Partially Closed', po_close_reason: 'Customer cancel' }])[0].products[0];
+    assert.deepEqual([closed.item_status, closed.close_reason], ['Partially Closed', 'Customer cancel']);
+    const none = shapeByPo([base])[0].products[0];
+    assert.deepEqual([none.item_status, none.close_reason], [null, null]);
+});
+
+test('BY_PO: query detail membaca status item dan alasan close; mode lain tidak', async () => {
+    const po = fakeDb([[{ total: 1 }], [{ page_key: 1 }], []]);
+    await fetchMappingPage(po, req({ displayMode: 'BY_PO' }));
+    assert.match(po.calls[2].sql, /d\.status AS po_item_status, d\.close_reason AS po_close_reason/);
+    const batch = fakeDb([[{ total: 1 }], [{ page_key: 1 }], []]);
+    await fetchMappingPage(batch, req({ displayMode: 'BY_BATCH' }));
+    assert.doesNotMatch(batch.calls[2].sql, /po_item_status/);
+});
+
 test('shapeByPo: kelebihan alokasi tidak menghasilkan sisa negatif; qty dasar 0 tidak membagi nol', () => {
     const base = { po_header_id: 1, po_number: 'P', po_detail_id: 1, batch_id: 1, lot_id: 1, allocation_id: 1, allocated_qty: 1 };
     const over = shapeByPo([{ ...base, po_base_qty: 10, po_fulfilled_qty: 12 }])[0].products[0];

@@ -5,6 +5,8 @@ import ViewModeSwitcher from './ViewModeSwitcher';
 import PoLotViewRows from './PoLotViewRows';
 import BatchLotViewRows from './BatchLotViewRows';
 import LotViewRows from './LotViewRows';
+import PoSummaryRows from './PoSummaryRows';
+import BatchSummaryRows from './BatchSummaryRows';
 import EditAllocationQtyModal from './EditAllocationQtyModal';
 import AllocationHistoryModal from './AllocationHistoryModal';
 
@@ -33,6 +35,8 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
     const isPo = modeSwitcher.viewMode === 'PO' || modeSwitcher.viewMode === 'BY_PO';
     const isBatch = modeSwitcher.viewMode === 'BATCH' || modeSwitcher.viewMode === 'BY_BATCH';
     const isLot = modeSwitcher.viewMode === 'LOT' || modeSwitcher.viewMode === 'BY_LOT';
+    // Ringkasan tanpa lot hanya untuk By PO dan By Batch; By Lot selalu per lot
+    const isSummary = !isLot && modeSwitcher.detailLevel === 'SUMMARY';
 
     return (
         <div style={{ position: 'relative', opacity: tableData.loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
@@ -74,13 +78,29 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 <ViewModeSwitcher
                     viewMode={modeSwitcher.viewMode}
                     onViewModeChange={modeSwitcher.handleViewModeChange}
+                    detailLevel={modeSwitcher.detailLevel}
+                    onDetailLevelChange={modeSwitcher.handleDetailLevelChange}
                 />
 
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                {isPo && (
+                                {isPo && isSummary && (
+                                    <>
+                                        <SortableHeader label="PO Number" sortKey="po_number" currentSortKey={tableData.sortKey} currentSortOrder={tableData.sortOrder} onSort={tableData.handleSort} />
+                                        <SortableHeader label="PO Created Date" sortKey="po_created_date" currentSortKey={tableData.sortKey} currentSortOrder={tableData.sortOrder} onSort={tableData.handleSort} align="center" />
+                                        <th style={{ padding: '12px 14px' }}>Product</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>PO Qty</th>
+                                        <th style={{ padding: '12px 14px' }}>Batch No (Qty)</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Remaining</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>%</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status</th>
+                                    </>
+                                )}
+
+                                {isPo && !isSummary && (
                                     <>
                                         <SortableHeader label="PO Number" sortKey="po_number" currentSortKey={tableData.sortKey} currentSortOrder={tableData.sortOrder} onSort={tableData.handleSort} />
                                         <SortableHeader label="PO Created Date" sortKey="po_created_date" currentSortKey={tableData.sortKey} currentSortOrder={tableData.sortOrder} onSort={tableData.handleSort} align="center" />
@@ -98,12 +118,25 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                     </>
                                 )}
 
-                                {isBatch && (
+                                {isBatch && isSummary && (
                                     <>
                                         <th style={{ padding: '12px 14px' }}>Batch Number</th>
                                         <th style={{ padding: '12px 14px' }}>Product</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Completed Date</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Batch Status</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Lots</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Qty</th>
+                                        <th style={{ padding: '12px 14px' }}>PO Allocation (Qty)</th>
+                                    </>
+                                )}
+
+                                {isBatch && !isSummary && (
+                                    <>
+                                        <th style={{ padding: '12px 14px' }}>Batch Number</th>
+                                        <th style={{ padding: '12px 14px' }}>Product</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Completed Date</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Batch Status</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Qty (Batch)</th>
                                         <th style={{ padding: '12px 14px' }}>Lot Number</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
                                         <th style={{ padding: '12px 14px' }}>PO Number</th>
@@ -129,14 +162,23 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {isPo && (
+                            {isPo && isSummary && (
+                                <PoSummaryRows
+                                    mappingList={tableData.mappingList}
+                                    poTolerance={tableData.poTolerance}
+                                />
+                            )}
+                            {isPo && !isSummary && (
                                 <PoLotViewRows
                                     mappingList={tableData.mappingList}
                                     poTolerance={tableData.poTolerance}
                                     actions={actions}
                                 />
                             )}
-                            {isBatch && (
+                            {isBatch && isSummary && (
+                                <BatchSummaryRows mappingList={tableData.mappingList} />
+                            )}
+                            {isBatch && !isSummary && (
                                 <BatchLotViewRows
                                     mappingList={tableData.mappingList}
                                     actions={actions}

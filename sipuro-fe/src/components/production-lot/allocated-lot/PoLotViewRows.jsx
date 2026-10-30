@@ -3,6 +3,7 @@ import { formatQty } from '../../../utils/formatters';
 import { formatDate } from '../../../utils/dateHelper';
 import AllocationActions from './AllocationActions';
 import CrossCodeTag from './CrossCodeTag';
+import { poItemStatusLabel } from '../../../hooks/production-lot/allocated-lot/allocationSummary';
 
 export const PoLotViewRows = ({ mappingList, poTolerance, actions }) => {
     if (!mappingList || mappingList.length === 0) {
@@ -146,8 +147,11 @@ export const PoLotViewRows = ({ mappingList, poTolerance, actions }) => {
                                         </span>
                                     </td>
                                     <td rowSpan={prodRowSpan} style={{ ...cellStyle, textAlign: 'center', backgroundColor: '#fff' }}>
-                                        <span style={getStatusStyle(prodRow.status || (prodRow.remaining_qty === 0 ? 'Closed' : 'Open'))}>
-                                            {prodRow.status || (prodRow.remaining_qty === 0 ? 'Closed' : 'Open')}
+                                        <span
+                                            style={getStatusStyle(poItemStatusLabel(prodRow))}
+                                            title={prodRow.close_reason ? `Close reason: ${prodRow.close_reason}` : undefined}
+                                        >
+                                            {poItemStatusLabel(prodRow)}
                                         </span>
                                     </td>
                                 </>

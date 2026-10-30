@@ -3,12 +3,13 @@ import { formatQty } from '../../../utils/formatters';
 import { formatDate, formatDateTime } from '../../../utils/dateHelper';
 import AllocationActions from './AllocationActions';
 import CrossCodeTag from './CrossCodeTag';
+import { sumAllocatedQty } from '../../../hooks/production-lot/allocated-lot/allocationSummary';
 
 export const BatchLotViewRows = ({ mappingList, actions }) => {
     if (!mappingList || mappingList.length === 0) {
         return (
             <tr>
-                <td colSpan="10" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
+                <td colSpan="11" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
                     No batch lot mapping data available.
                 </td>
             </tr>
@@ -25,6 +26,8 @@ export const BatchLotViewRows = ({ mappingList, actions }) => {
     return mappingList.map((batch) => {
         const lots = Array.isArray(batch.lots) ? batch.lots : [];
         const totalRows = lots.reduce((acc, l) => acc + (l.po_allocations?.length || 1), 0);
+        // Total qty batch = jumlah seluruh alokasi dari semua lot di batch ini (selain Canceled)
+        const batchTotalQty = sumAllocatedQty(lots.flatMap((l) => l.po_allocations || []));
 
         let isFirstBatch = true;
 
@@ -43,7 +46,7 @@ export const BatchLotViewRows = ({ mappingList, actions }) => {
                 if (renderBatchCells) isFirstBatch = false;
                 if (renderLotCells) isFirstLot = false;
 
-                // Data baris alokasi untuk aksi (edit qty, Force Close, riwayat)
+                // Data baris alokasi untuk aksi (edit qty, riwayat)
                 const allocation = {
                     allocation_id: po.allocation_id,
                     status: po.status,
@@ -77,6 +80,10 @@ export const BatchLotViewRows = ({ mappingList, actions }) => {
                                     <span style={getStatusStyle(batch.batch_status)}>
                                         {batch.batch_status}
                                     </span>
+                                </td>
+
+                                <td rowSpan={totalRows} style={{ ...cellStyle, textAlign: 'right', backgroundColor: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                    {formatQty(batchTotalQty)}
                                 </td>
                             </>
                         )}
