@@ -53,6 +53,7 @@ const EXPECTED_EXPORTS = {
     'helpers/actorHelper': ['parseActorId', 'assertActorExists'],
     'services/production-lot/lotProductionTotals': ['getNetProducedQty', 'getLotBatchCapacity'],
     'services/production-lot/lotAllocationAdjustService': ['parseAllocationId', 'parseReason', 'parseNewQty', 'adjustAllocationQty', 'forceCloseAllocation'],
+    'services/production-lot/lotItemCloseService': ['forceCloseOpenAllocations'],
     'services/production-lot/lotExportQuery': ['fetchExportData'],
     'services/production-lot/lotExportWorkbook': ['buildAllocationRows', 'buildPoItemRows', 'buildExportWorkbookBuffer', 'buildExportFileName'],
     'helpers/queryParams': ['asText', 'parsePositiveInt', 'parsePageParams', 'parseDateParam', 'escapeLike'],

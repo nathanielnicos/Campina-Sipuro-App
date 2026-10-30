@@ -6,16 +6,21 @@ const { logPOHeader, logPODetails } = require('../../helpers/poLogHelper');
 const { BusinessError, sendControllerError } = require('../../helpers/businessError');
 const { syncHeaderStatus } = require('../../helpers/outstanding-po/poStatusSync');
 const rules = require('../../helpers/outstanding-po/closeRules');
+const { runInLockedTransaction } = require('../../helpers/lockedTransaction');
+const { forceCloseOpenAllocations } = require('../../services/production-lot/lotItemCloseService');
 
 /**
  * Alur Close PO Item:
  *   Customer: request close  (Active -> Close Requested)
- *   PPIC    : approve        (Close Requested -> Closed / Partially Closed)
+ *   PPIC    : approve        (Close Requested -> Closed / Partially Closed; semua alokasi lot Open
+ *                             pada item itu menjadi Force Closed)
  *   PPIC    : reject         (Close Requested -> Active)
  *
  * Semua pemeriksaan dilakukan SETELAH header dan item dikunci (FOR UPDATE) di dalam transaksi,
  * dan UPDATE selalu disertai syarat status, sehingga dua aksi yang berjalan bersamaan
  * tidak bisa saling menimpa. Pelaku selalu dari token login.
+ * Approve juga mengubah alokasi lot, jadi berjalan di bawah lock bersama upload/edit qty
+ * (helpers/lockedTransaction); lock itu diambil SEBELUM kunci baris agar tidak terjadi deadlock.
  */
 
 const toBusinessError = (error) => {
@@ -26,9 +31,39 @@ const toBusinessError = (error) => {
 };
 
 /**
- * Menjalankan `work` dalam transaksi dengan header PO lalu item terkunci.
- * Urutan kunci selalu header -> item.
+ * Mengunci header PO lalu item (urutan selalu header -> item) dan membaca produknya.
+ * Harus dipanggil di dalam transaksi.
  */
+const lockItem = async (connection, poDetailId) => {
+    const [[ref]] = await connection.query(
+        'SELECT po_header_id FROM sipuro_db.po_details WHERE po_detail_id = ?',
+        [poDetailId]
+    );
+    if (!ref) throw new BusinessError('PO item not found.', 404);
+
+    const [[header]] = await connection.query(
+        `SELECT po_header_id, po_number, customer_id, status
+         FROM sipuro_db.po_headers WHERE po_header_id = ? FOR UPDATE`,
+        [ref.po_header_id]
+    );
+    if (!header) throw new BusinessError('PO item not found.', 404);
+
+    const [[detail]] = await connection.query(
+        `SELECT po_detail_id, po_header_id, id_product, qty, base_qty, fulfilled_qty, total_price, status, deleted_at
+         FROM sipuro_db.po_details WHERE po_detail_id = ? AND po_header_id = ? FOR UPDATE`,
+        [poDetailId, header.po_header_id]
+    );
+    if (!detail || detail.deleted_at) throw new BusinessError('PO item not found.', 404);
+
+    const [[product]] = await connection.query(
+        'SELECT product_code, product_name FROM sipuro_db.products WHERE id_product = ?',
+        [detail.id_product]
+    );
+
+    return { header, detail, product: product || {} };
+};
+
+/** Transaksi biasa (request dan reject: hanya menyentuh header dan item). */
 const withLockedItem = async (poDetailId, work) => {
     const connection = await sipuroDb.getConnection();
     let inTransaction = false;
@@ -36,32 +71,7 @@ const withLockedItem = async (poDetailId, work) => {
         await connection.beginTransaction();
         inTransaction = true;
 
-        const [[ref]] = await connection.query(
-            'SELECT po_header_id FROM sipuro_db.po_details WHERE po_detail_id = ?',
-            [poDetailId]
-        );
-        if (!ref) throw new BusinessError('PO item not found.', 404);
-
-        const [[header]] = await connection.query(
-            `SELECT po_header_id, po_number, customer_id, status
-             FROM sipuro_db.po_headers WHERE po_header_id = ? FOR UPDATE`,
-            [ref.po_header_id]
-        );
-        if (!header) throw new BusinessError('PO item not found.', 404);
-
-        const [[detail]] = await connection.query(
-            `SELECT po_detail_id, po_header_id, id_product, qty, base_qty, fulfilled_qty, total_price, status, deleted_at
-             FROM sipuro_db.po_details WHERE po_detail_id = ? AND po_header_id = ? FOR UPDATE`,
-            [poDetailId, header.po_header_id]
-        );
-        if (!detail || detail.deleted_at) throw new BusinessError('PO item not found.', 404);
-
-        const [[product]] = await connection.query(
-            'SELECT product_code, product_name FROM sipuro_db.products WHERE id_product = ?',
-            [detail.id_product]
-        );
-
-        const outcome = await work({ connection, header, detail, product: product || {} });
+        const outcome = await work({ connection, ...(await lockItem(connection, poDetailId)) });
 
         await connection.commit();
         inTransaction = false;
@@ -79,6 +89,13 @@ const withLockedItem = async (poDetailId, work) => {
         connection.release();
     }
 };
+
+/** Transaksi di bawah lock bersama upload/edit qty (approve: ikut mengubah alokasi lot). */
+const withLockedItemShared = (poDetailId, work) => runInLockedTransaction(
+    sipuroDb,
+    async (connection) => work({ connection, ...(await lockItem(connection, poDetailId)) }),
+    { busyMessage: 'Another allocation change is being saved. Please try again in a moment.' }
+);
 
 const detailLog = (detail, newStatus) => ({
     po_detail_id: detail.po_detail_id,
@@ -157,13 +174,16 @@ exports.requestClose = async (req, res) => {
     }
 };
 
-/** PPIC: setujui penutupan (Closed jika belum ada hasil produksi, Partially Closed jika sudah ada). */
+/**
+ * PPIC: setujui penutupan (Closed jika belum ada hasil produksi, Partially Closed jika sudah ada).
+ * Alokasi lot Open milik item ini menjadi Force Closed.
+ */
 exports.approveClose = async (req, res) => {
     try {
         const poDetailId = rules.parsePoDetailId(req.params.poDetailId);
         const user = req.user;
 
-        const { header, product, targetStatus } = await withLockedItem(poDetailId, async ({ connection, header, detail, product }) => {
+        const { header, product, targetStatus } = await withLockedItemShared(poDetailId, async ({ connection, header, detail, product }) => {
             rules.assertHeaderOpenForDecision(header);
             rules.assertPendingClose(detail);
 
@@ -185,6 +205,9 @@ exports.approveClose = async (req, res) => {
                 actionBy: user.id
             });
             await logPODetails(connection, logId, [detailLog(detail, targetStatus)]);
+
+            // Semua alokasi lot yang masih Open pada item ini ditutup paksa (kalau tidak ada, tidak ada yang berubah).
+            await forceCloseOpenAllocations(connection, { poDetailId: detail.po_detail_id, userId: user.id });
             await syncHeaderStatus(connection, header.po_header_id);
 
             return { header, product, targetStatus };

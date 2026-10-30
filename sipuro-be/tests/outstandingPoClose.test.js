@@ -34,8 +34,16 @@ Module._load = function patchedLoad(request) {
             logPODetails: async (_conn, id, logs) => { world.events.push('logDetails'); world.detailLogs.push({ id, logs }); }
         };
     }
-    if (request.endsWith('/services/production-lot/lotStatusService')) {
-        return { refreshPOStatus: async (_conn, id) => { world.events.push('sync'); world.syncCalls.push(id); } };
+    if (request.endsWith('/lotStatusService')) {
+        return {
+            refreshPOStatus: async (_conn, id) => { world.events.push('sync'); world.syncCalls.push(id); },
+            refreshBatchStatuses: async (_conn, ids) => { world.events.push('refreshBatches'); world.batchRefreshes.push(ids); }
+        };
+    }
+    if (request.endsWith('/lotAllocationLog')) {
+        return {
+            logAllocationUpdate: async (_conn, logs, by) => { world.events.push('logAlloc'); world.allocLogs.push({ logs, by }); }
+        };
     }
     return originalLoad.apply(this, arguments);
 };
@@ -54,6 +62,11 @@ const makeWorld = (overrides = {}) => {
         detailLogs: [],
         notifications: [],
         syncCalls: [],
+        batchRefreshes: [],
+        allocLogs: [],
+        allocUpdates: [],
+        allocations: overrides.allocations || [],
+        lockBusy: Boolean(overrides.lockBusy),
         updateAffected: overrides.updateAffected === undefined ? 1 : overrides.updateAffected,
         failOnUpdate: overrides.failOnUpdate || null,
         header: { po_header_id: 1, po_number: 'PO-1', customer_id: 7, status: 'Approved', ...(overrides.header || {}) },
@@ -70,6 +83,21 @@ const makeWorld = (overrides = {}) => {
         release: () => { w.events.push('release'); },
         query: async (sql, params) => {
             w.queries.push({ sql, params });
+            if (/GET_LOCK/.test(sql)) {
+                w.events.push('getLock');
+                return [[{ acquired: w.lockBusy ? 0 : 1 }]];
+            }
+            if (/RELEASE_LOCK/.test(sql)) { w.events.push('releaseLock'); return [[{}]]; }
+            if (/^SET TRANSACTION ISOLATION LEVEL READ COMMITTED/.test(sql)) { w.events.push('isolation'); return [{}]; }
+            if (/FROM po_lot_allocations\s+WHERE po_detail_id = \?\s+ORDER BY id\s+FOR UPDATE/.test(sql)) {
+                w.events.push('lockAllocs');
+                return [w.allocations];
+            }
+            if (/^\s*UPDATE po_lot_allocations SET status = \?, updated_by = \?/.test(sql)) {
+                w.events.push('allocUpdate');
+                w.allocUpdates.push({ sql, params });
+                return [{ affectedRows: params[2].length }];
+            }
             if (/^SELECT po_header_id FROM sipuro_db\.po_details WHERE po_detail_id = \?/.test(sql)) {
                 w.events.push('ref');
                 return [w.detail ? [{ po_header_id: w.detail.po_header_id }] : []];
@@ -262,8 +290,14 @@ test('approve: belum ada hasil produksi -> Closed, dengan log, sinkron, dan noti
 
     assert.equal(res.statusCode, 200);
     assert.match(res.body.message, /Closed/);
-    assert.deepEqual(world.events, ['begin', 'ref', 'lockHeader', 'lockDetail', 'update', 'logHeader', 'logDetails', 'sync', 'commit', 'release', 'notify']);
+    assert.deepEqual(world.events, [
+        'getLock', 'isolation', 'begin', 'ref', 'lockHeader', 'lockDetail', 'update', 'logHeader', 'logDetails',
+        'lockAllocs', 'sync', 'commit', 'releaseLock', 'release', 'notify'
+    ]);
     assert.deepEqual(world.update.params, ['Closed', 10]);
+    assert.equal(world.allocUpdates.length, 0, 'tanpa alokasi: hanya status item yang berubah');
+    assert.equal(world.allocLogs.length, 0);
+    assert.equal(world.batchRefreshes.length, 0);
     assert.ok(world.update.sql.includes("AND status = 'Close Requested'"), 'UPDATE harus disertai syarat status');
     assert.equal(world.headerLogs[0].actionType, 'APPROVE_CLOSE_ITEM');
     assert.equal(world.headerLogs[0].actionBy, 20);
@@ -340,4 +374,87 @@ test('reject: tanpa pengajuan yang menunggu ditolak 409; aksi yang didahului jug
     assert.equal(res.statusCode, 409);
     assert.ok(!world.events.includes('commit'));
     assert.ok(!world.events.includes('notify'));
+});
+
+/* --------------- APPROVE: alokasi lot Open menjadi Force Closed --------------- */
+
+const alloc = (id, status, qty, batch = 500) => ({
+    id, po_detail_id: 10, lot_id: 900 + id, id_batch: batch, allocated_qty: qty, status
+});
+
+test('approve: semua alokasi Open (termasuk qty 0) menjadi Force Closed dengan riwayat dan refresh batch', async () => {
+    const allocations = [alloc(1, 'Open', 40), alloc(2, 'Open', 0, 501), alloc(3, 'Closed', 10), alloc(4, 'Canceled', 5), alloc(5, 'Force Closed', 7)];
+    const res = await call(approveClose, { user: PPIC }, {
+        detail: { status: 'Close Requested', fulfilled_qty: 57 }, allocations
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(world.update.params, ['Partially Closed', 10]);
+    assert.deepEqual(world.events, [
+        'getLock', 'isolation', 'begin', 'ref', 'lockHeader', 'lockDetail', 'update', 'logHeader', 'logDetails',
+        'lockAllocs', 'allocUpdate', 'logAlloc', 'refreshBatches', 'sync', 'commit', 'releaseLock', 'release', 'notify'
+    ]);
+
+    assert.equal(world.allocUpdates.length, 1);
+    assert.deepEqual(world.allocUpdates[0].params, ['Force Closed', 20, [1, 2], 'Open']);
+
+    const { logs, by } = world.allocLogs[0];
+    assert.equal(by, 20);
+    assert.deepEqual(logs.map((l) => l.allocation_id), [1, 2]);
+    for (const l of logs) {
+        assert.equal(l.old_status, 'Open');
+        assert.equal(l.new_status, 'Force Closed');
+        assert.equal(l.old_allocated_qty, l.new_allocated_qty, 'qty tidak berubah');
+        assert.equal(l.po_detail_id, 10);
+        assert.ok(l.reason && l.reason.length <= 50);
+        assert.equal(l.created_by, 20);
+    }
+    assert.equal(logs[1].new_allocated_qty, 0);
+    assert.deepEqual(world.batchRefreshes, [[500, 501]]);
+});
+
+test('approve: tidak ada alokasi Open -> alokasi tidak diubah, tidak ada riwayat, batch tidak disegarkan', async () => {
+    const res = await call(approveClose, { user: PPIC }, {
+        detail: { status: 'Close Requested', fulfilled_qty: 10 },
+        allocations: [alloc(3, 'Closed', 10), alloc(4, 'Canceled', 5), alloc(5, 'Force Closed', 7)]
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(world.allocUpdates.length, 0);
+    assert.equal(world.allocLogs.length, 0);
+    assert.equal(world.batchRefreshes.length, 0);
+});
+
+test('approve: lock bersama diambil SEBELUM kunci baris; lock sibuk -> 409 tanpa menyentuh data', async () => {
+    const res = await call(approveClose, { user: PPIC }, { detail: { status: 'Close Requested' }, lockBusy: true });
+    assert.equal(res.statusCode, 409);
+    assert.deepEqual(world.events.slice(0, 1), ['getLock']);
+    for (const forbidden of ['begin', 'lockHeader', 'lockDetail', 'update', 'allocUpdate', 'commit', 'notify', 'releaseLock']) {
+        assert.ok(!world.events.includes(forbidden), forbidden);
+    }
+    assert.ok(world.events.includes('release'), 'koneksi tetap dikembalikan');
+});
+
+test('approve: gagal di tengah (aksi lain mendahului) -> alokasi tidak disentuh, rollback, lock dilepas', async () => {
+    const res = await call(approveClose, { user: PPIC }, {
+        detail: { status: 'Close Requested' }, updateAffected: 0, allocations: [alloc(1, 'Open', 40)]
+    });
+    assert.equal(res.statusCode, 409);
+    assert.ok(!world.events.includes('allocUpdate'));
+    assert.ok(!world.events.includes('logAlloc'));
+    assert.ok(world.events.includes('rollback'));
+    assert.ok(world.events.includes('releaseLock'));
+});
+
+test('reject: alokasi lot tidak disentuh dan lock bersama tidak dipakai', async () => {
+    await call(rejectClose, { user: PPIC }, { detail: { status: 'Close Requested' }, allocations: [alloc(1, 'Open', 40)] });
+    for (const forbidden of ['getLock', 'lockAllocs', 'allocUpdate', 'logAlloc', 'refreshBatches']) {
+        assert.ok(!world.events.includes(forbidden), forbidden);
+    }
+});
+
+test('request close: alokasi lot tidak disentuh dan lock bersama tidak dipakai', async () => {
+    await call(requestClose, { user: CUSTOMER, body: { reason: 'x' } }, { allocations: [alloc(1, 'Open', 40)] });
+    for (const forbidden of ['getLock', 'lockAllocs', 'allocUpdate', 'logAlloc', 'refreshBatches']) {
+        assert.ok(!world.events.includes(forbidden), forbidden);
+    }
 });
