@@ -30,7 +30,6 @@ const EXPECTED_EXPORTS = {
     'controllers/production-lot/allocation/lotAllocationLogController': ['getAllocationHistory'],
     'controllers/production-lot/export/lotExportController': ['exportLotMappingExcel'],
     'controllers/production-lot/allocation/lotAllocationQtyController': ['updateAllocationQty'],
-    'controllers/production-lot/allocation/lotAllocationStatusController': ['updateAllocationStatus'],
     'controllers/production-lot/import/lotUploadPreviewController': ['previewExcelUpload'],
     'controllers/production-lot/import/lotUploadCommitController': ['commitExcelAllocation'],
     'services/production-lot/lotUploadParser': ['parseProductionExcel', 'parseExcelDateTime'],
@@ -52,7 +51,7 @@ const EXPECTED_EXPORTS = {
     'helpers/lockedTransaction': ['runInLockedTransaction'],
     'helpers/actorHelper': ['parseActorId', 'assertActorExists'],
     'services/production-lot/lotProductionTotals': ['getNetProducedQty', 'getLotBatchCapacity'],
-    'services/production-lot/lotAllocationAdjustService': ['parseAllocationId', 'parseReason', 'parseNewQty', 'adjustAllocationQty', 'forceCloseAllocation'],
+    'services/production-lot/lotAllocationAdjustService': ['parseAllocationId', 'parseReason', 'parseNewQty', 'adjustAllocationQty'],
     'services/production-lot/lotItemCloseService': ['forceCloseOpenAllocations'],
     'services/production-lot/lotExportQuery': ['fetchExportData'],
     'services/production-lot/lotExportWorkbook': ['buildAllocationRows', 'buildPoItemRows', 'buildExportWorkbookBuffer', 'buildExportFileName'],
@@ -78,6 +77,8 @@ const REMOVED_PATHS = [
     'helpers/batchHelper.js',
     'helpers/poBatchAllocationLogHelper.js',
     'helpers/upload-production',
+    // Force Close per lot diganti alur Close PO Item (Outstanding PO)
+    'controllers/production-lot/allocation/lotAllocationStatusController.js',
     // Dipindah ke helpers (dipakai juga di luar modul lot)
     'services/production-lot/lotActor.js',
     'services/production-lot/lotLockedTransaction.js'

@@ -3,7 +3,6 @@ const router = express.Router();
 const { getAllocatedLotMapping } = require('../controllers/production-lot/allocation/lotMappingListController');
 const { getAllocationHistory } = require('../controllers/production-lot/allocation/lotAllocationLogController');
 const { updateAllocationQty } = require('../controllers/production-lot/allocation/lotAllocationQtyController');
-const { updateAllocationStatus } = require('../controllers/production-lot/allocation/lotAllocationStatusController');
 const { exportLotMappingExcel } = require('../controllers/production-lot/export/lotExportController');
 const { previewExcelUpload } = require('../controllers/production-lot/import/lotUploadPreviewController');
 const { commitExcelAllocation } = require('../controllers/production-lot/import/lotUploadCommitController');
@@ -27,7 +26,6 @@ router.get('/allocations/:allocationId/logs', ppicOnly, getAllocationHistory);
 // 3. RUTE ACTION / MUTASI (POST / PATCH)
 router.post('/upload/preview', ppicOnly, handleExcelUpload, previewExcelUpload);
 router.post('/upload/commit', ppicOnly, handleExcelUpload, commitExcelAllocation);
-router.patch('/allocations/:allocationId/status', ppicOnly, updateAllocationStatus);
 router.patch('/allocations/:allocationId/qty', ppicOnly, updateAllocationQty);
 
 module.exports = router;

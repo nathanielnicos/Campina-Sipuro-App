@@ -1,4 +1,4 @@
-// Status alokasi yang boleh diubah qty-nya (Force Closed dan Canceled tidak). Force Close hanya untuk yang masih Open.
+// Status alokasi yang boleh diubah qty-nya (Force Closed dan Canceled tidak).
 const EDITABLE_STATUSES = ['Open', 'Closed'];
 
 const buttonStyle = (enabled, extra = {}) => ({
@@ -13,13 +13,12 @@ const buttonStyle = (enabled, extra = {}) => ({
     ...extra
 });
 
-const AllocationActions = ({ allocation, busy = false, onEditQty, onHistory, onForceClose }) => {
+const AllocationActions = ({ allocation, busy = false, onEditQty, onHistory }) => {
     if (!allocation || !allocation.allocation_id) {
         return <span style={{ color: '#adb5bd' }}>-</span>;
     }
 
     const canEdit = !busy && EDITABLE_STATUSES.includes(allocation.status);
-    const canForceClose = !busy && allocation.status === 'Open';
     const disabledTitle = busy ? 'Processing...' : `Allocation status is ${allocation.status}`;
 
     return (
@@ -41,26 +40,6 @@ const AllocationActions = ({ allocation, busy = false, onEditQty, onHistory, onF
                 style={buttonStyle(canEdit, { color: canEdit ? '#0d6efd' : '#adb5bd' })}
             >
                 ✏️
-            </button>
-
-            <button
-                type="button"
-                disabled={!canForceClose}
-                onClick={() => canForceClose && onForceClose(allocation)}
-                title={canForceClose ? 'Force Close Allocation' : disabledTitle}
-                style={{
-                    padding: '4px 8px',
-                    backgroundColor: canForceClose ? '#fd7e14' : '#ced4da',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    cursor: canForceClose ? 'pointer' : 'not-allowed',
-                    opacity: canForceClose ? 1 : 0.75
-                }}
-            >
-                {busy ? 'Processing...' : 'Force Close'}
             </button>
         </div>
     );

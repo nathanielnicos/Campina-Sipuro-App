@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Perubahan manual pada satu alokasi (item PO, lot, batch): ubah qty dan Force Close.
+ * Perubahan manual pada satu alokasi (item PO, lot, batch): ubah qty.
  * Semua fungsi berjalan di dalam transaksi ber-lock (helpers/lockedTransaction); alasan wajib dan dicatat di riwayat.
  *
  * Urutan penguncian baris sama dengan commit upload: po_details dahulu, baru po_lot_allocations.
@@ -191,44 +191,6 @@ const adjustAllocationQty = async (connection, { allocationId, newQty, reason, u
     return { allocationId: allocation.id, oldAllocatedQty: oldQty, newAllocatedQty: newQty, status: targetStatus };
 };
 
-/**
- * Force Close: hanya jika total alokasi item PO masih di bawah qty PO.
- */
-const forceCloseAllocation = async (connection, { allocationId, reason, userId }) => {
-    const { detail, allocation, siblings } = await loadLockedAllocation(connection, allocationId);
-
-    const baseQty = Number(detail.base_qty) || 0;
-    if (sumAllocated(siblings) >= baseQty) {
-        throw new BusinessError(
-            'Allocation is already fully fulfilled (>= 100%). It is automatically set to Closed status and cannot be Force Closed.',
-            400
-        );
-    }
-
-    await connection.query(
-        'UPDATE po_lot_allocations SET status = ?, updated_by = ? WHERE id = ?',
-        [ALLOCATION_STATUS.FORCE_CLOSED, userId, allocation.id]
-    );
-
-    await logAllocationUpdate(connection, [{
-        allocation_id: allocation.id,
-        po_detail_id: detail.po_detail_id,
-        lot_id: allocation.lot_id,
-        id_batch: allocation.id_batch,
-        old_allocated_qty: Number(allocation.allocated_qty) || 0,
-        new_allocated_qty: Number(allocation.allocated_qty) || 0,
-        old_status: allocation.status,
-        new_status: ALLOCATION_STATUS.FORCE_CLOSED,
-        reason,
-        created_by: userId
-    }], userId);
-
-    await refreshBatchStatuses(connection, [allocation.id_batch]);
-    await refreshPOStatus(connection, detail.po_header_id);
-
-    return { allocationId: allocation.id, status: ALLOCATION_STATUS.FORCE_CLOSED };
-};
-
 module.exports = {
     REASON_MAX_LENGTH,
     MAX_QTY,
@@ -236,6 +198,5 @@ module.exports = {
     parseAllocationId,
     parseReason,
     parseNewQty,
-    adjustAllocationQty,
-    forceCloseAllocation
+    adjustAllocationQty
 };

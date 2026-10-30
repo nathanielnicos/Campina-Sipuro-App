@@ -71,20 +71,6 @@ export const updateLotAllocationQtyApi = async (allocationId, payload) => {
     }
 };
 
-// Force Close satu alokasi. Alasan wajib (maksimal 50 karakter, divalidasi server).
-export const forceCloseLotAllocationApi = async (allocationId, reason) => {
-    try {
-        const response = await axios.patch(`${BASE_URL}/allocations/${allocationId}/status`, {
-            action: 'FORCE_CLOSE',
-            reason
-        });
-        return response.data;
-    } catch (error) {
-        console.error('Error force closing allocation:', error);
-        return { success: false, message: error.response?.data?.message || 'Failed to force close allocation.' };
-    }
-};
-
 export const fetchLotAllocationLogsApi = async (allocationId, page = 1, limit = 10) => {
     try {
         const response = await axios.get(`${BASE_URL}/allocations/${allocationId}/logs`, {

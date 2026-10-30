@@ -12,7 +12,6 @@ import useFilter from '../../../hooks/production-lot/allocated-lot/useFilter';
 import useViewModeSwitcher from '../../../hooks/production-lot/allocated-lot/useViewModeSwitcher';
 import useAllocatedLotTable from '../../../hooks/production-lot/allocated-lot/useAllocatedLotTable';
 import useEditAllocationQty from '../../../hooks/production-lot/allocated-lot/useEditAllocationQty';
-import useForceCloseAllocation from '../../../hooks/production-lot/allocated-lot/useForceCloseAllocation';
 import useAllocationHistory from '../../../hooks/production-lot/allocated-lot/useAllocationHistory';
 
 const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
@@ -20,16 +19,14 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
     const filter = useFilter();
     const tableData = useAllocatedLotTable(currentUser, reloadTrigger, filter, modeSwitcher.viewMode);
 
-    // Setelah edit qty / Force Close, muat ulang lewat pemicu halaman (atau langsung bila tidak ada)
+    // Setelah edit qty, muat ulang lewat pemicu halaman (atau langsung bila tidak ada)
     const refreshAfterAction = onRefreshAll || tableData.refreshData;
     const editQty = useEditAllocationQty(refreshAfterAction);
-    const forceClose = useForceCloseAllocation(refreshAfterAction);
     const history = useAllocationHistory();
 
     const actions = {
-        busy: editQty.loading || forceClose.closing,
+        busy: editQty.loading,
         onEditQty: editQty.handleOpen,
-        onForceClose: forceClose.handleForceClose,
         onHistory: history.handleOpen
     };
 

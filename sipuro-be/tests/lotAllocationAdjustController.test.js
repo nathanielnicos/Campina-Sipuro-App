@@ -26,7 +26,6 @@ const fakeDb = { getConnection: async () => { getConnectionCalls += 1; return co
 
 const adjustCalls = [];
 let adjustImpl = async () => ({ allocationId: 9, oldAllocatedQty: 1000, newAllocatedQty: 2500, status: 'Open' });
-let closeImpl = async () => ({ allocationId: 9, status: 'Force Closed' });
 
 const originalLoad = Module._load;
 Module._load = function patched(request) {
@@ -39,11 +38,9 @@ const realSvc = require(path.join('..', 'services/production-lot/lotAllocationAd
 const svcPath = require.resolve(path.join('..', 'services/production-lot/lotAllocationAdjustService'));
 require.cache[svcPath].exports = {
     ...realSvc,
-    adjustAllocationQty: async (...a) => { adjustCalls.push(['adjust', ...a]); return adjustImpl(...a); },
-    forceCloseAllocation: async (...a) => { adjustCalls.push(['close', ...a]); return closeImpl(...a); }
+    adjustAllocationQty: async (...a) => { adjustCalls.push(['adjust', ...a]); return adjustImpl(...a); }
 };
 const { updateAllocationQty } = require(path.join('..', 'controllers/production-lot/allocation/lotAllocationQtyController'));
-const { updateAllocationStatus } = require(path.join('..', 'controllers/production-lot/allocation/lotAllocationStatusController'));
 const { BusinessError } = require('../helpers/businessError');
 
 const makeRes = () => {
@@ -57,7 +54,6 @@ const makeReq = (body, over = {}) => ({ params: { allocationId: '9' }, body, use
 test.beforeEach(() => {
     events = []; adjustCalls.length = 0; getConnectionCalls = 0; actorExists = true; lockAcquired = 1;
     adjustImpl = async () => ({ allocationId: 9, oldAllocatedQty: 1000, newAllocatedQty: 2500, status: 'Open' });
-    closeImpl = async () => ({ allocationId: 9, status: 'Force Closed' });
 });
 
 const originalError = console.error;
@@ -138,55 +134,4 @@ test('qty: error bisnis dari layanan diteruskan dengan status-nya dan di-rollbac
     assert.equal(res.code, 500);
     assert.equal(res.body.message, 'Internal server error while updating allocated quantity.');
     assert.ok(!/secret/.test(JSON.stringify(res.body)));
-});
-
-// ---------- force close ----------
-
-test('status: FORCE_CLOSE sukses; pelaku dari token', async () => {
-    const res = makeRes();
-    await updateAllocationStatus(makeReq({ action: 'FORCE_CLOSE', reason: ' Batch dibatalkan ', userId: 999 }), res);
-    assert.equal(res.code, 200);
-    assert.deepEqual(res.body, { success: true, message: 'Allocation status successfully updated to Force Closed.' });
-    assert.deepEqual(adjustCalls[0].slice(2), [{ allocationId: 9, reason: 'Batch dibatalkan', userId: 4 }]);
-    assert.deepEqual(events.map((e) => e[0]).filter((k) => k !== 'query'), ['begin', 'commit', 'release']);
-});
-
-test('status: aksi selain FORCE_CLOSE, alasan kosong/kepanjangan, id salah, tanpa token -> 400 tanpa koneksi', async () => {
-    const reqs = [
-        makeReq({ action: 'CLOSE', reason: 'a' }),
-        makeReq({ reason: 'a' }),
-        makeReq({ action: 'force_close', reason: 'a' }),
-        makeReq({ action: 'FORCE_CLOSE' }),
-        makeReq({ action: 'FORCE_CLOSE', reason: '   ' }),
-        makeReq({ action: 'FORCE_CLOSE', reason: 'a'.repeat(51) }),
-        makeReq({ action: 'FORCE_CLOSE', reason: 'a' }, { params: { allocationId: '0' } }),
-        makeReq({ action: 'FORCE_CLOSE', reason: 'a' }, { user: {} }),
-        makeReq(undefined)
-    ];
-    for (const req of reqs) {
-        const res = makeRes();
-        await updateAllocationStatus(req, res);
-        assert.equal(res.code, 400, JSON.stringify(req.body));
-    }
-    assert.equal(getConnectionCalls, 0);
-    assert.equal(adjustCalls.length, 0);
-});
-
-test('status: pesan aksi tidak valid; error layanan diteruskan; sistem -> 500 generik', async () => {
-    let res = makeRes();
-    await updateAllocationStatus(makeReq({ action: 'X', reason: 'a' }), res);
-    assert.equal(res.body.message, 'Invalid action type. Only "FORCE_CLOSE" action is supported.');
-
-    closeImpl = async () => { throw new BusinessError('Already fulfilled', 400); };
-    res = makeRes();
-    await updateAllocationStatus(makeReq({ action: 'FORCE_CLOSE', reason: 'a' }), res);
-    assert.equal(res.code, 400);
-    assert.equal(res.body.message, 'Already fulfilled');
-    assert.ok(events.some((e) => e[0] === 'rollback'));
-
-    closeImpl = async () => { throw new Error('boom'); };
-    res = makeRes();
-    await updateAllocationStatus(makeReq({ action: 'FORCE_CLOSE', reason: 'a' }), res);
-    assert.equal(res.code, 500);
-    assert.equal(res.body.message, 'Internal server error while updating allocation status.');
 });

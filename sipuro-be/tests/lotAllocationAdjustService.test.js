@@ -188,43 +188,6 @@ test('header Production Completed masih boleh diubah', async () => {
     await assert.doesNotReject(svc.adjustAllocationQty(makeConn({ header: { status: 'Production Completed' } }), ARGS));
 });
 
-// ---------- force close ----------
-
-test('force close: status Force Closed, riwayat dengan alasan, refresh batch dan PO; qty tidak dihitung ulang', async () => {
-    const c = makeConn();
-    const out = await svc.forceCloseAllocation(c, { allocationId: 9, reason: 'Batch dibatalkan', userId: 4 });
-
-    assert.deepEqual(out, { allocationId: 9, status: 'Force Closed' });
-    assert.deepEqual(find(c, /^UPDATE po_lot_allocations SET status/)[0].params, ['Force Closed', 4, 9]);
-    const log = find(c, /po_lot_allocation_logs/)[0].params[0][0];
-    assert.deepEqual([log[1], log[4], log[6], log[7], log[8], log[9], log[10]], [9, 11, 30, 30, 'Open', 'Force Closed', 'Batch dibatalkan']);
-    assert.deepEqual(statusCalls.find((x) => x[0] === 'batches')[1], [11]);
-    assert.deepEqual(statusCalls.find((x) => x[0] === 'po'), ['po', 30]);
-    assert.ok(!statusCalls.some((x) => x[0] === 'recalc' || x[0] === 'sync-status'));
-});
-
-test('force close ditolak bila item PO sudah terpenuhi penuh (>= qty PO)', async () => {
-    const c = makeConn({ siblings: [
-        { id: 9, po_detail_id: 3, lot_id: 5, id_batch: 11, allocated_qty: 60, status: 'Closed' },
-        { id: 10, po_detail_id: 3, lot_id: 6, id_batch: 12, allocated_qty: 40, status: 'Closed' }
-    ] });
-    await assert.rejects(svc.forceCloseAllocation(c, { allocationId: 9, reason: 'x', userId: 4 }), (e) => e.status === 400 && /fully fulfilled/.test(e.message));
-    assert.equal(find(c, /^UPDATE/).length, 0);
-});
-
-test('force close: alokasi Canceled tidak menghitung terpenuhi; keadaan lain sama seperti ubah qty', async () => {
-    const c = makeConn({ siblings: [
-        { id: 9, po_detail_id: 3, lot_id: 5, id_batch: 11, allocated_qty: 30, status: 'Open' },
-        { id: 10, po_detail_id: 3, lot_id: 6, id_batch: 12, allocated_qty: 90, status: 'Canceled' }
-    ] });
-    await assert.doesNotReject(svc.forceCloseAllocation(c, { allocationId: 9, reason: 'x', userId: 4 }));
-
-    const already = makeConn({ siblings: [{ id: 9, po_detail_id: 3, lot_id: 5, id_batch: 11, allocated_qty: 30, status: 'Force Closed' }] });
-    await assert.rejects(svc.forceCloseAllocation(already, { allocationId: 9, reason: 'x', userId: 4 }), (e) => e.status === 409);
-    await assert.rejects(svc.forceCloseAllocation(makeConn({ found: undefined }), { allocationId: 9, reason: 'x', userId: 4 }), (e) => e.status === 404);
-    await assert.rejects(svc.forceCloseAllocation(makeConn({ detail: { po_detail_id: 3, po_header_id: 30, id_product: 2, base_qty: 100, status: 'Close Requested' } }), { allocationId: 9, reason: 'x', userId: 4 }), (e) => e.status === 409);
-});
-
 test('formatThousand: pemisah ribuan gaya Indonesia', () => {
     assert.equal(svc.formatThousand(1234567), '1.234.567');
     assert.equal(svc.formatThousand(0), '0');
