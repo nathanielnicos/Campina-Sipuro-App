@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { formatQty } from '../../../utils/formatters';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import PaginationControl from '../../common/PaginationControl';
@@ -11,10 +11,65 @@ const formatSignedQty = (value) => {
 };
 
 const ValidDataTab = ({ previewResults = [] }) => {
-    // Pagination
+    // Sub-tab view: 'summary' (default) atau 'detail'
+    const [subTab, setSubTab] = useState('summary');
+
+    // ----------------------------------------------------
+    // 1. DATA SUMMARY (Agregasi Batch + PO Reference)
+    // ----------------------------------------------------
+    const summaryRows = useMemo(() => {
+        const map = new Map();
+
+        previewResults.forEach((item) => {
+            const batchNo = item.batchNumber || '-';
+            const allocList = item.allocations && item.allocations.length > 0 ? item.allocations : [];
+
+            if (allocList.length === 0) {
+                const key = `${batchNo}_no_po`;
+                if (!map.has(key)) {
+                    map.set(key, {
+                        batchNumber: batchNo,
+                        poNumber: '-',
+                        totalQty: Number(item.totalQtyOutput) || 0
+                    });
+                } else {
+                    map.get(key).totalQty += Number(item.totalQtyOutput) || 0;
+                }
+            } else {
+                allocList.forEach((alloc) => {
+                    const poNum = alloc.poNumber || '-';
+                    const key = `${batchNo}_${poNum}`;
+
+                    if (!map.has(key)) {
+                        map.set(key, {
+                            batchNumber: batchNo,
+                            poNumber: poNum,
+                            totalQty: 0
+                        });
+                    }
+                    map.get(key).totalQty += Number(alloc.addedQty) || 0;
+                });
+            }
+        });
+
+        return Array.from(map.values());
+    }, [previewResults]);
+
+    // Pagination untuk Summary Tab
+    const [summaryCurrentPage, setSummaryCurrentPage] = useState(1);
+    const [summaryPageSize, setSummaryPageSize] = useState(10);
+    const summaryTotalItems = summaryRows.length;
+    const summaryTotalPages = Math.ceil(summaryTotalItems / summaryPageSize) || 1;
+    const paginatedSummary = summaryRows.slice(
+        (summaryCurrentPage - 1) * summaryPageSize,
+        summaryCurrentPage * summaryPageSize
+    );
+
+    // ----------------------------------------------------
+    // 2. DATA DETAIL (Tampilan Lot-PO Lengkap Lama)
+    // ----------------------------------------------------
     const [mainCurrentPage, setMainCurrentPage] = useState(1);
     const [mainPageSize, setMainPageSize] = useState(10);
-
     const mainTotalItems = previewResults.length;
     const mainTotalPages = Math.ceil(mainTotalItems / mainPageSize) || 1;
     const paginatedResults = previewResults.slice(
@@ -31,136 +86,229 @@ const ValidDataTab = ({ previewResults = [] }) => {
         );
     };
 
+    const tabButtonStyle = (isActive) => ({
+        padding: '6px 16px',
+        border: 'none',
+        borderRadius: '4px',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        backgroundColor: isActive ? '#0d6efd' : '#e9ecef',
+        color: isActive ? '#fff' : '#495057',
+        transition: 'all 0.2s ease'
+    });
+
     return (
-        <div style={{ border: '1px solid #dee2e6', borderRadius: '4px' }}>
-            <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '1px solid #dee2e6' }}>
-                            <th style={{ textAlign: 'center', width: '40px', padding: '8px' }}>No</th>
-                            <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Batch Number</th>
-                            <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Lot Number</th>
-                            <th style={{ textAlign: 'left', minWidth: '180px', padding: '8px' }}>Product</th>
-                            <th style={{ textAlign: 'center', width: '160px', padding: '8px' }}>Actual Date</th>
-                            <th style={{ textAlign: 'left', width: '130px', padding: '8px', whiteSpace: 'nowrap' }}>PO Number</th>
-                            <th style={{ textAlign: 'right', width: '85px', padding: '8px' }}>PO Qty (Pcs)</th>
-                            <th style={{ textAlign: 'right', width: '95px', padding: '8px' }}>Fulfilled Qty (Pcs)</th>
-                            <th style={{ textAlign: 'right', width: '105px', padding: '8px' }}>Production Output (Pcs)</th>
-                            <th style={{ textAlign: 'right', width: '70px', padding: '8px' }}>Percentage</th>
-                            <th style={{ textAlign: 'center', width: '70px', padding: '8px' }}>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {paginatedResults.length === 0 ? (
-                            <tr>
-                                <td colSpan="11" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
-                                    No valid allocated data available to save.
-                                </td>
-                            </tr>
-                        ) : (
-                            paginatedResults.map((item, localIdx) => {
-                                const actualIndex = (mainCurrentPage - 1) * mainPageSize + localIdx;
-
-                                const rowNo = actualIndex + 1;
-                                const batchNo = item.batchNumber || '-';
-                                const lotNo = item.lotNumber || '-';
-                                const prodCode = item.productCode || '';
-                                const prodName = item.productName || '';
-                                const productTitle = prodCode ? `${prodCode}${prodName ? ' - ' + prodName : ''}` : '-';
-
-                                const allocList = (item.allocations && item.allocations.length > 0) ? item.allocations : [];
-                                const rowSpan = allocList.length || 1;
-
-                                // Mengambil format gabungan Completed & Expired dari backend
-                                const formattedActualDate = item.formattedActualDate || '-';
-
-                                if (allocList.length === 0) {
-                                    return (
-                                        <tr key={`${actualIndex}_none`} style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #dee2e6' }}>
-                                            <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', color: '#6c757d' }}>{rowNo}</td>
-                                            <td style={{ fontWeight: 'bold', verticalAlign: 'top', padding: '8px' }}>{batchNo}</td>
-                                            <td style={{ verticalAlign: 'top', padding: '8px' }}>{lotNo}</td>
-                                            <td style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>{productTitle}</td>
-                                            <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'pre-line' }}>
-                                                {formattedActualDate}
-                                            </td>
-                                            <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>-</td>
-                                            <td style={{ textAlign: 'right', padding: '8px' }}>0</td>
-                                            <td style={{ textAlign: 'right', padding: '8px' }}>0</td>
-                                            <td style={{ textAlign: 'right', padding: '8px', color: Number(item.totalQtyOutput) < 0 ? '#dc3545' : 'inherit' }}>{formatSignedQty(item.totalQtyOutput || 0)}</td>
-                                            <td style={{ textAlign: 'right', padding: '8px' }}>0.0%</td>
-                                            <td style={{ textAlign: 'center', padding: '8px' }}>{renderAllocationStatusBadge('Open')}</td>
-                                        </tr>
-                                    );
-                                }
-
-                                return allocList.map((alloc, aIdx) => {
-                                    const poQty = Number(alloc.poQty || 0);
-                                    const previousFulfilled = Number(alloc.previousFulfilledQty || 0);
-                                    const productionOutput = Number(alloc.addedQty || 0);
-                                    const percentage = alloc.fulfillmentPercentage !== undefined ? alloc.fulfillmentPercentage : '0.0';
-                                    const poNum = alloc.poNumber || '-';
-                                    const allocStatus = alloc.status || 'Open';
-
-                                    return (
-                                        <tr key={`${actualIndex}_${aIdx}`} style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #dee2e6' }}>
-                                            {aIdx === 0 && (
-                                                <>
-                                                    <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', color: '#6c757d' }}>
-                                                        {rowNo}
-                                                    </td>
-                                                    <td rowSpan={rowSpan} style={{ fontWeight: 'bold', verticalAlign: 'top', padding: '8px' }}>
-                                                        {batchNo}
-                                                    </td>
-                                                    <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px' }}>
-                                                        {lotNo}
-                                                    </td>
-                                                    <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>
-                                                        {productTitle}
-                                                    </td>
-                                                    <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px' }}>
-                                                        {formattedActualDate}
-                                                    </td>
-                                                </>
-                                            )}
-                                            <td style={{ fontWeight: '500', padding: '8px', whiteSpace: 'nowrap' }}>
-                                                {poNum}
-                                                <CrossCodeTag show={alloc.viaMapping} caption="PO product" productCode={alloc.poProductCode} />
-                                            </td>
-                                            <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '8px' }}>
-                                                {formatQty(poQty)}
-                                            </td>
-                                            <td style={{ textAlign: 'right', color: '#6c757d', padding: '8px' }}>
-                                                {formatQty(previousFulfilled)}
-                                            </td>
-                                            <td style={{ textAlign: 'right', color: productionOutput < 0 ? '#dc3545' : '#198754', fontWeight: 'bold', padding: '8px' }}>
-                                                {formatSignedQty(productionOutput)}
-                                            </td>
-                                            <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '8px' }}>
-                                                {percentage}%
-                                            </td>
-                                            <td style={{ textAlign: 'center', padding: '8px' }}>
-                                                {renderAllocationStatusBadge(allocStatus)}
-                                            </td>
-                                        </tr>
-                                    );
-                                });
-                            })
-                        )}
-                    </tbody>
-                </table>
+        <div>
+            {/* Sub-Tab Switcher (Summary vs Detail) */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#6c757d', marginRight: '4px' }}>
+                    View Format:
+                </span>
+                <button
+                    type="button"
+                    onClick={() => setSubTab('summary')}
+                    style={tabButtonStyle(subTab === 'summary')}
+                >
+                    Summary (Batch - PO)
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setSubTab('detail')}
+                    style={tabButtonStyle(subTab === 'detail')}
+                >
+                    Detail (Lot - PO)
+                </button>
             </div>
 
-            <PaginationControl
-                pagination={{
-                    currentPage: mainCurrentPage,
-                    totalPages: mainTotalPages,
-                    totalItems: mainTotalItems,
-                    limit: mainPageSize
-                }}
-                onPageChange={(p) => setMainCurrentPage(p)}
-                onLimitChange={(l) => { setMainPageSize(l); setMainCurrentPage(1); }}
-            />
+            {/* TAB 1: SUMMARY TABLE (Sesuai Gambar Rangkuman) */}
+            {subTab === 'summary' && (
+                <div style={{ border: '1px solid #dee2e6', borderRadius: '4px', backgroundColor: '#fff' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
+                                    <th style={{ textAlign: 'center', width: '50px', padding: '8px' }}>No</th>
+                                    <th style={{ textAlign: 'left', padding: '8px', minWidth: '180px' }}>Batch</th>
+                                    <th style={{ textAlign: 'right', padding: '8px', width: '180px' }}>Hasil Produksi (pcs)</th>
+                                    <th style={{ textAlign: 'left', padding: '8px', minWidth: '200px' }}>PO Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedSummary.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: '#6c757d' }}>
+                                            No summary data available.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    paginatedSummary.map((row, idx) => {
+                                        const rowNo = (summaryCurrentPage - 1) * summaryPageSize + idx + 1;
+                                        return (
+                                            <tr key={`${row.batchNumber}-${row.poNumber}-${idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
+                                                <td style={{ textAlign: 'center', padding: '8px', color: '#6c757d' }}>{rowNo}</td>
+                                                <td style={{ fontWeight: 'bold', padding: '8px' }}>{row.batchNumber}</td>
+                                                <td style={{
+                                                    textAlign: 'right',
+                                                    padding: '8px',
+                                                    fontWeight: 'bold',
+                                                    color: row.totalQty < 0 ? '#dc3545' : '#198754'
+                                                }}>
+                                                    {formatSignedQty(row.totalQty)}
+                                                </td>
+                                                <td style={{ fontWeight: '500', padding: '8px' }}>{row.poNumber}</td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <PaginationControl
+                        pagination={{
+                            currentPage: summaryCurrentPage,
+                            totalPages: summaryTotalPages,
+                            totalItems: summaryTotalItems,
+                            limit: summaryPageSize
+                        }}
+                        onPageChange={(p) => setSummaryCurrentPage(p)}
+                        onLimitChange={(l) => { setSummaryPageSize(l); setSummaryCurrentPage(1); }}
+                    />
+                </div>
+            )}
+
+            {/* TAB 2: DETAIL TABLE (Tampilan Lengkap Lama - 100% Utuh) */}
+            {subTab === 'detail' && (
+                <div style={{ border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
+                                    <th style={{ textAlign: 'center', width: '40px', padding: '8px' }}>No</th>
+                                    <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Batch Number</th>
+                                    <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Lot Number</th>
+                                    <th style={{ textAlign: 'left', minWidth: '180px', padding: '8px' }}>Product</th>
+                                    <th style={{ textAlign: 'center', width: '160px', padding: '8px' }}>Actual Date</th>
+                                    <th style={{ textAlign: 'left', width: '130px', padding: '8px', whiteSpace: 'nowrap' }}>PO Number</th>
+                                    <th style={{ textAlign: 'right', width: '85px', padding: '8px' }}>PO Qty (Pcs)</th>
+                                    <th style={{ textAlign: 'right', width: '95px', padding: '8px' }}>Fulfilled Qty (Pcs)</th>
+                                    <th style={{ textAlign: 'right', width: '105px', padding: '8px' }}>Production Output (Pcs)</th>
+                                    <th style={{ textAlign: 'right', width: '70px', padding: '8px' }}>Percentage</th>
+                                    <th style={{ textAlign: 'center', width: '70px', padding: '8px' }}>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedResults.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="11" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                            No valid allocated data available to save.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    paginatedResults.map((item, localIdx) => {
+                                        const actualIndex = (mainCurrentPage - 1) * mainPageSize + localIdx;
+
+                                        const rowNo = actualIndex + 1;
+                                        const batchNo = item.batchNumber || '-';
+                                        const lotNo = item.lotNumber || '-';
+                                        const prodCode = item.productCode || '';
+                                        const prodName = item.productName || '';
+                                        const productTitle = prodCode ? `${prodCode}${prodName ? ' - ' + prodName : ''}` : '-';
+
+                                        const allocList = (item.allocations && item.allocations.length > 0) ? item.allocations : [];
+                                        const rowSpan = allocList.length || 1;
+                                        const formattedActualDate = item.formattedActualDate || '-';
+
+                                        if (allocList.length === 0) {
+                                            return (
+                                                <tr key={`${actualIndex}_none`} style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #dee2e6' }}>
+                                                    <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', color: '#6c757d' }}>{rowNo}</td>
+                                                    <td style={{ fontWeight: 'bold', verticalAlign: 'top', padding: '8px' }}>{batchNo}</td>
+                                                    <td style={{ verticalAlign: 'top', padding: '8px' }}>{lotNo}</td>
+                                                    <td style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>{productTitle}</td>
+                                                    <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'pre-line' }}>
+                                                        {formattedActualDate}
+                                                    </td>
+                                                    <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>-</td>
+                                                    <td style={{ textAlign: 'right', padding: '8px' }}>0</td>
+                                                    <td style={{ textAlign: 'right', padding: '8px' }}>0</td>
+                                                    <td style={{ textAlign: 'right', padding: '8px', color: Number(item.totalQtyOutput) < 0 ? '#dc3545' : 'inherit' }}>{formatSignedQty(item.totalQtyOutput || 0)}</td>
+                                                    <td style={{ textAlign: 'right', padding: '8px' }}>0.0%</td>
+                                                    <td style={{ textAlign: 'center', padding: '8px' }}>{renderAllocationStatusBadge('Open')}</td>
+                                                </tr>
+                                            );
+                                        }
+
+                                        return allocList.map((alloc, aIdx) => {
+                                            const poQty = Number(alloc.poQty || 0);
+                                            const previousFulfilled = Number(alloc.previousFulfilledQty || 0);
+                                            const productionOutput = Number(alloc.addedQty || 0);
+                                            const percentage = alloc.fulfillmentPercentage !== undefined ? alloc.fulfillmentPercentage : '0.0';
+                                            const poNum = alloc.poNumber || '-';
+                                            const allocStatus = alloc.status || 'Open';
+
+                                            return (
+                                                <tr key={`${actualIndex}_${aIdx}`} style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #dee2e6' }}>
+                                                    {aIdx === 0 && (
+                                                        <>
+                                                            <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', color: '#6c757d' }}>
+                                                                {rowNo}
+                                                            </td>
+                                                            <td rowSpan={rowSpan} style={{ fontWeight: 'bold', verticalAlign: 'top', padding: '8px' }}>
+                                                                {batchNo}
+                                                            </td>
+                                                            <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px' }}>
+                                                                {lotNo}
+                                                            </td>
+                                                            <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>
+                                                                {productTitle}
+                                                            </td>
+                                                            <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px' }}>
+                                                                {formattedActualDate}
+                                                            </td>
+                                                        </>
+                                                    )}
+                                                    <td style={{ fontWeight: '500', padding: '8px', whiteSpace: 'nowrap' }}>
+                                                        {poNum}
+                                                        <CrossCodeTag show={alloc.viaMapping} caption="PO product" productCode={alloc.poProductCode} />
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '8px' }}>
+                                                        {formatQty(poQty)}
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', color: '#6c757d', padding: '8px' }}>
+                                                        {formatQty(previousFulfilled)}
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', color: productionOutput < 0 ? '#dc3545' : '#198754', fontWeight: 'bold', padding: '8px' }}>
+                                                        {formatSignedQty(productionOutput)}
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '8px' }}>
+                                                        {percentage}%
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', padding: '8px' }}>
+                                                        {renderAllocationStatusBadge(allocStatus)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        });
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <PaginationControl
+                        pagination={{
+                            currentPage: mainCurrentPage,
+                            totalPages: mainTotalPages,
+                            totalItems: mainTotalItems,
+                            limit: mainPageSize
+                        }}
+                        onPageChange={(p) => setMainCurrentPage(p)}
+                        onLimitChange={(l) => { setMainPageSize(l); setMainCurrentPage(1); }}
+                    />
+                </div>
+            )}
         </div>
     );
 };
