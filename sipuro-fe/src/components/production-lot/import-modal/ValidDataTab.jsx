@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { formatQty } from '../../../utils/formatters';
+import { formatDateTime } from '../../../utils/dateHelper';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import PaginationControl from '../../common/PaginationControl';
 import CrossCodeTag from '../allocated-lot/CrossCodeTag';
@@ -15,7 +16,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
     const [subTab, setSubTab] = useState('summary');
 
     // ----------------------------------------------------
-    // 1. DATA SUMMARY (Agregasi Batch + PO Reference)
+    // 1. DATA SUMMARY (Agregasi Batch + PO Reference + Progress Qty)
     // ----------------------------------------------------
     const summaryRows = useMemo(() => {
         const map = new Map();
@@ -29,11 +30,20 @@ const ValidDataTab = ({ previewResults = [] }) => {
                 if (!map.has(key)) {
                     map.set(key, {
                         batchNumber: batchNo,
+                        maxCompletedDate: item.actualCompletedDatetime || null,
+                        productCode: item.productCode || '',
+                        productName: item.productName || '',
                         poNumber: '-',
-                        totalQty: Number(item.totalQtyOutput) || 0
+                        poQty: 0,
+                        previousFulfilledQty: 0,
+                        productionOutput: Number(item.totalQtyOutput) || 0,
+                        finalQty: Number(item.totalQtyOutput) || 0,
+                        status: 'Open'
                     });
                 } else {
-                    map.get(key).totalQty += Number(item.totalQtyOutput) || 0;
+                    const entry = map.get(key);
+                    entry.productionOutput += Number(item.totalQtyOutput) || 0;
+                    entry.finalQty += Number(item.totalQtyOutput) || 0;
                 }
             } else {
                 allocList.forEach((alloc) => {
@@ -43,16 +53,43 @@ const ValidDataTab = ({ previewResults = [] }) => {
                     if (!map.has(key)) {
                         map.set(key, {
                             batchNumber: batchNo,
+                            maxCompletedDate: item.actualCompletedDatetime || null,
+                            productCode: item.productCode || '',
+                            productName: item.productName || '',
                             poNumber: poNum,
-                            totalQty: 0
+                            poQty: Number(alloc.poQty) || 0,
+                            // Qty awal PO sebelum batch ini masuk
+                            previousFulfilledQty: Number(alloc.previousFulfilledQty) || 0,
+                            productionOutput: 0,
+                            finalQty: 0,
+                            status: alloc.status || 'Open'
                         });
                     }
-                    map.get(key).totalQty += Number(alloc.addedQty) || 0;
+
+                    const entry = map.get(key);
+                    entry.productionOutput += Number(alloc.addedQty) || 0;
+
+                    // Mengambil MAX Completed Date & Time dari seluruh lot di batch ini
+                    if (item.actualCompletedDatetime) {
+                        if (!entry.maxCompletedDate || item.actualCompletedDatetime > entry.maxCompletedDate) {
+                            entry.maxCompletedDate = item.actualCompletedDatetime;
+                        }
+                    }
+
+                    // Final Qty = Previous + Total Output batch ini
+                    entry.finalQty = entry.previousFulfilledQty + entry.productionOutput;
+                    entry.status = alloc.status || entry.status;
                 });
             }
         });
 
-        return Array.from(map.values());
+        return Array.from(map.values()).map((row) => {
+            const ratio = row.poQty > 0 ? (row.finalQty / row.poQty) * 100 : 0;
+            return {
+                ...row,
+                percentage: ratio.toFixed(1)
+            };
+        });
     }, [previewResults]);
 
     // Pagination untuk Summary Tab
@@ -66,7 +103,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
     );
 
     // ----------------------------------------------------
-    // 2. DATA DETAIL (Tampilan Lot-PO Lengkap Lama)
+    // 2. DATA DETAIL (Tampilan Detail Lot - PO)
     // ----------------------------------------------------
     const [mainCurrentPage, setMainCurrentPage] = useState(1);
     const [mainPageSize, setMainPageSize] = useState(10);
@@ -100,7 +137,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
 
     return (
         <div>
-            {/* Sub-Tab Switcher (Summary vs Detail) */}
+            {/* Sub-Tab Switcher */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#6c757d', marginRight: '4px' }}>
                     View Format:
@@ -121,23 +158,29 @@ const ValidDataTab = ({ previewResults = [] }) => {
                 </button>
             </div>
 
-            {/* TAB 1: SUMMARY TABLE (Sesuai Gambar Rangkuman) */}
+            {/* TAB 1: SUMMARY TABLE (10 Kolom Lengkap & Rapi) */}
             {subTab === 'summary' && (
                 <div style={{ border: '1px solid #dee2e6', borderRadius: '4px', backgroundColor: '#fff' }}>
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                             <thead>
                                 <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
-                                    <th style={{ textAlign: 'center', width: '50px', padding: '8px' }}>No</th>
-                                    <th style={{ textAlign: 'left', padding: '8px', minWidth: '180px' }}>Batch</th>
-                                    <th style={{ textAlign: 'right', padding: '8px', width: '180px' }}>Hasil Produksi (pcs)</th>
-                                    <th style={{ textAlign: 'left', padding: '8px', minWidth: '200px' }}>PO Reference</th>
+                                    <th style={{ textAlign: 'center', width: '40px', padding: '8px' }}>No.</th>
+                                    <th style={{ textAlign: 'left', width: '100px', padding: '8px' }}>Batch Number</th>
+                                    <th style={{ textAlign: 'center', width: '140px', padding: '8px' }}>Completed Date and Time</th>
+                                    <th style={{ textAlign: 'left', minWidth: '180px', padding: '8px' }}>Product</th>
+                                    <th style={{ textAlign: 'left', width: '130px', padding: '8px', whiteSpace: 'nowrap' }}>PO Number</th>
+                                    <th style={{ textAlign: 'right', width: '110px', padding: '8px' }}>Previous Fulfilled (Pcs)</th>
+                                    <th style={{ textAlign: 'right', width: '110px', padding: '8px' }}>Production Output (Pcs)</th>
+                                    <th style={{ textAlign: 'right', width: '110px', padding: '8px' }}>Final Qty (Pcs)</th>
+                                    <th style={{ textAlign: 'right', width: '70px', padding: '8px' }}>Percentage</th>
+                                    <th style={{ textAlign: 'center', width: '70px', padding: '8px' }}>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {paginatedSummary.length === 0 ? (
                                     <tr>
-                                        <td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: '#6c757d' }}>
+                                        <td colSpan="10" style={{ textAlign: 'center', padding: '24px', color: '#6c757d' }}>
                                             No summary data available.
                                         </td>
                                     </tr>
@@ -145,18 +188,56 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                     paginatedSummary.map((row, idx) => {
                                         const rowNo = (summaryCurrentPage - 1) * summaryPageSize + idx + 1;
                                         return (
-                                            <tr key={`${row.batchNumber}-${row.poNumber}-${idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
+                                            <tr key={`${row.batchNumber}-${row.poNumber}-${idx}`} style={{ borderBottom: '1px solid #dee2e6', verticalAlign: 'top' }}>
+                                                {/* 1. No. */}
                                                 <td style={{ textAlign: 'center', padding: '8px', color: '#6c757d' }}>{rowNo}</td>
-                                                <td style={{ fontWeight: 'bold', padding: '8px' }}>{row.batchNumber}</td>
+
+                                                {/* 2. Batch Number */}
+                                                <td style={{ fontWeight: 'bold', padding: '8px', whiteSpace: 'nowrap' }}>{row.batchNumber}</td>
+
+                                                {/* 3. Completed Date and Time (MAX) */}
+                                                <td style={{ textAlign: 'center', padding: '8px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                                                    {formatDateTime(row.maxCompletedDate)}
+                                                </td>
+
+                                                {/* 4. Product (Stacked: Code on top, Name below) */}
+                                                <td style={{ padding: '8px', minWidth: '180px' }}>
+                                                    <div style={{ fontWeight: 'bold', color: '#212529' }}>{row.productCode}</div>
+                                                    <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '2px' }}>{row.productName}</div>
+                                                </td>
+
+                                                {/* 5. PO Number */}
+                                                <td style={{ fontWeight: '500', padding: '8px', whiteSpace: 'nowrap' }}>{row.poNumber}</td>
+
+                                                {/* 6. Previous Fulfilled (Pcs) */}
+                                                <td style={{ textAlign: 'right', color: '#6c757d', padding: '8px' }}>
+                                                    {formatQty(row.previousFulfilledQty)}
+                                                </td>
+
+                                                {/* 7. Production Output (Pcs) */}
                                                 <td style={{
                                                     textAlign: 'right',
                                                     padding: '8px',
                                                     fontWeight: 'bold',
-                                                    color: row.totalQty < 0 ? '#dc3545' : '#198754'
+                                                    color: row.productionOutput < 0 ? '#dc3545' : '#198754'
                                                 }}>
-                                                    {formatSignedQty(row.totalQty)}
+                                                    {formatSignedQty(row.productionOutput)}
                                                 </td>
-                                                <td style={{ fontWeight: '500', padding: '8px' }}>{row.poNumber}</td>
+
+                                                {/* 8. Final Qty (Pcs) */}
+                                                <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '8px' }}>
+                                                    {formatQty(row.finalQty)}
+                                                </td>
+
+                                                {/* 9. Percentage */}
+                                                <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '8px' }}>
+                                                    {row.percentage}%
+                                                </td>
+
+                                                {/* 10. Status */}
+                                                <td style={{ textAlign: 'center', padding: '8px' }}>
+                                                    {renderAllocationStatusBadge(row.status)}
+                                                </td>
                                             </tr>
                                         );
                                     })
@@ -178,7 +259,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                 </div>
             )}
 
-            {/* TAB 2: DETAIL TABLE (Tampilan Lengkap Lama - 100% Utuh) */}
+            {/* TAB 2: DETAIL TABLE (100% Utuh Tanpa Perubahan) */}
             {subTab === 'detail' && (
                 <div style={{ border: '1px solid #dee2e6', borderRadius: '4px' }}>
                     <div style={{ overflowX: 'auto' }}>
