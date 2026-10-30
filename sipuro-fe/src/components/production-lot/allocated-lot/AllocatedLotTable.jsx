@@ -91,10 +91,12 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                         <SortableHeader label="PO Number" sortKey="po_number" currentSortKey={tableData.sortKey} currentSortOrder={tableData.sortOrder} onSort={tableData.handleSort} />
                                         <SortableHeader label="PO Created Date" sortKey="po_created_date" currentSortKey={tableData.sortKey} currentSortOrder={tableData.sortOrder} onSort={tableData.handleSort} align="center" />
                                         <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>PO Qty</th>
-                                        <th style={{ padding: '12px 14px' }}>Batch No (Qty)</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Remaining</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>PO Qty (Pcs)</th>
+                                        <th style={{ padding: '12px 14px' }}>Batch Number</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Number of Lots</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Batch Qty (Pcs)</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled Qty (Pcs)</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Remaining Qty (Pcs)</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>%</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status</th>
                                     </>
@@ -105,13 +107,13 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                         <SortableHeader label="PO Number" sortKey="po_number" currentSortKey={tableData.sortKey} currentSortOrder={tableData.sortOrder} onSort={tableData.handleSort} />
                                         <SortableHeader label="PO Created Date" sortKey="po_created_date" currentSortKey={tableData.sortKey} currentSortOrder={tableData.sortOrder} onSort={tableData.handleSort} align="center" />
                                         <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>PO Qty</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>PO Qty (Pcs)</th>
                                         <th style={{ padding: '12px 14px' }}>Batch No</th>
                                         <th style={{ padding: '12px 14px' }}>Lot No</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Remaining</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty (Pcs)</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled Qty (Pcs)</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Remaining Qty (Pcs)</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>%</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Status</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Action</th>
@@ -122,11 +124,13 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                     <>
                                         <th style={{ padding: '12px 14px' }}>Batch Number</th>
                                         <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Completed Date</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Completed Date and Time</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Batch Status</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Lots</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Qty</th>
-                                        <th style={{ padding: '12px 14px' }}>PO Allocation (Qty)</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Number of Lots</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Qty (Pcs)</th>
+                                        <th style={{ padding: '12px 14px' }}>PO Number</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Qty (Pcs)</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Allocation Status</th>
                                     </>
                                 )}
 
@@ -134,13 +138,13 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                     <>
                                         <th style={{ padding: '12px 14px' }}>Batch Number</th>
                                         <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Completed Date</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Completed Date and Time</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Batch Status</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Qty (Batch)</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Qty (Pcs)</th>
                                         <th style={{ padding: '12px 14px' }}>Lot Number</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
                                         <th style={{ padding: '12px 14px' }}>PO Number</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty (Pcs)</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Allocation Status</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Action</th>
                                     </>
@@ -151,10 +155,10 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                                         <th style={{ padding: '12px 14px' }}>Lot Number</th>
                                         <th style={{ padding: '12px 14px' }}>Batch Number</th>
                                         <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Completed Date</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Completed Date and Time</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
                                         <th style={{ padding: '12px 14px' }}>PO Number</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty</th>
+                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Allocated Qty (Pcs)</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Allocation Status</th>
                                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Action</th>
                                     </>

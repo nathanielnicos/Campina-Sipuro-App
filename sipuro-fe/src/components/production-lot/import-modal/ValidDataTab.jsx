@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { formatQty } from '../../../utils/formatters';
-import { formatDateTime } from '../../../utils/dateHelper';
+import { formatDate, formatDateTime } from '../../../utils/dateHelper';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import PaginationControl from '../../common/PaginationControl';
 import CrossCodeTag from '../allocated-lot/CrossCodeTag';
@@ -284,7 +284,8 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                     <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Batch Number</th>
                                     <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Lot Number</th>
                                     <th style={{ textAlign: 'left', minWidth: '180px', padding: '8px' }}>Product</th>
-                                    <th style={{ textAlign: 'center', width: '160px', padding: '8px' }}>Actual Date</th>
+                                    <th style={{ textAlign: 'center', width: '140px', padding: '8px' }}>Completed Date and Time</th>
+                                    <th style={{ textAlign: 'center', width: '90px', padding: '8px' }}>Exp Date</th>
                                     <th style={{ textAlign: 'left', width: '130px', padding: '8px', whiteSpace: 'nowrap' }}>PO Number</th>
                                     <th style={{ textAlign: 'right', width: '85px', padding: '8px' }}>PO Qty (Pcs)</th>
                                     <th style={{ textAlign: 'right', width: '95px', padding: '8px' }}>Fulfilled Qty (Pcs)</th>
@@ -296,7 +297,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                             <tbody>
                                 {paginatedResults.length === 0 ? (
                                     <tr>
-                                        <td colSpan="11" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                        <td colSpan="12" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                             No valid allocated data available to save.
                                         </td>
                                     </tr>
@@ -313,7 +314,8 @@ const ValidDataTab = ({ previewResults = [] }) => {
 
                                         const allocList = (item.allocations && item.allocations.length > 0) ? item.allocations : [];
                                         const rowSpan = allocList.length || 1;
-                                        const formattedActualDate = item.formattedActualDate || '-';
+                                        const completedText = item.actualCompletedDatetime ? formatDateTime(item.actualCompletedDatetime) : '-';
+                                        const expiredText = item.expiredDate ? formatDate(item.expiredDate) : '-';
 
                                         if (allocList.length === 0) {
                                             return (
@@ -322,9 +324,8 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                                     <td style={{ fontWeight: 'bold', verticalAlign: 'top', padding: '8px' }}>{batchNo}</td>
                                                     <td style={{ verticalAlign: 'top', padding: '8px' }}>{lotNo}</td>
                                                     <td style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>{productTitle}</td>
-                                                    <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'pre-line' }}>
-                                                        {formattedActualDate}
-                                                    </td>
+                                                    <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'nowrap' }}>{completedText}</td>
+                                                    <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'nowrap' }}>{expiredText}</td>
                                                     <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>-</td>
                                                     <td style={{ textAlign: 'right', padding: '8px' }}>0</td>
                                                     <td style={{ textAlign: 'right', padding: '8px' }}>0</td>
@@ -359,8 +360,11 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                                             <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>
                                                                 {productTitle}
                                                             </td>
-                                                            <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px' }}>
-                                                                {formattedActualDate}
+                                                            <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                                                                {completedText}
+                                                            </td>
+                                                            <td rowSpan={rowSpan} style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                                                                {expiredText}
                                                             </td>
                                                         </>
                                                     )}
