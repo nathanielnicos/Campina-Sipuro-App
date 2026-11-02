@@ -544,3 +544,34 @@ test('cadangan keluarga: PO leluhur dari produk nonaktif tetap ikut dan didahulu
     const r = run([row({ itemCode: 'P2', rawAllocationQty: 100 })], pos, CHAIN, [], p1Off);
     assert.deepEqual(r.detailedAllocations.map((x) => [x.poDetailId, x.addedQty]), [[1, 30], [2, 30], [3, 40]]);
 });
+
+test('retur tidak boleh menurunkan alokasi (item, lot) di bawah qty terkirim', () => {
+    const { stockKey } = require('../services/delivery-order/deliveryOrderRules');
+    const ctx = (delivered) => ({
+        existingLots: [{ id: 7, lot_number: 'L1', id_product: 1 }],
+        existingBatches: [{ id: 9, batch_number: 'B1', id_product: 1 }],
+        existingAllocations: [
+            { po_detail_id: 1, lot_id: 7, id_batch: 9, allocated_qty: 60, status: 'Open' },
+            { po_detail_id: 2, lot_id: 7, id_batch: 9, allocated_qty: 30, status: 'Open' }
+        ],
+        lotAllocated: new Map([[stockKey('P1', 'L1'), 90]]),
+        lotDelivered: new Map([[stockKey('P1', 'L1'), delivered]])
+    });
+    const pos = () => [po(1, { fulfilled_qty: 60 }), po(2, { fulfilled_qty: 30 })];
+
+    // terkirim 70: hanya 20 yang boleh dikurangi
+    const ok = run([row({ rawAllocationQty: -20 })], pos(), ctx(70));
+    assert.deepEqual(ok.detailedAllocations.map((x) => [x.poDetailId, x.addedQty]), [[2, -20]]);
+
+    const blocked = run([row({ rawAllocationQty: -21 })], pos(), ctx(70));
+    assert.equal(blocked.unallocatedRows[0].reason, REASONS.BELOW_DELIVERED);
+    assert.equal(blocked.detailedAllocations.length, 0);
+
+    // melebihi alokasi tetap dilaporkan sebagai REDUCTION_EXCEEDS
+    const over = run([row({ rawAllocationQty: -95 })], pos(), ctx(70));
+    assert.equal(over.unallocatedRows[0].reason, REASONS.REDUCTION_EXCEEDS);
+
+    // tanpa pengiriman tidak ada batas tambahan
+    const free = run([row({ rawAllocationQty: -90 })], pos(), ctx(0));
+    assert.equal(free.detailedAllocations.length, 2);
+});

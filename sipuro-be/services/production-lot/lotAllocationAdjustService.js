@@ -11,6 +11,7 @@ const { BusinessError } = require('../../helpers/businessError');
 const { parseIdParam } = require('../../helpers/queryParams');
 const { NOT_DELETED_SQL } = require('../../helpers/po/openItemRules');
 const { logAllocationUpdate } = require('./lotAllocationLog');
+const { fetchItemLotBalance } = require('../delivery-order/deliveryOrderTotals');
 const { getLotBatchCapacity } = require('./lotProductionTotals');
 const {
     refreshPOStatus,
@@ -143,6 +144,19 @@ const adjustAllocationQty = async (connection, { allocationId, newQty, reason, u
             `Total allocated quantity cannot exceed PO quantity (${formatThousand(baseQty)}). Maximum allowed for this allocation is ${formatThousand(Math.max(0, baseQty - totalOthers))}.`,
             400
         );
+    }
+
+    // Alokasi lot tidak boleh turun di bawah qty yang sudah dikirim (Delivery Order)
+    if (newQty < oldQty) {
+        const balance = await fetchItemLotBalance(connection, { productId: detail.id_product, lotId: allocation.lot_id });
+        const afterTotal = balance.allocated - oldQty + newQty;
+        if (afterTotal < balance.delivered) {
+            const minAllowed = Math.max(0, balance.delivered - (balance.allocated - oldQty));
+            throw new BusinessError(
+                `Quantity cannot be lower than what has already been delivered. Lot ${balance.lotNumber} has ${formatThousand(balance.delivered)} delivered for item ${balance.itemCode} (${formatThousand(balance.allocated)} allocated in total). Minimum allowed for this allocation is ${formatThousand(minAllowed)}.`,
+                409
+            );
+        }
     }
 
     const capacity = await getLotBatchCapacity(connection, {

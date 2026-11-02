@@ -1,14 +1,14 @@
 import { useUploadDo } from '../../../hooks/do/import-modal/useUploadDo';
 import ImportDoModal from '../import-modal/ImportDoModal';
+import { usePermission } from '../../../context/PermissionContext';
 
 const DoHeader = ({
-    currentUser,
     onSuccessSave
 }) => {
-    const currentUserId = currentUser?.id;
-    const userRole = currentUser?.role;
+    // Upload hanya untuk kelompok yang diberi izin "upload" pada menu DO (diatur di Access Permission)
+    const { can } = usePermission();
+    const canUpload = can('DO', 'upload');
 
-    // Encapsulation: Hook dipanggil langsung di komponen Header yang mengontrol form upload & modal
     const {
         fileInputRef,
         uploading,
@@ -18,20 +18,17 @@ const DoHeader = ({
         handleUploadSubmit,
         handleConfirmSave,
         handleRejectPreview
-    } = useUploadDo({
-        currentUserId,
-        onSuccessSave
-    });
+    } = useUploadDo({ onSuccessSave });
 
     return (
         <>
-            <div style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                alignItems: 'center',
-                marginBottom: '20px'
-            }}>
-                {userRole !== 'CUSTOMER' && (
+            {canUpload && (
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    marginBottom: '20px'
+                }}>
                     <form onSubmit={handleUploadSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '6px 10px', borderRadius: '6px', border: '1px solid #dee2e6', marginBottom: '0px' }}>
                         <input
                             ref={fileInputRef}
@@ -47,8 +44,8 @@ const DoHeader = ({
                             {uploading ? 'Processing Excel...' : 'Upload Delivery Order'}
                         </button>
                     </form>
-                )}
-            </div>
+                </div>
+            )}
 
             <ImportDoModal
                 show={isPreviewOpen}

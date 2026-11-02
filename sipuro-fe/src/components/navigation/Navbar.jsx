@@ -1,12 +1,14 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import { getNavItemsByUser } from '../../config/navigationConfig';
+import { usePermission } from '../../context/PermissionContext';
 
 const Navbar = ({ user, onLogout, setShowBanner }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const userMenu = getNavItemsByUser(user);
+    const { permissions } = usePermission();
+    const userMenu = getNavItemsByUser(user, permissions);
     const displayName = user?.name || 'No Name';
     const displayCode = user?.code || 'No Code';
 

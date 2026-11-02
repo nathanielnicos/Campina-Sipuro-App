@@ -26,10 +26,12 @@ const controllerStub = new Proxy({}, {
     }
 });
 
+const { defaultGrants } = require('../services/access-permission/permissionDefaults');
+
 const originalLoad = Module._load;
 Module._load = function patchedLoad(request) {
     if (request === 'express') return fakeExpress;
-    if (request.endsWith('/config/db')) return { sipuroDb: null };
+    if (request.endsWith('/config/db')) return { sipuroDb: { query: async () => [defaultGrants().map(([group_code, menu_code, action]) => ({ group_code, menu_code, action }))] } };
     if (request.endsWith('/helpers/tokenHelper')) return { verifyToken() { throw new Error('tidak dipakai di tes'); } };
     if (request.includes('/controllers/product-code-mapping/')) return controllerStub;
     return originalLoad.apply(this, arguments);
@@ -53,10 +55,10 @@ const POLICY = {
     'PATCH /:mappingId/status': ['superadmin']
 };
 
-const runAccess = (handler, user) => {
+const runAccess = async (handler, user) => {
     const out = { statusCode: null, nextCalled: false };
     const res = { status(code) { out.statusCode = code; return res; }, json() { return res; } };
-    handler({ user }, res, () => { out.nextCalled = true; });
+    await handler({ user }, res, () => { out.nextCalled = true; });
     return out;
 };
 
@@ -77,11 +79,11 @@ test('tidak ada rute DELETE', () => {
     assert.ok(!routes.some((r) => r.method === 'DELETE'));
 });
 
-test('hanya SUPERADMIN yang lolos; PPIC, customer, logistik, finance ditolak 403; anonim 401', () => {
+test('hanya SUPERADMIN yang lolos; PPIC, customer, logistik, finance ditolak 403; anonim 401', async () => {
     for (const route of routes) {
         const key = `${route.method} ${route.path}`;
         for (const [name, user] of Object.entries(USERS)) {
-            const result = runAccess(route.handlers[0], user);
+            const result = await runAccess(route.handlers[0], user);
             const shouldPass = POLICY[key].includes(name);
             assert.equal(result.nextCalled, shouldPass, `${key} untuk ${name}`);
             if (!shouldPass) assert.equal(result.statusCode, name === 'anonymous' ? 401 : 403, `${key} untuk ${name}`);

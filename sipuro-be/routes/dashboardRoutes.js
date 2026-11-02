@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const dashboardController = require('../controllers/dashboard/dashboardController');
-const { requireAccess } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/requirePermission');
 
 // Endpoint Statistik Dasbor
-router.get('/dashboard-stats', requireAccess('PPIC', 'SUPERADMIN'), dashboardController.getDashboardStats);
+router.get('/dashboard-stats', requirePermission('DASHBOARD', 'read'), dashboardController.getDashboardStats);
 
 module.exports = router;

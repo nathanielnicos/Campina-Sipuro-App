@@ -7,25 +7,27 @@ const { exportLotMappingExcel } = require('../controllers/production-lot/export/
 const { previewExcelUpload } = require('../controllers/production-lot/import/lotUploadPreviewController');
 const { commitExcelAllocation } = require('../controllers/production-lot/import/lotUploadCommitController');
 const { handleExcelUpload } = require('../middleware/excelUpload');
-const { requireAccess } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/requirePermission');
 
 // Login sudah diwajibkan secara global di server.js (requireAuth).
-// Di sini hanya pembatasan per kelompok pengguna: seluruh rute Production Lot (mapping, export, riwayat, upload dan
-// ubah alokasi) hanya untuk PPIC, sama seperti modul Batch yang digantikannya.
+// Izin per kelompok diatur Superadmin (menu Access Permission); awalnya seluruh rute Production Lot hanya untuk PPIC.
 // Pembatasan dipasang SEBELUM middleware upload, sehingga file dari pengguna yang tidak berhak
 // tidak pernah diproses.
-const ppicOnly = requireAccess('PPIC');
+const canView = requirePermission('PRODUCTION_LOT', 'read');
+const canExport = requirePermission('PRODUCTION_LOT', 'export');
+const canUpload = requirePermission('PRODUCTION_LOT', 'upload');
+const canUpdate = requirePermission('PRODUCTION_LOT', 'update');
 
 // 1. RUTE STATIS (GET)
-router.get('/mapping', ppicOnly, getAllocatedLotMapping);
-router.get('/export', ppicOnly, exportLotMappingExcel);
+router.get('/mapping', canView, getAllocatedLotMapping);
+router.get('/export', canExport, exportLotMappingExcel);
 
 // 2. RUTE DINAMIS (GET dengan Parameter)
-router.get('/allocations/:allocationId/logs', ppicOnly, getAllocationHistory);
+router.get('/allocations/:allocationId/logs', canView, getAllocationHistory);
 
 // 3. RUTE ACTION / MUTASI (POST / PATCH)
-router.post('/upload/preview', ppicOnly, handleExcelUpload, previewExcelUpload);
-router.post('/upload/commit', ppicOnly, handleExcelUpload, commitExcelAllocation);
-router.patch('/allocations/:allocationId/qty', ppicOnly, updateAllocationQty);
+router.post('/upload/preview', canUpload, handleExcelUpload, previewExcelUpload);
+router.post('/upload/commit', canUpload, handleExcelUpload, commitExcelAllocation);
+router.patch('/allocations/:allocationId/qty', canUpdate, updateAllocationQty);
 
 module.exports = router;

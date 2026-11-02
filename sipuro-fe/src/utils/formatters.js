@@ -11,6 +11,12 @@ export const formatQty = (val) =>
     val || val === 0 ? Number(val).toLocaleString('id-ID') : '0';
 
 /**
+ * Format jumlah carton: maksimal 2 desimal, desimal nol dihilangkan (contoh: 200 atau 2,94)
+ */
+export const formatCtn = (val) =>
+    Number(val || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+
+/**
  * Format input string/angka menjadi string berpemisah ribuan format IDR (contoh: "1.000")
  */
 export const formatThousand = (val) => {

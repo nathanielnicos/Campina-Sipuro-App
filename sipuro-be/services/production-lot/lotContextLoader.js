@@ -5,6 +5,7 @@
  */
 const { chunk } = require('../../helpers/arrayUtils');
 const { NOT_DELETED_SQL } = require('../../helpers/po/openItemRules');
+const { fetchLotStock } = require('../delivery-order/deliveryOrderTotals');
 const { buildFamilyIndex } = require('../product-code-mapping/productFamilies');
 const {
     ELIGIBLE_HEADER_STATUSES,
@@ -127,6 +128,9 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
         }
     }
 
+    // 7b. Total alokasi dan qty terkirim per (kode item PO, lot); baris alokasi lot sudah terkunci di atas
+    const { allocated: lotAllocated, delivered: lotDelivered } = await fetchLotStock(queryable, lotNumbers);
+
     // 8. Ambil PO yang layak. fulfilled_qty dihitung dari po_lot_allocations (rumus di lotAllocationRules)
     const openPoDetails = [];
     for (const part of chunk(productIds, 500)) {
@@ -159,6 +163,8 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
             existingBatches, 
             existingLots, 
             existingAllocations,
+            lotAllocated,
+            lotDelivered,
             productMappings
         }
     };

@@ -1,61 +1,41 @@
 import React from 'react';
-import { formatQty } from '../../../utils/formatters';
+import QtyStack from '../../common/QtyStack';
+import ProductCell from './ProductCell';
 import { formatDate, formatDateTime } from '../../../utils/dateHelper';
+import { cellStyle, rowStyle, emptyRow } from './doRowStyles';
 
-export const DoLotViewRows = ({ mappingList }) => {
+export const LOT_COLUMN_COUNT = 7;
+
+/**
+ * Tampilan Lot Number: satu baris per (lot, item, DO). Data lot (nomor lot, produk, tanggal selesai produksi,
+ * exp date) hanya di baris pertama tiap lot / produk. Tanpa informasi PO.
+ */
+const DoLotViewRows = ({ mappingList }) => {
     if (!mappingList || mappingList.length === 0) {
+        return emptyRow(LOT_COLUMN_COUNT, 'No lot shipment data available.');
+    }
+
+    return mappingList.map((row, idx) => {
+        const prev = idx > 0 ? mappingList[idx - 1] : null;
+        const newLot = !prev || prev.lot_number !== row.lot_number;
+        const newProduct = newLot || prev.id_product !== row.id_product;
+
         return (
-            <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: '#6c757d' }}>
-                    No lot shipment tracking data available.
+            <tr key={`${row.lot_number}-${row.id_product}-${row.delivery_order_id}`} style={rowStyle}>
+                <td style={{ ...cellStyle, fontWeight: 'bold', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{newLot ? row.lot_number : ''}</td>
+                <td style={{ ...cellStyle, minWidth: '220px' }}>
+                    {newProduct && <ProductCell code={row.product_code} name={row.product_name} />}
+                </td>
+                <td style={{ ...cellStyle, whiteSpace: 'nowrap', fontSize: '12px' }}>{newProduct ? formatDateTime(row.actual_completed_datetime) : ''}</td>
+                <td style={{ ...cellStyle, whiteSpace: 'nowrap', fontSize: '12px' }}>{newProduct ? formatDate(row.expired_date) : ''}</td>
+                <td style={{ ...cellStyle, fontWeight: '600', whiteSpace: 'nowrap' }}>{row.do_number}</td>
+                <td style={{ ...cellStyle, whiteSpace: 'nowrap', fontSize: '12px' }}>{formatDateTime(row.do_datetime)}</td>
+                <td style={{ ...cellStyle, width: '120px' }}>
+                    <QtyStack pcs={row.qty_pcs} ctn={row.qty_ctn} color="#198754" />
                 </td>
             </tr>
         );
-    }
-
-    const cellStyle = {
-        padding: '12px 14px',
-        verticalAlign: 'top',
-        lineHeight: '1.4'
-    };
-
-    return mappingList.map((row, idx) => (
-        <tr key={`${row.lot_id}-${row.do_number}-${idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
-            {/* 1. Lot Number */}
-            <td style={{ ...cellStyle, fontWeight: 'bold', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                {row.lot_number}
-            </td>
-
-            {/* 2. Product (Stacked: Kode di atas, Nama di bawah) */}
-            <td style={{ ...cellStyle, minWidth: '220px' }}>
-                <div style={{ fontWeight: 'bold', color: '#212529' }}>{row.product_code}</div>
-                <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '2px' }}>{row.product_name}</div>
-            </td>
-
-            {/* 3. Production Date & 4. Exp Date (Khusus Tanggal Lot) */}
-            <td style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px' }}>
-                {formatDateTime(row.actual_completed_datetime)}
-            </td>
-            <td style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px' }}>
-                {formatDate(row.expired_date)}
-            </td>
-
-            {/* 5. DO Number (Dipisah Sendiri) */}
-            <td style={{ ...cellStyle, fontWeight: '600', whiteSpace: 'nowrap' }}>
-                {row.do_number}
-            </td>
-
-            {/* 6. Target PO Number (Dipisah Sendiri) */}
-            <td style={{ ...cellStyle, fontWeight: '500', whiteSpace: 'nowrap' }}>
-                {row.po_number}
-            </td>
-
-            {/* 7. Shipped Qty (Dipisah Sendiri) */}
-            <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 'bold', color: '#198754', whiteSpace: 'nowrap' }}>
-                {formatQty(row.shipped_qty)} pcs
-            </td>
-        </tr>
-    ));
+    });
 };
 
 export default DoLotViewRows;

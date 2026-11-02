@@ -1,8 +1,8 @@
 'use strict';
 
 /**
- * Tes pembatasan akses rute Production Schedule (routes/productionScheduleRoutes.js):
- * melihat untuk PPIC dan SUPERADMIN, mengubah/membuat hanya PPIC.
+ * Tes pembatasan akses rute Production Schedule (routes/productionScheduleRoutes.js), dengan izin awal dari permissionDefaults:
+ * melihat dan mengubah/membuat hanya PPIC (SUPERADMIN dapat diberi izin lewat Access Permission).
  * Express diganti tiruan; middleware auth yang asli dipakai. Tidak menyentuh database.
  */
 
@@ -27,10 +27,12 @@ const controllerStub = new Proxy({}, {
     }
 });
 
+const { defaultGrants } = require('../services/access-permission/permissionDefaults');
+
 const originalLoad = Module._load;
 Module._load = function patchedLoad(request) {
     if (request === 'express') return fakeExpress;
-    if (request.endsWith('/config/db')) return { sipuroDb: null };
+    if (request.endsWith('/config/db')) return { sipuroDb: { query: async () => [defaultGrants().map(([group_code, menu_code, action]) => ({ group_code, menu_code, action }))] } };
     if (request.endsWith('/helpers/tokenHelper')) return { verifyToken() { throw new Error('tidak dipakai di tes'); } };
     if (request.endsWith('/controllers/productionSchedule/productionScheduleController')) return controllerStub;
     return originalLoad.apply(this, arguments);
@@ -48,7 +50,7 @@ const USERS = {
     anonymous: undefined
 };
 
-const VIEW = ['ppic', 'ppicManager', 'superadmin'];
+const VIEW = ['ppic', 'ppicManager'];
 const PPIC_ONLY = ['ppic', 'ppicManager'];
 
 const POLICY = {
@@ -61,10 +63,10 @@ const POLICY = {
     'POST /production-plan/save': PPIC_ONLY
 };
 
-const runAccess = (handler, user) => {
+const runAccess = async (handler, user) => {
     const out = { statusCode: null, nextCalled: false };
     const res = { status(code) { out.statusCode = code; return res; }, json() { return res; } };
-    handler({ user }, res, () => { out.nextCalled = true; });
+    await handler({ user }, res, () => { out.nextCalled = true; });
     return out;
 };
 
@@ -82,12 +84,12 @@ test('setiap rute punya middleware akses sebelum controller', () => {
     }
 });
 
-test('akses tiap rute sesuai matriks peran', () => {
+test('akses tiap rute sesuai matriks peran', async () => {
     for (const route of routes) {
         const key = `${route.method} ${route.path}`;
         const allowed = POLICY[key];
         for (const [name, user] of Object.entries(USERS)) {
-            const result = runAccess(route.handlers[0], user);
+            const result = await runAccess(route.handlers[0], user);
             const shouldPass = allowed.includes(name);
             assert.equal(result.nextCalled, shouldPass, `${key} untuk ${name}`);
             if (!shouldPass) {

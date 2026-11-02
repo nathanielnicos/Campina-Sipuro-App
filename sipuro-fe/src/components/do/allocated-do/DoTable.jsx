@@ -1,21 +1,33 @@
 import React, { useState } from 'react';
 import PaginationControl from '../../common/PaginationControl';
-import DeliveryOrderFilter from './DoFilter';
-import DoViewRows from './DoViewRows';
-import DoPoViewRows from './DoPoViewRows';
+import DoFilter from './DoFilter';
+import DoViewModeSwitcher from './DoViewModeSwitcher';
+import DoSummaryRows from './DoSummaryRows';
+import DoDetailRows from './DoDetailRows';
 import DoLotViewRows from './DoLotViewRows';
+import DoReturnViewRows from './DoReturnViewRows';
 import useDeliveryOrderTable from '../../../hooks/do/allocated-do/useDeliveryOrderTable';
 
+const thStyle = { padding: '12px 14px' };
+const QTY_COLUMN = 'Qty (Pcs)';
+
+// Kolom per tampilan
+const COLUMNS = {
+    DO_SUMMARY: ['DO Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
+    DO_LOT: ['DO Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)'],
+    LOT: ['Lot Number', 'Product', 'Completed Date and Time', 'Exp Date', 'DO Number', 'Date and Time', 'Qty (Pcs)'],
+    RETURN: ['Return Number', 'Date and Time', 'Lot Number', 'Product', 'Qty (Pcs)']
+};
+
 const DoTable = ({ reloadTrigger }) => {
-    // Mode: 'DO', 'PO', atau 'LOT'
-    const [viewMode, setViewMode] = useState('DO');
+    const [viewMode, setViewMode] = useState('DO'); // 'DO' | 'LOT' | 'RETURN'
+    const [detailLevel, setDetailLevel] = useState('SUMMARY'); // 'SUMMARY' | 'LOT' (hanya tampilan DO)
 
     const [searchQuery, setSearchQuery] = useState('');
     const [fromDoDate, setFromDoDate] = useState('');
     const [toDoDate, setToDoDate] = useState('');
 
-    const filterState = { searchQuery, fromDoDate, toDoDate };
-    const tableData = useDeliveryOrderTable(reloadTrigger, filterState, viewMode);
+    const tableData = useDeliveryOrderTable(reloadTrigger, { searchQuery, fromDoDate, toDoDate }, viewMode);
 
     const handleReset = () => {
         setSearchQuery('');
@@ -24,21 +36,18 @@ const DoTable = ({ reloadTrigger }) => {
         tableData.setPage(1);
     };
 
-    const isDo = viewMode === 'DO';
-    const isPo = viewMode === 'PO';
-    const isLot = viewMode === 'LOT';
-
-    const tabStyle = (isActive) => ({
-        padding: '6px 14px',
-        border: 'none',
-        borderRadius: '4px',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        cursor: 'pointer',
-        backgroundColor: isActive ? '#0d6efd' : 'transparent',
-        color: isActive ? '#fff' : '#6c757d',
-        transition: 'all 0.2s'
-    });
+    let columns = COLUMNS.RETURN;
+    let rows = <DoReturnViewRows mappingList={tableData.mappingList} />;
+    if (viewMode === 'DO' && detailLevel === 'SUMMARY') {
+        columns = COLUMNS.DO_SUMMARY;
+        rows = <DoSummaryRows mappingList={tableData.mappingList} />;
+    } else if (viewMode === 'DO') {
+        columns = COLUMNS.DO_LOT;
+        rows = <DoDetailRows mappingList={tableData.mappingList} />;
+    } else if (viewMode === 'LOT') {
+        columns = COLUMNS.LOT;
+        rows = <DoLotViewRows mappingList={tableData.mappingList} />;
+    }
 
     return (
         <div style={{ position: 'relative', opacity: tableData.loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
@@ -50,7 +59,7 @@ const DoTable = ({ reloadTrigger }) => {
 
             {tableData.error && <div style={{ color: 'red', marginBottom: '16px' }}>{tableData.error}</div>}
 
-            <DeliveryOrderFilter
+            <DoFilter
                 searchQuery={searchQuery}
                 fromDoDate={fromDoDate}
                 toDoDate={toDoDate}
@@ -61,67 +70,23 @@ const DoTable = ({ reloadTrigger }) => {
             />
 
             <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
-                {/* Switcher Mode Tab */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #dee2e6', backgroundColor: '#f8f9fa' }}>
-                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#495057' }}>Display DO By:</span>
-                    <div style={{ display: 'flex', backgroundColor: '#e9ecef', borderRadius: '6px', padding: '3px', gap: '2px' }}>
-                        <button type="button" onClick={() => setViewMode('DO')} style={tabStyle(isDo)}>DO Number</button>
-                        <button type="button" onClick={() => setViewMode('PO')} style={tabStyle(isPo)}>PO Number</button>
-                        <button type="button" onClick={() => setViewMode('LOT')} style={tabStyle(isLot)}>Lot Number</button>
-                    </div>
-                </div>
+                <DoViewModeSwitcher
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
+                    detailLevel={detailLevel}
+                    onDetailLevelChange={setDetailLevel}
+                />
 
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
-                                {/* TAB 1: DO Number (Hanya tanggal DO, PO Date dibuang) */}
-                                {isDo && (
-                                    <>
-                                        <th style={{ padding: '12px 14px' }}>DO Number</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>DO Date</th>
-                                        <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Item Qty</th>
-                                        <th style={{ padding: '12px 14px' }}>Lot Number</th>
-                                        <th style={{ padding: '12px 14px' }}>Target PO</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Shipped Qty</th>
-                                    </>
-                                )}
-
-                                {/* TAB 2: PO Number (Hanya tanggal PO, status dibuang, DO number & date terpisah) */}
-                                {isPo && (
-                                    <>
-                                        <th style={{ padding: '12px 14px' }}>PO Number</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>PO Date</th>
-                                        <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>PO Qty</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Fulfilled</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Delivered</th>
-                                        <th style={{ padding: '12px 14px' }}>DO Number</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>DO Date</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Delivered Qty</th>
-                                    </>
-                                )}
-
-                                {/* TAB 3: Lot Number (Hanya tanggal Lot, kolom terpisah) */}
-                                {isLot && (
-                                    <>
-                                        <th style={{ padding: '12px 14px' }}>Lot Number</th>
-                                        <th style={{ padding: '12px 14px' }}>Product</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Production Date</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Exp Date</th>
-                                        <th style={{ padding: '12px 14px' }}>DO Number</th>
-                                        <th style={{ padding: '12px 14px' }}>Target PO</th>
-                                        <th style={{ padding: '12px 14px', textAlign: 'right' }}>Shipped Qty</th>
-                                    </>
-                                )}
+                                {columns.map((label) => (
+                                    <th key={label} style={label === QTY_COLUMN ? { ...thStyle, textAlign: 'right' } : thStyle}>{label}</th>
+                                ))}
                             </tr>
                         </thead>
-                        <tbody>
-                            {isDo && <DoViewRows mappingList={tableData.mappingList} />}
-                            {isPo && <DoPoViewRows mappingList={tableData.mappingList} />}
-                            {isLot && <DoLotViewRows mappingList={tableData.mappingList} />}
-                        </tbody>
+                        <tbody>{rows}</tbody>
                     </table>
                 </div>
 

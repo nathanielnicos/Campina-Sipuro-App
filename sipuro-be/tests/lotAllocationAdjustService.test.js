@@ -7,10 +7,12 @@ const path = require('path');
 
 const statusCalls = [];
 let syncedBatchIds = [];
+let balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0 };
 const originalLoad = Module._load;
 Module._load = function patched(request) {
     if (request.endsWith('/config/db')) return { sipuroDb: null };
     if (request.endsWith('/helpers/poLogHelper')) return { logPOHeader: async () => {} };
+    if (request === '../delivery-order/deliveryOrderTotals') return { fetchItemLotBalance: async () => balance };
     if (request === './lotStatusService') {
         return {
             refreshPOStatus: async (_c, id) => statusCalls.push(['po', id]),
@@ -191,4 +193,23 @@ test('header Production Completed masih boleh diubah', async () => {
 test('formatThousand: pemisah ribuan gaya Indonesia', () => {
     assert.equal(svc.formatThousand(1234567), '1.234.567');
     assert.equal(svc.formatThousand(0), '0');
+});
+
+test('kurangi qty di bawah qty terkirim ditolak 409 dengan batas minimum; tidak ada tulis', async () => {
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 50 }; // alokasi lain 40, ini 30
+    const c = makeConn();
+    await assert.rejects(
+        svc.adjustAllocationQty(c, { ...ARGS, newQty: 5 }),
+        (e) => e.status === 409 && /already been delivered/.test(e.message) && /Minimum allowed for this allocation is 10/.test(e.message)
+    );
+    assert.equal(find(c, /^UPDATE/).length, 0);
+    assert.equal(find(c, /po_lot_allocation_logs/).length, 0);
+    await assert.doesNotReject(svc.adjustAllocationQty(makeConn(), { ...ARGS, newQty: 10 })); // 40 + 10 = 50 = terkirim
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0 };
+});
+
+test('menambah qty tidak memeriksa qty terkirim', async () => {
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 9999 };
+    await assert.doesNotReject(svc.adjustAllocationQty(makeConn(), { ...ARGS, newQty: 40 }));
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0 };
 });

@@ -12,6 +12,7 @@ import ProductListPage from './components/master/ProductListPage';
 import ProductCodeMappingPage from './components/master/product-code-mapping/ProductCodeMappingPage';
 import PriceListPage from './components/master/PriceListPage';
 import SettingPage from './components/master/SettingPage';
+import AccessPermissionPage from './components/master/access-permission/AccessPermissionPage';
 
 import DoPage from './components/do/page/DoPage';
 import SiPage from './components/si/page/SalesInvoicePage';
@@ -20,14 +21,18 @@ import ProfilePage from './components/profile/ProfilePage';
 import Login from './components/auth/Login';
 import Navbar from './components/navigation/Navbar';
 import GlobalNotificationBanner from './components/navigation/GlobalNotificationBanner';
+import RequirePermission from './components/navigation/RequirePermission';
 import { markAsRead } from './services/notificationApi';
 import { getToken, clearSession, SESSION_EXPIRED_EVENT } from './services/apiClient';
 import { getNavItemsByUser } from './config/navigationConfig';
+import { useLoadPermissions } from './hooks/auth/useLoadPermissions';
 
 import { ModalProvider } from './context/ModalContext';
+import { PermissionProvider } from './context/PermissionContext';
 
 function MainApp() {
   const [user, setUser] = useState(null);
+  const { permissions, status: permissionStatus, reload: reloadPermissions } = useLoadPermissions(user);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const navigate = useNavigate();
@@ -61,16 +66,18 @@ function MainApp() {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
   }, [navigate]);
 
+  // Halaman awal = menu pertama yang boleh dilihat pengguna (Profile bila tidak ada izin lain)
   const getDefaultPath = (userData) => {
-    if (!userData) return '/po';
-    const userMenus = getNavItemsByUser(userData);
-    return userMenus && userMenus.length > 0 ? userMenus[0].path : '/po';
+    if (!userData) return '/profile';
+    const userMenus = getNavItemsByUser(userData, permissions);
+    return userMenus.length > 0 ? userMenus[0].path : '/profile';
   };
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem('sipuro_user', JSON.stringify(userData));
-    navigate(getDefaultPath(userData));
+    // Izin dimuat setelah login; route '/' mengarahkan ke halaman awal begitu izin siap
+    navigate('/');
   };
 
   const handleUserUpdated = (updatedUserData) => {
@@ -114,9 +121,17 @@ function MainApp() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
+  if (permissionStatus === 'idle' || permissionStatus === 'loading') {
+    return <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>Loading permissions...</div>;
+  }
+
   const defaultRedirect = getDefaultPath(user);
+  const guard = (menu, element) => (
+    <RequirePermission menu={menu} redirectTo={defaultRedirect}>{element}</RequirePermission>
+  );
 
   return (
+    <PermissionProvider permissions={permissions} refresh={reloadPermissions}>
     <div className="App" style={{ padding: '20px' }}>
       <Navbar
         user={user}
@@ -127,6 +142,15 @@ function MainApp() {
         }}
       />
 
+      {permissionStatus === 'error' && (
+        <div style={{ marginBottom: '16px', padding: '10px 14px', backgroundColor: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb', borderRadius: '6px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span>Failed to load your permissions, so only the profile page is available.</span>
+          <button type="button" onClick={reloadPermissions} style={{ padding: '4px 10px', cursor: 'pointer', border: '1px solid #721c24', borderRadius: '4px', backgroundColor: '#fff', color: '#721c24', fontWeight: 'bold', fontSize: '12px' }}>
+            Retry
+          </button>
+        </div>
+      )}
+
       <GlobalNotificationBanner
         show={showBanner}
         message={bannerNotif?.message || 'There is new notification.'}
@@ -135,27 +159,28 @@ function MainApp() {
 
       <Routes>
         <Route path="/" element={<Navigate to={defaultRedirect} replace />} />
-        <Route path="/po" element={
+        <Route path="/po" element={guard('PO',
           <POPage
             customerId={user.role === 'CUSTOMER' ? user.customer_id : null}
             user={user}
             refreshSignal={refreshKey}
           />
-        } />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/outstanding-po" element={<OutstandingPoPage currentUser={user} />} />
-        <Route path="/production-lot" element={<ProductionLotPage currentUser={user} />} />
-        <Route path="/production-schedule" element={<ProductionSchedulePage />} />
-        
-        <Route path="/do" element={<DoPage currentUser={user} />} />
-        <Route path="/si" element={<SiPage currentUser={user} />} />
+        )} />
+        <Route path="/dashboard" element={guard('DASHBOARD', <Dashboard />)} />
+        <Route path="/outstanding-po" element={guard('OUTSTANDING_PO', <OutstandingPoPage currentUser={user} />)} />
+        <Route path="/production-lot" element={guard('PRODUCTION_LOT', <ProductionLotPage currentUser={user} />)} />
+        <Route path="/production-schedule" element={guard('PRODUCTION_SCHEDULE', <ProductionSchedulePage />)} />
 
-        <Route path="/employees" element={<EmployeeListPage />} />
-        <Route path="/customers" element={<CustomerUserListPage />} />
-        <Route path="/products" element={<ProductListPage />} />
-        <Route path="/product-code-mappings" element={<ProductCodeMappingPage />} />
-        <Route path="/prices" element={<PriceListPage />} />
-        <Route path="/settings" element={<SettingPage />} />
+        <Route path="/do" element={guard('DO', <DoPage currentUser={user} />)} />
+        <Route path="/si" element={guard('SI', <SiPage currentUser={user} />)} />
+
+        <Route path="/employees" element={guard('EMPLOYEES', <EmployeeListPage />)} />
+        <Route path="/customers" element={guard('CUSTOMERS', <CustomerUserListPage />)} />
+        <Route path="/products" element={guard('PRODUCTS', <ProductListPage />)} />
+        <Route path="/product-code-mappings" element={guard('PRODUCT_CODE_MAPPING', <ProductCodeMappingPage />)} />
+        <Route path="/prices" element={guard('PRICES', <PriceListPage />)} />
+        <Route path="/settings" element={guard('SETTINGS', <SettingPage />)} />
+        <Route path="/access-permissions" element={guard('ACCESS_PERMISSIONS', <AccessPermissionPage />)} />
 
         <Route path="/profile" element={
           <ProfilePage currentUser={user} onUserUpdated={handleUserUpdated} />
@@ -164,6 +189,7 @@ function MainApp() {
         <Route path="*" element={<Navigate to={defaultRedirect} replace />} />
       </Routes>
     </div>
+    </PermissionProvider>
   );
 }
 

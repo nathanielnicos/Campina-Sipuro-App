@@ -27,8 +27,9 @@ export const previewDeliveryOrderApi = async (formData) => {
     }
 };
 
-// payload berupa FormData: file Excel yang sama dengan saat preview, userId, dan fingerprint hasil preview.
-// Server menghitung ulang alokasi dari file tersebut dan menolak jika hasilnya berbeda dari preview.
+// payload berupa FormData: file Excel yang sama dengan saat preview dan fingerprint hasil preview.
+// Server menghitung ulang dari file tersebut dan menolak jika hasilnya berbeda dari preview.
+// Pelaku diambil server dari token login (bukan dari payload).
 export const confirmDeliveryOrderApi = async (payload) => {
     try {
         const response = await axios.post(`${BASE_URL}/upload/commit`, payload, {

@@ -1,99 +1,45 @@
 import React from 'react';
 
-const ImportDoSummaryCards = ({ summary = {}, activeTab, setActiveTab }) => {
-    return (
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', width: '100%' }}>
-            {/* Valid Data */}
-            <div
-                onClick={() => setActiveTab('new')}
-                style={{
-                    flex: '1 1 0px',
-                    minWidth: 0,
-                    cursor: 'pointer',
-                    padding: '8px',
-                    borderRadius: '6px',
-                    backgroundColor: activeTab === 'new' ? '#d1e7dd' : '#f1f9f5',
-                    color: '#0f5132',
-                    border: activeTab === 'new' ? '2px solid #198754' : '1px solid #badbcc'
-                }}
-            >
-                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Valid DO</div>
-                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{summary.allocatedGroups || 0} DO Group{summary.validRows !== undefined ? ` \u00b7 ${summary.validRows} Rows` : ''}</div>
-            </div>
+const CARDS = [
+    { key: 'new', title: 'Valid DO', bg: '#f1f9f5', activeBg: '#d1e7dd', color: '#0f5132', border: '#badbcc', activeBorder: '#198754',
+        text: (s) => `${s.doLineCount || 0} Lines · ${s.validDoRows || 0} Rows` },
+    { key: 'returns', title: 'Valid Returns', bg: '#f3f0ff', activeBg: '#e5dbff', color: '#3d2a7a', border: '#d0bfff', activeBorder: '#7048e8',
+        text: (s) => `${s.returnLineCount || 0} Lines · ${s.validReturnRows || 0} Rows` },
+    { key: 'unallocated', title: 'Unallocated', bg: '#e0fbfd', activeBg: '#cff4fc', color: '#055160', border: '#b6effb', activeBorder: '#0dcaf0',
+        text: (s) => `${s.unallocatedRows || 0} Rows` },
+    { key: 'duplicate', title: 'Duplicate', bg: '#fff9e6', activeBg: '#fff3cd', color: '#664d03', border: '#ffecb5', activeBorder: '#ffc107',
+        text: (s) => `${s.duplicateRows || 0} Rows` },
+    { key: 'non_good', title: 'Non-GOOD', bg: '#fff4eb', activeBg: '#ffe5d0', color: '#a73a00', border: '#fecba1', activeBorder: '#fd7e14',
+        text: (s) => `${s.nonGoodRows || 0} Rows` },
+    { key: 'unregistered', title: 'Unregistered', bg: '#fdf2f2', activeBg: '#f8d7da', color: '#842029', border: '#f5c2c7', activeBorder: '#dc3545',
+        text: (s) => `${s.unregisteredRows || 0} Rows` }
+];
 
-            {/* Unallocated */}
-            <div
-                onClick={() => setActiveTab('unallocated')}
-                style={{
-                    flex: '1 1 0px',
-                    minWidth: 0,
-                    cursor: 'pointer',
-                    padding: '8px',
-                    borderRadius: '6px',
-                    backgroundColor: activeTab === 'unallocated' ? '#cff4fc' : '#e0fbfd',
-                    color: '#055160',
-                    border: activeTab === 'unallocated' ? '2px solid #0dcaf0' : '1px solid #b6effb'
-                }}
-            >
-                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Unallocated</div>
-                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{summary.unallocatedRows || 0} Rows</div>
-            </div>
-
-            {/* Duplicate */}
-            <div
-                onClick={() => setActiveTab('duplicate')}
-                style={{
-                    flex: '1 1 0px',
-                    minWidth: 0,
-                    cursor: 'pointer',
-                    padding: '8px',
-                    borderRadius: '6px',
-                    backgroundColor: activeTab === 'duplicate' ? '#fff3cd' : '#fff9e6',
-                    color: '#664d03',
-                    border: activeTab === 'duplicate' ? '2px solid #ffc107' : '1px solid #ffecb5'
-                }}
-            >
-                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Duplicate</div>
-                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{summary.duplicateRows || 0} Rows</div>
-            </div>
-
-            {/* Non-GOOD */}
-            <div
-                onClick={() => setActiveTab('non_good')}
-                style={{
-                    flex: '1 1 0px',
-                    minWidth: 0,
-                    cursor: 'pointer',
-                    padding: '8px',
-                    borderRadius: '6px',
-                    backgroundColor: activeTab === 'non_good' ? '#ffe5d0' : '#fff4eb',
-                    color: '#a73a00',
-                    border: activeTab === 'non_good' ? '2px solid #fd7e14' : '1px solid #fecba1'
-                }}
-            >
-                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Non-GOOD</div>
-                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{summary.nonGoodRows || 0} Rows</div>
-            </div>
-
-            {/* Unregistered */}
-            <div
-                onClick={() => setActiveTab('unregistered')}
-                style={{
-                    flex: '1 1 0px',
-                    minWidth: 0,
-                    cursor: 'pointer',
-                    padding: '8px',
-                    borderRadius: '6px',
-                    backgroundColor: activeTab === 'unregistered' ? '#f8d7da' : '#fdf2f2',
-                    color: '#842029',
-                    border: activeTab === 'unregistered' ? '2px solid #dc3545' : '1px solid #f5c2c7'
-                }}
-            >
-                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Unregistered</div>
-                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{summary.unregisteredRows || 0} Rows</div>
-            </div>
-        </div>
-    );
-};
+const ImportDoSummaryCards = ({ summary = {}, activeTab, setActiveTab }) => (
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', width: '100%' }}>
+        {CARDS.map((card) => {
+            const isActive = activeTab === card.key;
+            return (
+                <div
+                    key={card.key}
+                    onClick={() => setActiveTab(card.key)}
+                    style={{
+                        flex: '1 1 0px',
+                        minWidth: 0,
+                        cursor: 'pointer',
+                        padding: '8px',
+                        borderRadius: '6px',
+                        backgroundColor: isActive ? card.activeBg : card.bg,
+                        color: card.color,
+                        border: isActive ? `2px solid ${card.activeBorder}` : `1px solid ${card.border}`
+                    }}
+                >
+                    <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>{card.title}</div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{card.text(summary)}</div>
+                </div>
+            );
+        })}
+    </div>
+);
 
 export default ImportDoSummaryCards;

@@ -29,7 +29,7 @@ const DoFilter = ({
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search DO Data</label>
                 <input
                     type="text"
-                    placeholder="Search DO / PO / Product / Lot..."
+                    placeholder="Search DO / Return / Lot / Product..."
                     value={searchQuery}
                     onChange={onSearchChange}
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box', height: '38px' }}
@@ -37,7 +37,7 @@ const DoFilter = ({
             </div>
 
             <DateRangePicker
-                label="Pick-Up / DO Date Range"
+                label="Date Range"
                 fromDate={fromDoDate}
                 toDate={toDoDate}
                 onFromDateChange={(e) => onFromDoDateChange(getValue(e))}

@@ -30,6 +30,7 @@ const {
     lotBatchKey,
     lotKey
 } = require('./lotAllocationRules');
+const { stockKey } = require('../delivery-order/deliveryOrderRules');
 
 const REASONS = {
     MISSING_DATE: 'Missing production date',
@@ -42,7 +43,8 @@ const REASONS = {
     NO_EXISTING_ALLOCATION: 'No existing allocation to reduce',
     PO_NOT_ACTIVE: 'PO or PO detail not active',
     DATE_BEFORE_PO: 'Production date is earlier than PO creation date',
-    REDUCTION_EXCEEDS: 'Reduction exceeds allocated quantity'
+    REDUCTION_EXCEEDS: 'Reduction exceeds allocated quantity',
+    BELOW_DELIVERED: 'Reduction would go below delivered quantity'
 };
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -88,6 +90,10 @@ const calculateLotFifoAllocation = (
     const existingBatches = context.existingBatches || [];
     const existingLots = context.existingLots || [];
     const existingAllocations = context.existingAllocations || [];
+    // Total alokasi dan qty terkirim per (kode item PO, lot): alokasi tidak boleh turun di bawah qty terkirim
+    const lotAllocated = context.lotAllocated || new Map();
+    const lotDelivered = context.lotDelivered || new Map();
+    const reducedInFile = new Map();
 
     const productByCode = new Map();
     allProducts.forEach((p) => productByCode.set(p.product_code, p));
@@ -386,22 +392,46 @@ const calculateLotFifoAllocation = (
         const totalReducible = withDate.reduce((sum, e) => sum + e.allocatedQty, 0);
         if (totalReducible < amount) return fail(REASONS.REDUCTION_EXCEEDS);
 
+        // Sisa yang boleh dikurangi per (kode item PO, lot) = total alokasi - terkirim - sudah dikurangi di file ini
+        const roomByKey = new Map();
+        const keyOfEntry = (entry) => stockKey(poStates.get(entry.poDetailId).productCode, group.lotNumber);
+        const roomOf = (key) => {
+            if (!roomByKey.has(key)) {
+                const delivered = Number(lotDelivered.get(key)) || 0;
+                // Tanpa pengiriman tidak ada batas tambahan
+                const room = delivered > 0
+                    ? (Number(lotAllocated.get(key)) || 0) - delivered - (reducedInFile.get(key) || 0)
+                    : Infinity;
+                roomByKey.set(key, Math.max(0, room));
+            }
+            return roomByKey.get(key);
+        };
+
         const ordered = [...withDate].sort((x, y) => cmpFifo(poStates.get(y.poDetailId), poStates.get(x.poDetailId)));
 
+        // Rencana dahulu; state baru diubah setelah seluruh pengurangan terbukti muat
+        const plan = [];
         let remaining = amount;
-        const allocations = [];
         for (const entry of ordered) {
             if (remaining <= 0) break;
-            const take = Math.min(remaining, entry.allocatedQty);
+            const key = keyOfEntry(entry);
+            const take = Math.min(remaining, entry.allocatedQty, roomOf(key));
             if (take <= 0) continue;
+            roomByKey.set(key, roomOf(key) - take);
+            plan.push({ entry, key, take });
+            remaining -= take;
+        }
+        if (remaining > 0) return fail(REASONS.BELOW_DELIVERED);
 
+        const allocations = [];
+        plan.forEach(({ entry, key, take }) => {
             const po = poStates.get(entry.poDetailId);
             const previous = po.currentFulfilledQty;
             po.currentFulfilledQty = previous - take;
             entry.allocatedQty -= take;
+            reducedInFile.set(key, (reducedInFile.get(key) || 0) + take);
             allocations.push({ po, delta: -take, previous, next: po.currentFulfilledQty });
-            remaining -= take;
-        }
+        });
 
         allocatedGroups.push({ group, product, allocations });
     });

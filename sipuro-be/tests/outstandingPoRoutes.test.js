@@ -28,10 +28,12 @@ const controllerStub = new Proxy({}, {
     }
 });
 
+const { defaultGrants } = require('../services/access-permission/permissionDefaults');
+
 const originalLoad = Module._load;
 Module._load = function patchedLoad(request) {
     if (request === 'express') return fakeExpress;
-    if (request.endsWith('/config/db')) return { sipuroDb: null };
+    if (request.endsWith('/config/db')) return { sipuroDb: { query: async () => [defaultGrants().map(([group_code, menu_code, action]) => ({ group_code, menu_code, action }))] } };
     if (request.endsWith('/helpers/tokenHelper')) return { verifyToken() { throw new Error('tidak dipakai di tes'); } };
     if (request.endsWith('/controllers/outstanding-po/outstandingPoController')) return controllerStub;
     return originalLoad.apply(this, arguments);
@@ -50,19 +52,19 @@ const USERS = {
 };
 
 const POLICY = {
-    'GET /': ['customer', 'ppic', 'ppicManager', 'superadmin'],
+    'GET /': ['customer', 'ppic', 'ppicManager'],
     'POST /items/:poDetailId/request-close': ['customer'],
     'POST /items/:poDetailId/approve-close': ['ppic', 'ppicManager'],
     'POST /items/:poDetailId/reject-close': ['ppic', 'ppicManager']
 };
 
-const runAccess = (handler, user) => {
+const runAccess = async (handler, user) => {
     const out = { statusCode: null, nextCalled: false };
     const res = {
         status(code) { out.statusCode = code; return res; },
         json() { return res; }
     };
-    handler({ user }, res, () => { out.nextCalled = true; });
+    await handler({ user }, res, () => { out.nextCalled = true; });
     return out;
 };
 
@@ -80,11 +82,11 @@ test('setiap rute punya middleware akses sebelum controller', () => {
     }
 });
 
-test('akses tiap rute sesuai matriks peran', () => {
+test('akses tiap rute sesuai matriks peran', async () => {
     for (const route of routes) {
         const key = `${route.method} ${route.path}`;
         for (const [name, user] of Object.entries(USERS)) {
-            const result = runAccess(route.handlers[0], user);
+            const result = await runAccess(route.handlers[0], user);
             const shouldPass = POLICY[key].includes(name);
             assert.equal(result.nextCalled, shouldPass, `${key} untuk ${name}`);
             if (!shouldPass) {

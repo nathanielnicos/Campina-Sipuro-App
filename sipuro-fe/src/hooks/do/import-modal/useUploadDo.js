@@ -6,13 +6,7 @@ import {
 import { useGlobalModal } from '../../../context/ModalContext';
 import { formatQty } from '../../../utils/formatters';
 
-// Qty bernilai minus ditampilkan dengan tanda minus
-const formatSignedQty = (value) => {
-    const n = Number(value) || 0;
-    return n < 0 ? `-${formatQty(Math.abs(n))}` : formatQty(n);
-};
-
-export const useUploadDo = ({ currentUserId, onSuccessSave }) => {
+export const useUploadDo = ({ onSuccessSave }) => {
     // Context Modal Global
     const { showAlert, showConfirm } = useGlobalModal();
 
@@ -111,7 +105,6 @@ export const useUploadDo = ({ currentUserId, onSuccessSave }) => {
         try {
             const payload = new FormData();
             payload.append('file', fileToCommit);
-            payload.append('userId', String(currentUserId));
             payload.append('fingerprint', previewData.fingerprint || '');
 
             const res = await confirmDeliveryOrderApi(payload);
@@ -156,15 +149,6 @@ export const useUploadDo = ({ currentUserId, onSuccessSave }) => {
             return;
         }
 
-        if (!currentUserId) {
-            showAlert({
-                type: 'error',
-                title: 'Cannot Save',
-                message: 'User information is missing. Please log in again.'
-            });
-            return;
-        }
-
         // Server menentukan apakah ada alokasi yang bisa disimpan
         if (!previewData.canSave) {
             showAlert({
@@ -175,14 +159,15 @@ export const useUploadDo = ({ currentUserId, onSuccessSave }) => {
             return;
         }
 
-        const results = previewData.allocatedDoGroups || [];
-        const doGroupCount = results.length;
-        const rowCount = previewData.summary?.validRows ?? 0;
-        const totalQty = results.reduce((sum, g) => sum + (Number(g.group.totalQty) || 0), 0);
+        const doLines = previewData.doLines || [];
+        const returnLines = previewData.returnLines || [];
+        const rowCount = (previewData.summary?.validDoRows ?? 0) + (previewData.summary?.validReturnRows ?? 0);
+        const doQty = doLines.reduce((sum, l) => sum + (Number(l.qtyPcs) || 0), 0);
+        const returnQty = returnLines.reduce((sum, l) => sum + (Number(l.qtyPcs) || 0), 0);
 
         showConfirm({
             title: 'Confirm Save Delivery Order',
-            message: `Save ${doGroupCount} DO group(s) (${rowCount} rows, ${formatSignedQty(totalQty)} pcs) to shipping allocation?`,
+            message: `Save ${doLines.length} DO line(s) (${formatQty(doQty)} pcs) and ${returnLines.length} return line(s) (${formatQty(returnQty)} pcs) from ${rowCount} Excel row(s)?`,
             confirmText: 'Save',
             onConfirm: () => executeConfirmSave()
         });

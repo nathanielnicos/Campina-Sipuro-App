@@ -2,15 +2,17 @@ const express = require('express');
 const router = express.Router();
 const siController = require('../controllers/si/salesInvoiceController');
 const { handleExcelUpload } = require('../middleware/excelUpload');
-const { requireAccess } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/requirePermission');
 
-router.use(requireAccess('LOGISTIC', 'FINANCE', 'SUPERADMIN'));
+// Izin diatur Superadmin (menu Access Permission); awalnya LOGISTIC, FINANCE, dan SUPERADMIN.
+const canView = requirePermission('SI', 'read');
+const canUpload = requirePermission('SI', 'upload');
 
 // GET
-router.get('/mapping', siController.getSalesInvoiceMapping);
+router.get('/mapping', canView, siController.getSalesInvoiceMapping);
 
 // POST
-router.post('/upload/preview', handleExcelUpload, siController.previewSalesInvoiceUpload);
-router.post('/upload/commit', handleExcelUpload, siController.commitSalesInvoiceAllocation);
+router.post('/upload/preview', canUpload, handleExcelUpload, siController.previewSalesInvoiceUpload);
+router.post('/upload/commit', canUpload, handleExcelUpload, siController.commitSalesInvoiceAllocation);
 
 module.exports = router;

@@ -30,10 +30,12 @@ const controllerStub = new Proxy({}, {
 // Penanda middleware upload: harus berada SETELAH pembatasan akses
 const uploadMiddleware = function handleExcelUpload() {};
 
+const { defaultGrants } = require('../services/access-permission/permissionDefaults');
+
 const originalLoad = Module._load;
 Module._load = function patchedLoad(request) {
     if (request === 'express') return fakeExpress;
-    if (request.endsWith('/config/db')) return { sipuroDb: null };
+    if (request.endsWith('/config/db')) return { sipuroDb: { query: async () => [defaultGrants().map(([group_code, menu_code, action]) => ({ group_code, menu_code, action }))] } };
     if (request.endsWith('/helpers/tokenHelper')) return { verifyToken() { throw new Error('tidak dipakai di tes'); } };
     if (request.endsWith('/middleware/excelUpload')) return { handleExcelUpload: uploadMiddleware };
     if (request.endsWith('/controllers/production-lot/allocation/lotMappingListController')) return controllerStub;
@@ -70,10 +72,10 @@ const POLICY = {
 
 const UPLOAD_ROUTES = ['POST /upload/preview', 'POST /upload/commit'];
 
-const runAccess = (handler, user) => {
+const runAccess = async (handler, user) => {
     const out = { statusCode: null, nextCalled: false };
     const res = { status(code) { out.statusCode = code; return res; }, json() { return res; } };
-    handler({ user }, res, () => { out.nextCalled = true; });
+    await handler({ user }, res, () => { out.nextCalled = true; });
     return out;
 };
 
@@ -97,12 +99,12 @@ test('setiap rute punya middleware akses sebelum upload dan controller', () => {
     }
 });
 
-test('akses tiap rute sesuai matriks peran (hanya PPIC)', () => {
+test('akses tiap rute sesuai matriks peran (hanya PPIC)', async () => {
     for (const route of routes) {
         const key = `${route.method} ${route.path}`;
         const allowed = POLICY[key];
         for (const [name, user] of Object.entries(USERS)) {
-            const result = runAccess(route.handlers[0], user);
+            const result = await runAccess(route.handlers[0], user);
             const shouldPass = allowed.includes(name);
             assert.equal(result.nextCalled, shouldPass, `${key} untuk ${name}`);
             if (!shouldPass) {
