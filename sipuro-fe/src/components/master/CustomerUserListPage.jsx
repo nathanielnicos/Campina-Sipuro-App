@@ -1,7 +1,10 @@
 import { useCustomerUserList } from '../../hooks/master/useCustomerUserList';
 import PaginationControl from '../common/PaginationControl';
+import { usePermission } from '../../context/PermissionContext';
 
 const CustomerUserListPage = () => {
+    const { can } = usePermission();
+    const canUpdate = can('CUSTOMERS', 'update');
     const {
         customerUsers,
         loading,
@@ -74,13 +77,13 @@ const CustomerUserListPage = () => {
                                     <th style={{ padding: '10px' }}>Email</th>
                                     <th style={{ padding: '10px' }}>Company</th>
                                     <th style={{ padding: '10px' }}>Status</th>
-                                    <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>
+                                    {canUpdate && <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>}
                                 </tr>
                             </thead>
                             <tbody>
                                 {customerUsers.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" style={{ padding: '15px', textAlign: 'center' }}>No customer user data available</td>
+                                        <td colSpan={canUpdate ? 6 : 5} style={{ padding: '15px', textAlign: 'center' }}>No customer user data available</td>
                                     </tr>
                                 ) : (
                                     customerUsers.map((u) => {
@@ -96,6 +99,7 @@ const CustomerUserListPage = () => {
                                                 <td style={{ padding: '10px', color: isActive ? '#198754' : '#ef4444', fontWeight: 'bold' }}>
                                                     {isActive ? 'Active' : 'Inactive'}
                                                 </td>
+                                                {canUpdate && (
                                                 <td style={{ padding: '10px', textAlign: 'center' }}>
                                                     <button
                                                         onClick={() => handleToggleStatus(u)}
@@ -120,6 +124,7 @@ const CustomerUserListPage = () => {
                                                                 : 'Activate'}
                                                     </button>
                                                 </td>
+                                                )}
                                             </tr>
                                         );
                                     })

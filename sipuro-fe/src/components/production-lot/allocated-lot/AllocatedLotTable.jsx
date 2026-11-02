@@ -9,6 +9,7 @@ import PoSummaryRows from './PoSummaryRows';
 import BatchSummaryRows from './BatchSummaryRows';
 import EditAllocationQtyModal from './EditAllocationQtyModal';
 import AllocationHistoryModal from './AllocationHistoryModal';
+import { usePermission } from '../../../context/PermissionContext';
 
 import useFilter from '../../../hooks/production-lot/allocated-lot/useFilter';
 import useViewModeSwitcher from '../../../hooks/production-lot/allocated-lot/useViewModeSwitcher';
@@ -17,6 +18,7 @@ import useEditAllocationQty from '../../../hooks/production-lot/allocated-lot/us
 import useAllocationHistory from '../../../hooks/production-lot/allocated-lot/useAllocationHistory';
 
 const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
+    const { can } = usePermission();
     const modeSwitcher = useViewModeSwitcher();
     const filter = useFilter();
     const tableData = useAllocatedLotTable(currentUser, reloadTrigger, filter, modeSwitcher.viewMode);
@@ -28,7 +30,8 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
 
     const actions = {
         busy: editQty.loading,
-        onEditQty: editQty.handleOpen,
+        // Tombol edit qty hanya muncul bila ada izin update (AllocationActions menyembunyikannya tanpa handler)
+        onEditQty: can('PRODUCTION_LOT', 'update') ? editQty.handleOpen : undefined,
         onHistory: history.handleOpen
     };
 
@@ -64,6 +67,7 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 fromCreatedDate={filter.fromCreatedDate}
                 toCreatedDate={filter.toCreatedDate}
                 exporting={filter.exporting}
+                canExport={can('PRODUCTION_LOT', 'export')}
                 onSearchChange={(e) => filter.handleSearchChange(e, tableData.setPage)}
                 onStatusChange={(e) => filter.handleStatusChange(e, tableData.setPage)}
                 onFromActualDateChange={(val) => filter.handleDateChange(filter.setFromActualDate, val, tableData.setPage)}

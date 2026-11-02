@@ -5,8 +5,12 @@ import { ProductLabel } from './ProductPicker';
 import { getStatusStyle } from '../../../utils/statusHelper';
 import { formatDateTime } from '../../../utils/dateHelper';
 import { isFlagOn } from '../../../utils/flagHelper';
+import { usePermission } from '../../../context/PermissionContext';
 
 const ProductCodeMappingPage = () => {
+    const { can } = usePermission();
+    const canCreate = can('PRODUCT_CODE_MAPPING', 'create');
+    const canUpdate = can('PRODUCT_CODE_MAPPING', 'update');
     const {
         mappings,
         loadingData,
@@ -75,6 +79,7 @@ const ProductCodeMappingPage = () => {
                     )}
                 </div>
 
+                {canCreate && (
                 <button
                     type="button"
                     onClick={() => setAddOpen(true)}
@@ -91,6 +96,7 @@ const ProductCodeMappingPage = () => {
                 >
                     + Add Mapping
                 </button>
+                )}
             </div>
 
             {loadingData ? (
@@ -106,12 +112,12 @@ const ProductCodeMappingPage = () => {
                                     <th style={{ padding: '10px' }}>Status</th>
                                     <th style={{ padding: '10px' }}>Created By</th>
                                     <th style={{ padding: '10px' }}>Created At</th>
-                                    <th style={{ padding: '10px' }}>Action</th>
+                                    {canUpdate && <th style={{ padding: '10px' }}>Action</th>}
                                 </tr>
                             </thead>
                             <tbody>
                                 {mappings.length === 0 ? (
-                                    <tr><td colSpan="6" style={{ padding: '15px', textAlign: 'center' }}>No mapping data available</td></tr>
+                                    <tr><td colSpan={canUpdate ? 6 : 5} style={{ padding: '15px', textAlign: 'center' }}>No mapping data available</td></tr>
                                 ) : (
                                     mappings.map((m) => {
                                         const active = isFlagOn(m.is_active);
@@ -124,6 +130,7 @@ const ProductCodeMappingPage = () => {
                                                 </td>
                                                 <td style={{ padding: '10px' }}>{m.created_by_name || '-'}</td>
                                                 <td style={{ padding: '10px' }}>{formatDateTime(m.created_at)}</td>
+                                                {canUpdate && (
                                                 <td style={{ padding: '10px' }}>
                                                     <button
                                                         type="button"
@@ -142,6 +149,7 @@ const ProductCodeMappingPage = () => {
                                                         {active ? 'Deactivate' : 'Activate'}
                                                     </button>
                                                 </td>
+                                                )}
                                             </tr>
                                         );
                                     })

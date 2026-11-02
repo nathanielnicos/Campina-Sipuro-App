@@ -1,7 +1,9 @@
 import { useUploadProductionLot } from '../../../hooks/production-lot/import-modal/useUploadProductionLot';
 import ImportProductionLotModal from '../import-modal/ImportProductionLotModal';
+import { usePermission } from '../../../context/PermissionContext';
 
 const ProductionLotHeader = ({ onSuccessSave }) => {
+    const { can } = usePermission();
     // Encapsulation: Hook dipanggil langsung di komponen Header yang mengontrol form upload & modal
     const {
         fileInputRef,
@@ -22,6 +24,7 @@ const ProductionLotHeader = ({ onSuccessSave }) => {
                 alignItems: 'center',
                 marginBottom: '20px'
             }}>
+                {can('PRODUCTION_LOT', 'upload') && (
                 <form onSubmit={handleUploadSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '6px 10px', borderRadius: '6px', border: '1px solid #dee2e6', marginBottom: '0px' }}>
                     <input
                         ref={fileInputRef}
@@ -37,6 +40,7 @@ const ProductionLotHeader = ({ onSuccessSave }) => {
                         {uploading ? 'Processing Excel...' : 'Upload Production Lot'}
                     </button>
                 </form>
+                )}
             </div>
 
             <ImportProductionLotModal

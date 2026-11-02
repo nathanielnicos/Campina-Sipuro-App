@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSetting } from '../../hooks/master/useSetting';
+import { usePermission } from '../../context/PermissionContext';
 
 export const SettingPage = () => {
     const [activeTab, setActiveTab] = useState('po');
@@ -10,6 +11,10 @@ export const SettingPage = () => {
         setPoSetting,
         handleSavePoSetting
     } = useSetting();
+    const { can } = usePermission();
+    const canEdit = can('SETTINGS', 'update');
+    // Tanpa izin update, isian hanya bisa dilihat
+    const locked = saving || !canEdit;
 
     const insertTag = (tag) => {
         setPoSetting((prev) => ({
@@ -122,7 +127,7 @@ export const SettingPage = () => {
                                 </label>
                                 <input
                                     type="text"
-                                    disabled={saving}
+                                    disabled={locked}
                                     value={poSetting.template_pattern}
                                     onChange={(e) => setPoSetting({ ...poSetting, template_pattern: e.target.value })}
                                     placeholder="e.g. {xxx}/PO/{customer_code}/{year}"
@@ -135,7 +140,7 @@ export const SettingPage = () => {
                                         boxSizing: 'border-box',
                                         fontSize: '13px',
                                         fontFamily: 'monospace',
-                                        backgroundColor: saving ? '#e9ecef' : '#fff'
+                                        backgroundColor: locked ? '#e9ecef' : '#fff'
                                     }}
                                 />
                                 <span style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: '#6c757d' }}>
@@ -153,7 +158,7 @@ export const SettingPage = () => {
                                         <button
                                             type="button"
                                             key={idx}
-                                            disabled={saving}
+                                            disabled={locked}
                                             onClick={() => insertTag(tag.value)}
                                             style={{
                                                 padding: '4px 8px',
@@ -161,8 +166,8 @@ export const SettingPage = () => {
                                                 backgroundColor: '#f8f9fa',
                                                 border: '1px solid #ced4da',
                                                 borderRadius: '4px',
-                                                cursor: saving ? 'not-allowed' : 'pointer',
-                                                opacity: saving ? 0.6 : 1,
+                                                cursor: locked ? 'not-allowed' : 'pointer',
+                                                opacity: locked ? 0.6 : 1,
                                                 color: '#212529',
                                                 transition: 'all 0.15s ease-in-out'
                                             }}
@@ -179,7 +184,7 @@ export const SettingPage = () => {
                                     Counter Reset Cycle
                                 </label>
                                 <select
-                                    disabled={saving}
+                                    disabled={locked}
                                     value={poSetting.reset_cycle}
                                     onChange={(e) => setPoSetting({ ...poSetting, reset_cycle: e.target.value })}
                                     style={{
@@ -189,7 +194,7 @@ export const SettingPage = () => {
                                         border: '1px solid #ced4da',
                                         fontSize: '13px',
                                         boxSizing: 'border-box',
-                                        backgroundColor: saving ? '#e9ecef' : '#fff'
+                                        backgroundColor: locked ? '#e9ecef' : '#fff'
                                     }}
                                 >
                                     <option value="YEARLY">Reset Every Year (Recommended)</option>
@@ -204,7 +209,7 @@ export const SettingPage = () => {
                                     Description / Remarks
                                 </label>
                                 <textarea
-                                    disabled={saving}
+                                    disabled={locked}
                                     rows="2"
                                     value={poSetting.description}
                                     onChange={(e) => setPoSetting({ ...poSetting, description: e.target.value })}
@@ -216,7 +221,7 @@ export const SettingPage = () => {
                                         border: '1px solid #ced4da',
                                         fontSize: '13px',
                                         boxSizing: 'border-box',
-                                        backgroundColor: saving ? '#e9ecef' : '#fff'
+                                        backgroundColor: locked ? '#e9ecef' : '#fff'
                                     }}
                                 />
                             </div>
@@ -237,6 +242,7 @@ export const SettingPage = () => {
                             </div>
 
                             {/* Action Buttons */}
+                            {canEdit && (
                             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
                                 <button
                                     type="submit"
@@ -257,6 +263,7 @@ export const SettingPage = () => {
                                     {saving ? 'Processing...' : 'Save Settings'}
                                 </button>
                             </div>
+                            )}
                         </form>
                     )
                 )}

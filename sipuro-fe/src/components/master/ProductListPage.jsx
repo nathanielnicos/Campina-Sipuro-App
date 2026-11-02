@@ -1,9 +1,11 @@
 import { useProductList } from '../../hooks/master/useProductList';
 import UploadPreviewModal from './UploadPreviewModal';
 import PaginationControl from '../common/PaginationControl';
+import { usePermission } from '../../context/PermissionContext';
 import { formatQty } from '../../utils/formatters';
 
 const ProductListPage = () => {
+    const { can } = usePermission();
     const {
         products,
         loadingData,
@@ -70,32 +72,34 @@ const ProductListPage = () => {
                     )}
                 </div>
 
-                <form onSubmit={handlePreviewProducts} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                        type="file"
-                        accept=".xlsx, .xls"
-                        onChange={(e) => setSelectedFile(e.target.files[0])}
-                        style={{ fontSize: '12px' }}
-                    />
-                    <button
-                        type="submit"
-                        disabled={uploading}
-                        style={{
-                            padding: '6px 12px',
-                            backgroundColor: '#198754',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '4px',
-                            fontWeight: 'bold',
-                            fontSize: '12px',
-                            cursor: uploading ? 'not-allowed' : 'pointer',
-                            opacity: uploading ? 0.6 : 1,
-                            transition: 'all 0.2s ease-in-out'
-                        }}
-                    >
-                        {uploading ? 'Processing...' : 'Upload & Preview Products'}
-                    </button>
-                </form>
+                {can('PRODUCTS', 'upload') && (
+                    <form onSubmit={handlePreviewProducts} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                            type="file"
+                            accept=".xlsx, .xls"
+                            onChange={(e) => setSelectedFile(e.target.files[0])}
+                            style={{ fontSize: '12px' }}
+                        />
+                        <button
+                            type="submit"
+                            disabled={uploading}
+                            style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#198754',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontWeight: 'bold',
+                                fontSize: '12px',
+                                cursor: uploading ? 'not-allowed' : 'pointer',
+                                opacity: uploading ? 0.6 : 1,
+                                transition: 'all 0.2s ease-in-out'
+                            }}
+                        >
+                            {uploading ? 'Processing...' : 'Upload & Preview Products'}
+                        </button>
+                    </form>
+                )}
             </div>
 
             {loadingData ? (

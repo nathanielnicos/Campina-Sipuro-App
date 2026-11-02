@@ -42,24 +42,19 @@ export const validateReason = (text) => {
     return { ok: true, value, message: '' };
 };
 
-/** Peran tampilan saja. Hak akses sebenarnya tetap dipaksa oleh server. */
-export const getRoleFlags = (user) => {
-    const role = String((user && user.role) || '').toUpperCase();
-    const dept = String((user && user.department) || '').toUpperCase();
-    return {
-        isCustomer: role === 'CUSTOMER',
-        isSuperadmin: role === 'SUPERADMIN',
-        isPpic: dept === 'PPIC' && (role === 'STAFF' || role === 'MANAGER')
-    };
-};
+/** Izin tombol aksi dari Access Permission. Tampilan saja; server tetap yang menentukan. */
+export const getActionFlags = (can) => ({
+    canRequestClose: Boolean(can('OUTSTANDING_PO', 'create')),
+    canDecideClose: Boolean(can('OUTSTANDING_PO', 'approve'))
+});
 
 /** Aksi yang boleh muncul pada satu item PO. */
 export const getItemActions = (item, flags) => {
     if (!item || !flags) return [];
-    if (flags.isCustomer && item.status === 'Active' && Number(item.remaining_qty) > 0) {
+    if (flags.canRequestClose && item.status === 'Active' && Number(item.remaining_qty) > 0) {
         return ['REQUEST_CLOSE'];
     }
-    if (flags.isPpic && item.status === 'Close Requested') {
+    if (flags.canDecideClose && item.status === 'Close Requested') {
         return ['APPROVE_CLOSE', 'REJECT_CLOSE'];
     }
     return [];

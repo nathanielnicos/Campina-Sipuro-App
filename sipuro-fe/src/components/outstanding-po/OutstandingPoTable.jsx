@@ -9,8 +9,8 @@ const plainHeader = (align, width) => ({ padding: '8px 10px', textAlign: align, 
 const rowSpanCell = (extra) => ({ padding: '12px 10px', verticalAlign: 'middle', ...extra });
 const itemCell = (extra) => ({ padding: '8px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap', color: '#212529', ...extra });
 
-const ActionCell = ({ item, product, roleFlags, onAction }) => {
-    const actions = getItemActions(item, roleFlags);
+const ActionCell = ({ item, product, actionFlags, onAction }) => {
+    const actions = getItemActions(item, actionFlags);
     if (actions.length === 0) {
         return <span style={{ color: '#adb5bd', fontSize: '12px' }}>-</span>;
     }
@@ -45,7 +45,7 @@ const ActionCell = ({ item, product, roleFlags, onAction }) => {
     );
 };
 
-const ProductRows = ({ product, roleFlags, onAction }) => {
+const ProductRows = ({ product, actionFlags, onAction }) => {
     const items = product.po_items || [];
     const rowSpanCount = Math.max(items.length, 1);
 
@@ -89,14 +89,14 @@ const ProductRows = ({ product, roleFlags, onAction }) => {
                 <span style={getStatusStyle(item.status)}>{item.status}</span>
             </td>
             <td style={itemCell({ textAlign: 'center' })}>
-                <ActionCell item={item} product={product} roleFlags={roleFlags} onAction={onAction} />
+                <ActionCell item={item} product={product} actionFlags={actionFlags} onAction={onAction} />
             </td>
         </tr>
     ));
 };
 
 const OutstandingPoTable = ({
-    rows, sortKey, sortOrder, onSort, pagination, onPageChange, onLimitChange, roleFlags, onAction
+    rows, sortKey, sortOrder, onSort, pagination, onPageChange, onLimitChange, actionFlags, onAction
 }) => (
     <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e9ecef', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
@@ -133,7 +133,7 @@ const OutstandingPoTable = ({
                         </tr>
                     ) : (
                         rows.map((product) => (
-                            <ProductRows key={product.id_product} product={product} roleFlags={roleFlags} onAction={onAction} />
+                            <ProductRows key={product.id_product} product={product} actionFlags={actionFlags} onAction={onAction} />
                         ))
                     )}
                 </tbody>

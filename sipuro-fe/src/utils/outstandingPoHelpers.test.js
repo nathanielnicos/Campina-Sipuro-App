@@ -1,5 +1,5 @@
 import {
-    buildListParams, validateReason, getRoleFlags, getItemActions, parseLegacyQuery
+    buildListParams, validateReason, getActionFlags, getItemActions, parseLegacyQuery
 } from './outstandingPoHelpers';
 
 describe('buildListParams', () => {
@@ -24,22 +24,39 @@ describe('validateReason', () => {
     });
 });
 
+describe('getActionFlags', () => {
+    it('membaca izin create dan approve menu OUTSTANDING_PO', () => {
+        const can = (menu, action) => menu === 'OUTSTANDING_PO' && action === 'create';
+        expect(getActionFlags(can)).toEqual({ canRequestClose: true, canDecideClose: false });
+        expect(getActionFlags(() => false)).toEqual({ canRequestClose: false, canDecideClose: false });
+    });
+});
+
 describe('getItemActions', () => {
-    const cust = getRoleFlags({ role: 'CUSTOMER' });
-    const ppic = getRoleFlags({ role: 'STAFF', department: 'PPIC' });
-    const sa = getRoleFlags({ role: 'SUPERADMIN' });
-    it('customer hanya boleh mengajukan untuk item Active yang masih ada sisa', () => {
+    const grants = (list) => getActionFlags((menu, action) => menu === 'OUTSTANDING_PO' && list.includes(action));
+    const cust = grants(['create']);
+    const ppic = grants(['approve']);
+    const sa = grants([]);
+    it('pemilik izin create hanya boleh mengajukan untuk item Active yang masih ada sisa', () => {
         expect(getItemActions({ status: 'Active', remaining_qty: 5 }, cust)).toEqual(['REQUEST_CLOSE']);
         expect(getItemActions({ status: 'Active', remaining_qty: 0 }, cust)).toEqual([]);
         expect(getItemActions({ status: 'Close Requested', remaining_qty: 5 }, cust)).toEqual([]);
     });
-    it('PPIC memutuskan hanya pada Close Requested', () => {
+    it('pemilik izin approve memutuskan hanya pada Close Requested', () => {
         expect(getItemActions({ status: 'Close Requested', remaining_qty: 5 }, ppic)).toEqual(['APPROVE_CLOSE', 'REJECT_CLOSE']);
         expect(getItemActions({ status: 'Active', remaining_qty: 5 }, ppic)).toEqual([]);
     });
-    it('superadmin hanya melihat', () => {
+    it('tanpa izin hanya melihat', () => {
         expect(getItemActions({ status: 'Close Requested', remaining_qty: 5 }, sa)).toEqual([]);
         expect(getItemActions({ status: 'Active', remaining_qty: 5 }, sa)).toEqual([]);
+    });
+});
+
+describe('getItemActions dengan dua izin', () => {
+    it('kelompok yang punya create dan approve mendapat aksi sesuai status item', () => {
+        const both = getActionFlags((menu) => menu === 'OUTSTANDING_PO');
+        expect(getItemActions({ status: 'Active', remaining_qty: 5 }, both)).toEqual(['REQUEST_CLOSE']);
+        expect(getItemActions({ status: 'Close Requested', remaining_qty: 5 }, both)).toEqual(['APPROVE_CLOSE', 'REJECT_CLOSE']);
     });
 });
 

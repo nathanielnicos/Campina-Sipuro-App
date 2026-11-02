@@ -17,8 +17,11 @@ const ProductionPlanModal = ({
     hasExistingPlan,
     loading,
     saving,
+    canEdit,
     onSave
 }) => {
+    // Tanpa izin update, rencana hanya bisa dilihat
+    const locked = saving || !canEdit;
     // Indeks revisi terakhir sebelum Campina's Plan
     const lastRevIndex = useMemo(() => {
         if (revisions.length <= 1) return 0;
@@ -158,6 +161,7 @@ const ProductionPlanModal = ({
                             onChange={onFilterChange}
                         />
 
+                        {canEdit && (
                         <button
                             onClick={handleAddRevision}
                             disabled={loading || saving}
@@ -171,6 +175,7 @@ const ProductionPlanModal = ({
                         >
                             + Add Revision
                         </button>
+                        )}
                     </div>
 
                     {loading ? (
@@ -227,7 +232,7 @@ const ProductionPlanModal = ({
                                                         }}>
                                                             <input
                                                                 type="text"
-                                                                disabled={saving}
+                                                                disabled={locked}
                                                                 value={formatQty(currentVal)}
                                                                 onChange={(e) => handleCellChange(rIdx, key, e.target.value)}
                                                                 style={{
@@ -291,6 +296,7 @@ const ProductionPlanModal = ({
                     >
                         Close
                     </button>
+                    {canEdit && (
                     <button
                         onClick={onSave}
                         disabled={isSaveDisabled}
@@ -303,6 +309,7 @@ const ProductionPlanModal = ({
                     >
                         {saving ? 'Saving...' : 'Save'}
                     </button>
+                    )}
                 </div>
             </div>
         </div>

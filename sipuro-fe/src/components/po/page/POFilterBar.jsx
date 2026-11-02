@@ -6,7 +6,8 @@ const POFilterBar = ({
     endDate,
     status,
     isFilterActive,
-    userRole,
+    canExport,
+    canCreate,
     exporting,
     onSearchChange,
     onStartDateChange,
@@ -108,7 +109,7 @@ const POFilterBar = ({
                     Reset Filters
                 </button>
 
-                {userRole === 'CUSTOMER' && (
+                {canExport && (
                     <button
                         type="button"
                         onClick={onExportExcel}
@@ -131,7 +132,7 @@ const POFilterBar = ({
                     </button>
                 )}
 
-                {userRole === 'CUSTOMER' && (
+                {canCreate && (
                     <button
                         type="button"
                         onClick={onCreateNewPO}

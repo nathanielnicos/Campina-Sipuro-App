@@ -4,8 +4,10 @@ import ConfirmCreatePOModal from './ConfirmCreatePOModal';
 import WeekRangeFilter from '../WeekRangeFilter';
 import PORequirementRow from './PORequirementRow';
 import { getRequiredQty } from '../../../utils/requiredQty';
+import { usePermission } from '../../../context/PermissionContext';
 
 const PORequirementTab = () => {
+    const { can } = usePermission();
     const {
         search,
         setSearch,
@@ -139,6 +141,7 @@ const PORequirementTab = () => {
             </div>
 
             {/* Bottom Action Area */}
+            {can('PRODUCTION_SCHEDULE', 'create') && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
                 <button
                     onClick={handleInitCreateDraftPO}
@@ -158,6 +161,7 @@ const PORequirementTab = () => {
                     Create Draft PO
                 </button>
             </div>
+            )}
 
             {/* Modal Breakdown Detail */}
             <PORequirementDetailModal

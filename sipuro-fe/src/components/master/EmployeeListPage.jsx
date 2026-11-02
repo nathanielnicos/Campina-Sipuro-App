@@ -2,8 +2,11 @@ import { useEmployeeList } from '../../hooks/master/useEmployeeList';
 import PaginationControl from '../common/PaginationControl';
 import { formatGender } from '../../utils/formatters';
 import { formatDate } from '../../utils/dateHelper';
+import { usePermission } from '../../context/PermissionContext';
 
 const EmployeeListPage = () => {
+    const { can } = usePermission();
+    const canUpdate = can('EMPLOYEES', 'update');
     const {
         employees,
         loading,
@@ -77,12 +80,12 @@ const EmployeeListPage = () => {
                                     <th style={{ padding: '10px' }}>Department</th>
                                     <th style={{ padding: '10px' }}>Birth Date</th>
                                     <th style={{ padding: '10px' }}>Status</th>
-                                    <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>
+                                    {canUpdate && <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>}
                                 </tr>
                             </thead>
                             <tbody>
                                 {employees.length === 0 ? (
-                                    <tr><td colSpan="7" style={{ padding: '15px', textAlign: 'center' }}>No employee data available</td></tr>
+                                    <tr><td colSpan={canUpdate ? 7 : 6} style={{ padding: '15px', textAlign: 'center' }}>No employee data available</td></tr>
                                 ) : (
                                     employees.map((emp) => (
                                         <tr key={emp.id} style={{ borderBottom: '1px solid #e9ecef' }}>
@@ -96,6 +99,7 @@ const EmployeeListPage = () => {
                                             <td style={{ padding: '10px', color: emp.is_suspended ? '#ef4444' : '#198754', fontWeight: 'bold' }}>
                                                 {emp.is_suspended ? 'Inactive' : 'Active'}
                                             </td>
+                                            {canUpdate && (
                                             <td style={{ padding: '10px', textAlign: 'center' }}>
                                                 <button
                                                     onClick={() => handleToggleStatus(emp)}
@@ -120,6 +124,7 @@ const EmployeeListPage = () => {
                                                             : 'Deactivate'}
                                                 </button>
                                             </td>
+                                            )}
                                         </tr>
                                     ))
                                 )}

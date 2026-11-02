@@ -5,6 +5,7 @@ import PODSummary from './PODSummary';
 import PODActions from './PODActions';
 import PODPriceNotice from './PODPriceNotice';
 import { PO_STATUS } from '../../../constants/po';
+import { usePermission } from '../../../context/PermissionContext';
 
 // Import ke-4 Custom Hook
 import { usePODHeader } from '../../../hooks/po/detail-modal/usePODHeader';
@@ -14,6 +15,7 @@ import { usePODActions } from '../../../hooks/po/detail-modal/usePODActions';
 
 const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
     const userRole = currentUser?.role;
+    const { can } = usePermission();
 
     // 1. Hook Header & Data Fetching
     const {
@@ -60,13 +62,14 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
         handleUpdateStatus
     } = usePODActions({ poId, onSuccess });
 
-    // Cek apakah form masih diizinkan diedit oleh Customer
-    const isEditableByCustomer = isCustomer && (!poId || poStatus === PO_STATUS.DRAFT || poStatus === PO_STATUS.WAITING);
+    // Izin dari Access Permission. PO baru memakai izin create, PO yang sudah ada memakai update.
+    // Mengisi dan menyimpan PO tetap milik akun customer (pemilik data).
+    const canWrite = isCustomer && can('PO', poId ? 'update' : 'create');
+    const canCancel = isCustomer && can('PO', 'update');
+    const canReview = can('PO', 'approve');
 
-    // Approve / Reject hanya untuk karyawan PPIC (STAFF / MANAGER), bukan SUPERADMIN
-    const canReview = userRole !== 'CUSTOMER'
-        && userRole !== 'SUPERADMIN'
-        && String(currentUser?.department || '').trim().toUpperCase() === 'PPIC';
+    // Form hanya boleh diedit saat pengguna berizin dan PO masih Draft / Waiting
+    const isEditable = canWrite && (!poId || poStatus === PO_STATUS.DRAFT || poStatus === PO_STATUS.WAITING);
 
     // Tekan Enter di kolom isian tidak boleh mengirim form secara tidak sengaja.
     // Tombol Save / Submit tetap bekerja karena hanya event dari <input> yang diblokir.
@@ -131,7 +134,7 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
                         openDropdown={openDropdown}
                         products={products}
                         userRole={userRole}
-                        isEditable={isEditableByCustomer}
+                        isEditable={isEditable}
                         onSearchChange={(rowId, val) => {
                             setSearchTerm((prev) => ({ ...prev, [rowId]: val }));
                             setOpenDropdown(rowId);
@@ -157,7 +160,8 @@ const PODModal = ({ poId, currentUser, onClose, onSuccess }) => {
 
                     <PODActions
                         poId={poId}
-                        userRole={userRole}
+                        canWrite={canWrite}
+                        canCancel={canCancel}
                         canReview={canReview}
                         poStatus={poStatus}
                         loading={actionLoading}

@@ -4,6 +4,7 @@ import POTable from './POTable';
 import POPdfModal from '../pdf-modal/POPdfModal';
 import PODModal from '../detail-modal/PODModal';
 import { useGlobalModal } from '../../../context/ModalContext';
+import { usePermission } from '../../../context/PermissionContext';
 import useDebounce from '../../../hooks/useDebounce';
 
 // Import Hooks
@@ -22,6 +23,11 @@ const POPage = ({ customerId = 1, user, refreshSignal = 0 }) => {
     const [localRefresh, setLocalRefresh] = useState(0);
 
     const { showAlert } = useGlobalModal();
+    const { can } = usePermission();
+
+    // Pembuatan PO terikat ke akun customer (pemilik data); izin dari Access Permission.
+    const canCreate = can('PO', 'create') && user?.role === 'CUSTOMER';
+    const canExport = can('PO', 'export') && user?.role === 'CUSTOMER';
 
     // 1. Hook Filter
     const {
@@ -80,11 +86,11 @@ const POPage = ({ customerId = 1, user, refreshSignal = 0 }) => {
     });
 
     const handleOpenCreate = () => {
-        if (user && user.role !== 'CUSTOMER') {
+        if (!canCreate) {
             showAlert({
                 type: 'warning',
                 title: 'Access Restricted',
-                message: 'Only Customers can create new Purchase Orders.'
+                message: 'You do not have permission to create Purchase Orders.'
             });
             return;
         }
@@ -115,7 +121,8 @@ const POPage = ({ customerId = 1, user, refreshSignal = 0 }) => {
                 endDate={endDate}
                 status={status}
                 isFilterActive={isFilterActive}
-                userRole={user?.role}
+                canExport={canExport}
+                canCreate={canCreate}
                 exporting={exporting}
                 onSearchChange={handleSearchChange}
                 onStartDateChange={handleStartDateChange}

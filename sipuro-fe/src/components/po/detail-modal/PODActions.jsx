@@ -1,10 +1,9 @@
 import Button from '../../common/Button';
 import { PO_STATUS } from '../../../constants/po';
 
-const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onCancel, onUpdateStatus }) => {
+const PODActions = ({ poId, canWrite, canCancel, canReview, poStatus, loading, onClose, onCancel, onUpdateStatus }) => {
     const isAnyLoading = Boolean(loading);
 
-    const isCustomer = userRole === 'CUSTOMER';
     const isDraftOrNew = !poId || poStatus === PO_STATUS.DRAFT;
     const isWaiting = poStatus === PO_STATUS.WAITING;
 
@@ -12,7 +11,7 @@ const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onC
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px' }}>
             <div>
                 {/* Tombol Cancel PO aktif saat Waiting for Confirmation ATAU Draft */}
-                {poId && isCustomer && (isWaiting || poStatus === PO_STATUS.DRAFT) && (
+                {poId && canCancel && (isWaiting || poStatus === PO_STATUS.DRAFT) && (
                     <Button variant="danger" onClick={onCancel} disabled={isAnyLoading}>
                         {loading === 'CANCEL' ? 'Cancelling...' : 'Cancel PO'}
                     </Button>
@@ -24,7 +23,7 @@ const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onC
                     Close
                 </Button>
 
-                {/* Approve & Reject hanya untuk PPIC saat Waiting for Confirmation */}
+                {/* Approve & Reject hanya untuk pemilik izin approve saat Waiting for Confirmation */}
                 {poId && canReview && isWaiting && (
                     <>
                         <Button
@@ -44,8 +43,8 @@ const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onC
                     </>
                 )}
 
-                {/* Tombol khusus CUSTOMER saat pembuatan baru/Draft */}
-                {isCustomer && isDraftOrNew && (
+                {/* Tombol untuk pengguna berizin saat pembuatan baru/Draft */}
+                {canWrite && isDraftOrNew && (
                     <>
                         {/* Tombol Save as Draft */}
                         <Button
@@ -71,8 +70,8 @@ const PODActions = ({ poId, userRole, canReview, poStatus, loading, onClose, onC
                     </>
                 )}
 
-                {/* Tombol Save Changes untuk Customer jika PO sudah posisi Waiting for Confirmation */}
-                {isCustomer && poId && isWaiting && (
+                {/* Tombol Save Changes untuk pengguna berizin jika PO sudah posisi Waiting for Confirmation */}
+                {canWrite && poId && isWaiting && (
                     <Button type="submit" variant="primary" disabled={isAnyLoading}>
                         {loading === 'SAVE' ? 'Saving...' : 'Save Changes'}
                     </Button>

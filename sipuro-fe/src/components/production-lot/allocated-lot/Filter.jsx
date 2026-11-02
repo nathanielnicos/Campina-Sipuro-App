@@ -8,6 +8,7 @@ const Filter = ({
     fromCreatedDate,
     toCreatedDate,
     exporting,
+    canExport,
     onSearchChange,
     onStatusChange,
     onFromActualDateChange,
@@ -98,6 +99,7 @@ const Filter = ({
                 >
                     Reset
                 </button>
+                {canExport && (
                 <button
                     onClick={onExportExcel}
                     disabled={exporting}
@@ -117,6 +119,7 @@ const Filter = ({
                 >
                     {exporting ? 'Downloading...' : 'Export Excel'}
                 </button>
+                )}
             </div>
         </div>
     );

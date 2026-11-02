@@ -3,8 +3,10 @@ import PaginationControl from '../../common/PaginationControl';
 import ProductionPlanModal from './ProductionPlanModal';
 import WeekRangeFilter from '../WeekRangeFilter';
 import { formatQty } from '../../../utils/formatters';
+import { usePermission } from '../../../context/PermissionContext';
 
 const ProductionPlanTab = () => {
+    const { can } = usePermission();
     const {
         loading,
         data,
@@ -217,6 +219,7 @@ const ProductionPlanTab = () => {
                 hasExistingPlan={hasExistingPlan}
                 loading={modalLoading}
                 saving={saving}
+                canEdit={can('PRODUCTION_SCHEDULE', 'update')}
                 onSave={handleSave}
             />
         </div>

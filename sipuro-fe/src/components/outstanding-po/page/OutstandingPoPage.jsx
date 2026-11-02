@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useOutstandingPo } from '../../../hooks/outstanding-po/useOutstandingPo';
 import { requestCloseItem, approveCloseItem, rejectCloseItem } from '../../../services/outstandingPoApi';
-import { getRoleFlags } from '../../../utils/outstandingPoHelpers';
+import { getActionFlags } from '../../../utils/outstandingPoHelpers';
+import { usePermission } from '../../../context/PermissionContext';
 import OutstandingPoFilter from '../OutstandingPoFilter';
 import OutstandingPoTable from '../OutstandingPoTable';
 import CloseDialog from '../CloseDialog';
@@ -35,8 +36,9 @@ const MessageModal = ({ success, message, onClose }) => {
     );
 };
 
-const OutstandingPoPage = ({ currentUser }) => {
-    const roleFlags = getRoleFlags(currentUser);
+const OutstandingPoPage = () => {
+    const { can } = usePermission();
+    const actionFlags = getActionFlags(can);
     const {
         filters, updateFilter, resetFilters,
         setPage, changeLimit, sortKey, sortOrder, handleSort,
@@ -85,7 +87,7 @@ const OutstandingPoPage = ({ currentUser }) => {
                     pagination={pagination}
                     onPageChange={setPage}
                     onLimitChange={changeLimit}
-                    roleFlags={roleFlags}
+                    actionFlags={actionFlags}
                     onAction={(action, product, item) => setDialog({ action, product, item })}
                 />
             </div>

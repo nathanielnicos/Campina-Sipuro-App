@@ -32,6 +32,7 @@ const AllocationActions = ({ allocation, busy = false, onEditQty, onHistory }) =
                 📜
             </button>
 
+            {onEditQty && (
             <button
                 type="button"
                 disabled={!canEdit}
@@ -41,6 +42,7 @@ const AllocationActions = ({ allocation, busy = false, onEditQty, onHistory }) =
             >
                 ✏️
             </button>
+            )}
         </div>
     );
 };
