@@ -5,11 +5,13 @@
  * file, kolom Excel yang dibaca, alasan penolakan baris, dan kunci (item, lot).
  *
  * KONTRAK DATA (tanpa hubungan ke PO, karena pengiriman fisik terikat ke lot, bukan ke PO):
- *  - delivery_order_lots : satu baris per (DO, item PO, lot) per upload (qty_pcs, qty_ctn, tanggal dan jam).
- *  - delivery_returns    : satu baris per (nomor retur, item PO, lot) per upload.
- *  - Batas kirim per (item PO, lot)  = jumlah allocated_qty alokasi non-Canceled item itu pada lot tersebut
- *                                      dikurangi total yang sudah dikirim lewat DO.
- *  - Batas retur per (item PO, lot)  = total terkirim dikurangi total yang sudah diretur.
+ *  - Kode item di file DO = kode produk hasil PRODUKSI (produk lot), bisa berbeda dari kode produk di PO
+ *    bila ada pemetaan kode produk (kode lama -> baru). Satu lot bisa dialokasikan ke beberapa PO.
+ *  - delivery_order_lots : satu baris per (DO, item, lot) per upload (qty_pcs, qty_ctn, tanggal dan jam).
+ *  - delivery_returns    : satu baris per (nomor retur, item, lot) per upload.
+ *  - Batas kirim per (item, lot)     = jumlah allocated_qty alokasi non-Canceled lot tersebut ke PO mana pun
+ *                                      (produk ditentukan oleh lots.id_product) dikurangi total yang sudah dikirim.
+ *  - Batas retur per (item, lot)     = total terkirim dikurangi total yang sudah diretur.
  *  - Retur tidak mengubah nilai DO dan tidak membuka kuota kirim lagi.
  */
 
@@ -43,7 +45,7 @@ const REASONS = Object.freeze({
     EXCEEDS_DELIVERED: 'Return exceeds delivered quantity'
 });
 
-// Kunci pasangan (kode item PO, nomor lot)
+// Kunci pasangan (kode produk lot, nomor lot)
 const stockKey = (itemCode, lotNumber) => `${itemCode}\u0000${lotNumber}`;
 
 module.exports = { TRANS_TYPE, COLUMN, REASONS, stockKey };

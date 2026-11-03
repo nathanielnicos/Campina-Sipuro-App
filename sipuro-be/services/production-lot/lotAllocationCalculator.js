@@ -90,7 +90,7 @@ const calculateLotFifoAllocation = (
     const existingBatches = context.existingBatches || [];
     const existingLots = context.existingLots || [];
     const existingAllocations = context.existingAllocations || [];
-    // Total alokasi dan qty terkirim per (kode item PO, lot): alokasi tidak boleh turun di bawah qty terkirim
+    // Total alokasi dan qty terkirim per (kode produk lot, lot): alokasi tidak boleh turun di bawah qty terkirim
     const lotAllocated = context.lotAllocated || new Map();
     const lotDelivered = context.lotDelivered || new Map();
     const reducedInFile = new Map();
@@ -392,9 +392,10 @@ const calculateLotFifoAllocation = (
         const totalReducible = withDate.reduce((sum, e) => sum + e.allocatedQty, 0);
         if (totalReducible < amount) return fail(REASONS.REDUCTION_EXCEEDS);
 
-        // Sisa yang boleh dikurangi per (kode item PO, lot) = total alokasi - terkirim - sudah dikurangi di file ini
+        // Sisa yang boleh dikurangi per (kode produk lot, lot) = total alokasi - terkirim - sudah dikurangi di file ini.
+        // Kunci memakai kode produksi (group.itemCode), sama dengan Delivery Order, walau PO berkode lain (via pemetaan).
         const roomByKey = new Map();
-        const keyOfEntry = (entry) => stockKey(poStates.get(entry.poDetailId).productCode, group.lotNumber);
+        const keyOfEntry = () => stockKey(group.itemCode, group.lotNumber);
         const roomOf = (key) => {
             if (!roomByKey.has(key)) {
                 const delivered = Number(lotDelivered.get(key)) || 0;

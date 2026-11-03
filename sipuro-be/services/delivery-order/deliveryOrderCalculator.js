@@ -5,7 +5,8 @@
  * Dipakai SAMA PERSIS oleh preview dan commit, sehingga hasil preview identik dengan yang disimpan.
  *
  * Aturan:
- *  - Kode item di file = kode item PO. Pengiriman terikat ke lot, bukan ke PO.
+ *  - Kode item di file = kode produk hasil produksi (produk lot), bisa berbeda dari kode di PO (pemetaan kode).
+ *    Pengiriman terikat ke lot, bukan ke PO.
  *  - Baris dikelompokkan per (nomor DO, item, lot). Total grup harus muat PENUH dalam sisa kuota
  *    (item, lot) = total alokasi non-Canceled dikurangi yang sudah dikirim; kalau tidak, seluruh baris
  *    grup menjadi Unallocated. Force Closed ikut dihitung karena qty-nya sudah terpenuhi.

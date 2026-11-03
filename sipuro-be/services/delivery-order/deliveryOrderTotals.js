@@ -1,8 +1,12 @@
 'use strict';
 
 /**
- * Total per (kode item PO, nomor lot) untuk modul Delivery Order, dibaca dari database:
- *  - allocated : jumlah allocated_qty alokasi non-Canceled (sama dengan rumus fulfilled_qty, per lot)
+ * Total per (kode produk LOT, nomor lot) untuk modul Delivery Order, dibaca dari database.
+ * Kode produk di sini adalah kode hasil produksi (lots.id_product), BUKAN kode produk di PO:
+ * sebuah lot bisa dialokasikan ke PO berkode lama lewat pemetaan kode produk, tetapi barang
+ * fisiknya tetap satu produk. Dengan begitu DO (yang membawa kode produksi) dan alokasi lot
+ * selalu bertemu pada kunci yang sama, berapa pun jumlah PO yang memegang alokasi lot itu.
+ *  - allocated : jumlah allocated_qty alokasi non-Canceled dari lot itu, ke PO mana pun
  *  - delivered : jumlah qty_pcs di delivery_order_lots
  *  - returned  : jumlah qty_pcs di delivery_returns
  * Dipakai kalkulator upload DO dan aturan "alokasi lot tidak boleh di bawah qty terkirim" di modul lot.
@@ -18,7 +22,7 @@ const ALLOCATED_SQL = `SELECT p.product_code, l.lot_number, SUM(pla.allocated_qt
     FROM po_lot_allocations pla
     JOIN po_details d ON pla.po_detail_id = d.po_detail_id
     JOIN lots l ON pla.lot_id = l.id
-    JOIN products p ON d.id_product = p.id_product
+    JOIN products p ON l.id_product = p.id_product
     WHERE l.lot_number IN (?) AND pla.status <> '${ALLOCATION_STATUS.CANCELED}' AND ${NOT_DELETED_SQL}
     GROUP BY p.product_code, l.lot_number`;
 
@@ -60,13 +64,14 @@ const fetchLotStock = async (queryable, lotNumbers) => {
 };
 
 /**
- * Saldo satu (item PO, lot): total alokasi non-Canceled dan qty terkirim.
- * Dipakai aturan "alokasi tidak boleh turun di bawah qty terkirim" pada perubahan manual.
+ * Saldo satu lot: total alokasi non-Canceled (ke PO mana pun) dan qty terkirim.
+ * Produk ditentukan oleh lot itu sendiri (lots.id_product), sehingga alokasi lewat pemetaan kode
+ * tetap terhitung. Dipakai aturan "alokasi tidak boleh turun di bawah qty terkirim" pada perubahan manual.
  */
-const fetchItemLotBalance = async (queryable, { productId, lotId }) => {
+const fetchItemLotBalance = async (queryable, { lotId }) => {
     const [[row]] = await queryable.query(
-        'SELECT p.product_code, l.lot_number FROM products p JOIN lots l ON l.id = ? WHERE p.id_product = ?',
-        [lotId, productId]
+        'SELECT p.product_code, l.lot_number FROM lots l JOIN products p ON p.id_product = l.id_product WHERE l.id = ?',
+        [lotId]
     );
     if (!row) return { itemCode: null, lotNumber: null, allocated: 0, delivered: 0 };
     const { allocated, delivered } = await fetchLotStock(queryable, [row.lot_number]);

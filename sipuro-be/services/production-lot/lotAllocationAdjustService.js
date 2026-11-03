@@ -148,7 +148,7 @@ const adjustAllocationQty = async (connection, { allocationId, newQty, reason, u
 
     // Alokasi lot tidak boleh turun di bawah qty yang sudah dikirim (Delivery Order)
     if (newQty < oldQty) {
-        const balance = await fetchItemLotBalance(connection, { productId: detail.id_product, lotId: allocation.lot_id });
+        const balance = await fetchItemLotBalance(connection, { lotId: allocation.lot_id });
         const afterTotal = balance.allocated - oldQty + newQty;
         if (afterTotal < balance.delivered) {
             const minAllowed = Math.max(0, balance.delivered - (balance.allocated - oldQty));
