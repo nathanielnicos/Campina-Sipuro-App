@@ -24,6 +24,7 @@
 const crypto = require('crypto');
 const { BusinessError } = require('../../helpers/businessError');
 const { buildFamilyIndex } = require('../product-code-mapping/productFamilies');
+const { buildStockCodeResolver } = require('../product-code-mapping/stockFamilyKey');
 const {
     ALLOCATION_STATUS,
     PO_DETAIL_STATUS,
@@ -120,6 +121,8 @@ const calculateLotFifoAllocation = (
     const productByCode = new Map();
     allProducts.forEach((p) => productByCode.set(p.product_code, p));
     const families = buildFamilyIndex(context.productMappings || []);
+    // Stok lot dihitung per (keluarga produk, lot): kode lama dan pengganti yang dipetakan berbagi satu kunci
+    const stockCodes = buildStockCodeResolver(allProducts, context.productMappings || []);
     const activeProductIds = new Set(allProducts.filter((p) => Number(p.is_active) === 1).map((p) => Number(p.id_product)));
 
     // 0. Blokir jika produk di file memiliki po_details dengan status 'Close Requested'
@@ -404,7 +407,7 @@ const calculateLotFifoAllocation = (
                 remaining -= take;
 
                 // Kunci memakai kode produk lot (sama dengan Delivery Order), walau PO berkode lain lewat pemetaan
-                const stockId = stockKey(group.itemCode, group.lotNumber);
+                const stockId = stockKey(stockCodes.forProductCode(group.itemCode), group.lotNumber);
                 addedInFile.set(stockId, (addedInFile.get(stockId) || 0) + take);
 
                 const existing = hasStoredPair
@@ -462,7 +465,7 @@ const calculateLotFifoAllocation = (
         // Sisa yang boleh dikurangi per (kode produk lot, lot) = total alokasi - terkirim - sudah dikurangi di file ini.
         // Kunci memakai kode produksi (group.itemCode), sama dengan Delivery Order, walau PO berkode lain (via pemetaan).
         const roomByKey = new Map();
-        const keyOfEntry = () => stockKey(group.itemCode, group.lotNumber);
+        const keyOfEntry = () => stockKey(stockCodes.forProductCode(group.itemCode), group.lotNumber);
         const roomOf = (key) => {
             if (!roomByKey.has(key)) {
                 const delivered = Number(lotDelivered.get(key)) || 0;

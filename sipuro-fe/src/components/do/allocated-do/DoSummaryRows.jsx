@@ -1,6 +1,7 @@
 import React from 'react';
 import QtyStack from '../../common/QtyStack';
 import ProductCell from './ProductCell';
+import EstimatedPoCell from './EstimatedPoCell';
 import { formatDateTime } from '../../../utils/dateHelper';
 import { cellStyle, rowStyle, emptyRow } from './doRowStyles';
 
@@ -10,9 +11,10 @@ export const SUMMARY_COLUMN_COUNT = 4;
  * Tampilan DO Number - Summary: satu baris per (DO, item), qty = total semua lot item itu.
  * Nomor DO dan tanggal hanya di baris pertama tiap DO.
  */
-const DoSummaryRows = ({ mappingList }) => {
+const DoSummaryRows = ({ mappingList, estimate }) => {
+    const showEstimate = Boolean(estimate && estimate.enabled);
     if (!mappingList || mappingList.length === 0) {
-        return emptyRow(SUMMARY_COLUMN_COUNT, 'No Delivery Order data available.');
+        return emptyRow(SUMMARY_COLUMN_COUNT + (showEstimate ? 1 : 0), 'No Delivery Order data available.');
     }
 
     return mappingList.flatMap((order) => (Array.isArray(order.items) ? order.items : []).map((item, itemIdx) => (
@@ -25,6 +27,11 @@ const DoSummaryRows = ({ mappingList }) => {
             <td style={{ ...cellStyle, width: '120px' }}>
                 <QtyStack pcs={item.total_qty_pcs} ctn={item.total_qty_ctn} color="#198754" />
             </td>
+            {showEstimate && (
+                <td style={{ ...cellStyle, minWidth: '200px' }}>
+                    <EstimatedPoCell estimate={estimate} entry={estimate.getItem(order.delivery_order_id, item.id_product)} />
+                </td>
+            )}
         </tr>
     )));
 };

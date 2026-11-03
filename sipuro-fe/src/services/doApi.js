@@ -15,6 +15,17 @@ export const fetchDeliveryOrderMapping = async (page = 1, limit = 10, filters = 
     }
 };
 
+// Perkiraan PO (FIFO per lot) untuk DO yang sedang tampil; hanya baca
+export const fetchEstimatedPo = async (doIds = []) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/estimated-po`, { params: { doIds: doIds.join(',') } });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching estimated PO:', error);
+        return { success: false, message: error.response?.data?.message || 'Failed to fetch estimated PO.' };
+    }
+};
+
 export const previewDeliveryOrderApi = async (formData) => {
     try {
         const response = await axios.post(`${BASE_URL}/upload/preview`, formData, {

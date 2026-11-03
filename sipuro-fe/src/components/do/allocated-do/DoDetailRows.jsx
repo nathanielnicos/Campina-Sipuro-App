@@ -1,6 +1,7 @@
 import React from 'react';
 import QtyStack from '../../common/QtyStack';
 import ProductCell from './ProductCell';
+import EstimatedPoCell from './EstimatedPoCell';
 import { formatDateTime } from '../../../utils/dateHelper';
 import { cellStyle, rowStyle, emptyRow } from './doRowStyles';
 
@@ -10,9 +11,10 @@ export const DETAIL_COLUMN_COUNT = 5;
  * Tampilan DO Number - Per Lot: satu baris per (DO, item, lot).
  * Nomor DO hanya di baris pertama tiap DO, produk hanya di baris pertama tiap item.
  */
-const DoDetailRows = ({ mappingList }) => {
+const DoDetailRows = ({ mappingList, estimate }) => {
+    const showEstimate = Boolean(estimate && estimate.enabled);
     if (!mappingList || mappingList.length === 0) {
-        return emptyRow(DETAIL_COLUMN_COUNT, 'No Delivery Order data available.');
+        return emptyRow(DETAIL_COLUMN_COUNT + (showEstimate ? 1 : 0), 'No Delivery Order data available.');
     }
 
     return mappingList.flatMap((order) => {
@@ -32,6 +34,11 @@ const DoDetailRows = ({ mappingList }) => {
                         <td style={{ ...cellStyle, width: '120px' }}>
                             <QtyStack pcs={lot.qty_pcs} ctn={lot.qty_ctn} color="#198754" />
                         </td>
+                        {showEstimate && (
+                            <td style={{ ...cellStyle, minWidth: '200px' }}>
+                                <EstimatedPoCell estimate={estimate} entry={estimate.getLot(order.delivery_order_id, item.id_product, lot.lot_number)} />
+                            </td>
+                        )}
                     </tr>
                 );
             })

@@ -60,6 +60,7 @@ const UPLOAD_ROUTES = ['POST /upload/preview', 'POST /upload/commit'];
 
 const POLICY = {
     'GET /mapping': VIEWERS,
+    'GET /estimated-po': VIEWERS,
     'POST /upload/preview': UPLOADERS,
     'POST /upload/commit': UPLOADERS
 };

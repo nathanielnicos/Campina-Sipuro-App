@@ -8,7 +8,10 @@ const DoFilter = ({
     onSearchChange,
     onFromDoDateChange,
     onToDoDateChange,
-    onResetFilters
+    onResetFilters,
+    showEstimatedPoToggle = false,
+    estimatedPoOn = false,
+    onToggleEstimatedPo
 }) => {
     const isFilterActive = Boolean(searchQuery || fromDoDate || toDoDate);
     const getValue = (e) => (e?.target ? e.target.value : e);
@@ -43,6 +46,31 @@ const DoFilter = ({
                 onFromDateChange={(e) => onFromDoDateChange(getValue(e))}
                 onToDateChange={(e) => onToDoDateChange(getValue(e))}
             />
+
+            {showEstimatedPoToggle && (
+                <div>
+                    <button
+                        type="button"
+                        onClick={onToggleEstimatedPo}
+                        aria-pressed={estimatedPoOn}
+                        title="Show a FIFO estimate of which PO each DO belongs to"
+                        style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            backgroundColor: estimatedPoOn ? '#0d6efd' : '#fff',
+                            color: estimatedPoOn ? '#fff' : '#0d6efd',
+                            border: '1px solid #0d6efd',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            height: '38px',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        {estimatedPoOn ? 'Hide Estimated PO' : 'Show Estimated PO'}
+                    </button>
+                </div>
+            )}
 
             <div>
                 <button

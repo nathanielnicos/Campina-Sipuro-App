@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const deliveryOrderListController = require('../controllers/delivery-order/list/deliveryOrderListController');
+const deliveryOrderEstimatedPoController = require('../controllers/delivery-order/list/deliveryOrderEstimatedPoController');
 const deliveryOrderUploadPreviewController = require('../controllers/delivery-order/import/deliveryOrderUploadPreviewController');
 const deliveryOrderUploadCommitController = require('../controllers/delivery-order/import/deliveryOrderUploadCommitController');
 const { handleExcelUpload } = require('../middleware/excelUpload');
@@ -14,6 +15,7 @@ const canUpload = requirePermission('DO', 'upload');
 
 // 1. RUTE STATIS (GET)
 router.get('/mapping', canView, deliveryOrderListController.getDeliveryOrderMapping);
+router.get('/estimated-po', canView, deliveryOrderEstimatedPoController.getEstimatedPo);
 
 // 2. RUTE DINAMIS (GET dengan Parameter)
 

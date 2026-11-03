@@ -8,7 +8,8 @@
  *  - Kode item di file = kode produk hasil produksi (produk lot), bisa berbeda dari kode di PO (pemetaan kode).
  *    Pengiriman terikat ke lot, bukan ke PO.
  *  - Baris dikelompokkan per (nomor DO, item, lot). Total grup harus muat PENUH dalam sisa kuota
- *    (item, lot) = total alokasi non-Canceled dikurangi yang sudah dikirim; kalau tidak, seluruh baris
+ *    (keluarga produk, lot) = total alokasi non-Canceled dikurangi yang sudah dikirim. Kode produk yang dipetakan
+ *    (mis. 45 dan 47) satu keluarga: nomor lot yang sama berbagi satu kuota (stock.stockCodes); kalau tidak, seluruh baris
  *    grup menjadi Unallocated. Force Closed ikut dihitung karena qty-nya sudah terpenuhi.
  *  - Urutan grup tetap: tanggal dan jam paling awal, nomor DO, item, lot, lalu urutan di file.
  *  - Retur (RMA Receipt) diproses SETELAH seluruh DO, dikelompokkan per (nomor retur, item, lot),
@@ -21,6 +22,7 @@
 const crypto = require('crypto');
 const { BusinessError } = require('../../helpers/businessError');
 const { TRANS_TYPE, REASONS, stockKey } = require('./deliveryOrderRules');
+const { IDENTITY_STOCK_CODES } = require('../product-code-mapping/stockFamilyKey');
 
 const cmp = (a, b) => (a === b ? 0 : (a < b ? -1 : 1));
 
@@ -45,6 +47,8 @@ const calculateDeliveryOrders = (
     stockInput = {}
 ) => {
     const stock = { ...emptyStock(), ...stockInput };
+    const stockCodes = stock.stockCodes || IDENTITY_STOCK_CODES;
+    const stockKeyOf = (itemCode, lotNumber) => stockKey(stockCodes.forProductCode(itemCode), lotNumber);
     const hashSet = new Set(existingHashes);
     const productByCode = new Map(allProducts.map((p) => [p.product_code, p]));
 
@@ -155,7 +159,7 @@ const calculateDeliveryOrders = (
 
     // 2. Pengiriman (DO)
     [...issueGroups.values()].sort(byOrder).forEach((group) => {
-        const key = stockKey(group.itemCode, group.lotNumber);
+        const key = stockKeyOf(group.itemCode, group.lotNumber);
         const allocated = sumOf(stock.allocated, key);
 
         if (!stock.lotsFound.has(group.lotNumber)) {
@@ -174,7 +178,7 @@ const calculateDeliveryOrders = (
 
     // 3. Retur (RMA): terhadap total terkirim, termasuk DO yang baru diterima dari file ini
     [...returnGroups.values()].sort(byOrder).forEach((group) => {
-        const key = stockKey(group.itemCode, group.lotNumber);
+        const key = stockKeyOf(group.itemCode, group.lotNumber);
 
         if (!stock.lotsFound.has(group.lotNumber)) {
             return rejectGroup(group, REASONS.LOT_NOT_FOUND);

@@ -1,7 +1,9 @@
 'use strict';
 
 /**
- * Total per (kode produk LOT, nomor lot) untuk modul Delivery Order, dibaca dari database.
+ * Total per (keluarga produk, nomor lot) untuk modul Delivery Order, dibaca dari database.
+ * Kunci memakai kode kanonik keluarga produk (lihat stockFamilyKey): kode lama dan kode pengganti
+ * yang dipetakan memakai satu stok per nomor lot. Tanpa `stockCodes`, kunci = kode produk apa adanya.
  * Kode produk di sini adalah kode hasil produksi (lots.id_product), BUKAN kode produk di PO:
  * sebuah lot bisa dialokasikan ke PO berkode lama lewat pemetaan kode produk, tetapi barang
  * fisiknya tetap satu produk. Dengan begitu DO (yang membawa kode produksi) dan alokasi lot
@@ -17,6 +19,7 @@ const { chunk } = require('../../helpers/arrayUtils');
 const { NOT_DELETED_SQL } = require('../../helpers/po/openItemRules');
 const { ALLOCATION_STATUS } = require('../production-lot/lotAllocationRules');
 const { stockKey } = require('./deliveryOrderRules');
+const { buildStockCodeResolver, IDENTITY_STOCK_CODES } = require('../product-code-mapping/stockFamilyKey');
 
 const ALLOCATED_SQL = `SELECT p.product_code, l.lot_number, SUM(pla.allocated_qty) AS total_qty
     FROM po_lot_allocations pla
@@ -38,33 +41,47 @@ const RETURNED_SQL = `SELECT p.product_code, t.lot_number, SUM(t.qty_pcs) AS tot
     WHERE t.lot_number IN (?)
     GROUP BY p.product_code, t.lot_number`;
 
-const loadTotals = async (queryable, sql, lotNumbers) => {
+const loadTotals = async (queryable, sql, lotNumbers, stockCodes) => {
     const totals = new Map();
     for (const part of chunk(lotNumbers, 500)) {
         const [rows] = await queryable.query(sql, [part]);
-        rows.forEach((r) => totals.set(stockKey(r.product_code, r.lot_number), Number(r.total_qty) || 0));
+        rows.forEach((r) => {
+            const key = stockKey(stockCodes.forProductCode(r.product_code), r.lot_number);
+            totals.set(key, (totals.get(key) || 0) + (Number(r.total_qty) || 0));
+        });
     }
     return totals;
 };
 
+// Pemetaan kode produk AKTIF + daftar produk -> penentu kode kanonik keluarga
+const loadStockCodes = async (queryable) => {
+    const [mappings] = await queryable.query(
+        'SELECT id_product_old, id_product_new FROM product_code_mappings WHERE is_active = 1'
+    );
+    const [products] = await queryable.query('SELECT id_product, product_code FROM products');
+    return buildStockCodeResolver(products, mappings);
+};
+
 /**
  * @param {string[]} lotNumbers nomor lot yang ingin dihitung
- * @returns {Promise<{ allocated: Map, delivered: Map, returned: Map }>} kunci = stockKey(itemCode, lotNumber)
+ * @param {{ stockCodes?: { forProductCode: (code:string) => string } }} [options] penentu kode kanonik keluarga
+ * @returns {Promise<{ allocated: Map, delivered: Map, returned: Map }>} kunci = stockKey(kode kanonik, lotNumber)
  */
-const fetchLotStock = async (queryable, lotNumbers) => {
+const fetchLotStock = async (queryable, lotNumbers, { stockCodes = IDENTITY_STOCK_CODES } = {}) => {
     const lots = [...new Set(lotNumbers)].filter(Boolean);
     if (lots.length === 0) {
         return { allocated: new Map(), delivered: new Map(), returned: new Map() };
     }
     return {
-        allocated: await loadTotals(queryable, ALLOCATED_SQL, lots),
-        delivered: await loadTotals(queryable, DELIVERED_SQL, lots),
-        returned: await loadTotals(queryable, RETURNED_SQL, lots)
+        allocated: await loadTotals(queryable, ALLOCATED_SQL, lots, stockCodes),
+        delivered: await loadTotals(queryable, DELIVERED_SQL, lots, stockCodes),
+        returned: await loadTotals(queryable, RETURNED_SQL, lots, stockCodes)
     };
 };
 
 /**
- * Saldo satu lot: total alokasi non-Canceled (ke PO mana pun) dan qty terkirim.
+ * Saldo satu lot: total alokasi non-Canceled (ke PO mana pun) dan qty terkirim, dihitung per keluarga produk
+ * (nomor lot yang sama dengan kode lama dan kode pengganti dijumlahkan).
  * Produk ditentukan oleh lot itu sendiri (lots.id_product), sehingga alokasi lewat pemetaan kode
  * tetap terhitung. Dipakai aturan "alokasi tidak boleh turun di bawah qty terkirim" pada perubahan manual.
  */
@@ -74,8 +91,9 @@ const fetchItemLotBalance = async (queryable, { lotId }) => {
         [lotId]
     );
     if (!row) return { itemCode: null, lotNumber: null, allocated: 0, delivered: 0 };
-    const { allocated, delivered } = await fetchLotStock(queryable, [row.lot_number]);
-    const key = stockKey(row.product_code, row.lot_number);
+    const stockCodes = await loadStockCodes(queryable);
+    const { allocated, delivered } = await fetchLotStock(queryable, [row.lot_number], { stockCodes });
+    const key = stockKey(stockCodes.forProductCode(row.product_code), row.lot_number);
     return {
         itemCode: row.product_code,
         lotNumber: row.lot_number,

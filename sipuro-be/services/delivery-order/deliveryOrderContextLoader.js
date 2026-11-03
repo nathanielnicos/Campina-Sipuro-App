@@ -8,11 +8,18 @@
 
 const { chunk } = require('../../helpers/arrayUtils');
 const { fetchLotStock } = require('./deliveryOrderTotals');
+const { buildStockCodeResolver } = require('../product-code-mapping/stockFamilyKey');
 
 const loadDeliveryOrderContext = async (queryable, rawRows, { forUpdate = false } = {}) => {
     const [allProducts] = await queryable.query(
         'SELECT id_product, product_code, product_name, pcs_per_ctn FROM products'
     );
+
+    // Pemetaan kode produk AKTIF: kode lama dan pengganti berbagi kuota per nomor lot
+    const [productMappings] = await queryable.query(
+        'SELECT id_product_old, id_product_new FROM product_code_mappings WHERE is_active = 1'
+    );
+    const stockCodes = buildStockCodeResolver(allProducts, productMappings);
 
     // Baris yang sudah pernah diproses (detail upload DO dan retur)
     const existingHashes = [];
@@ -46,12 +53,12 @@ const loadDeliveryOrderContext = async (queryable, rawRows, { forUpdate = false 
         }
     }
 
-    const { allocated, delivered, returned } = await fetchLotStock(queryable, lotNumbers);
+    const { allocated, delivered, returned } = await fetchLotStock(queryable, lotNumbers, { stockCodes });
 
     return {
         existingHashes,
         allProducts,
-        stock: { lotsFound, allocated, delivered, returned }
+        stock: { lotsFound, allocated, delivered, returned, stockCodes }
     };
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import PaginationControl from '../../common/PaginationControl';
 import DoFilter from './DoFilter';
 import DoViewModeSwitcher from './DoViewModeSwitcher';
@@ -7,9 +7,11 @@ import DoDetailRows from './DoDetailRows';
 import DoLotViewRows from './DoLotViewRows';
 import DoReturnViewRows from './DoReturnViewRows';
 import useDeliveryOrderTable from '../../../hooks/do/allocated-do/useDeliveryOrderTable';
+import useEstimatedPo from '../../../hooks/do/allocated-do/useEstimatedPo';
 
 const thStyle = { padding: '12px 14px' };
 const QTY_COLUMN = 'Qty (Pcs)';
+const ESTIMATED_PO_COLUMN = 'Estimated PO';
 
 // Kolom per tampilan
 const COLUMNS = {
@@ -27,7 +29,17 @@ const DoTable = ({ reloadTrigger }) => {
     const [fromDoDate, setFromDoDate] = useState('');
     const [toDoDate, setToDoDate] = useState('');
 
+    const [showEstimatedPo, setShowEstimatedPo] = useState(false);
+
     const tableData = useDeliveryOrderTable(reloadTrigger, { searchQuery, fromDoDate, toDoDate }, viewMode);
+
+    // Perkiraan PO hanya untuk tampilan DO Number (Summary dan Per Lot), atas DO yang sedang tampil
+    const estimatedPoActive = showEstimatedPo && viewMode === 'DO';
+    const visibleDoIds = useMemo(
+        () => (viewMode === 'DO' ? tableData.mappingList.map((order) => order.delivery_order_id) : []),
+        [viewMode, tableData.mappingList]
+    );
+    const estimate = useEstimatedPo(estimatedPoActive, visibleDoIds);
 
     const handleReset = () => {
         setSearchQuery('');
@@ -40,14 +52,16 @@ const DoTable = ({ reloadTrigger }) => {
     let rows = <DoReturnViewRows mappingList={tableData.mappingList} />;
     if (viewMode === 'DO' && detailLevel === 'SUMMARY') {
         columns = COLUMNS.DO_SUMMARY;
-        rows = <DoSummaryRows mappingList={tableData.mappingList} />;
+        rows = <DoSummaryRows mappingList={tableData.mappingList} estimate={estimate} />;
     } else if (viewMode === 'DO') {
         columns = COLUMNS.DO_LOT;
-        rows = <DoDetailRows mappingList={tableData.mappingList} />;
+        rows = <DoDetailRows mappingList={tableData.mappingList} estimate={estimate} />;
     } else if (viewMode === 'LOT') {
         columns = COLUMNS.LOT;
         rows = <DoLotViewRows mappingList={tableData.mappingList} />;
     }
+
+    if (estimatedPoActive) columns = [...columns, ESTIMATED_PO_COLUMN];
 
     return (
         <div style={{ position: 'relative', opacity: tableData.loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
@@ -67,6 +81,9 @@ const DoTable = ({ reloadTrigger }) => {
                 onFromDoDateChange={(val) => { setFromDoDate(val); tableData.setPage(1); }}
                 onToDoDateChange={(val) => { setToDoDate(val); tableData.setPage(1); }}
                 onResetFilters={handleReset}
+                showEstimatedPoToggle={viewMode === 'DO'}
+                estimatedPoOn={showEstimatedPo}
+                onToggleEstimatedPo={() => setShowEstimatedPo((on) => !on)}
             />
 
             <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
@@ -76,6 +93,14 @@ const DoTable = ({ reloadTrigger }) => {
                     detailLevel={detailLevel}
                     onDetailLevelChange={setDetailLevel}
                 />
+
+                {estimatedPoActive && (
+                    <div style={{ padding: '8px 14px', fontSize: '12px', color: '#6c757d', borderBottom: '1px solid #dee2e6', backgroundColor: '#f8f9fa' }}>
+                        {estimate.error
+                            ? <span style={{ color: '#dc3545' }}>{estimate.error}</span>
+                            : 'Estimated PO is a FIFO estimate per lot (oldest PO and oldest DO first). It is not recorded data and does not change DO values.'}
+                    </div>
+                )}
 
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
