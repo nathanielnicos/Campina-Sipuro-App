@@ -16,7 +16,9 @@ Module._load = function patched(request) {
     return originalLoad.apply(this, arguments);
 };
 const { parseQuantity, parseProductionExcel } = require('../services/production-lot/lotUploadParser');
-const { TRANS_TYPE } = require('../services/production-lot/lotAllocationRules');
+const { findLotRule } = require('./fixtures/transTypeRules');
+
+const TRANS_TYPE = { COMPLETION: 'WIP Completion', RETURN: 'WIP Completion Return' };
 
 test('parseQuantity: bulat, desimal, kosong, bukan angka', () => {
     assert.deepEqual(parseQuantity(5), { value: 5, isWhole: true });
@@ -51,7 +53,7 @@ const dataRow = (type, item, qty) => {
 
 test('parser tidak menolak qty desimal (keputusan ada di kalkulator) dan membawa penanda', () => {
     sheet = makeSheet([dataRow(TRANS_TYPE.COMPLETION, 'P1', 10), dataRow(TRANS_TYPE.COMPLETION, 'ZZ', 2.5), dataRow(TRANS_TYPE.RETURN, 'P1', 'abc')]);
-    const out = parseProductionExcel(Buffer.from('x'));
+    const out = parseProductionExcel(Buffer.from('x'), findLotRule);
     assert.equal(out.rawRows.length, 3);
     assert.deepEqual(out.rawRows.map((r) => r.qtyIsWhole), [true, false, false]);
     assert.equal(out.rawRows[1].qtyPac, 2.5);

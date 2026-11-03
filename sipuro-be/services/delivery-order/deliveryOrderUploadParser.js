@@ -12,23 +12,28 @@ const { BusinessError } = require('../../helpers/businessError');
 const { MAX_UPLOAD_ROWS } = require('../../helpers/uploadConfig');
 const { readUploadSheet, parseExcelDateTime, parseQuantity } = require('../../helpers/excelUploadReader');
 const { TRANS_TYPE, COLUMN } = require('./deliveryOrderRules');
+const { DIRECTION } = require('../upload-trans-type/uploadTransTypeRules');
 
 const text = (value) => (value === undefined || value === null ? '' : String(value).trim());
 
-const parseDeliveryOrderExcel = (fileBuffer) => {
+/**
+ * @param {Buffer} fileBuffer
+ * @param {(rawText: string) => object|undefined} findRule pencari aturan jenis transaksi (scope DO, lihat uploadTransTypeLoader)
+ */
+const parseDeliveryOrderExcel = (fileBuffer, findRule) => {
     const { fileHash, processTimestamp, rows } = readUploadSheet(fileBuffer);
 
     const rawRows = [];
 
     for (const { cells, excelRowNumber } of rows) {
-        const normalizedType = text(cells[COLUMN.TRANS_TYPE]).toLowerCase();
-        const isIssue = normalizedType === TRANS_TYPE.ISSUE.toLowerCase();
-        const isReturn = normalizedType === TRANS_TYPE.RETURN.toLowerCase();
-        if (!isIssue && !isReturn) continue;
+        const rule = findRule(cells[COLUMN.TRANS_TYPE]);
+        if (!rule) continue;
 
+        // Arah OUT = pengiriman (Sales order issue, Qty Out / T); IN = retur (RMA Receipt, Qty In / Q).
+        // Nilai transType disimpan memakai nama baku di TRANS_TYPE. Tanda qty dipertahankan.
+        const isIssue = rule.direction === DIRECTION.OUT;
         const transType = isIssue ? TRANS_TYPE.ISSUE : TRANS_TYPE.RETURN;
-        // Sales order issue: Qty Out (T); RMA Receipt: Qty In (Q). Tanda qty dipertahankan.
-        const rawQty = isIssue ? cells[COLUMN.QTY_OUT] : cells[COLUMN.QTY_IN];
+        const rawQty = cells[rule.qtyColumn];
         const qtyResult = parseQuantity(rawQty);
 
         const referenceNum = text(cells[COLUMN.REFERENCE]);

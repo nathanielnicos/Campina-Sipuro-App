@@ -14,6 +14,9 @@
  *    nonaktif selama PO-nya aktif dan terbuka), (2) PO berkode sama. Bila gabungan keduanya belum cukup,
  *    dicoba juga PO produk sekeluarga lainnya yang AKTIF (nonaktif dilewati); leluhur tetap didahulukan.
  *  - Total bersih negatif: mengurangi alokasi (lot, batch) yang sama yang sudah ada, PO TERBARU lebih dulu.
+ *  - Jenis transaksi berbasis LOT (issue sampel QC/RND, WIP Issue; daftar di tabel upload_trans_types): grupnya (lot, item)
+ *    tanpa batch; mengurangi alokasi seluruh batch pada lot itu, PO TERBARU lebih dulu, lalu batch terbaru.
+ *    Aturan semua-atau-tidak, batas qty terkirim, dan filter tanggal sama dengan retur.
  *  - Filter tanggal PO berlaku untuk mencocokkan completed date lot terhadap po_headers.created_at.
  *  - Grup tanpa nomor batch, tanpa nomor lot, atau tanpa tanggal selesai tidak dialokasikan
  *    dan menjadi Unallocated dengan alasan yang jelas (bukan menggagalkan commit).
@@ -26,8 +29,10 @@ const {
     PO_DETAIL_STATUS,
     ELIGIBLE_HEADER_STATUSES,
     ELIGIBLE_ALLOCATION_STATUSES,
+    MATCH_BY,
     allocationKey,
     lotBatchKey,
+    lotItemKey,
     lotKey
 } = require('./lotAllocationRules');
 const { stockKey } = require('../delivery-order/deliveryOrderRules');
@@ -44,7 +49,8 @@ const REASONS = {
     PO_NOT_ACTIVE: 'PO or PO detail not active',
     DATE_BEFORE_PO: 'Production date is earlier than PO creation date',
     REDUCTION_EXCEEDS: 'Reduction exceeds allocated quantity',
-    BELOW_DELIVERED: 'Reduction would go below delivered quantity'
+    BELOW_DELIVERED: 'Reduction would go below delivered quantity',
+    CANNOT_ADD: 'This transaction type can only reduce allocations'
 };
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -74,6 +80,18 @@ const cmpNullLast = (a, b) => {
 
 // Kunci grup alokasi: satu kombinasi batch + lot + item
 const groupKeyOf = (batchNumber, lotNumber, itemCode) => `${batchNumber}\u0000${lotNumber}\u0000${itemCode}`;
+const groupKeyOfRow = (row) => (row.matchBy === MATCH_BY.LOT
+    ? `LOT\u0000${lotItemKey(row.lotNumber, row.itemCode)}`
+    : groupKeyOf(row.batchNumber, row.lotNumber, row.itemCode));
+
+// Batch terbaru lebih dulu; batch yang baru dibuat oleh file ini (belum punya id) dianggap paling baru
+const batchRank = (entry) => (entry.batchId === null || entry.batchId === undefined ? Infinity : Number(entry.batchId));
+const cmpBatchNewestFirst = (x, y) => {
+    const bx = batchRank(x);
+    const by = batchRank(y);
+    if (bx === by) return 0;
+    return by > bx ? 1 : -1;
+};
 
 const cmpFifo = (a, b) => {
     const c = cmpNullLast(a.createdAt || '', b.createdAt || '');
@@ -90,10 +108,14 @@ const calculateLotFifoAllocation = (
     const existingBatches = context.existingBatches || [];
     const existingLots = context.existingLots || [];
     const existingAllocations = context.existingAllocations || [];
+    const batchNumberById = new Map((context.allocationBatches || []).map((b) => [Number(b.id), b.batch_number]));
+    (context.existingBatches || []).forEach((b) => batchNumberById.set(Number(b.id), b.batch_number));
     // Total alokasi dan qty terkirim per (kode produk lot, lot): alokasi tidak boleh turun di bawah qty terkirim
     const lotAllocated = context.lotAllocated || new Map();
     const lotDelivered = context.lotDelivered || new Map();
     const reducedInFile = new Map();
+    // Alokasi tambahan dari grup lain di file yang sama (belum ada di lotAllocated dari database)
+    const addedInFile = new Map();
 
     const productByCode = new Map();
     allProducts.forEach((p) => productByCode.set(p.product_code, p));
@@ -163,16 +185,19 @@ const calculateLotFifoAllocation = (
             row.rowStatusCategory = 'NEW';
             newRowsInFileOrder.push(row);
 
-            // Grouping key berbasis Batch + Lot + Item
-            const key = groupKeyOf(row.batchNumber, row.lotNumber, row.itemCode);
+            // Grouping key: Batch + Lot + Item; jenis berbasis lot: Lot + Item (tanpa batch)
+            const matchBy = row.matchBy || MATCH_BY.BATCH_LOT;
+            const key = groupKeyOfRow(row);
             let group = groups.get(key);
             if (!group) {
                 group = {
                     key,
-                    batchNumber: row.batchNumber,
+                    matchBy,
+                    batchNumber: matchBy === MATCH_BY.LOT ? '' : row.batchNumber,
                     lotNumber: row.lotNumber,
                     itemCode: row.itemCode,
                     rows: [],
+                    transTypes: [],
                     totalQty: 0,
                     completed: null,
                     expiredDate: row.expiredDate,
@@ -183,6 +208,7 @@ const calculateLotFifoAllocation = (
             }
 
             group.rows.push(row);
+            if (row.transType && !group.transTypes.includes(row.transType)) group.transTypes.push(row.transType);
             group.totalQty += Number(row.rawAllocationQty) || 0;
 
             if (!row.actualCompletedDatetime) {
@@ -207,9 +233,12 @@ const calculateLotFifoAllocation = (
     }
 
     // 2. Urutkan grup berdasarkan kronologi completed datetime ASC, batch, lot, kemunculan file
+    // Pada waktu yang sama, grup berbasis batch diproses sebelum grup berbasis lot (issue)
+    const kindRank = (g) => (g.matchBy === MATCH_BY.LOT ? 1 : 0);
     const sortedGroups = [...groups.values()].sort((a, b) => {
         return (
             cmpNullLast(a.completed, b.completed) ||
+            kindRank(a) - kindRank(b) ||
             cmpNullLast(String(a.batchNumber), String(b.batchNumber)) ||
             cmpNullLast(String(a.lotNumber), String(b.lotNumber)) ||
             a.firstIndex - b.firstIndex
@@ -218,8 +247,9 @@ const calculateLotFifoAllocation = (
 
     const itemCodesByBatch = new Map();
     sortedGroups.forEach((g) => {
-        // Grup tanpa nomor batch tidak ikut deteksi konflik (sudah ditolak dengan alasan sendiri)
-        if (!g.batchNumber) return;
+        // Grup tanpa nomor batch tidak ikut deteksi konflik (sudah ditolak dengan alasan sendiri);
+        // grup berbasis lot memang tidak punya batch
+        if (g.matchBy === MATCH_BY.LOT || !g.batchNumber) return;
         if (!itemCodesByBatch.has(g.batchNumber)) itemCodesByBatch.set(g.batchNumber, new Set());
         itemCodesByBatch.get(g.batchNumber).add(g.itemCode);
     });
@@ -253,11 +283,16 @@ const calculateLotFifoAllocation = (
     // State alokasi: per (item PO, lot, batch) dan dikelompokkan per (lot, batch)
     const allocByKey = new Map();
     const allocsByLotBatch = new Map();
+    // Seluruh alokasi per lot (nomor lot + produk), termasuk yang baru dibuat grup lain di file ini:
+    // jenis berbasis lot mengurangi lintas batch dan harus melihat keduanya.
+    const entriesByLot = new Map();
+    const lotById = new Map(existingLots.map((l) => [Number(l.id), l]));
     existingAllocations.forEach((a) => {
         const entry = {
             poDetailId: a.po_detail_id,
             lotId: a.lot_id,
             batchId: a.id_batch,
+            batchNumber: batchNumberById.get(Number(a.id_batch)) || '',
             allocatedQty: Number(a.allocated_qty) || 0,
             status: a.status
         };
@@ -265,6 +300,12 @@ const calculateLotFifoAllocation = (
         const groupKey = lotBatchKey(a.lot_id, a.id_batch);
         if (!allocsByLotBatch.has(groupKey)) allocsByLotBatch.set(groupKey, []);
         allocsByLotBatch.get(groupKey).push(entry);
+        const lotRow = lotById.get(Number(a.lot_id));
+        if (lotRow) {
+            const lotEntryKey = lotKey(lotRow.lot_number, lotRow.id_product);
+            if (!entriesByLot.has(lotEntryKey)) entriesByLot.set(lotEntryKey, []);
+            entriesByLot.get(lotEntryKey).push(entry);
+        }
     });
 
     const allocatedGroups = [];
@@ -280,15 +321,16 @@ const calculateLotFifoAllocation = (
     sortedGroups.forEach((group) => {
         const product = productByCode.get(group.itemCode);
         const fail = (reason) => unallocatedGroups.push({ group, reason });
+        const lotOnly = group.matchBy === MATCH_BY.LOT;
 
-        if (!group.batchNumber) return fail(REASONS.MISSING_BATCH);
+        if (!lotOnly && !group.batchNumber) return fail(REASONS.MISSING_BATCH);
         if (!group.lotNumber) return fail(REASONS.MISSING_LOT);
         if (group.missingDate) return fail(REASONS.MISSING_DATE);
 
-        const existingBatch = batchByNumber.get(group.batchNumber) || null;
+        const existingBatch = lotOnly ? null : (batchByNumber.get(group.batchNumber) || null);
         const existingLot = lotByKey.get(lotKey(group.lotNumber, product.id_product)) || null;
 
-        const conflictInFile = itemCodesByBatch.get(group.batchNumber).size > 1;
+        const conflictInFile = !lotOnly && itemCodesByBatch.get(group.batchNumber).size > 1;
         const conflictInDb = existingBatch && Number(existingBatch.id_product) !== Number(product.id_product);
         if (conflictInFile || conflictInDb) return fail(REASONS.BATCH_CONFLICT);
 
@@ -296,9 +338,12 @@ const calculateLotFifoAllocation = (
 
         const lotDbId = existingLot ? existingLot.id : null;
         const batchDbId = existingBatch ? existingBatch.id : null;
-        // Alokasi lama hanya mungkin ada bila lot dan batch-nya sudah tersimpan
+        // Alokasi lama hanya mungkin ada bila lot dan batch-nya sudah tersimpan (jenis berbasis lot: cukup lot-nya)
         const hasStoredPair = lotDbId !== null && batchDbId !== null;
         const completedDate = toDateOnly(group.completed);
+
+        // Jenis berbasis lot hanya boleh mengurangi (dijaga oleh daftar jenis transaksi)
+        if (group.totalQty > 0 && lotOnly) return fail(REASONS.CANNOT_ADD);
 
         if (group.totalQty > 0) {
             // ---------- PLUS: alokasi FIFO ----------
@@ -358,9 +403,27 @@ const calculateLotFifoAllocation = (
                 allocations.push({ po, delta: take, previous, next: po.currentFulfilledQty });
                 remaining -= take;
 
-                if (hasStoredPair) {
-                    const existing = allocByKey.get(allocationKey(po.poDetailId, lotDbId, batchDbId));
-                    if (existing) existing.allocatedQty += take;
+                // Kunci memakai kode produk lot (sama dengan Delivery Order), walau PO berkode lain lewat pemetaan
+                const stockId = stockKey(group.itemCode, group.lotNumber);
+                addedInFile.set(stockId, (addedInFile.get(stockId) || 0) + take);
+
+                const existing = hasStoredPair
+                    ? allocByKey.get(allocationKey(po.poDetailId, lotDbId, batchDbId))
+                    : undefined;
+                if (existing) {
+                    existing.allocatedQty += take;
+                } else {
+                    // Alokasi baru dari file ini: dicatat agar grup berbasis lot di file yang sama bisa menguranginya
+                    const lotEntryKey = lotKey(group.lotNumber, product.id_product);
+                    if (!entriesByLot.has(lotEntryKey)) entriesByLot.set(lotEntryKey, []);
+                    entriesByLot.get(lotEntryKey).push({
+                        poDetailId: po.poDetailId,
+                        lotId: lotDbId,
+                        batchId: batchDbId,
+                        batchNumber: group.batchNumber,
+                        allocatedQty: take,
+                        status: ALLOCATION_STATUS.OPEN
+                    });
                 }
             }
 
@@ -370,10 +433,14 @@ const calculateLotFifoAllocation = (
 
         // ---------- MINUS: kurangi alokasi lot yang sudah ada ----------
         const amount = -group.totalQty;
-        if (!hasStoredPair) return fail(REASONS.NO_EXISTING_ALLOCATION);
+        if (!lotOnly && !hasStoredPair) return fail(REASONS.NO_EXISTING_ALLOCATION);
 
-        // Retur hanya mengurangi alokasi pada pasangan (lot, batch) yang sama
-        const eligibleEntries = (allocsByLotBatch.get(lotBatchKey(lotDbId, batchDbId)) || []).filter((e) =>
+        // Retur hanya mengurangi alokasi pada pasangan (lot, batch) yang sama;
+        // jenis berbasis lot mengurangi alokasi seluruh batch pada lot itu
+        const scopedEntries = lotOnly
+            ? (entriesByLot.get(lotKey(group.lotNumber, product.id_product)) || [])
+            : (allocsByLotBatch.get(lotBatchKey(lotDbId, batchDbId)) || []);
+        const eligibleEntries = scopedEntries.filter((e) =>
             ELIGIBLE_ALLOCATION_STATUSES.includes(e.status)
         );
         if (eligibleEntries.length === 0) return fail(REASONS.NO_EXISTING_ALLOCATION);
@@ -401,14 +468,17 @@ const calculateLotFifoAllocation = (
                 const delivered = Number(lotDelivered.get(key)) || 0;
                 // Tanpa pengiriman tidak ada batas tambahan
                 const room = delivered > 0
-                    ? (Number(lotAllocated.get(key)) || 0) - delivered - (reducedInFile.get(key) || 0)
+                    ? (Number(lotAllocated.get(key)) || 0) + (addedInFile.get(key) || 0) - delivered - (reducedInFile.get(key) || 0)
                     : Infinity;
                 roomByKey.set(key, Math.max(0, room));
             }
             return roomByKey.get(key);
         };
 
-        const ordered = [...withDate].sort((x, y) => cmpFifo(poStates.get(y.poDetailId), poStates.get(x.poDetailId)));
+        // PO terbaru lebih dulu; pada PO yang sama (lintas batch) batch terbaru (id terbesar) lebih dulu
+        const ordered = [...withDate].sort((x, y) =>
+            cmpFifo(poStates.get(y.poDetailId), poStates.get(x.poDetailId)) || cmpBatchNewestFirst(x, y)
+        );
 
         // Rencana dahulu; state baru diubah setelah seluruh pengurangan terbukti muat
         const plan = [];
@@ -431,7 +501,15 @@ const calculateLotFifoAllocation = (
             po.currentFulfilledQty = previous - take;
             entry.allocatedQty -= take;
             reducedInFile.set(key, (reducedInFile.get(key) || 0) + take);
-            allocations.push({ po, delta: -take, previous, next: po.currentFulfilledQty });
+            allocations.push({
+                po,
+                delta: -take,
+                previous,
+                next: po.currentFulfilledQty,
+                // Batch alokasi yang dikurangi (jenis berbasis lot: batch dari alokasi itu sendiri)
+                batchId: entry.batchId,
+                batchNumber: lotOnly ? entry.batchNumber : group.batchNumber
+            });
         });
 
         allocatedGroups.push({ group, product, allocations });
@@ -446,13 +524,14 @@ const calculateLotFifoAllocation = (
     allocatedGroups.forEach(({ group, product, allocations }) => {
         allocatedKeys.add(group.key);
 
-        const allocationItems = allocations.map(({ po, delta, previous, next }) => {
+        const allocationItems = allocations.map(({ po, delta, previous, next, batchId, batchNumber }) => {
             const status = finalStatusOf(po);
             const ratio = po.baseQty > 0 ? next / po.baseQty : 0;
 
             detailedAllocations.push({
                 poDetailId: po.poDetailId,
-                batchNumber: group.batchNumber,
+                batchNumber: batchNumber === undefined ? group.batchNumber : batchNumber,
+                batchId: batchId || null,
                 lotNumber: group.lotNumber,
                 productCode: group.itemCode,
                 idProduct: product.id_product,
@@ -462,6 +541,7 @@ const calculateLotFifoAllocation = (
                 fulfilledQty: next,
                 addedQty: delta,
                 rowStatus: status,
+                transType: group.transTypes.join(', '),
                 actualCompletedDatetime: group.completed,
                 expiredDate: group.expiredDate,
                 actDate: group.completed ? group.completed.split(' ')[0] : null
@@ -469,6 +549,7 @@ const calculateLotFifoAllocation = (
 
             return {
                 poDetailId: po.poDetailId,
+                batchNumber: batchNumber === undefined ? group.batchNumber : batchNumber,
                 poNumber: po.poNumber,
                 poProductCode: po.productCode,
                 viaMapping: po.productCode !== group.itemCode,
@@ -487,6 +568,8 @@ const calculateLotFifoAllocation = (
         const formattedActualDate = `Completed: ${completedStr} | Exp: ${expiredStr}`;
 
         previewResults.push({
+            lotOnly: group.matchBy === MATCH_BY.LOT,
+            transType: group.transTypes.join(', '),
             batchNumber: group.batchNumber,
             lotNumber: group.lotNumber,
             productCode: group.itemCode,
@@ -502,7 +585,7 @@ const calculateLotFifoAllocation = (
     });
 
     categorizedDetails.newRows = newRowsInFileOrder.filter((r) =>
-        allocatedKeys.has(groupKeyOf(r.batchNumber, r.lotNumber, r.itemCode))
+        allocatedKeys.has(groupKeyOfRow(r))
     );
 
     // Baris unallocated & kategori lain dengan atribut lengkap untuk tabel preview
@@ -556,7 +639,9 @@ const computeAllocationFingerprint = (calculation) => {
                 a.addedQty,
                 a.previousFulfilledQty,
                 a.newFulfilledQty,
-                a.status
+                a.status,
+                // Batch yang dikurangi ikut menentukan hasil bila jenisnya berbasis lot
+                ...(b.lotOnly ? [a.batchNumber] : [])
             ])
         }))
     };

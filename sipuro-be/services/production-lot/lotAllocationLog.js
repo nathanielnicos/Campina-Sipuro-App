@@ -21,6 +21,7 @@ exports.logAllocationInsert = async (connection, allocations, createdBy = null) 
         null,
         item.status || 'Open',
         item.reason || null,
+        item.trans_type || item.transType || null,
         createdBy || item.created_by || item.createdBy || null
     ]);
 
@@ -29,7 +30,7 @@ exports.logAllocationInsert = async (connection, allocations, createdBy = null) 
         (
             upload_log_id, allocation_id, po_detail_id, lot_id, id_batch, action_type,
             old_allocated_qty, new_allocated_qty, old_status, new_status,
-            reason, created_by
+            reason, trans_type, created_by
         ) 
         VALUES ?
     `;
@@ -56,6 +57,7 @@ exports.logAllocationUpdate = async (connection, updates, createdBy = null) => {
         item.old_status || item.oldStatus || null,
         item.new_status || item.newStatus || null,
         item.reason || null,
+        item.trans_type || item.transType || null,
         createdBy || item.created_by || item.createdBy || null
     ]);
 
@@ -64,7 +66,7 @@ exports.logAllocationUpdate = async (connection, updates, createdBy = null) => {
         (
             upload_log_id, allocation_id, po_detail_id, lot_id, id_batch, action_type,
             old_allocated_qty, new_allocated_qty, old_status, new_status,
-            reason, created_by
+            reason, trans_type, created_by
         ) 
         VALUES ?
     `;
@@ -102,6 +104,7 @@ exports.getAllocationLogs = async (db, allocationId, page = 1, limit = 10) => {
             log.old_status,
             log.new_status,
             log.reason,
+            log.trans_type,
             log.created_by,
             log.created_at,
             COALESCE(emp.full_name, emp.employee_code, 'System') AS created_by_name

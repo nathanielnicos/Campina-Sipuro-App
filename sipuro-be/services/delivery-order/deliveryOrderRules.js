@@ -15,6 +15,8 @@
  *  - Retur tidak mengubah nilai DO dan tidak membuka kuota kirim lagi.
  */
 
+const { QTY_COLUMN } = require('../upload-trans-type/uploadTransTypeRules');
+
 const TRANS_TYPE = Object.freeze({
     ISSUE: 'Sales order issue',
     RETURN: 'RMA Receipt'
@@ -27,8 +29,8 @@ const COLUMN = Object.freeze({
     TRANS_DATE: 3,  // D
     ITEM: 4,        // E
     LOT: 11,        // L
-    QTY_IN: 16,     // Q  (RMA Receipt)
-    QTY_OUT: 19,    // T  (Sales order issue)
+    QTY_IN: QTY_COLUMN.IN,   // Q  (RMA Receipt)
+    QTY_OUT: QTY_COLUMN.OUT, // T  (Sales order issue)
     REFERENCE: 25   // Z  (nomor DO untuk Sales order issue, nomor retur untuk RMA Receipt)
 });
 

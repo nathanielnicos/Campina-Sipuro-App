@@ -22,14 +22,14 @@ const ValidDataTab = ({ previewResults = [] }) => {
         const map = new Map();
 
         previewResults.forEach((item) => {
-            const batchNo = item.batchNumber || '-';
             const allocList = item.allocations && item.allocations.length > 0 ? item.allocations : [];
+            const itemBatchNo = item.batchNumber || '-';
 
             if (allocList.length === 0) {
-                const key = `${batchNo}_no_po`;
+                const key = `${itemBatchNo}_no_po`;
                 if (!map.has(key)) {
                     map.set(key, {
-                        batchNumber: batchNo,
+                        batchNumber: itemBatchNo,
                         maxCompletedDate: item.actualCompletedDatetime || null,
                         productCode: item.productCode || '',
                         productName: item.productName || '',
@@ -50,6 +50,8 @@ const ValidDataTab = ({ previewResults = [] }) => {
                 }
             } else {
                 allocList.forEach((alloc) => {
+                    // Jenis lot-item (issue) tidak punya batch sendiri: batch yang dikurangi dibawa oleh tiap alokasi
+                    const batchNo = alloc.batchNumber || itemBatchNo;
                     const poNum = alloc.poNumber || '-';
                     // Satu PO bisa punya beberapa item (produk), jadi dikelompokkan per item PO, bukan per nomor PO
                     const key = `${batchNo}_${alloc.poDetailId !== undefined ? alloc.poDetailId : poNum}`;
@@ -283,6 +285,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                     <th style={{ textAlign: 'center', width: '40px', padding: '8px' }}>No</th>
                                     <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Batch Number</th>
                                     <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Lot Number</th>
+                                    <th style={{ textAlign: 'left', width: '110px', padding: '8px' }}>Trx Type</th>
                                     <th style={{ textAlign: 'left', minWidth: '180px', padding: '8px' }}>Product</th>
                                     <th style={{ textAlign: 'center', width: '140px', padding: '8px' }}>Completed Date and Time</th>
                                     <th style={{ textAlign: 'center', width: '90px', padding: '8px' }}>Exp Date</th>
@@ -297,7 +300,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                             <tbody>
                                 {paginatedResults.length === 0 ? (
                                     <tr>
-                                        <td colSpan="12" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                        <td colSpan="13" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                             No valid allocated data available to save.
                                         </td>
                                     </tr>
@@ -323,6 +326,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                                     <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', color: '#6c757d' }}>{rowNo}</td>
                                                     <td style={{ fontWeight: 'bold', verticalAlign: 'top', padding: '8px' }}>{batchNo}</td>
                                                     <td style={{ verticalAlign: 'top', padding: '8px' }}>{lotNo}</td>
+                                                    <td style={{ verticalAlign: 'top', padding: '8px' }}>{item.transType || '-'}</td>
                                                     <td style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>{productTitle}</td>
                                                     <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'nowrap' }}>{completedText}</td>
                                                     <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'nowrap' }}>{expiredText}</td>
@@ -356,6 +360,9 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                                             </td>
                                                             <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px' }}>
                                                                 {lotNo}
+                                                            </td>
+                                                            <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px' }}>
+                                                                {item.transType || '-'}
                                                             </td>
                                                             <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>
                                                                 {productTitle}

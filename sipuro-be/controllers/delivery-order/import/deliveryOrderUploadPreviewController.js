@@ -1,4 +1,6 @@
 const { sipuroDb: db } = require('../../../config/db');
+const { loadRuleFinder } = require('../../../services/upload-trans-type/uploadTransTypeLoader');
+const { SCOPE } = require('../../../services/upload-trans-type/uploadTransTypeRules');
 const { parseDeliveryOrderExcel } = require('../../../services/delivery-order/deliveryOrderUploadParser');
 const { calculateDeliveryOrders, computeDeliveryFingerprint } = require('../../../services/delivery-order/deliveryOrderCalculator');
 const { loadDeliveryOrderContext } = require('../../../services/delivery-order/deliveryOrderContextLoader');
@@ -13,7 +15,7 @@ exports.previewDeliveryOrderUpload = async (req, res) => {
             throw new BusinessError('Excel file is required.', 400);
         }
 
-        const { processTimestamp, fileHash, rawRows } = parseDeliveryOrderExcel(req.file.buffer);
+        const { processTimestamp, fileHash, rawRows } = parseDeliveryOrderExcel(req.file.buffer, await loadRuleFinder(db, SCOPE.DO));
 
         // Aturan file duplikat: hash ATAU process timestamp sama
         const [existingLogs] = await db.query(

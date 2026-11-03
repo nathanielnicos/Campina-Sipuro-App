@@ -17,6 +17,7 @@ Module._load = function patched(request) {
     return originalLoad.apply(this, arguments);
 };
 const { parseDeliveryOrderExcel } = require('../services/delivery-order/deliveryOrderUploadParser');
+const { findDoRule } = require('./fixtures/transTypeRules');
 const { TRANS_TYPE, COLUMN } = require('../services/delivery-order/deliveryOrderRules');
 
 // Baris seperti contoh RORCWMS06: B jenis, C status, D tanggal, E item, L lot, Q qty in, T qty out, Z nomor
@@ -40,7 +41,7 @@ test('indeks kolom sesuai tata letak file (B, C, D, E, L, Q, T, Z)', () => {
 
 test('Sales order issue: qty dari kolom T, nomor DO dari kolom Z, tanggal dan jam dibaca', () => {
     sheet = makeSheet([line({ type: 'Sales order issue', qtyOut: 28900 })]);
-    const { processTimestamp, rawRows } = parseDeliveryOrderExcel(Buffer.from('x'));
+    const { processTimestamp, rawRows } = parseDeliveryOrderExcel(Buffer.from('x'), findDoRule);
     assert.equal(processTimestamp, 'Proses : 27 Oct 2026 08:50:26');
     assert.equal(rawRows.length, 1);
     assert.deepEqual(
@@ -51,7 +52,7 @@ test('Sales order issue: qty dari kolom T, nomor DO dari kolom Z, tanggal dan ja
 
 test('RMA Receipt: qty dari kolom Q, nomor retur dari kolom Z', () => {
     sheet = makeSheet([line({ type: 'RMA Receipt', qtyIn: 44, ref: '1300000003', item: 'FG-ST-00046', lot: 'FS1-270423' })]);
-    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'));
+    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'), findDoRule);
     assert.equal(rawRows[0].transType, TRANS_TYPE.RETURN);
     assert.equal(rawRows[0].qty, 44);
     assert.equal(rawRows[0].referenceNum, '1300000003');
@@ -63,20 +64,20 @@ test('jenis transaksi lain dilewati, huruf besar kecil tidak berpengaruh', () =>
         line({ type: 'SALES ORDER ISSUE', qtyOut: 3 }),
         line({ type: 'rma receipt', qtyIn: 2 })
     ]);
-    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'));
+    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'), findDoRule);
     assert.deepEqual(rawRows.map((r) => r.transType), [TRANS_TYPE.ISSUE, TRANS_TYPE.RETURN]);
 });
 
 test('qty negatif dan desimal tidak ditolak di parser (tanda dipertahankan, kalkulator yang menolak)', () => {
     sheet = makeSheet([line({ type: 'Sales order issue', qtyOut: -5 }), line({ type: 'Sales order issue', qtyOut: 2.5 })]);
-    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'));
+    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'), findDoRule);
     assert.equal(rawRows[0].qty, -5);
     assert.equal(rawRows[1].qtyIsWhole, false);
 });
 
 test('nomor DO kosong tidak menggagalkan file (jadi alasan di kalkulator)', () => {
     sheet = makeSheet([line({ type: 'Sales order issue', qtyOut: 3, ref: '' })]);
-    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'));
+    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'), findDoRule);
     assert.equal(rawRows[0].referenceNum, '');
 });
 
@@ -87,7 +88,7 @@ test('row hash tetap untuk baris yang sama dan berbeda bila qty atau nomor berbe
         line({ type: 'Sales order issue', qtyOut: 11 }),
         line({ type: 'Sales order issue', qtyOut: 10, ref: '3400000855' })
     ]);
-    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'));
+    const { rawRows } = parseDeliveryOrderExcel(Buffer.from('x'), findDoRule);
     assert.equal(rawRows[0].rowHash, rawRows[1].rowHash);
     assert.notEqual(rawRows[0].rowHash, rawRows[2].rowHash);
     assert.notEqual(rawRows[0].rowHash, rawRows[3].rowHash);
@@ -96,5 +97,5 @@ test('row hash tetap untuk baris yang sama dan berbeda bila qty atau nomor berbe
 test('melebihi batas baris ditolak 422', () => {
     const { MAX_UPLOAD_ROWS } = require('../helpers/uploadConfig');
     sheet = makeSheet(Array.from({ length: MAX_UPLOAD_ROWS + 1 }, () => line({ type: 'Sales order issue', qtyOut: 1 })));
-    assert.throws(() => parseDeliveryOrderExcel(Buffer.from('x')), (e) => e.status === 422);
+    assert.throws(() => parseDeliveryOrderExcel(Buffer.from('x'), findDoRule), (e) => e.status === 422);
 });

@@ -129,6 +129,7 @@ export const AllocationHistoryModal = ({
                                 <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
                                     <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Date & Time</th>
                                     <th style={{ padding: '8px 12px', textAlign: 'center' }}>Action</th>
+                                    <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Trx Type</th>
                                     <th style={{ padding: '8px 12px' }}>Allocated Qty</th>
                                     <th style={{ padding: '8px 12px' }}>Status</th>
                                     <th style={{ padding: '8px 12px' }}>Reason</th>
@@ -156,6 +157,9 @@ export const AllocationHistoryModal = ({
                                                 }}>
                                                     {action.label}
                                                 </span>
+                                            </td>
+                                            <td style={{ padding: '8px 12px', fontSize: '12px', color: '#495057' }}>
+                                                {log.trans_type || '-'}
                                             </td>
                                             <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
                                                 {isInsert ? (

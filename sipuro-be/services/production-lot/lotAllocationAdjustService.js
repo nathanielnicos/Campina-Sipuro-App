@@ -26,6 +26,8 @@ const {
     ELIGIBLE_ALLOCATION_STATUSES
 } = require('./lotAllocationRules');
 
+// Tercatat di kolom trans_type pada riwayat alokasi
+const MANUAL_ADJUSTMENT_TYPE = 'Manual Adjustment';
 const REASON_MAX_LENGTH = 50;
 const MAX_QTY = 2147483647; // batas kolom INT
 const SYNC_REASON_EDIT = 'Auto status sync after quantity edit';
@@ -164,6 +166,12 @@ const adjustAllocationQty = async (connection, { allocationId, newQty, reason, u
         batchId: allocation.id_batch,
         excludeAllocationId: allocation.id
     });
+    if (newQty > capacity.available && capacity.limitedBy === 'LOT') {
+        throw new BusinessError(
+            `Quantity exceeds the produced quantity of this lot, after returns and issues (${formatThousand(capacity.lotNetProduced)} available in total, ${formatThousand(capacity.lotOtherAllocated)} allocated to other POs and batches). Maximum allowed for this allocation is ${formatThousand(capacity.available)}.`,
+            400
+        );
+    }
     if (newQty > capacity.available) {
         throw new BusinessError(
             `Quantity exceeds the produced quantity of this lot and batch (${formatThousand(capacity.netProduced)} produced, ${formatThousand(capacity.otherAllocated)} allocated to other POs). Maximum allowed for this allocation is ${formatThousand(capacity.available)}.`,
@@ -188,6 +196,7 @@ const adjustAllocationQty = async (connection, { allocationId, newQty, reason, u
         old_status: allocation.status,
         new_status: targetStatus,
         reason,
+        trans_type: MANUAL_ADJUSTMENT_TYPE,
         created_by: userId
     }], userId);
 

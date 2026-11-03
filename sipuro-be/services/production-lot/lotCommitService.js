@@ -56,11 +56,12 @@ const commitProductionAllocationTransaction = async (connection, {
             detail.qtyPac || 0,
             detail.actualCompletedDatetime || null,
             detail.expiredDate || null,
-            detail.rowHash
+            detail.rowHash,
+            detail.docSource || null
         ]);
         await connection.query(
             `INSERT INTO production_lot_upload_details
-            (upload_log_id, batch_number, lot_number, item_code, lot_status, trans_type, qty_pac, actual_completed_datetime, expired_date, row_hash)
+            (upload_log_id, batch_number, lot_number, item_code, lot_status, trans_type, qty_pac, actual_completed_datetime, expired_date, row_hash, doc_source)
             VALUES ?`,
             [detailValues]
         );
@@ -68,9 +69,10 @@ const commitProductionAllocationTransaction = async (connection, {
 
     // 3. Upsert master lot (unik per nomor lot + produk).
     //    Tanggal selesai lot = yang terbaru; expired_date yang sudah terisi tidak ditimpa.
+    //    Grup berbasis lot (issue) tidak membuat atau mengubah lot: tanggal issue bukan tanggal selesai lot.
     const lotRows = new Map();
     previewResults.forEach((group) => {
-        if (!group.lotNumber || !group.idProduct) return;
+        if (!group.lotNumber || !group.idProduct || group.lotOnly) return;
 
         const key = lotKey(group.lotNumber, group.idProduct);
         const current = lotRows.get(key);
@@ -92,6 +94,7 @@ const commitProductionAllocationTransaction = async (connection, {
     });
 
     const lotIdByKey = new Map();
+    const lotNumbersInFile = [...new Set(previewResults.filter((g) => g.lotNumber && g.idProduct).map((g) => g.lotNumber))];
     if (lotRows.size > 0) {
         await connection.query(
             `INSERT INTO lots (lot_number, id_product, actual_completed_datetime, expired_date)
@@ -104,15 +107,14 @@ const commitProductionAllocationTransaction = async (connection, {
                 expired_date = COALESCE(expired_date, VALUES(expired_date))`,
             [[...lotRows.values()]]
         );
-
-        const lotNumbers = [...new Set([...lotRows.values()].map((row) => row[0]))];
-        for (const part of chunk(lotNumbers, 500)) {
-            const [rows] = await connection.query(
-                'SELECT id, lot_number, id_product FROM lots WHERE lot_number IN (?)',
-                [part]
-            );
-            rows.forEach((l) => lotIdByKey.set(lotKey(l.lot_number, l.id_product), l.id));
-        }
+    }
+    // Id lot dibaca untuk semua lot di file, termasuk lot yang hanya disentuh grup berbasis lot
+    for (const part of chunk(lotNumbersInFile, 500)) {
+        const [rows] = await connection.query(
+            'SELECT id, lot_number, id_product FROM lots WHERE lot_number IN (?)',
+            [part]
+        );
+        rows.forEach((l) => lotIdByKey.set(lotKey(l.lot_number, l.id_product), l.id));
     }
 
     // 4. Find-or-Create Master Batches (Deduplikasi unik per batch_number)
@@ -129,7 +131,7 @@ const commitProductionAllocationTransaction = async (connection, {
     const processedBatchNumbers = new Set();
 
     previewResults.forEach((group) => {
-        if (!group.batchNumber) return;
+        if (!group.batchNumber || group.lotOnly) return;
 
         if (existingBatchProduct.has(group.batchNumber)) {
             if (Number(existingBatchProduct.get(group.batchNumber)) !== Number(group.idProduct)) {
@@ -179,7 +181,8 @@ const commitProductionAllocationTransaction = async (connection, {
     const items = new Map();
     detailedAllocations.forEach((a) => {
         const lotId = lotIdByKey.get(lotKey(a.lotNumber, a.idProduct));
-        const batchId = batchIdByNumber.get(a.batchNumber);
+        // Jenis berbasis lot mengurangi alokasi pada batch lain yang tidak ada di file: batchId datang dari alokasinya
+        const batchId = a.batchId || batchIdByNumber.get(a.batchNumber);
         if (!lotId || !batchId || !a.poDetailId) {
             problems.push(`Missing lot, batch, or PO detail reference for lot ${a.lotNumber} / batch ${a.batchNumber}.`);
             return;
@@ -189,13 +192,15 @@ const commitProductionAllocationTransaction = async (connection, {
         if (current) {
             current.addedQty += Number(a.addedQty) || 0;
             current.rowStatus = a.rowStatus;
+            if (a.transType && !current.transTypes.includes(a.transType)) current.transTypes.push(a.transType);
         } else {
             items.set(key, {
                 poDetailId: a.poDetailId,
                 lotId,
                 batchId,
                 addedQty: Number(a.addedQty) || 0,
-                rowStatus: a.rowStatus
+                rowStatus: a.rowStatus,
+                transTypes: a.transType ? [a.transType] : []
             });
         }
     });
@@ -239,6 +244,7 @@ const commitProductionAllocationTransaction = async (connection, {
                 old_status: existing.status,
                 new_status: item.rowStatus,
                 reason: uploadReason,
+                trans_type: item.transTypes.join(', ') || null,
                 created_by: userId
             });
         } else {
@@ -250,6 +256,7 @@ const commitProductionAllocationTransaction = async (connection, {
                 allocated_qty: newQty,
                 status: item.rowStatus,
                 reason: uploadReason,
+                trans_type: item.transTypes.join(', ') || null,
                 created_by: userId
             });
         }
@@ -328,6 +335,7 @@ const commitProductionAllocationTransaction = async (connection, {
     // Batch dari file ini DAN dari alokasi yang ikut tersinkronisasi
     const allBatchIdsToRefresh = new Set([
         ...previewResults.map((g) => batchIdByNumber.get(g.batchNumber)).filter(Boolean),
+        ...[...items.values()].map((i) => i.batchId),
         ...syncedBatchIds
     ]);
 

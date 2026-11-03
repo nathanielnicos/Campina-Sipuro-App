@@ -42,6 +42,8 @@ const makeConn = (over = {}) => {
         header: { status: 'Approved' },
         net: 100,
         others: 20,
+        lotNet: undefined,
+        lotOthers: undefined,
         ...over
     };
     return {
@@ -54,8 +56,10 @@ const makeConn = (over = {}) => {
             if (/FROM po_lot_allocations WHERE po_detail_id = \? ORDER BY id FOR UPDATE/.test(s)) return [st.siblings];
             if (/FROM po_headers WHERE po_header_id/.test(s)) return [[st.header]];
             if (/FROM lots l JOIN products p ON p.id_product = l.id_product CROSS JOIN batches b/.test(s)) return [[{ lot_number: 'L1', batch_number: 'B1', product_code: 'P1' }]];
+            if (/FROM production_lot_upload_details/.test(s) && !/d\.batch_number/.test(s)) return [[{ net_qty: st.lotNet === undefined ? st.net : st.lotNet }]];
             if (/FROM production_lot_upload_details/.test(s)) return [[{ net_qty: st.net }]];
             if (/WHERE lot_id = \? AND id_batch = \? AND id <> \?/.test(s)) return [[{ total: st.others }]];
+            if (/WHERE lot_id = \? AND id <> \?/.test(s)) return [[{ total: st.lotOthers === undefined ? st.others : st.lotOthers }]];
             return [{}];
         }
     };
@@ -104,8 +108,8 @@ test('tambah qty: update, riwayat dengan alasan dan id_batch, sinkron saudara, h
     assert.deepEqual(find(c, /^UPDATE po_lot_allocations SET allocated_qty/)[0].params, [50, 'Open', 4, 9]);
 
     const log = find(c, /po_lot_allocation_logs/)[0].params[0][0];
-    assert.deepEqual([log[1], log[2], log[3], log[4], log[5], log[6], log[7], log[8], log[9], log[10], log[11]],
-        [9, 3, 5, 11, 'UPDATE', 30, 50, 'Open', 'Open', 'Koreksi', 4]);
+    assert.deepEqual([log[1], log[2], log[3], log[4], log[5], log[6], log[7], log[8], log[9], log[10], log[11], log[12]],
+        [9, 3, 5, 11, 'UPDATE', 30, 50, 'Open', 'Open', 'Koreksi', 'Manual Adjustment', 4]);
 
     const sync = statusCalls.find((x) => x[0] === 'sync-status')[1];
     assert.deepEqual([...sync.targetStatusByDetail.entries()], [[3, 'Open']]);
@@ -164,6 +168,17 @@ test('melebihi produksi bersih (lot, batch) ditolak 400 dengan batas maksimum', 
     await assert.rejects(svc.adjustAllocationQty(c, { ...ARGS, newQty: 41 }), (e) => e.status === 400 && /produced quantity/.test(e.message) && /Maximum allowed for this allocation is 40/.test(e.message));
     assert.equal(find(c, /^UPDATE/).length, 0);
     await assert.doesNotReject(svc.adjustAllocationQty(makeConn({ net: 100, others: 60 }), { ...ARGS, newQty: 40 }));
+});
+
+test('batas per lot (setelah retur dan issue sampel) lebih ketat dari batas batch: ditolak 400 dengan pesan lot', async () => {
+    // batch: 100 diproduksi, 0 teralokasi lain => 100; lot: 80 bersih, 40 teralokasi pada batch lain => 40
+    const c = makeConn({ net: 100, others: 0, lotNet: 80, lotOthers: 40 });
+    await assert.rejects(
+        svc.adjustAllocationQty(c, { ...ARGS, newQty: 41 }),
+        (e) => e.status === 400 && /produced quantity of this lot, after returns and issues/.test(e.message) && /Maximum allowed for this allocation is 40/.test(e.message)
+    );
+    assert.equal(find(c, /^UPDATE/).length, 0);
+    await assert.doesNotReject(svc.adjustAllocationQty(makeConn({ net: 100, others: 0, lotNet: 80, lotOthers: 40 }), { ...ARGS, newQty: 40 }));
 });
 
 test('qty sama dengan yang sekarang ditolak 400', async () => {

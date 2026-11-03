@@ -16,6 +16,8 @@
  * penuh, supaya retur produksi masih bisa mengurangi alokasi yang sudah ada.
  */
 
+const { MATCH_BY } = require('../upload-trans-type/uploadTransTypeRules');
+
 const ALLOCATION_STATUS = Object.freeze({
     OPEN: 'Open',
     CLOSED: 'Closed',
@@ -28,11 +30,8 @@ const PO_DETAIL_STATUS = Object.freeze({
     CLOSE_REQUESTED: 'Close Requested'
 });
 
-// Jenis transaksi pada file produksi (disimpan apa adanya di production_lot_upload_details.trans_type)
-const TRANS_TYPE = Object.freeze({
-    COMPLETION: 'WIP Completion',
-    RETURN: 'WIP Completion Return'
-});
+// Daftar jenis transaksi (Trans Type) disimpan di tabel upload_trans_types; lihat services/upload-trans-type.
+// MATCH_BY dipakai kalkulator untuk membedakan grup (batch, lot, item) dan grup (lot, item).
 
 // Header PO yang boleh dialokasikan (dan yang statusnya boleh diubah otomatis oleh refreshPOStatus)
 const ELIGIBLE_HEADER_STATUSES = Object.freeze(['Approved', 'Production Completed']);
@@ -59,18 +58,22 @@ const allocationKey = (poDetailId, lotId, batchId) => `${poDetailId}_${lotId}_${
 // Kunci pasangan (lot, batch): batas jumlah produksi bersih dan retur berlaku per pasangan ini
 const lotBatchKey = (lotId, batchId) => `${lotId}_${batchId}`;
 
+// Kunci grup jenis LOT: nomor lot + item (tanpa batch)
+const lotItemKey = (lotNumber, itemCode) => `${lotNumber}\u0000${itemCode}`;
+
 // Kunci lot: nomor lot + produk (satu nomor lot bisa dipakai banyak produk)
 const lotKey = (lotNumber, idProduct) => `${lotNumber}_${idProduct}`;
 
 module.exports = {
     ALLOCATION_STATUS,
     PO_DETAIL_STATUS,
-    TRANS_TYPE,
+    MATCH_BY,
     ELIGIBLE_HEADER_STATUSES,
     ELIGIBLE_DETAIL_STATUSES,
     ELIGIBLE_ALLOCATION_STATUSES,
     allocatedQtySql,
     allocationKey,
     lotBatchKey,
+    lotItemKey,
     lotKey
 };

@@ -1,4 +1,6 @@
 const { sipuroDb: db } = require('../../../config/db');
+const { loadRuleFinder } = require('../../../services/upload-trans-type/uploadTransTypeLoader');
+const { SCOPE } = require('../../../services/upload-trans-type/uploadTransTypeRules');
 const { parseProductionExcel } = require('../../../services/production-lot/lotUploadParser');
 const { calculateLotFifoAllocation, computeAllocationFingerprint } = require('../../../services/production-lot/lotAllocationCalculator');
 const { loadProductionLotContext } = require('../../../services/production-lot/lotContextLoader');
@@ -13,7 +15,7 @@ exports.previewExcelUpload = async (req, res) => {
             throw new BusinessError('Excel file is required.', 400);
         }
 
-        const { processTimestamp, fileHash, rawRows } = parseProductionExcel(req.file.buffer);
+        const { processTimestamp, fileHash, rawRows } = parseProductionExcel(req.file.buffer, await loadRuleFinder(db, SCOPE.LOT));
 
         // Aturan file duplikat: hash ATAU process timestamp sama (mengacu pada tabel log lot baru)
         const [existingLogs] = await db.query(

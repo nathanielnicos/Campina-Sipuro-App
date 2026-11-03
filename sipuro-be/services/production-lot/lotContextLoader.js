@@ -77,7 +77,8 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
     )].sort((a, b) => a - b);
 
     // 4. Muat Batch yang sudah ada di database berdasarkan batchNumber dari file
-    const batchNumbers = [...new Set(rawRows.map((r) => r.batchNumber))];
+    // Baris berbasis lot tidak punya batch (kosong): tidak dicari
+    const batchNumbers = [...new Set(rawRows.map((r) => r.batchNumber).filter(Boolean))];
     let existingBatches = [];
     if (batchNumbers.length > 0) {
         for (const part of chunk(batchNumbers, 500)) {
@@ -128,6 +129,18 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
         }
     }
 
+    // 7a. Batch milik alokasi-alokasi itu (id -> nomor): jenis berbasis lot mengurangi alokasi lintas batch,
+    //     sehingga batch yang terkena tidak harus ada di file.
+    const allocationBatches = [];
+    const allocationBatchIds = [...new Set(existingAllocations.map((a) => a.id_batch))].sort((a, b) => a - b);
+    for (const part of chunk(allocationBatchIds, 500)) {
+        const [rows] = await queryable.query(
+            'SELECT id, batch_number FROM batches WHERE id IN (?)',
+            [part]
+        );
+        allocationBatches.push(...rows);
+    }
+
     // 7b. Total alokasi dan qty terkirim per (kode item PO, lot); baris alokasi lot sudah terkunci di atas
     const { allocated: lotAllocated, delivered: lotDelivered } = await fetchLotStock(queryable, lotNumbers);
 
@@ -163,6 +176,7 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
             existingBatches, 
             existingLots, 
             existingAllocations,
+            allocationBatches,
             lotAllocated,
             lotDelivered,
             productMappings

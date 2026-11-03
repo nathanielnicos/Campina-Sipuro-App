@@ -19,7 +19,8 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                     <thead>
                         <tr style={{ backgroundColor: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
                             <th style={{ textAlign: 'center', width: '70px', padding: '8px', whiteSpace: 'nowrap' }}>Excel Row</th>
-                            <th style={{ textAlign: 'left', width: '100px', padding: '8px' }}>Batch Number</th>
+                            <th style={{ textAlign: 'left', width: '100px', padding: '8px' }}>Batch / Doc Source</th>
+                            <th style={{ textAlign: 'left', padding: '8px', whiteSpace: 'nowrap' }}>Trx Type</th>
                             <th style={{ textAlign: 'left', padding: '8px' }}>Lot Number</th>
                             <th style={{ textAlign: 'left', padding: '8px' }}>Item Code</th>
                             <th style={{ textAlign: 'center', padding: '8px' }}>Lot Status</th>
@@ -32,19 +33,21 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                     <tbody>
                         {paginatedRows.length === 0 ? (
                             <tr>
-                                <td colSpan={showReason ? 8 : 7} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                <td colSpan={showReason ? 9 : 8} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                     {emptyMessage}
                                 </td>
                             </tr>
                         ) : (
                             paginatedRows.map((row, idx) => {
-                                const isReturn = row.transType === 'WIP Completion Return' || Number(row.rawAllocationQty) < 0;
+                                // Tanda dari server (arah jenis transaksi): qty bertanda minus mengurangi alokasi
+                                const isReturn = Number(row.rawAllocationQty) < 0;
                                 const displayQty = Math.abs(Number(row.qtyPac) || 0);
 
                                 return (
                                     <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
                                         <td style={{ textAlign: 'center', padding: '8px', color: '#6c757d' }}>{row.excelRowNumber || '-'}</td>
-                                        <td style={{ fontWeight: 'bold', padding: '8px' }}>{row.batchNumber || '-'}</td>
+                                        <td style={{ fontWeight: 'bold', padding: '8px' }}>{row.batchNumber || row.docSource || '-'}</td>
+                                        <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{row.transType || '-'}</td>
                                         <td style={{ padding: '8px' }}>{row.lotNumber || '-'}</td>
                                         <td style={{ padding: '8px' }}>{row.itemCode || '-'}</td>
                                         <td style={{ textAlign: 'center', padding: '8px' }}>

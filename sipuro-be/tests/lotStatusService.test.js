@@ -155,7 +155,7 @@ test('syncAllocationStatuses: menyamakan status alokasi Open/Closed per item PO,
     const rows = log.params[0];
     assert.deepEqual(rows.map((r) => r[1]).sort(), [1, 2, 4]);
     assert.ok(rows.every((r) => r[4] === 11 || r[4] === 12));
-    assert.ok(rows.every((r) => r[5] === 'UPDATE' && r[0] === 77 && r[10] === 'sync alasan' && r[11] === 9));
+    assert.ok(rows.every((r) => r[5] === 'UPDATE' && r[0] === 77 && r[10] === 'sync alasan' && r[11] === null && r[12] === 9));
     // qty tidak berubah pada log sinkron
     assert.ok(rows.every((r) => r[6] === r[7]));
     assert.deepEqual(rows.map((r) => [r[1], r[8], r[9]]).sort((a, b) => a[0] - b[0]), [[1, 'Closed', 'Open'], [2, 'Closed', 'Open'], [4, 'Open', 'Closed']]);
