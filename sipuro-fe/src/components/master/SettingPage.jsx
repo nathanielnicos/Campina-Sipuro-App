@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSetting } from '../../hooks/master/useSetting';
 import { usePermission } from '../../context/PermissionContext';
+import UploadTransTypePanel from './UploadTransTypePanel';
 
 export const SettingPage = () => {
     const [activeTab, setActiveTab] = useState('po');
@@ -103,6 +104,25 @@ export const SettingPage = () => {
                 >
                     PO Number Format
                 </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('transType')}
+                    disabled={saving}
+                    style={{
+                        padding: '8px 16px',
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        border: '1px solid #dee2e6',
+                        borderBottom: activeTab === 'transType' ? '3px solid #0d6efd' : '1px solid #dee2e6',
+                        backgroundColor: activeTab === 'transType' ? '#fff' : '#f8f9fa',
+                        color: activeTab === 'transType' ? '#0d6efd' : '#495057',
+                        borderRadius: '4px 4px 0 0',
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                        opacity: saving ? 0.6 : 1
+                    }}
+                >
+                    Upload Trans Types
+                </button>
             </div>
 
             {/* Container Body */}
@@ -112,7 +132,9 @@ export const SettingPage = () => {
                 borderRadius: '0 0 8px 8px',
                 border: '1px solid #dee2e6'
             }}>
-                {loading ? (
+                {activeTab === 'transType' ? (
+                    <UploadTransTypePanel />
+                ) : loading ? (
                     <div style={{ padding: '20px', textAlign: 'center', fontSize: '13px', color: '#6c757d' }}>
                         Loading PO settings...
                     </div>

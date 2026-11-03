@@ -13,7 +13,8 @@ const { isValidMenuAction } = require('../services/access-permission/permissionC
 
 const GUARDED = [
     'dashboardRoutes', 'doRoutes', 'masterUploadRoutes', 'outstandingPoRoutes', 'poRoutes', 'productCodeMappingRoutes',
-    'productionLotRoutes', 'productionScheduleRoutes', 'siRoutes', 'superadminRoutes', 'accessPermissionRoutes'
+    'productionLotRoutes', 'productionScheduleRoutes', 'siRoutes', 'superadminRoutes', 'accessPermissionRoutes',
+    'uploadTransTypeRoutes'
 ];
 
 const read = (name) => fs.readFileSync(path.join(__dirname, '..', 'routes', `${name}.js`), 'utf8');

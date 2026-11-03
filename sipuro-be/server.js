@@ -16,6 +16,7 @@ const accessPermissionRoutes = require('./routes/accessPermissionRoutes');
 const permissionRoutes = require('./routes/permissionRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const doRoutes = require('./routes/doRoutes');
+const uploadTransTypeRoutes = require('./routes/uploadTransTypeRoutes');
 const siRoutes = require('./routes/siRoutes');
 const productionSchedule = require('./routes/productionScheduleRoutes');
 const { requireAuth } = require('./middleware/auth');
@@ -84,6 +85,7 @@ app.use('/api/production-lot', productionLotRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/do', doRoutes);
+app.use('/api/upload-trans-types', uploadTransTypeRoutes);
 app.use('/api/si', siRoutes);
 app.use('/api/production-schedule', productionSchedule);
 
