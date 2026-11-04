@@ -44,6 +44,17 @@ test('syncBatchCompletedDates: COLLATE, parameter, dan lewati input kosong', asy
     assert.deepEqual(c.calls[0].params, [['B1', 'B2'], 9]);
 });
 
+test('syncBatchCompletedDates: hanya jenis produksi arah IN berbasis batch (WIP Completion); koreksi dan jenis lot tidak ikut', async () => {
+    const c = fakeConn(() => [{}]);
+    await svc.syncBatchCompletedDates(c, ['B1'], 9);
+    const sql = c.calls[0].sql.replace(/\s+/g, ' ');
+    assert.match(sql, /JOIN upload_trans_types t ON t\.scope = 'LOT' AND t\.direction = 'IN' AND t\.match_by = 'BATCH_LOT'/);
+    assert.match(sql, /t\.trans_type COLLATE utf8mb4_unicode_ci = d\.trans_type COLLATE utf8mb4_unicode_ci/);
+    // tanpa baris produksi yang cocok, tanggal lama dipertahankan (COALESCE) dan hanya satu query dijalankan
+    assert.match(sql, /COALESCE\(d\.max_completed, b\.actual_completed_date\)/);
+    assert.equal(c.calls.length, 1);
+});
+
 test('resolveBatchStatus', () => {
     assert.equal(svc.resolveBatchStatus(['Canceled', 'Canceled']), 'Canceled');
     assert.equal(svc.resolveBatchStatus(['Closed', 'Open']), 'Open');

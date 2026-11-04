@@ -241,10 +241,13 @@ async function syncAllocationStatuses(connection, { targetStatusByDetail, userId
 }
 
 /**
- * Tanggal selesai batch = MAX actual_completed_datetime dari baris upload batch itu sendiri
- * (bukan dari tanggal lot, agar lot yang dipakai beberapa batch tidak membocorkan tanggalnya).
+ * Tanggal selesai batch = MAX actual_completed_datetime dari baris PRODUKSI batch itu sendiri, yaitu jenis arah IN
+ * berbasis batch (WIP Completion). Koreksi (WIP Completion Return, arah OUT) dan jenis non-produksi berbasis lot
+ * (issue, return, adjustment) tidak ikut: tanggal selesai hanya dari produksi sebenarnya.
+ * Daftar jenis dibaca dari upload_trans_types (aktif maupun tidak, agar data lama tetap dihitung sama).
+ * Bukan dari tanggal lot, agar lot yang dipakai beberapa batch tidak membocorkan tanggalnya.
  * Batch tidak punya tanggal mulai karena file lot tidak memuatnya.
- * COLLATE pada join: kolom batch_number di dua tabel memakai collation berbeda.
+ * COLLATE pada join: kolom batch_number dan trans_type di tabel upload memakai collation berbeda.
  */
 async function syncBatchCompletedDates(connection, batchNumbers = [], updatedBy = null) {
     const numbers = [...new Set(batchNumbers.filter(Boolean))];
@@ -253,10 +256,13 @@ async function syncBatchCompletedDates(connection, batchNumbers = [], updatedBy 
     await connection.query(
         `UPDATE batches b
          JOIN (
-            SELECT batch_number, MAX(actual_completed_datetime) AS max_completed
-            FROM production_lot_upload_details
-            WHERE batch_number IN (?)
-            GROUP BY batch_number
+            SELECT d.batch_number, MAX(actual_completed_datetime) AS max_completed
+            FROM production_lot_upload_details d
+            JOIN upload_trans_types t
+              ON t.scope = 'LOT' AND t.direction = 'IN' AND t.match_by = 'BATCH_LOT'
+             AND t.trans_type COLLATE utf8mb4_unicode_ci = d.trans_type COLLATE utf8mb4_unicode_ci
+            WHERE d.batch_number IN (?)
+            GROUP BY d.batch_number
          ) d ON d.batch_number COLLATE utf8mb4_unicode_ci = b.batch_number
          SET b.actual_completed_date = COALESCE(d.max_completed, b.actual_completed_date),
              b.updated_by = ?`,
