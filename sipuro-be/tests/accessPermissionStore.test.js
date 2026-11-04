@@ -68,7 +68,7 @@ test('cache: satu query dalam masa berlaku; invalidate memuat ulang', async () =
 
 test('permissionsOf: hanya menu dan aksi yang diizinkan', async () => {
     const db = makeDb();
-    assert.deepEqual(await store.permissionsOf(db, emp('STAFF', 'LOGISTIC')), { DO: ['read', 'upload'] });
+    assert.deepEqual(await store.permissionsOf(db, emp('STAFF', 'LOGISTIC')), { DO: ['read', 'upload', 'export'] });
     assert.deepEqual(await store.permissionsOf(db, emp('STAFF', 'HR')), {});
     const sa = await store.permissionsOf(db, emp('SUPERADMIN', null));
     assert.deepEqual(sa.ACCESS_PERMISSIONS, ['read', 'update']);

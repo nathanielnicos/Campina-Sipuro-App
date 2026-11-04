@@ -102,4 +102,4 @@ const fetchItemLotBalance = async (queryable, { lotId }) => {
     };
 };
 
-module.exports = { fetchLotStock, fetchItemLotBalance };
+module.exports = { fetchLotStock, fetchItemLotBalance, loadStockCodes };

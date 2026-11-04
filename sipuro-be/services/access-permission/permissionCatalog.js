@@ -17,7 +17,7 @@ const MENUS = {
     OUTSTANDING_PO:      { label: 'Outstanding PO',       actions: ['read', 'create', 'approve'] },
     PRODUCTION_LOT:      { label: 'Production Lot',       actions: ['read', 'update', 'upload', 'export'] },
     PRODUCTION_SCHEDULE: { label: 'Production Schedule',  actions: ['read', 'create', 'update'] },
-    DO:                  { label: 'Delivery Order',       actions: ['read', 'upload'] },
+    DO:                  { label: 'Delivery Order',       actions: ['read', 'upload', 'export'] },
     SI:                  { label: 'Sales Invoice',        actions: ['read', 'upload'] },
     EMPLOYEES:           { label: 'Employee User',        actions: ['read', 'update'] },
     CUSTOMERS:           { label: 'Customer User',        actions: ['read', 'update'] },

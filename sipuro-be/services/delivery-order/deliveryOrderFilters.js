@@ -61,6 +61,16 @@ const buildReturnFilters = (query, from, to) => {
     return { whereSql: conditions.join(' AND '), params };
 };
 
+// Rentang tanggal DO / retur dari query (kosong = tanpa batas); from tidak boleh melewati to
+const parseDateRange = (query) => {
+    const from = parseDateParam(query.fromDoDate, 'From date');
+    const to = parseDateParam(query.toDoDate, 'To date');
+    if (from && to && from > to) {
+        throw new BusinessError('From date must not be later than To date.', 400);
+    }
+    return { from, to };
+};
+
 /**
  * Seluruh parameter daftar: filter + mode tampilan + halaman + urutan.
  */
@@ -70,11 +80,7 @@ const parseDeliveryOrderRequest = (query = {}) => {
         throw new BusinessError('Invalid display mode.', 400);
     }
 
-    const from = parseDateParam(query.fromDoDate, 'From date');
-    const to = parseDateParam(query.toDoDate, 'To date');
-    if (from && to && from > to) {
-        throw new BusinessError('From date must not be later than To date.', 400);
-    }
+    const { from, to } = parseDateRange(query);
 
     const filters = displayMode === 'BY_RETURN'
         ? buildReturnFilters(query, from, to)
@@ -84,11 +90,24 @@ const parseDeliveryOrderRequest = (query = {}) => {
     return { displayMode, ...filters, page, limit, offset, order: orderOf(query.sortOrder) };
 };
 
+/**
+ * Parameter ekspor: pencarian dan rentang tanggal yang sama dengan daftar, berlaku untuk pengiriman DO dan retur
+ * sekaligus. Tanpa mode tampilan dan tanpa halaman.
+ */
+const parseDeliveryOrderExportRequest = (query = {}) => {
+    const { from, to } = parseDateRange(query);
+    return {
+        deliveries: buildDoFilters(query, from, to),
+        returns: buildReturnFilters(query, from, to)
+    };
+};
+
 module.exports = {
     DISPLAY_MODES,
     MAX_PAGE_LIMIT,
     DEFAULT_PAGE_LIMIT,
     DO_FROM_SQL,
     RETURN_FROM_SQL,
-    parseDeliveryOrderRequest
+    parseDeliveryOrderRequest,
+    parseDeliveryOrderExportRequest
 };

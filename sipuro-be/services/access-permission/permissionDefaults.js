@@ -28,7 +28,7 @@ const DEFAULT_PERMISSIONS = {
     PRODUCTION_SCHEDULE: {
         read: ['PPIC'], create: ['PPIC'], update: ['PPIC']
     },
-    DO: { read: ['PPIC', 'LOGISTIC', 'FINANCE'], upload: ['LOGISTIC'] },
+    DO: { read: ['PPIC', 'LOGISTIC', 'FINANCE'], upload: ['LOGISTIC'], export: ['PPIC', 'LOGISTIC', 'FINANCE'] },
     SI: { read: ['FINANCE'], upload: ['FINANCE'] },
     EMPLOYEES: { read: ALL_SUPERADMIN, update: ALL_SUPERADMIN },
     CUSTOMERS: { read: ALL_SUPERADMIN, update: ALL_SUPERADMIN },

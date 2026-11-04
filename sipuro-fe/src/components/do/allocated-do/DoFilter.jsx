@@ -11,7 +11,10 @@ const DoFilter = ({
     onResetFilters,
     showEstimatedPoToggle = false,
     estimatedPoOn = false,
-    onToggleEstimatedPo
+    onToggleEstimatedPo,
+    canExport = false,
+    exporting = false,
+    onExport
 }) => {
     const isFilterActive = Boolean(searchQuery || fromDoDate || toDoDate);
     const getValue = (e) => (e?.target ? e.target.value : e);
@@ -68,6 +71,32 @@ const DoFilter = ({
                         }}
                     >
                         {estimatedPoOn ? 'Hide Estimated PO' : 'Show Estimated PO'}
+                    </button>
+                </div>
+            )}
+
+            {canExport && (
+                <div>
+                    <button
+                        type="button"
+                        onClick={onExport}
+                        disabled={exporting}
+                        title="Download Delivery Orders, returns and lot balance as Excel (uses the current search and date range)"
+                        style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            backgroundColor: '#198754',
+                            color: '#fff',
+                            border: '1px solid #198754',
+                            borderRadius: '4px',
+                            cursor: exporting ? 'not-allowed' : 'pointer',
+                            fontWeight: 'bold',
+                            whiteSpace: 'nowrap',
+                            height: '38px',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        {exporting ? 'Downloading...' : 'Export Excel'}
                     </button>
                 </div>
             )}

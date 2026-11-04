@@ -89,11 +89,11 @@ test('applyChanges: sel tanpa baris yang dinyalakan dicatat sebagai 0 -> 1; tanp
 test('loadMatrixView: matriks per kelompok, katalog menu, dan sel terkunci', async () => {
     const db = { query: async () => [defaultGrants().map(([group_code, menu_code, action]) => ({ group_code, menu_code, action }))] };
     const view = await svc.loadMatrixView(db);
-    assert.deepEqual(view.matrix.LOGISTIC, { DO: ['read', 'upload'] });
+    assert.deepEqual(view.matrix.LOGISTIC, { DO: ['read', 'upload', 'export'] });
     assert.deepEqual(view.matrix.CUSTOMER.PO, ['read', 'create', 'update', 'export']);
     assert.equal(view.matrix.PPIC.ACCESS_PERMISSIONS, undefined);
     assert.deepEqual(view.locked, [{ group: 'SUPERADMIN', menu: 'ACCESS_PERMISSIONS' }]);
-    assert.ok(view.menus.find((m) => m.code === 'DO' && m.actions.join() === 'read,upload'));
+    assert.ok(view.menus.find((m) => m.code === 'DO' && m.actions.join() === 'read,upload,export'));
     assert.equal(view.groups.length, 5);
 });
 

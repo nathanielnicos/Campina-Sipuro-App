@@ -8,6 +8,8 @@ import DoLotViewRows from './DoLotViewRows';
 import DoReturnViewRows from './DoReturnViewRows';
 import useDeliveryOrderTable from '../../../hooks/do/allocated-do/useDeliveryOrderTable';
 import useEstimatedPo from '../../../hooks/do/allocated-do/useEstimatedPo';
+import useDeliveryOrderExport from '../../../hooks/do/allocated-do/useDeliveryOrderExport';
+import { usePermission } from '../../../context/PermissionContext';
 
 const thStyle = { padding: '12px 14px' };
 const QTY_COLUMN = 'Qty (Pcs)';
@@ -22,6 +24,10 @@ const COLUMNS = {
 };
 
 const DoTable = ({ reloadTrigger }) => {
+    // Export hanya untuk kelompok yang diberi izin "export" pada menu DO (diatur di Access Permission)
+    const { can } = usePermission();
+    const canExport = can('DO', 'export');
+
     const [viewMode, setViewMode] = useState('DO'); // 'DO' | 'LOT' | 'RETURN'
     const [detailLevel, setDetailLevel] = useState('SUMMARY'); // 'SUMMARY' | 'LOT' (hanya tampilan DO)
 
@@ -32,6 +38,7 @@ const DoTable = ({ reloadTrigger }) => {
     const [showEstimatedPo, setShowEstimatedPo] = useState(false);
 
     const tableData = useDeliveryOrderTable(reloadTrigger, { searchQuery, fromDoDate, toDoDate }, viewMode);
+    const exportData = useDeliveryOrderExport({ searchQuery, fromDoDate, toDoDate });
 
     // Perkiraan PO hanya untuk tampilan DO Number (Summary dan Per Lot), atas DO yang sedang tampil
     const estimatedPoActive = showEstimatedPo && viewMode === 'DO';
@@ -84,6 +91,9 @@ const DoTable = ({ reloadTrigger }) => {
                 showEstimatedPoToggle={viewMode === 'DO'}
                 estimatedPoOn={showEstimatedPo}
                 onToggleEstimatedPo={() => setShowEstimatedPo((on) => !on)}
+                canExport={canExport}
+                exporting={exportData.exporting}
+                onExport={exportData.handleExportExcel}
             />
 
             <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>

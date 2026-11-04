@@ -4,6 +4,7 @@
  * Tes pembatasan akses rute Delivery Order (routes/doRoutes.js), dengan izin awal dari permissionDefaults:
  *  - daftar DO dan retur : PPIC, LOGISTIC, FINANCE
  *  - upload (preview dan commit): LOGISTIC saja
+ *  - export Excel                : PPIC, LOGISTIC, FINANCE
  * Express diganti tiruan; middleware auth yang asli dipakai. Tidak menyentuh database.
  */
 
@@ -61,6 +62,7 @@ const UPLOAD_ROUTES = ['POST /upload/preview', 'POST /upload/commit'];
 const POLICY = {
     'GET /mapping': VIEWERS,
     'GET /estimated-po': VIEWERS,
+    'GET /export': VIEWERS,
     'POST /upload/preview': UPLOADERS,
     'POST /upload/commit': UPLOADERS
 };

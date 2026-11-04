@@ -1,5 +1,6 @@
 import axios from './apiClient';
 import { API_BASE_URL } from './config';
+import { saveBlobResponse, readBlobErrorMessage } from '../utils/downloadBlob';
 
 const BASE_URL = `${API_BASE_URL}/do`;
 
@@ -23,6 +24,24 @@ export const fetchEstimatedPo = async (doIds = []) => {
     } catch (error) {
         console.error('Error fetching estimated PO:', error);
         return { success: false, message: error.response?.data?.message || 'Failed to fetch estimated PO.' };
+    }
+};
+
+// Ekspor DO ke Excel (pengiriman, retur, saldo lot) dengan filter yang sama dengan daftar (tanpa halaman dan mode tampilan)
+export const exportDeliveryOrderExcelApi = async (filters = {}) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/export`, {
+            params: filters,
+            responseType: 'blob'
+        });
+        saveBlobResponse(response, 'Export_Delivery_Order.xlsx');
+        return { success: true };
+    } catch (error) {
+        console.error('Error exporting DO:', error);
+        return {
+            success: false,
+            message: await readBlobErrorMessage(error, 'Failed to download Excel file.')
+        };
     }
 };
 
