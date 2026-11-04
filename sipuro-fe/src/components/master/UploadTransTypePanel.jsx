@@ -3,11 +3,11 @@ import { useUploadTransTypes } from '../../hooks/master/useUploadTransTypes';
 import { usePermission } from '../../context/PermissionContext';
 
 const SECTIONS = [
-    { scope: 'LOT', title: 'Production Lot Upload', note: 'Rows of an active type change the lot allocation. "Lot + Item" types only reduce and ignore the Doc Source column.' },
+    { scope: 'LOT', title: 'Production Lot Upload', note: 'Rows of an active type change the lot allocation. WIP Completion and WIP Completion Return are the production types (Batch + Lot + Item) and are fixed. Types you add are matched by Lot + Item and only reduce allocations.' },
     { scope: 'DO', title: 'Delivery Order Upload', note: 'Only Sales Order Issue and RMA Receipt are supported. They can be activated or deactivated.' }
 ];
 
-const MATCH_LABEL = { BATCH_LOT: 'Batch + Lot + Item', LOT: 'Lot + Item' };
+const MATCH_LABEL = { BATCH_LOT: 'Production (Batch + Lot + Item)', LOT: 'Lot + Item' };
 
 const cellStyle = { padding: '8px', fontSize: '12px', borderBottom: '1px solid #dee2e6' };
 const inputStyle = { padding: '6px 10px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '13px' };
@@ -39,7 +39,7 @@ export const UploadTransTypePanel = () => {
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end', padding: '12px', border: '1px solid #dee2e6', borderRadius: '6px', backgroundColor: '#f8f9fa' }}>
                     <div>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>
-                            {editingId === null ? 'New Production Lot Trans Type' : 'Edit Trans Type'}
+                            {editingId === null ? 'New Trans Type (non-production)' : 'Edit Trans Type'}
                         </label>
                         <input
                             type="text" required maxLength={50} disabled={saving} value={form.transType}
@@ -51,14 +51,7 @@ export const UploadTransTypePanel = () => {
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>Direction</label>
                         <select disabled={saving} value={form.direction} onChange={(e) => handleFormChange('direction', e.target.value)} style={inputStyle}>
                             <option value="OUT">Out (reduces, column T)</option>
-                            <option value="IN">In (adds, column Q)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>Match By</label>
-                        <select disabled={saving || form.direction === 'IN'} value={form.matchBy} onChange={(e) => handleFormChange('matchBy', e.target.value)} style={inputStyle}>
-                            <option value="BATCH_LOT">Batch + Lot + Item</option>
-                            <option value="LOT">Lot + Item</option>
+                            <option value="IN" disabled>In (adds, column Q) - not available yet</option>
                         </select>
                     </div>
                     <button type="submit" disabled={saving} style={{ ...inputStyle, border: 'none', backgroundColor: '#0d6efd', color: '#fff', fontWeight: 'bold', cursor: saving ? 'not-allowed' : 'pointer' }}>
@@ -105,7 +98,7 @@ export const UploadTransTypePanel = () => {
                                                     <button type="button" disabled={saving} onClick={() => handleToggleStatus(item)} style={smallButton(item.is_active ? '#dc3545' : '#198754')}>
                                                         {item.is_active ? 'Deactivate' : 'Activate'}
                                                     </button>
-                                                    {section.scope === 'LOT' && !item.in_use && (
+                                                    {section.scope === 'LOT' && item.match_by !== 'BATCH_LOT' && !item.in_use && (
                                                         <button type="button" disabled={saving} onClick={() => startEdit(item)} style={smallButton('#0d6efd')}>Edit</button>
                                                     )}
                                                 </td>

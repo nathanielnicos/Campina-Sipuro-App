@@ -1,19 +1,8 @@
 const { chunk } = require('../../helpers/arrayUtils');
 const { BusinessError } = require('../../helpers/businessError');
-const {
-    refreshPOStatus,
-    refreshBatchStatuses,
-    recalculateFulfilledQty,
-    syncAllocationStatuses,
-    syncBatchCompletedDates
-} = require('./lotStatusService');
-const { logAllocationInsert, logAllocationUpdate } = require('./lotAllocationLog');
-const {
-    ALLOCATION_STATUS,
-    ELIGIBLE_ALLOCATION_STATUSES,
-    allocationKey,
-    lotKey
-} = require('./lotAllocationRules');
+const { syncBatchCompletedDates } = require('./lotStatusService');
+const { persistAllocationItems } = require('./lotAllocationPersist');
+const { allocationKey, lotKey } = require('./lotAllocationRules');
 
 const SYNC_REASON = 'Auto status sync after production lot upload';
 
@@ -205,155 +194,23 @@ const commitProductionAllocationTransaction = async (connection, {
         }
     });
 
-    const lotIds = [...new Set([...items.values()].map((i) => i.lotId))];
-    const [existingAllocRows] = await connection.query(
-        'SELECT id, po_detail_id, lot_id, id_batch, allocated_qty, status FROM po_lot_allocations WHERE lot_id IN (?) FOR UPDATE',
-        [lotIds.length > 0 ? lotIds : [0]]
-    );
-    const existingByPair = new Map(existingAllocRows.map((a) => [allocationKey(a.po_detail_id, a.lot_id, a.id_batch), a]));
-
-    const upsertValues = [];
-    const insertLogs = [];
-    const updateLogs = [];
-
-    items.forEach((item, key) => {
-        const existing = existingByPair.get(key);
-        const oldQty = existing ? Number(existing.allocated_qty) || 0 : 0;
-        const newQty = oldQty + item.addedQty;
-
-        if (newQty < 0) {
-            problems.push(`Allocation for PO detail ${item.poDetailId}, lot ID ${item.lotId}, batch ID ${item.batchId} would become negative.`);
-            return;
-        }
-        if (existing && !ELIGIBLE_ALLOCATION_STATUSES.includes(existing.status)) {
-            problems.push(`Allocation for PO detail ${item.poDetailId}, lot ID ${item.lotId}, batch ID ${item.batchId} is ${existing.status} and cannot be changed.`);
-            return;
-        }
-
-        upsertValues.push([item.poDetailId, item.lotId, item.batchId, newQty, item.rowStatus, userId, userId]);
-
-        if (existing) {
-            updateLogs.push({
-                upload_log_id: uploadLogId,
-                allocation_id: existing.id,
-                po_detail_id: item.poDetailId,
-                lot_id: item.lotId,
-                id_batch: item.batchId,
-                old_allocated_qty: oldQty,
-                new_allocated_qty: newQty,
-                old_status: existing.status,
-                new_status: item.rowStatus,
-                reason: uploadReason,
-                trans_type: item.transTypes.join(', ') || null,
-                created_by: userId
-            });
-        } else {
-            insertLogs.push({
-                upload_log_id: uploadLogId,
-                po_detail_id: item.poDetailId,
-                lot_id: item.lotId,
-                id_batch: item.batchId,
-                allocated_qty: newQty,
-                status: item.rowStatus,
-                reason: uploadReason,
-                trans_type: item.transTypes.join(', ') || null,
-                created_by: userId
-            });
-        }
-    });
-
-    if (problems.length > 0) {
-        throw new BusinessError('Allocation validation failed.', 422, { problems });
-    }
-
-    if (upsertValues.length > 0) {
-        await connection.query(
-            `INSERT INTO po_lot_allocations (po_detail_id, lot_id, id_batch, allocated_qty, status, created_by, updated_by)
-             VALUES ?
-             ON DUPLICATE KEY UPDATE
-                allocated_qty = VALUES(allocated_qty),
-                status = VALUES(status),
-                updated_by = VALUES(updated_by)`,
-            [upsertValues]
-        );
-    }
-
-    // Catat Log Alokasi
-    if (insertLogs.length > 0) {
-        const triples = insertLogs.map((l) => [l.po_detail_id, l.lot_id, l.id_batch]);
-        const [createdAllocs] = await connection.query(
-            'SELECT id, po_detail_id, lot_id, id_batch FROM po_lot_allocations WHERE (po_detail_id, lot_id, id_batch) IN (?)',
-            [triples]
-        );
-        const idByKey = new Map(createdAllocs.map((a) => [allocationKey(a.po_detail_id, a.lot_id, a.id_batch), a.id]));
-        insertLogs.forEach((l) => {
-            l.allocation_id = idByKey.get(allocationKey(l.po_detail_id, l.lot_id, l.id_batch));
-        });
-        await logAllocationInsert(connection, insertLogs, userId);
-    }
-    if (updateLogs.length > 0) {
-        await logAllocationUpdate(connection, updateLogs, userId);
-    }
-
-    // 6. Hitung Ulang fulfilled_qty pada `po_details` dari `po_lot_allocations`
-    const poDetailIds = [...new Set([...items.values()].map((i) => i.poDetailId))];
-    await recalculateFulfilledQty(connection, poDetailIds);
-
-    const [poDetailRows] = await connection.query(
-        'SELECT po_detail_id, po_header_id, base_qty, fulfilled_qty FROM po_details WHERE po_detail_id IN (?)',
-        [poDetailIds.length > 0 ? poDetailIds : [0]]
-    );
-
-    const poHeaderIds = new Set();
-    const targetStatusByDetail = new Map();
-    poDetailRows.forEach((pd) => {
-        const base = Number(pd.base_qty) || 0;
-        const fulfilled = Number(pd.fulfilled_qty) || 0;
-        if (fulfilled > base || fulfilled < 0) {
-            problems.push(`PO detail ${pd.po_detail_id} would have fulfilled quantity ${fulfilled} against PO quantity ${base}.`);
-        }
-        if (pd.po_header_id) poHeaderIds.add(pd.po_header_id);
-        targetStatusByDetail.set(pd.po_detail_id, fulfilled >= base ? ALLOCATION_STATUS.CLOSED : ALLOCATION_STATUS.OPEN);
-    });
-
-    if (problems.length > 0) {
-        throw new BusinessError(
-            'The allocation would exceed or go below the PO quantity limits. Please upload the file again to refresh the preview.',
-            409,
-            { problems }
-        );
-    }
-
-    // 7. Sinkronisasi status dua arah untuk seluruh alokasi (lot, batch) pada item PO yang sama
-    const syncedBatchIds = await syncAllocationStatuses(connection, {
-        targetStatusByDetail,
+    // 5-8. Upsert po_lot_allocations, riwayat, fulfilled_qty, sinkron status, refresh batch dan header PO
+    const { allocationCount } = await persistAllocationItems(connection, {
+        items,
         userId,
         uploadLogId,
-        reason: SYNC_REASON
+        reason: uploadReason,
+        syncReason: SYNC_REASON,
+        problems,
+        extraBatchIds: previewResults.map((g) => batchIdByNumber.get(g.batchNumber)).filter(Boolean)
     });
-
-    // Batch dari file ini DAN dari alokasi yang ikut tersinkronisasi
-    const allBatchIdsToRefresh = new Set([
-        ...previewResults.map((g) => batchIdByNumber.get(g.batchNumber)).filter(Boolean),
-        ...[...items.values()].map((i) => i.batchId),
-        ...syncedBatchIds
-    ]);
-
-    // 8. Refresh status Batch & Header PO
-    if (allBatchIdsToRefresh.size > 0) {
-        await refreshBatchStatuses(connection, [...allBatchIdsToRefresh]);
-    }
-
-    for (const poHeaderId of poHeaderIds) {
-        await refreshPOStatus(connection, poHeaderId);
-    }
 
     return {
         uploadLogId,
         savedBatchCount: batchNumbers.length,
         savedLotCount: previewResults.length,
         savedRowCount: newRows.length,
-        allocationCount: upsertValues.length
+        allocationCount
     };
 };
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const { getAllocatedLotMapping } = require('../controllers/production-lot/allocation/lotMappingListController');
 const { getAllocationHistory } = require('../controllers/production-lot/allocation/lotAllocationLogController');
 const { updateAllocationQty } = require('../controllers/production-lot/allocation/lotAllocationQtyController');
+const { listAllocationRebalanceProducts, previewAllocationRebalance, commitAllocationRebalance } = require('../controllers/production-lot/allocation/lotRebalanceController');
 const { exportLotMappingExcel } = require('../controllers/production-lot/export/lotExportController');
 const { previewExcelUpload } = require('../controllers/production-lot/import/lotUploadPreviewController');
 const { commitExcelAllocation } = require('../controllers/production-lot/import/lotUploadCommitController');
@@ -23,11 +24,14 @@ router.get('/mapping', canView, getAllocatedLotMapping);
 router.get('/export', canExport, exportLotMappingExcel);
 
 // 2. RUTE DINAMIS (GET dengan Parameter)
+router.get('/allocations/rebalance/products', canUpdate, listAllocationRebalanceProducts);
 router.get('/allocations/:allocationId/logs', canView, getAllocationHistory);
 
 // 3. RUTE ACTION / MUTASI (POST / PATCH)
 router.post('/upload/preview', canUpload, handleExcelUpload, previewExcelUpload);
 router.post('/upload/commit', canUpload, handleExcelUpload, commitExcelAllocation);
 router.patch('/allocations/:allocationId/qty', canUpdate, updateAllocationQty);
+router.post('/allocations/rebalance/preview', canUpdate, previewAllocationRebalance);
+router.post('/allocations/rebalance/commit', canUpdate, commitAllocationRebalance);
 
 module.exports = router;

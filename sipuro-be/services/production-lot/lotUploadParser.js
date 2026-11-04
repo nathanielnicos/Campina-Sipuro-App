@@ -45,7 +45,7 @@ const parseProductionExcel = (fileBuffer, findRule) => {
         const actualCompletedDatetime = parseExcelDateTime(transDateRaw);
         const expiredDate = parseDateOnly(expDateRaw);
 
-        const hashPayload = [
+        const hashFields = [
             batchNumber,
             lotNumber,
             itemCode,
@@ -53,9 +53,15 @@ const parseProductionExcel = (fileBuffer, findRule) => {
             storedQtyPac,
             actualCompletedDatetime || '',
             expiredDate || ''
-        ].join('|');
+        ];
+        const sha256 = (text) => crypto.createHash('sha256').update(text).digest('hex');
 
-        const rowHash = crypto.createHash('sha256').update(hashPayload).digest('hex');
+        // Jenis berbasis lot: Doc Source ikut hash (dokumen berbeda = baris berbeda). Hash tanpa Doc Source
+        // (rumus lama) tetap dihitung sebagai legacyRowHash agar baris lama yang sudah tersimpan tetap dikenali duplikat.
+        // Jenis berbasis batch: rumus tidak berubah (nomor batch = Doc Source sudah masuk hash).
+        const isLotType = matchBy === MATCH_BY.LOT;
+        const legacyRowHash = sha256(hashFields.join('|'));
+        const rowHash = isLotType ? sha256([...hashFields, docSource].join('|')) : legacyRowHash;
 
         rawRows.push({
             batchNumber,
@@ -64,13 +70,14 @@ const parseProductionExcel = (fileBuffer, findRule) => {
             lotStatus: status,
             transType,
             matchBy,
-            // Referensi saja untuk jenis lot-item (tidak dipakai mencocokkan dan tidak masuk hash)
-            docSource: matchBy === MATCH_BY.LOT ? docSource : '',
+            // Jenis lot-item: Doc Source disimpan sebagai referensi dan ikut hash baris
+            docSource: isLotType ? docSource : '',
             qtyPac: storedQtyPac,
             rawAllocationQty: rule.sign * storedQtyPac,
             actualCompletedDatetime,
             expiredDate,
             rowHash,
+            ...(isLotType ? { legacyRowHash } : {}),
             excelRowNumber,
             qtyIsWhole: qtyResult.isWhole,
             rawQtyText: String(rawQty === undefined || rawQty === null ? '' : rawQty).trim()

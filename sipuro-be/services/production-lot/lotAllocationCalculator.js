@@ -166,7 +166,8 @@ const calculateLotFifoAllocation = (
         if (isRegistered && row.qtyIsWhole === false) {
             invalidQtyRows.push(`${row.excelRowNumber} ("${row.rawQtyText}")`);
         }
-        const isDuplicate = hashSet.has(row.rowHash);
+        // Hash lama (tanpa Doc Source) pada jenis lot-item tetap dikenali agar baris yang sudah tersimpan tidak masuk dua kali
+        const isDuplicate = hashSet.has(row.rowHash) || Boolean(row.legacyRowHash && hashSet.has(row.legacyRowHash));
         const isLotGood = row.lotStatus && row.lotStatus.toUpperCase() === 'GOOD';
 
         if (!isRegistered) {

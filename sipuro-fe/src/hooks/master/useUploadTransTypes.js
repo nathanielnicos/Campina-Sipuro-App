@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { getUploadTransTypes, createUploadTransType, updateUploadTransType } from '../../services/uploadTransTypeApi';
 import { useGlobalModal } from '../../context/ModalContext';
 
-const EMPTY_FORM = { transType: '', direction: 'OUT', matchBy: 'BATCH_LOT' };
+// Jenis yang ditambah dari Setting selalu non-produksi (Lot + Item); cara cocok ditentukan server
+const EMPTY_FORM = { transType: '', direction: 'OUT' };
 
 export const useUploadTransTypes = () => {
     const { showAlert, showConfirm } = useGlobalModal();
@@ -30,13 +31,8 @@ export const useUploadTransTypes = () => {
         fetchTypes();
     }, [fetchTypes]);
 
-    // Jenis lot-item hanya boleh mengurangi: arah IN otomatis berbasis batch
     const handleFormChange = (field, value) => {
-        setForm((prev) => {
-            const next = { ...prev, [field]: value };
-            if (next.direction === 'IN') next.matchBy = 'BATCH_LOT';
-            return next;
-        });
+        setForm((prev) => ({ ...prev, [field]: value }));
     };
 
     const resetForm = () => {
@@ -46,7 +42,7 @@ export const useUploadTransTypes = () => {
 
     const startEdit = (item) => {
         setEditingId(item.id);
-        setForm({ transType: item.trans_type, direction: item.direction, matchBy: item.match_by });
+        setForm({ transType: item.trans_type, direction: item.direction });
     };
 
     const handleSubmit = async (e) => {

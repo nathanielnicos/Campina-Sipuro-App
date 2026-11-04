@@ -42,8 +42,11 @@ test('parseTypeId: ID bilangan bulat positif', () => {
 test('parseCreateBody: scope selalu LOT, nama dirapikan, validasi arah dan cara cocok', () => {
     assert.deepEqual(svc.parseCreateBody({ transType: '  Good   Issue Lab ', direction: 'OUT', matchBy: 'LOT' }),
         { scope: 'LOT', transType: 'Good Issue Lab', direction: 'OUT', matchBy: 'LOT' });
-    assert.equal(svc.parseCreateBody({ transType: 'X', direction: 'IN', matchBy: 'BATCH_LOT', scope: 'DO' }).scope, 'LOT');
+    // jenis baru selalu non-produksi: matchBy dari klien diabaikan, scope dari klien diabaikan
+    assert.equal(svc.parseCreateBody({ transType: 'X', direction: 'OUT', matchBy: 'BATCH_LOT', scope: 'DO' }).matchBy, 'LOT');
+    assert.equal(svc.parseCreateBody({ transType: 'X', direction: 'OUT', scope: 'DO' }).scope, 'LOT');
     for (const bad of [{}, { transType: '', direction: 'OUT', matchBy: 'LOT' }, { transType: 'X', direction: 'IN', matchBy: 'LOT' },
+        { transType: 'X', direction: 'IN', matchBy: 'BATCH_LOT' }, { transType: 'X', direction: 'IN' },
         { transType: 'X', direction: 'UP', matchBy: 'LOT' }, { transType: 'a'.repeat(51), direction: 'OUT', matchBy: 'LOT' }]) {
         assert.throws(() => svc.parseCreateBody(bad), (e) => e.status === 400, JSON.stringify(bad));
     }
@@ -86,12 +89,12 @@ test('ubah: aktif/nonaktif boleh untuk semua scope, termasuk yang sudah dipakai'
 
 test('ubah definisi: boleh bila belum dipakai; ditolak bila sudah dipakai atau scope DO', async () => {
     const free = makeConn({ rows: [row(7, 'LOT', 'Old Name', 'OUT', 'LOT')] });
-    const out = await svc.updateTransType(free, { id: 7, patch: { transType: 'New Name', direction: 'OUT', matchBy: 'BATCH_LOT' }, userId: 4 });
+    const out = await svc.updateTransType(free, { id: 7, patch: { transType: 'New Name', direction: 'OUT' }, userId: 4 });
     assert.equal(out.trans_type, 'New Name');
-    assert.equal(out.match_by, 'BATCH_LOT');
+    assert.equal(out.match_by, 'LOT');
 
     const used = makeConn({ rows: [row(1, 'LOT', 'WIP Issue', 'OUT', 'LOT')], used: { LOT: ['WIP Issue'], DO: [] } });
-    await assert.rejects(svc.updateTransType(used, { id: 1, patch: { direction: 'IN', matchBy: 'BATCH_LOT' }, userId: 4 }), (e) => e.status === 409 && /already been used/.test(e.message));
+    await assert.rejects(svc.updateTransType(used, { id: 1, patch: { direction: 'IN' }, userId: 4 }), (e) => e.status === 409 && /already been used/.test(e.message));
     assert.equal(used.calls.some((x) => /^UPDATE/.test(x.sql)), false);
 
     const doRow = makeConn({ rows: [row(6, 'DO', 'Sales Order Issue', 'OUT')] });
@@ -100,8 +103,21 @@ test('ubah definisi: boleh bila belum dipakai; ditolak bila sudah dipakai atau s
 
 test('ubah: validasi (lot-item hanya OUT), nama bentrok, tidak ditemukan, tidak ada perubahan', async () => {
     const r = row(7, 'LOT', 'Old Name', 'OUT', 'BATCH_LOT');
-    await assert.rejects(svc.updateTransType(makeConn({ rows: [r] }), { id: 7, patch: { direction: 'IN', matchBy: 'LOT' }, userId: 4 }), (e) => e.status === 400);
+    const lotRow = row(7, 'LOT', 'Old Name', 'OUT', 'LOT');
+    await assert.rejects(svc.updateTransType(makeConn({ rows: [lotRow] }), { id: 7, patch: { direction: 'IN' }, userId: 4 }), (e) => e.status === 400);
     await assert.rejects(svc.updateTransType(makeConn({ rows: [r], taken: ['other'] }), { id: 7, patch: { transType: 'Other' }, userId: 4 }), (e) => e.status === 409);
     await assert.rejects(svc.updateTransType(makeConn({ rows: [r] }), { id: 8, patch: { isActive: false }, userId: 4 }), (e) => e.status === 404);
     await assert.rejects(svc.updateTransType(makeConn({ rows: [r] }), { id: 7, patch: { isActive: true }, userId: 4 }), (e) => e.status === 400);
+});
+
+test('ubah: cara cocok tidak bisa diganti (produksi dan non-produksi tetap terpisah); nilai yang sama diterima', async () => {
+    const prod = makeConn({ rows: [row(2, 'LOT', 'WIP Completion', 'IN', 'BATCH_LOT')] });
+    await assert.rejects(svc.updateTransType(prod, { id: 2, patch: { matchBy: 'LOT', direction: 'OUT' }, userId: 4 }), (e) => e.status === 409 && /cannot be changed/.test(e.message));
+    assert.equal(prod.calls.some((x) => /^UPDATE/.test(x.sql)), false);
+
+    const lot = makeConn({ rows: [row(7, 'LOT', 'Old Name', 'OUT', 'LOT')] });
+    await assert.rejects(svc.updateTransType(lot, { id: 7, patch: { matchBy: 'BATCH_LOT' }, userId: 4 }), (e) => e.status === 409);
+    const same = makeConn({ rows: [row(7, 'LOT', 'Old Name', 'OUT', 'LOT')] });
+    const out = await svc.updateTransType(same, { id: 7, patch: { matchBy: 'LOT', transType: 'New Name' }, userId: 4 });
+    assert.equal(out.match_by, 'LOT');
 });

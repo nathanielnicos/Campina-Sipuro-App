@@ -81,9 +81,30 @@ test('parser: Completion dan Return tetap berbasis batch dengan kolom lamanya; j
         [['WIP Completion', 'B1', 'BATCH_LOT', 10], ['WIP Completion Return', 'B1', 'BATCH_LOT', -4]]);
 });
 
-test('parser: hash baris lot-only tidak bergantung pada isi kolom G', () => {
-    const a = (batch) => { sheet = [...header(), excelRow('WIP Issue', { qtyCol: 19, qty: 5, batch })]; return parseProductionExcel(Buffer.from('x'), findLotRule).rawRows[0].rowHash; };
-    assert.equal(a('111'), a('BATCH999'));
+test('parser: hash baris lot-only memuat Doc Source; hash lama (tanpa Doc Source) tetap dihitung sebagai legacyRowHash', () => {
+    const parse = (batch) => { sheet = [...header(), excelRow('WIP Issue', { qtyCol: 19, qty: 5, batch })]; return parseProductionExcel(Buffer.from('x'), findLotRule).rawRows[0]; };
+    const a = parse('111');
+    const b = parse('BATCH111');
+    const c = parse('BATCH999');
+    // awalan BATCH dibuang sebelum dihitung; dokumen berbeda = hash berbeda
+    assert.equal(a.rowHash, b.rowHash);
+    assert.notEqual(a.rowHash, c.rowHash);
+    // rumus lama tidak bergantung pada Doc Source dan berbeda dari hash baru
+    assert.equal(a.legacyRowHash, c.legacyRowHash);
+    assert.notEqual(a.legacyRowHash, a.rowHash);
+    // rumus lama persis: batch kosong, lot, item, jenis, qty, tanggal, expired
+    const legacy = require('crypto').createHash('sha256')
+        .update(['', 'L1', 'P1', 'WIP Issue', 5, '2026-02-01 10:00:00', '2027-02-01'].join('|')).digest('hex');
+    assert.equal(a.legacyRowHash, legacy);
+});
+
+test('parser: jenis berbasis batch tidak berubah (hash sama dengan rumus lama, tanpa legacyRowHash)', () => {
+    sheet = [...header(), excelRow('WIP Completion', { qtyCol: 16, qty: 10, batch: 'BATCH B1' })];
+    const row = parseProductionExcel(Buffer.from('x'), findLotRule).rawRows[0];
+    const legacy = require('crypto').createHash('sha256')
+        .update(['B1', 'L1', 'P1', 'WIP Completion', 10, '2026-02-01 10:00:00', '2027-02-01'].join('|')).digest('hex');
+    assert.equal(row.rowHash, legacy);
+    assert.equal('legacyRowHash' in row, false);
 });
 
 // ---------- kalkulator ----------
@@ -316,4 +337,18 @@ test('commit: completion batch baru dan issue pada lot yang sama dalam satu file
     assert.deepEqual(find(conn, /^INSERT INTO lots/)[0].params[0], [['L1', 1, '2026-02-01 10:00:00', '2027-02-01']]);
     assert.deepEqual(find(conn, /^INSERT INTO batches/)[0].params[0].map((b) => b[0]), ['B9']);
     assert.deepEqual(find(conn, /^INSERT INTO po_lot_allocations/)[0].params[0], [[2, 5, 21, 30, 'Open', 4, 4]]);
+});
+
+test('duplikat: baris lot-only yang hash lamanya sudah tersimpan tetap dianggap duplikat; hash baru juga', () => {
+    const fresh = issueRow(5, { rowHash: 'new-1', legacyRowHash: 'old-1' });
+    const byLegacy = calculateLotFifoAllocation([fresh], ['old-1'], [po(1)], PRODUCTS, {});
+    assert.equal(byLegacy.duplicateRows.length, 1);
+    assert.equal(byLegacy.previewResults.length, 0);
+
+    const again = issueRow(5, { rowHash: 'new-2', legacyRowHash: 'old-2' });
+    assert.equal(calculateLotFifoAllocation([again], ['new-2'], [po(1)], PRODUCTS, {}).duplicateRows.length, 1);
+
+    // tanpa kecocokan: bukan duplikat (baris lama tanpa legacyRowHash tidak terpengaruh)
+    const other = issueRow(5, { rowHash: 'new-3', legacyRowHash: 'old-3' });
+    assert.equal(calculateLotFifoAllocation([other], ['x'], [po(1)], PRODUCTS, {}).duplicateRows.length, 0);
 });

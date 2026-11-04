@@ -26,8 +26,8 @@ const {
     ELIGIBLE_ALLOCATION_STATUSES
 } = require('./lotAllocationRules');
 
-// Tercatat di kolom trans_type pada riwayat alokasi
-const MANUAL_ADJUSTMENT_TYPE = 'Manual Adjustment';
+// Jenis transaksi yang tercatat pada riwayat alokasi (satu sumber nama dengan rebalance)
+const { MANUAL_ADJUSTMENT_TYPE } = require('./lotRebalanceTypes');
 const REASON_MAX_LENGTH = 50;
 const MAX_QTY = 2147483647; // batas kolom INT
 const SYNC_REASON_EDIT = 'Auto status sync after quantity edit';

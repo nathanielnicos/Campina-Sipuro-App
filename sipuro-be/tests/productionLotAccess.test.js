@@ -42,6 +42,7 @@ Module._load = function patchedLoad(request) {
     if (request.endsWith('/controllers/production-lot/allocation/lotAllocationLogController')) return controllerStub;
     if (request.endsWith('/controllers/production-lot/export/lotExportController')) return controllerStub;
     if (request.endsWith('/controllers/production-lot/allocation/lotAllocationQtyController')) return controllerStub;
+    if (request.endsWith('/controllers/production-lot/allocation/lotRebalanceController')) return controllerStub;
     if (request.endsWith('/controllers/production-lot/import/lotUploadPreviewController')) return controllerStub;
     if (request.endsWith('/controllers/production-lot/import/lotUploadCommitController')) return controllerStub;
     return originalLoad.apply(this, arguments);
@@ -67,7 +68,10 @@ const POLICY = {
     'PATCH /allocations/:allocationId/qty': PPIC_ONLY,
     'GET /allocations/:allocationId/logs': PPIC_ONLY,
     'POST /upload/preview': PPIC_ONLY,
-    'POST /upload/commit': PPIC_ONLY
+    'POST /upload/commit': PPIC_ONLY,
+    'GET /allocations/rebalance/products': PPIC_ONLY,
+    'POST /allocations/rebalance/preview': PPIC_ONLY,
+    'POST /allocations/rebalance/commit': PPIC_ONLY
 };
 
 const UPLOAD_ROUTES = ['POST /upload/preview', 'POST /upload/commit'];

@@ -13,7 +13,7 @@
 
 const { BusinessError } = require('../../helpers/businessError');
 const { parseIdParam } = require('../../helpers/queryParams');
-const { SCOPE, normalizeTransType, validateTransTypeInput } = require('./uploadTransTypeRules');
+const { SCOPE, MATCH_BY, normalizeTransType, validateTransTypeInput } = require('./uploadTransTypeRules');
 
 const COLLATION = 'utf8mb4_unicode_ci';
 
@@ -41,13 +41,16 @@ const throwIfInvalid = (input) => {
     if (errors.length > 0) throw new BusinessError(errors[0], 400, { problems: errors });
 };
 
-/** Isian jenis baru (selalu scope LOT). */
+/**
+ * Isian jenis baru (selalu scope LOT dan non-produksi, cara cocok Lot + Item).
+ * Jenis produksi (Batch + Lot + Item) hanya WIP Completion dan WIP Completion Return dari migrasi; tidak bisa ditambah.
+ */
 const parseCreateBody = (body = {}) => {
     const input = {
         scope: SCOPE.LOT,
         transType: cleanLabel(body.transType),
         direction: body.direction,
-        matchBy: body.matchBy
+        matchBy: MATCH_BY.LOT
     };
     throwIfInvalid(input);
     return input;
@@ -143,6 +146,11 @@ const updateTransType = async (connection, { id, patch, userId }) => {
         [id]
     );
     if (!row) throw new BusinessError('Trans type not found.', 404);
+
+    // Jenis produksi dan non-produksi tidak bisa saling berubah
+    if (patch.matchBy !== undefined && patch.matchBy !== row.match_by) {
+        throw new BusinessError('The match type of a trans type cannot be changed. Production types (Batch + Lot + Item) are fixed.', 409);
+    }
 
     const next = {
         transType: patch.transType !== undefined ? patch.transType : row.trans_type,

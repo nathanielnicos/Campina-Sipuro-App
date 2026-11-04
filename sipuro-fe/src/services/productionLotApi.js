@@ -82,3 +82,41 @@ export const fetchLotAllocationLogsApi = async (allocationId, page = 1, limit = 
         return { success: false, message: error.response?.data?.message || 'Failed to fetch allocation history.' };
     }
 };
+
+// Rebalance alokasi: produk yang punya lot (pilihan di layar), pratinjau (tidak menyimpan), dan commit.
+export const fetchRebalanceProductsApi = async () => {
+    try {
+        const response = await axios.get(`${BASE_URL}/allocations/rebalance/products`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching rebalance products:', error);
+        return { success: false, message: error.response?.data?.message || 'Failed to load products.' };
+    }
+};
+
+export const previewAllocationRebalanceApi = async (productId) => {
+    try {
+        const response = await axios.post(`${BASE_URL}/allocations/rebalance/preview`, { productId });
+        return response.data;
+    } catch (error) {
+        console.error('Error previewing allocation rebalance:', error);
+        return { success: false, message: error.response?.data?.message || 'Failed to preview the allocation rebalance.' };
+    }
+};
+
+// payload: { productId, fingerprint, reason }. Pelaku dari token login di server; hasil dihitung ulang di server.
+export const commitAllocationRebalanceApi = async (payload) => {
+    try {
+        const response = await axios.post(`${BASE_URL}/allocations/rebalance/commit`, payload);
+        return response.data;
+    } catch (error) {
+        console.error('Error committing allocation rebalance:', error);
+        const data = error.response?.data;
+        const problems = data?.details?.problems;
+        return {
+            success: false,
+            message: data?.message || 'Failed to rebalance the allocation.',
+            problems: Array.isArray(problems) ? problems : []
+        };
+    }
+};

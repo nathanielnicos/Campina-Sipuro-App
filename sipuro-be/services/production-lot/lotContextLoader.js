@@ -55,7 +55,7 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
 
     // 2. Cek Hash baris yang sudah ada di tabel log upload lot yang baru
     const existingHashes = [];
-    const uniqueHashes = [...new Set(rawRows.map((r) => r.rowHash))];
+    const uniqueHashes = [...new Set(rawRows.flatMap((r) => (r.legacyRowHash ? [r.rowHash, r.legacyRowHash] : [r.rowHash])))];
     for (const part of chunk(uniqueHashes, 500)) {
         const [rows] = await queryable.query(
             'SELECT DISTINCT row_hash FROM production_lot_upload_details WHERE row_hash IN (?)',
@@ -186,4 +186,4 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
     };
 };
 
-module.exports = { loadProductionLotContext };
+module.exports = { loadProductionLotContext, fetchPoDetails };
