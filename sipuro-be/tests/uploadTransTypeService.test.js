@@ -45,9 +45,10 @@ test('parseCreateBody: scope selalu LOT, nama dirapikan, validasi arah dan cara 
     // jenis baru selalu non-produksi: matchBy dari klien diabaikan, scope dari klien diabaikan
     assert.equal(svc.parseCreateBody({ transType: 'X', direction: 'OUT', matchBy: 'BATCH_LOT', scope: 'DO' }).matchBy, 'LOT');
     assert.equal(svc.parseCreateBody({ transType: 'X', direction: 'OUT', scope: 'DO' }).scope, 'LOT');
-    for (const bad of [{}, { transType: '', direction: 'OUT', matchBy: 'LOT' }, { transType: 'X', direction: 'IN', matchBy: 'LOT' },
-        { transType: 'X', direction: 'IN', matchBy: 'BATCH_LOT' }, { transType: 'X', direction: 'IN' },
-        { transType: 'X', direction: 'UP', matchBy: 'LOT' }, { transType: 'a'.repeat(51), direction: 'OUT', matchBy: 'LOT' }]) {
+    // arah IN untuk jenis non-produksi sah (matchBy tetap dipaksa LOT)
+    assert.deepEqual(svc.parseCreateBody({ transType: 'WIP Return', direction: 'IN' }), { scope: 'LOT', transType: 'WIP Return', direction: 'IN', matchBy: 'LOT' });
+    assert.equal(svc.parseCreateBody({ transType: 'X', direction: 'IN', matchBy: 'BATCH_LOT' }).matchBy, 'LOT');
+    for (const bad of [{}, { transType: '', direction: 'OUT', matchBy: 'LOT' }, { transType: 'X', direction: 'UP', matchBy: 'LOT' }, { transType: 'a'.repeat(51), direction: 'OUT', matchBy: 'LOT' }]) {
         assert.throws(() => svc.parseCreateBody(bad), (e) => e.status === 400, JSON.stringify(bad));
     }
 });
@@ -101,10 +102,10 @@ test('ubah definisi: boleh bila belum dipakai; ditolak bila sudah dipakai atau s
     await assert.rejects(svc.updateTransType(doRow, { id: 6, patch: { transType: 'Other' }, userId: 4 }), (e) => e.status === 409 && /Delivery Order/.test(e.message));
 });
 
-test('ubah: validasi (lot-item hanya OUT), nama bentrok, tidak ditemukan, tidak ada perubahan', async () => {
+test('ubah: validasi (arah tidak sah), nama bentrok, tidak ditemukan, tidak ada perubahan', async () => {
     const r = row(7, 'LOT', 'Old Name', 'OUT', 'BATCH_LOT');
     const lotRow = row(7, 'LOT', 'Old Name', 'OUT', 'LOT');
-    await assert.rejects(svc.updateTransType(makeConn({ rows: [lotRow] }), { id: 7, patch: { direction: 'IN' }, userId: 4 }), (e) => e.status === 400);
+    await assert.rejects(svc.updateTransType(makeConn({ rows: [lotRow] }), { id: 7, patch: { direction: 'UP' }, userId: 4 }), (e) => e.status === 400);
     await assert.rejects(svc.updateTransType(makeConn({ rows: [r], taken: ['other'] }), { id: 7, patch: { transType: 'Other' }, userId: 4 }), (e) => e.status === 409);
     await assert.rejects(svc.updateTransType(makeConn({ rows: [r] }), { id: 8, patch: { isActive: false }, userId: 4 }), (e) => e.status === 404);
     await assert.rejects(svc.updateTransType(makeConn({ rows: [r] }), { id: 7, patch: { isActive: true }, userId: 4 }), (e) => e.status === 400);

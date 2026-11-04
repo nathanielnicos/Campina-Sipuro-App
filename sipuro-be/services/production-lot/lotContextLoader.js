@@ -11,6 +11,7 @@ const { buildStockCodeResolver } = require('../product-code-mapping/stockFamilyK
 const {
     ELIGIBLE_HEADER_STATUSES,
     ELIGIBLE_DETAIL_STATUSES,
+    MATCH_BY,
     allocatedQtySql
 } = require('./lotAllocationRules');
 
@@ -146,6 +147,51 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
     const stockCodes = buildStockCodeResolver(allProducts, productMappings);
     const { allocated: lotAllocated, delivered: lotDelivered } = await fetchLotStock(queryable, lotNumbers, { stockCodes });
 
+    // 7c. Hanya bila file memuat baris non-produksi arah IN (qty positif, berbasis lot):
+    //     (i) pengurangan dan pemulihan sebelumnya per (Doc Source, lot, alokasi asal) dari riwayat alokasi,
+    //     (ii) batch yang memproduksi lot-lot itu (tempat tambahan output ditempelkan).
+    const docReductions = [];
+    const lotBatches = [];
+    const inLotRows = rawRows.filter((r) => r.matchBy === MATCH_BY.LOT && Number(r.rawAllocationQty) > 0);
+    if (inLotRows.length > 0 && lotIds.length > 0) {
+        const docSources = [...new Set(inLotRows.map((r) => r.docSource).filter(Boolean))];
+        for (const part of chunk(docSources, 500)) {
+            const [rows] = await queryable.query(
+                `SELECT lg.doc_source, lg.lot_id, lg.po_detail_id, lg.id_batch,
+                        SUM(GREATEST(lg.old_allocated_qty - lg.new_allocated_qty, 0)) AS reduced_qty,
+                        SUM(GREATEST(lg.new_allocated_qty - lg.old_allocated_qty, 0)) AS restored_qty
+                 FROM sipuro_db.po_lot_allocation_logs lg
+                 WHERE lg.doc_source IN (?) AND lg.lot_id IN (?)
+                 GROUP BY lg.doc_source, lg.lot_id, lg.po_detail_id, lg.id_batch`,
+                [part, lotIds]
+            );
+            docReductions.push(...rows);
+        }
+        for (const part of chunk(lotIds, 500)) {
+            // COLLATE: kolom di tabel upload memakai collation berbeda dari lots/batches/products
+            const [rows] = await queryable.query(
+                `SELECT DISTINCT l.id AS lot_id, b.id AS id_batch, b.batch_number
+                 FROM lots l
+                 JOIN products p ON p.id_product = l.id_product
+                 JOIN production_lot_upload_details d
+                   ON d.lot_number COLLATE utf8mb4_unicode_ci = l.lot_number COLLATE utf8mb4_unicode_ci
+                  AND d.item_code COLLATE utf8mb4_unicode_ci = p.product_code COLLATE utf8mb4_unicode_ci
+                  AND d.batch_number <> ''
+                 JOIN batches b ON b.batch_number COLLATE utf8mb4_unicode_ci = d.batch_number COLLATE utf8mb4_unicode_ci
+                 WHERE l.id IN (?)`,
+                [part]
+            );
+            lotBatches.push(...rows);
+        }
+    }
+    // Batch dari riwayat pemulihan juga perlu namanya (alokasi asal bisa tidak ada lagi di daftar batch alokasi)
+    const knownBatchIds = new Set(allocationBatches.map((b) => Number(b.id)));
+    const missingBatchIds = [...new Set(docReductions.map((r) => Number(r.id_batch)))].filter((id) => !knownBatchIds.has(id));
+    for (const part of chunk(missingBatchIds, 500)) {
+        const [rows] = await queryable.query('SELECT id, batch_number FROM batches WHERE id IN (?)', [part]);
+        allocationBatches.push(...rows);
+    }
+
     // 8. Ambil PO yang layak. fulfilled_qty dihitung dari po_lot_allocations (rumus di lotAllocationRules)
     const openPoDetails = [];
     for (const part of chunk(productIds, 500)) {
@@ -181,6 +227,8 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
             allocationBatches,
             lotAllocated,
             lotDelivered,
+            docReductions,
+            lotBatches,
             productMappings
         }
     };

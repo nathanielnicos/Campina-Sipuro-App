@@ -3,7 +3,7 @@ import { useUploadTransTypes } from '../../hooks/master/useUploadTransTypes';
 import { usePermission } from '../../context/PermissionContext';
 
 const SECTIONS = [
-    { scope: 'LOT', title: 'Production Lot Upload', note: 'Rows of an active type change the lot allocation. WIP Completion and WIP Completion Return are the production types (Batch + Lot + Item) and are fixed. Types you add are matched by Lot + Item and only reduce allocations.' },
+    { scope: 'LOT', title: 'Production Lot Upload', note: 'Rows of an active type change the lot allocation. WIP Completion and WIP Completion Return are the production types (Batch + Lot + Item) and are fixed. Types you add are matched by Lot + Item. Out reduces allocations. In restores what the same Doc Source reduced earlier; with no earlier reduction it adds to the lot output.' },
     { scope: 'DO', title: 'Delivery Order Upload', note: 'Only Sales Order Issue and RMA Receipt are supported. They can be activated or deactivated.' }
 ];
 
@@ -51,7 +51,7 @@ export const UploadTransTypePanel = () => {
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>Direction</label>
                         <select disabled={saving} value={form.direction} onChange={(e) => handleFormChange('direction', e.target.value)} style={inputStyle}>
                             <option value="OUT">Out (reduces, column T)</option>
-                            <option value="IN" disabled>In (adds, column Q) - not available yet</option>
+                            <option value="IN">In (adds or restores, column Q)</option>
                         </select>
                     </div>
                     <button type="submit" disabled={saving} style={{ ...inputStyle, border: 'none', backgroundColor: '#0d6efd', color: '#fff', fontWeight: 'bold', cursor: saving ? 'not-allowed' : 'pointer' }}>

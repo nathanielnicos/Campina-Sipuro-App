@@ -15,6 +15,24 @@ const SYNC_REASON = 'Auto status sync after production lot upload';
  * kunci unik production_lot_upload_logs menjadi pengaman terakhir (ER_DUP_ENTRY -> 409).
  * Seluruh kondisi tidak wajar melempar BusinessError sehingga transaksi di-rollback.
  */
+// Langkah berurutan pada satu alokasi digabung bila Doc Source-nya sama dan berurutan
+const mergeLogSteps = (rawSteps) => {
+    const merged = [];
+    rawSteps.forEach((st) => {
+        const last = merged[merged.length - 1];
+        if (last && last.docSource === st.docSource) {
+            last.delta += st.delta;
+            last.status = st.status;
+            if (st.transType && !String(last.transType || '').split(', ').includes(st.transType)) {
+                last.transType = last.transType ? `${last.transType}, ${st.transType}` : st.transType;
+            }
+        } else {
+            merged.push({ ...st });
+        }
+    });
+    return merged;
+};
+
 const commitProductionAllocationTransaction = async (connection, {
     fileName,
     processTimestamp,
@@ -37,7 +55,8 @@ const commitProductionAllocationTransaction = async (connection, {
     for (const part of chunk(newRows, 500)) {
         const detailValues = part.map((detail) => [
             uploadLogId,
-            detail.batchNumber,
+            // Tambahan output non-produksi tersimpan pada batch terpilih; selainnya batch dari file (kosong untuk jenis lot)
+            detail.resolvedBatchNumber || detail.batchNumber,
             detail.lotNumber || '',
             detail.itemCode,
             detail.lotStatus || null,
@@ -178,20 +197,34 @@ const commitProductionAllocationTransaction = async (connection, {
         }
         const key = allocationKey(a.poDetailId, lotId, batchId);
         const current = items.get(key);
+        const step = {
+            delta: Number(a.addedQty) || 0,
+            transType: a.transType || null,
+            docSource: a.docSource || '',
+            status: a.rowStatus
+        };
         if (current) {
-            current.addedQty += Number(a.addedQty) || 0;
+            current.addedQty += step.delta;
             current.rowStatus = a.rowStatus;
             if (a.transType && !current.transTypes.includes(a.transType)) current.transTypes.push(a.transType);
+            current.rawSteps.push(step);
         } else {
             items.set(key, {
                 poDetailId: a.poDetailId,
                 lotId,
                 batchId,
-                addedQty: Number(a.addedQty) || 0,
+                addedQty: step.delta,
                 rowStatus: a.rowStatus,
-                transTypes: a.transType ? [a.transType] : []
+                transTypes: a.transType ? [a.transType] : [],
+                rawSteps: [step]
             });
         }
+    });
+
+    // Riwayat per Doc Source hanya bila ada Doc Source; tanpa itu satu baris per alokasi (perilaku lama)
+    items.forEach((item) => {
+        if (item.rawSteps.some((st) => st.docSource)) item.steps = mergeLogSteps(item.rawSteps);
+        delete item.rawSteps;
     });
 
     // 5-8. Upsert po_lot_allocations, riwayat, fulfilled_qty, sinkron status, refresh batch dan header PO

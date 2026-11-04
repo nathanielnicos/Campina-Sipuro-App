@@ -352,3 +352,197 @@ test('duplikat: baris lot-only yang hash lamanya sudah tersimpan tetap dianggap 
     const other = issueRow(5, { rowHash: 'new-3', legacyRowHash: 'old-3' });
     assert.equal(calculateLotFifoAllocation([other], ['x'], [po(1)], PRODUCTS, {}).duplicateRows.length, 0);
 });
+
+// ---------- M2: pengurangan tercatat per Doc Source ----------
+
+test('M2 kalkulator: Doc Source berbeda pada lot yang sama menjadi grup terpisah; hasil total sama', () => {
+    const r = run([
+        issueRow(10, { docSource: 'D1' }),
+        issueRow(15, { docSource: 'D2' }),
+        issueRow(5, { docSource: 'D1', transType: 'WIP Issue' })
+    ], POS(), baseContext());
+    assert.equal(r.canSave, true);
+    assert.deepEqual(r.previewResults.map((g) => [g.docSource, g.totalQtyOutput, g.rowCount]), [['D1', -15, 2], ['D2', -15, 1]]);
+    // semua alokasi membawa Doc Source dokumennya
+    assert.deepEqual([...new Set(r.detailedAllocations.map((a) => a.docSource))].sort(), ['D1', 'D2']);
+    // total pengurangan sama dengan satu grup: 30 dari PO2 (B2 40 -> 10)
+    assert.equal(r.detailedAllocations.reduce((s, a) => s + a.addedQty, 0), -30);
+    assert.equal(r.categorizedDetails.newRows.length, 3);
+});
+
+test('M2 kalkulator: dokumen kedua tidak melampaui sisa yang ditinggalkan dokumen pertama', () => {
+    const r = run([issueRow(100, { docSource: 'D1' }), issueRow(20, { docSource: 'D2' })], POS(), baseContext());
+    // alokasi total 90 (30+20+40): D1 100 ditolak, D2 20 lolos
+    assert.deepEqual(r.previewResults.map((g) => g.docSource), ['D2']);
+    assert.equal(r.unallocatedRows.length, 1);
+});
+
+test('M2 kalkulator: jenis berbasis batch tidak membawa Doc Source', () => {
+    const r = run([batchRow(-25, { batchNumber: 'B1', transType: 'WIP Completion Return' })], POS(), baseContext({ existingBatches: [{ id: 11, batch_number: 'B1', id_product: 1 }] }));
+    assert.equal(r.previewResults[0].docSource, '');
+});
+
+test('M2 commit: riwayat alokasi satu baris per Doc Source dengan qty berurutan', async () => {
+    const calc = issueCalc();
+    calc.detailedAllocations = [
+        { poDetailId: 2, batchNumber: 'B2', batchId: 12, lotNumber: 'L1', idProduct: 1, addedQty: -15, rowStatus: 'Open', transType: 'Good Issue Sample QC', docSource: 'D1' },
+        { poDetailId: 2, batchNumber: 'B2', batchId: 12, lotNumber: 'L1', idProduct: 1, addedQty: -5, rowStatus: 'Open', transType: 'WIP Issue', docSource: 'D2' }
+    ];
+    const conn = makeConn({ existingAllocs: [{ id: 900, po_detail_id: 2, lot_id: 5, id_batch: 12, allocated_qty: 40, status: 'Open' }] });
+    await commitProductionAllocationTransaction(conn, commitArgs(calc));
+    assert.deepEqual(find(conn, /^INSERT INTO po_lot_allocations/)[0].params[0], [[2, 5, 12, 20, 'Open', 4, 4]]);
+    const logs = find(conn, /po_lot_allocation_logs/);
+    assert.match(logs[0].sql, /trans_type, created_by, doc_source/);
+    const rows = logs.flatMap((l) => l.params[0]);
+    // [alloc_id, old, new, trans_type, doc_source]
+    assert.deepEqual(rows.map((r) => [r[1], r[6], r[7], r[11], r[13]]), [
+        [900, 40, 25, 'Good Issue Sample QC', 'D1'],
+        [900, 25, 20, 'WIP Issue', 'D2']
+    ]);
+});
+
+test('M2 commit: tanpa Doc Source riwayat tetap satu baris per alokasi', async () => {
+    const calc = issueCalc();
+    calc.detailedAllocations = [{ ...calc.detailedAllocations[0], addedQty: -15 }, { ...calc.detailedAllocations[0], addedQty: -5 }];
+    const conn = makeConn({ existingAllocs: [{ id: 900, po_detail_id: 2, lot_id: 5, id_batch: 12, allocated_qty: 40, status: 'Open' }] });
+    await commitProductionAllocationTransaction(conn, commitArgs(calc));
+    const rows = find(conn, /po_lot_allocation_logs/).flatMap((l) => l.params[0]);
+    assert.deepEqual(rows.map((r) => [r[6], r[7], r[13]]), [[40, 20, null]]);
+});
+
+test('M2 commit: alokasi baru dengan dua dokumen dicatat INSERT lalu UPDATE', async () => {
+    const calc = issueCalc();
+    calc.detailedAllocations = [
+        { poDetailId: 2, batchNumber: 'B9', batchId: 31, lotNumber: 'L1', idProduct: 1, addedQty: 30, rowStatus: 'Open', transType: 'WIP Completion', docSource: 'D1' },
+        { poDetailId: 2, batchNumber: 'B9', batchId: 31, lotNumber: 'L1', idProduct: 1, addedQty: -10, rowStatus: 'Open', transType: 'WIP Issue', docSource: 'D2' }
+    ];
+    const conn = makeConn();
+    const origQuery = conn.query;
+    conn.query = async (sql, params) => {
+        if (/FROM po_lot_allocations WHERE \(po_detail_id, lot_id, id_batch\) IN/.test(sql.replace(/\s+/g, ' '))) {
+            conn.calls.push({ sql, params });
+            return [[{ id: 950, po_detail_id: 2, lot_id: 5, id_batch: 31 }]];
+        }
+        return origQuery(sql, params);
+    };
+    await commitProductionAllocationTransaction(conn, commitArgs(calc));
+    const logs = find(conn, /INSERT INTO sipuro_db.po_lot_allocation_logs|po_lot_allocation_logs/).flatMap((l) => l.params[0]);
+    assert.deepEqual(logs.map((r) => [r[1], r[5], r[6], r[7], r[13]]), [
+        [950, 'INSERT', 0, 30, 'D1'],
+        [950, 'UPDATE', 30, 20, 'D2']
+    ]);
+});
+
+// ---------- M3: jenis non-produksi arah IN ----------
+
+const inRow = (qty, over = {}) => issueRow(qty, { transType: 'WIP Return', rawAllocationQty: qty, ...over });
+const reasonsOf = (r) => r.unallocatedRows.map((x) => x.reason);
+// Kondisi setelah dokumen D1 mengurangi 60 (PO2/B2 40 dan PO2/B1 20); PO1 tidak tersentuh
+const afterIssue = (over = {}) => ({
+    ctx: baseContext({
+        existingAllocations: [alloc(1, 1, 11, 30), alloc(2, 2, 11, 0), alloc(3, 2, 12, 0)],
+        docReductions: [
+            { doc_source: 'D1', lot_id: 5, po_detail_id: 2, id_batch: 12, reduced_qty: 40, restored_qty: 0 },
+            { doc_source: 'D1', lot_id: 5, po_detail_id: 2, id_batch: 11, reduced_qty: 20, restored_qty: 0 }
+        ],
+        lotBatches: [{ lot_id: 5, id_batch: 11, batch_number: 'B1' }, { lot_id: 5, id_batch: 12, batch_number: 'B2' }],
+        ...over
+    }),
+    pos: [po(1, { fulfilled_qty: 30 }), po(2, { fulfilled_qty: 0 })]
+});
+
+test('M3 IN: pemulihan lewat Doc Source persis ke PO/batch asal, urutan kebalikan (PO terlama, batch terlama dahulu)', () => {
+    const { ctx, pos } = afterIssue();
+    const r = run([inRow(50, { docSource: 'D1' })], pos, ctx);
+    assert.equal(r.canSave, true);
+    assert.deepEqual(shape(r), [[2, 'B1', 11, 20], [2, 'B2', 12, 30]]);
+    assert.equal(r.previewResults[0].matchedBy, 'Doc Source');
+    assert.equal(r.categorizedDetails.newRows[0].matchedBy, 'Doc Source');
+    assert.equal(r.categorizedDetails.newRows[0].resolvedBatchNumber, undefined);
+});
+
+test('M3 IN: pemulihan melebihi sisa pengurangan ditolak; dokumen yang sudah habis dikembalikan ditolak', () => {
+    const { ctx, pos } = afterIssue();
+    const over = run([inRow(70, { docSource: 'D1' })], pos, ctx);
+    assert.deepEqual(reasonsOf(over), ['Return exceeds the quantity reduced by this document']);
+    assert.equal(over.canSave, false);
+
+    const done = afterIssue({ docReductions: [{ doc_source: 'D1', lot_id: 5, po_detail_id: 2, id_batch: 12, reduced_qty: 40, restored_qty: 40 }] });
+    assert.deepEqual(reasonsOf(run([inRow(5, { docSource: 'D1' })], done.pos, done.ctx)), ['Document already fully returned']);
+});
+
+test('M3 IN: pemulihan sebagian lalu sisanya; hanya sisa yang belum dikembalikan', () => {
+    const part = afterIssue({ docReductions: [
+        { doc_source: 'D1', lot_id: 5, po_detail_id: 2, id_batch: 12, reduced_qty: 40, restored_qty: 25 },
+        { doc_source: 'D1', lot_id: 5, po_detail_id: 2, id_batch: 11, reduced_qty: 20, restored_qty: 0 }
+    ] });
+    const r = run([inRow(35, { docSource: 'D1' })], part.pos, part.ctx);
+    assert.deepEqual(shape(r), [[2, 'B1', 11, 20], [2, 'B2', 12, 15]]);
+    assert.equal(run([inRow(36, { docSource: 'D1' })], part.pos, part.ctx).canSave, false);
+});
+
+test('M3 IN: PO asal tidak aktif (Force Closed) atau penuh menolak seluruh baris', () => {
+    const closed = afterIssue();
+    const r1 = run([inRow(10, { docSource: 'D1' })], [po(1, { fulfilled_qty: 30 }), po(2, { fulfilled_qty: 0, header_status: 'Force Closed' })], closed.ctx);
+    assert.deepEqual(reasonsOf(r1), ['PO or PO detail not active']);
+
+    const full = afterIssue();
+    const r2 = run([inRow(10, { docSource: 'D1' })], [po(1, { fulfilled_qty: 30 }), po(2, { fulfilled_qty: 95 })], full.ctx);
+    assert.deepEqual(reasonsOf(r2), ['Original PO has no remaining capacity to restore']);
+});
+
+test('M3 IN: tanpa pengurangan dengan Doc Source itu menjadi tambahan FIFO pada batch tunggal lot', () => {
+    const ctx = baseContext({ lotBatches: [{ lot_id: 5, id_batch: 11, batch_number: 'B1' }], docReductions: [] });
+    const row = inRow(30, { docSource: 'NEW1' });
+    const r = run([row], POS(), ctx);
+    assert.equal(r.canSave, true);
+    assert.deepEqual(shape(r), [[1, 'B1', 11, 30]]);
+    assert.equal(r.previewResults[0].matchedBy, 'Lot');
+    assert.equal(row.resolvedBatchNumber, 'B1');
+    assert.equal(r.previewResults[0].allocations[0].batchNumber, 'B1');
+});
+
+test('M3 IN: lot dengan beberapa batch memakai batch terbaru (id terbesar); tanpa batch ditolak', () => {
+    const ctx = baseContext({ lotBatches: [{ lot_id: 5, id_batch: 11, batch_number: 'B1' }, { lot_id: 5, id_batch: 12, batch_number: 'B2' }] });
+    const r = run([inRow(20)], POS(), ctx);
+    assert.deepEqual(shape(r), [[1, 'B2', 12, 20]]);
+
+    const none = run([inRow(20)], POS(), baseContext({ lotBatches: [] }));
+    assert.deepEqual(reasonsOf(none), ['No production batch found for this lot']);
+});
+
+test('M3 IN: tambahan melebihi kapasitas PO terbuka ditolak (semua-atau-tidak)', () => {
+    const ctx = baseContext({ lotBatches: [{ lot_id: 5, id_batch: 11, batch_number: 'B1' }] });
+    const r = run([inRow(500)], POS(), ctx);
+    assert.equal(r.canSave, false);
+    assert.deepEqual(reasonsOf(r), ['Exceeds PO capacity']);
+});
+
+test('M3 IN: batch baru dari file yang sama dipakai bila lot belum punya batch tersimpan', () => {
+    const r = run([
+        batchRow(50, { batchNumber: 'B9', actualCompletedDatetime: '2026-02-01 10:00:00' }),
+        inRow(10, { actualCompletedDatetime: '2026-02-05 10:00:00' })
+    ], [po(1)], { existingBatches: [], existingLots: [], existingAllocations: [] });
+    assert.equal(r.canSave, true);
+    assert.deepEqual(shape(r), [[1, 'B9', null, 50], [1, 'B9', null, 10]]);
+});
+
+test('M3 IN: OUT lalu IN dengan Doc Source sama dalam satu file dipulihkan ke alokasi asal', () => {
+    const r = run([
+        issueRow(30, { docSource: 'D7', actualCompletedDatetime: '2026-03-01 10:00:00' }),
+        inRow(30, { docSource: 'D7', actualCompletedDatetime: '2026-03-02 10:00:00' })
+    ], POS(), baseContext());
+    assert.equal(r.canSave, true);
+    const ins = r.detailedAllocations.filter((a) => a.addedQty > 0);
+    const outs = r.detailedAllocations.filter((a) => a.addedQty < 0);
+    assert.deepEqual(outs.map((a) => [a.poDetailId, a.batchNumber, a.addedQty]), [[2, 'B2', -30]]);
+    assert.deepEqual(ins.map((a) => [a.poDetailId, a.batchNumber, a.addedQty]), [[2, 'B2', 30]]);
+});
+
+test('M3 commit: tambahan non-produksi menyimpan batch terpilih pada baris detail', async () => {
+    const calc = issueCalc();
+    calc.newRows[0].resolvedBatchNumber = 'B2';
+    const conn = makeConn({ existingAllocs: [{ id: 900, po_detail_id: 2, lot_id: 5, id_batch: 12, allocated_qty: 40, status: 'Open' }] });
+    await commitProductionAllocationTransaction(conn, commitArgs(calc));
+    assert.equal(find(conn, /^INSERT INTO production_lot_upload_details/)[0].params[0][0][1], 'B2');
+});

@@ -7,7 +7,8 @@
  *  scope     : LOT (upload produksi lot) atau DO (upload Delivery Order dan retur)
  *  direction : IN  = qty dibaca dari kolom Q ("Qty In"), menambah
  *              OUT = qty dibaca dari kolom T ("Qty Out"), mengurangi
- *  matchBy   : BATCH_LOT = dicocokkan per (batch, lot, item); LOT = dicocokkan per (lot, item), kolom Doc Source tidak dipakai
+ *  matchBy   : BATCH_LOT = dicocokkan per (batch, lot, item); LOT = dicocokkan per (lot, item). Pada jenis LOT, Doc Source
+ *              dipakai untuk memulihkan pengurangan (arah IN) dan dicatat pada riwayat alokasi
  * Nama jenis tidak peka huruf besar/kecil dan spasi berlebih diabaikan.
  */
 
@@ -32,9 +33,6 @@ const validateTransTypeInput = ({ scope, transType, direction, matchBy }) => {
     if (label.length > MAX_LABEL_LENGTH) errors.push(`Trans type must be at most ${MAX_LABEL_LENGTH} characters.`);
     if (!Object.values(DIRECTION).includes(direction)) errors.push('Direction must be IN or OUT.');
     if (!Object.values(MATCH_BY).includes(matchBy)) errors.push('Invalid match type.');
-    if (matchBy === MATCH_BY.LOT && direction !== DIRECTION.OUT) {
-        errors.push('A lot-item type can only reduce allocations (direction OUT).');
-    }
     return errors;
 };
 

@@ -8,8 +8,8 @@
  *
  * Bentuk `items` (Map kunci allocationKey -> item):
  *   { poDetailId, lotId, batchId, addedQty, rowStatus, transTypes: [], steps?: [{ delta, transType }] }
- *   addedQty = jumlah seluruh perubahan. `steps` (opsional, hanya untuk alokasi yang sudah ada) memecah perubahan
- *   itu menjadi beberapa baris riwayat berurutan, mis. pembatalan edit manual lalu penggeseran.
+ *   addedQty = jumlah seluruh perubahan. `steps` (opsional; {delta, transType, docSource?, status?}) memecah perubahan
+ *   itu menjadi beberapa baris riwayat berurutan, mis. pembatalan edit manual lalu penggeseran, atau satu baris per Doc Source.
  */
 
 const { BusinessError } = require('../../helpers/businessError');
@@ -59,42 +59,42 @@ const persistAllocationItems = async (connection, {
 
         upsertValues.push([item.poDetailId, item.lotId, item.batchId, newQty, item.rowStatus, userId, userId]);
 
-        if (existing) {
-            const steps = item.steps && item.steps.length > 0
-                ? item.steps
-                : [{ delta: item.addedQty, transType: item.transTypes.join(', ') || null }];
-            let running = oldQty;
-            steps.forEach((step, index) => {
-                const isLast = index === steps.length - 1;
-                updateLogs.push({
-                    upload_log_id: uploadLogId,
-                    allocation_id: existing.id,
-                    po_detail_id: item.poDetailId,
-                    lot_id: item.lotId,
-                    id_batch: item.batchId,
-                    old_allocated_qty: running,
-                    new_allocated_qty: running + step.delta,
-                    old_status: existing.status,
-                    new_status: isLast ? item.rowStatus : existing.status,
-                    reason,
-                    trans_type: step.transType || null,
-                    created_by: userId
-                });
-                running += step.delta;
-            });
-        } else {
-            insertLogs.push({
+        // Tanpa `steps` satu baris riwayat per alokasi. Dengan `steps` satu baris per langkah (urut), tiap langkah boleh
+        // membawa docSource dan status sendiri. Alokasi baru: langkah pertama INSERT, berikutnya UPDATE.
+        const hasSteps = Array.isArray(item.steps) && item.steps.length > 0;
+        const steps = hasSteps
+            ? item.steps
+            : [{ delta: item.addedQty, transType: item.transTypes.join(', ') || null }];
+        let running = oldQty;
+        let runningStatus = existing ? existing.status : null;
+        steps.forEach((step, index) => {
+            const isLast = index === steps.length - 1;
+            const stepStatus = step.status || (isLast ? item.rowStatus : runningStatus || item.rowStatus);
+            const base = {
                 upload_log_id: uploadLogId,
                 po_detail_id: item.poDetailId,
                 lot_id: item.lotId,
                 id_batch: item.batchId,
-                allocated_qty: newQty,
-                status: item.rowStatus,
                 reason,
-                trans_type: item.transTypes.join(', ') || null,
+                trans_type: step.transType || null,
+                doc_source: step.docSource || null,
                 created_by: userId
-            });
-        }
+            };
+            if (existing || index > 0) {
+                updateLogs.push({
+                    ...base,
+                    allocation_id: existing ? existing.id : null,
+                    old_allocated_qty: running,
+                    new_allocated_qty: running + step.delta,
+                    old_status: runningStatus,
+                    new_status: stepStatus
+                });
+            } else {
+                insertLogs.push({ ...base, allocated_qty: running + step.delta, status: stepStatus });
+            }
+            running += step.delta;
+            runningStatus = stepStatus;
+        });
     });
 
     if (problems.length > 0) {
@@ -114,17 +114,18 @@ const persistAllocationItems = async (connection, {
     }
 
     // Catat Log Alokasi
-    if (insertLogs.length > 0) {
-        const triples = insertLogs.map((l) => [l.po_detail_id, l.lot_id, l.id_batch]);
+    const pendingIdLogs = [...insertLogs, ...updateLogs.filter((l) => !l.allocation_id)];
+    if (pendingIdLogs.length > 0) {
+        const triples = pendingIdLogs.map((l) => [l.po_detail_id, l.lot_id, l.id_batch]);
         const [createdAllocs] = await connection.query(
             'SELECT id, po_detail_id, lot_id, id_batch FROM po_lot_allocations WHERE (po_detail_id, lot_id, id_batch) IN (?)',
             [triples]
         );
         const idByKey = new Map(createdAllocs.map((a) => [allocationKey(a.po_detail_id, a.lot_id, a.id_batch), a.id]));
-        insertLogs.forEach((l) => {
+        pendingIdLogs.forEach((l) => {
             l.allocation_id = idByKey.get(allocationKey(l.po_detail_id, l.lot_id, l.id_batch));
         });
-        await logAllocationInsert(connection, insertLogs, userId);
+        if (insertLogs.length > 0) await logAllocationInsert(connection, insertLogs, userId);
     }
     if (updateLogs.length > 0) {
         await logAllocationUpdate(connection, updateLogs, userId);

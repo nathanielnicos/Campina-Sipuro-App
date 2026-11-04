@@ -8,6 +8,8 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
     const [pageSize, setPageSize] = useState(10);
 
     const rows = Array.isArray(rawData) ? rawData : [];
+    // Kolom "Matched By" hanya muncul pada daftar yang barisnya sudah dicocokkan (baris valid)
+    const showMatchedBy = rows.some((r) => r && r.matchedBy);
     const totalItems = rows.length;
     const totalPages = Math.ceil(totalItems / pageSize) || 1;
     const paginatedRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -21,6 +23,7 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                             <th style={{ textAlign: 'center', width: '70px', padding: '8px', whiteSpace: 'nowrap' }}>Excel Row</th>
                             <th style={{ textAlign: 'left', width: '100px', padding: '8px' }}>Batch / Doc Source</th>
                             <th style={{ textAlign: 'left', padding: '8px', whiteSpace: 'nowrap' }}>Trx Type</th>
+                            {showMatchedBy && <th style={{ textAlign: 'left', padding: '8px', whiteSpace: 'nowrap' }}>Matched By</th>}
                             <th style={{ textAlign: 'left', padding: '8px' }}>Lot Number</th>
                             <th style={{ textAlign: 'left', padding: '8px' }}>Item Code</th>
                             <th style={{ textAlign: 'center', padding: '8px' }}>Lot Status</th>
@@ -33,7 +36,7 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                     <tbody>
                         {paginatedRows.length === 0 ? (
                             <tr>
-                                <td colSpan={showReason ? 9 : 8} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                <td colSpan={(showReason ? 9 : 8) + (showMatchedBy ? 1 : 0)} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                     {emptyMessage}
                                 </td>
                             </tr>
@@ -48,6 +51,7 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                                         <td style={{ textAlign: 'center', padding: '8px', color: '#6c757d' }}>{row.excelRowNumber || '-'}</td>
                                         <td style={{ fontWeight: 'bold', padding: '8px' }}>{row.batchNumber || row.docSource || '-'}</td>
                                         <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{row.transType || '-'}</td>
+                                        {showMatchedBy && <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{row.matchedBy || '-'}</td>}
                                         <td style={{ padding: '8px' }}>{row.lotNumber || '-'}</td>
                                         <td style={{ padding: '8px' }}>{row.itemCode || '-'}</td>
                                         <td style={{ textAlign: 'center', padding: '8px' }}>

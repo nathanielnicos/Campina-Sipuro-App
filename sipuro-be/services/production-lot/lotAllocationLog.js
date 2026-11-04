@@ -22,7 +22,8 @@ exports.logAllocationInsert = async (connection, allocations, createdBy = null) 
         item.status || 'Open',
         item.reason || null,
         item.trans_type || item.transType || null,
-        createdBy || item.created_by || item.createdBy || null
+        createdBy || item.created_by || item.createdBy || null,
+        item.doc_source || item.docSource || null
     ]);
 
     const query = `
@@ -30,7 +31,7 @@ exports.logAllocationInsert = async (connection, allocations, createdBy = null) 
         (
             upload_log_id, allocation_id, po_detail_id, lot_id, id_batch, action_type,
             old_allocated_qty, new_allocated_qty, old_status, new_status,
-            reason, trans_type, created_by
+            reason, trans_type, created_by, doc_source
         ) 
         VALUES ?
     `;
@@ -58,7 +59,8 @@ exports.logAllocationUpdate = async (connection, updates, createdBy = null) => {
         item.new_status || item.newStatus || null,
         item.reason || null,
         item.trans_type || item.transType || null,
-        createdBy || item.created_by || item.createdBy || null
+        createdBy || item.created_by || item.createdBy || null,
+        item.doc_source || item.docSource || null
     ]);
 
     const query = `
@@ -66,7 +68,7 @@ exports.logAllocationUpdate = async (connection, updates, createdBy = null) => {
         (
             upload_log_id, allocation_id, po_detail_id, lot_id, id_batch, action_type,
             old_allocated_qty, new_allocated_qty, old_status, new_status,
-            reason, trans_type, created_by
+            reason, trans_type, created_by, doc_source
         ) 
         VALUES ?
     `;
@@ -105,6 +107,7 @@ exports.getAllocationLogs = async (db, allocationId, page = 1, limit = 10) => {
             log.new_status,
             log.reason,
             log.trans_type,
+            log.doc_source,
             log.created_by,
             log.created_at,
             COALESCE(emp.full_name, emp.employee_code, 'System') AS created_by_name

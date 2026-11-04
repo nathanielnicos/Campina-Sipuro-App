@@ -55,7 +55,8 @@ test('validasi isian jenis: menambah jenis baru harus aman', () => {
     const ok = { scope: SCOPE.LOT, transType: 'X Issue', direction: 'OUT', matchBy: MATCH_BY.LOT };
     assert.deepEqual(validateTransTypeInput(ok), []);
     assert.deepEqual(validateTransTypeInput({ ...ok, direction: 'IN', matchBy: MATCH_BY.BATCH_LOT }), []);
-    assert.match(validateTransTypeInput({ ...ok, direction: 'IN' })[0], /only reduce/);
+    // jenis non-produksi boleh menambah (arah IN): pemulihan lewat Doc Source atau tambahan output lot
+    assert.deepEqual(validateTransTypeInput({ ...ok, direction: 'IN' }), []);
     assert.match(validateTransTypeInput({ ...ok, scope: 'X' })[0], /scope/);
     assert.match(validateTransTypeInput({ ...ok, transType: '   ' })[0], /required/);
     assert.match(validateTransTypeInput({ ...ok, transType: 'a'.repeat(51) })[0], /at most 50/);

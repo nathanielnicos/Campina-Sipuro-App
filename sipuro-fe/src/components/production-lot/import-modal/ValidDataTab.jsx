@@ -286,6 +286,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                     <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Batch Number</th>
                                     <th style={{ textAlign: 'left', width: '90px', padding: '8px' }}>Lot Number</th>
                                     <th style={{ textAlign: 'left', width: '110px', padding: '8px' }}>Trx Type</th>
+                                    <th style={{ textAlign: 'left', width: '110px', padding: '8px' }}>Matched By</th>
                                     <th style={{ textAlign: 'left', minWidth: '180px', padding: '8px' }}>Product</th>
                                     <th style={{ textAlign: 'center', width: '140px', padding: '8px' }}>Completed Date and Time</th>
                                     <th style={{ textAlign: 'center', width: '90px', padding: '8px' }}>Exp Date</th>
@@ -300,7 +301,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                             <tbody>
                                 {paginatedResults.length === 0 ? (
                                     <tr>
-                                        <td colSpan="13" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                        <td colSpan="14" style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                             No valid allocated data available to save.
                                         </td>
                                     </tr>
@@ -319,6 +320,8 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                         const rowSpan = allocList.length || 1;
                                         const completedText = item.actualCompletedDatetime ? formatDateTime(item.actualCompletedDatetime) : '-';
                                         const expiredText = item.expiredDate ? formatDate(item.expiredDate) : '-';
+                                        // Cara baris dicocokkan ke alokasi: Batch + Lot, Lot, atau Doc Source (pemulihan)
+                                        const matchedByText = item.matchedBy || '-';
 
                                         if (allocList.length === 0) {
                                             return (
@@ -327,6 +330,7 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                                     <td style={{ fontWeight: 'bold', verticalAlign: 'top', padding: '8px' }}>{batchNo}</td>
                                                     <td style={{ verticalAlign: 'top', padding: '8px' }}>{lotNo}</td>
                                                     <td style={{ verticalAlign: 'top', padding: '8px' }}>{item.transType || '-'}</td>
+                                                    <td style={{ verticalAlign: 'top', padding: '8px' }}>{matchedByText}</td>
                                                     <td style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>{productTitle}</td>
                                                     <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'nowrap' }}>{completedText}</td>
                                                     <td style={{ textAlign: 'center', verticalAlign: 'top', padding: '8px', fontSize: '11px', whiteSpace: 'nowrap' }}>{expiredText}</td>
@@ -363,6 +367,12 @@ const ValidDataTab = ({ previewResults = [] }) => {
                                                             </td>
                                                             <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px' }}>
                                                                 {item.transType || '-'}
+                                                            </td>
+                                                            <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px' }}>
+                                                                {matchedByText}
+                                                                {item.docSource ? (
+                                                                    <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '2px' }}>Doc: {item.docSource}</div>
+                                                                ) : null}
                                                             </td>
                                                             <td rowSpan={rowSpan} style={{ verticalAlign: 'top', padding: '8px', wordBreak: 'break-word' }}>
                                                                 {productTitle}

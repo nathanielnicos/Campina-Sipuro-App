@@ -17,6 +17,11 @@
  *  - Jenis transaksi berbasis LOT (issue sampel QC/RND, WIP Issue; daftar di tabel upload_trans_types): grupnya (lot, item)
  *    tanpa batch; mengurangi alokasi seluruh batch pada lot itu, PO TERBARU lebih dulu, lalu batch terbaru.
  *    Aturan semua-atau-tidak, batas qty terkirim, dan filter tanggal sama dengan retur.
+ *  - Jenis non-produksi arah IN (WIP Return, Physical Inv Adjust (+), dsb): (1) bila Doc Source + Lot + Item pernah
+ *    mengurangi alokasi, dipulihkan persis ke PO/batch asalnya (urutan kebalikan), maksimal sisa yang belum dikembalikan;
+ *    kelebihan, dokumen yang sudah habis dikembalikan, atau PO asal tidak aktif/penuh ditolak (semua-atau-tidak);
+ *    (2) bila tidak ada pengurangan dengan Doc Source itu, diperlakukan sebagai tambahan output lot: FIFO ke PO terbuka,
+ *    ditempelkan ke batch tunggal lot itu, atau batch terbaru bila lot punya beberapa batch.
  *  - Filter tanggal PO berlaku untuk mencocokkan completed date lot terhadap po_headers.created_at.
  *  - Grup tanpa nomor batch, tanpa nomor lot, atau tanpa tanggal selesai tidak dialokasikan
  *    dan menjadi Unallocated dengan alasan yang jelas (bukan menggagalkan commit).
@@ -51,8 +56,14 @@ const REASONS = {
     DATE_BEFORE_PO: 'Production date is earlier than PO creation date',
     REDUCTION_EXCEEDS: 'Reduction exceeds allocated quantity',
     BELOW_DELIVERED: 'Reduction would go below delivered quantity',
-    CANNOT_ADD: 'This transaction type can only reduce allocations'
+    ALREADY_RETURNED: 'Document already fully returned',
+    RETURN_EXCEEDS_ISSUE: 'Return exceeds the quantity reduced by this document',
+    RESTORE_PO_FULL: 'Original PO has no remaining capacity to restore',
+    NO_BATCH_FOR_LOT: 'No production batch found for this lot'
 };
+
+// Cara baris dicocokkan ke alokasi (tampil di preview)
+const MATCHED_BY = Object.freeze({ BATCH_LOT: 'Batch + Lot', LOT: 'Lot', DOC_SOURCE: 'Doc Source' });
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -81,8 +92,9 @@ const cmpNullLast = (a, b) => {
 
 // Kunci grup alokasi: satu kombinasi batch + lot + item
 const groupKeyOf = (batchNumber, lotNumber, itemCode) => `${batchNumber}\u0000${lotNumber}\u0000${itemCode}`;
+// Jenis non-produksi dikelompokkan per Doc Source dan arah (OUT dan IN pada dokumen yang sama tidak saling meniadakan)
 const groupKeyOfRow = (row) => (row.matchBy === MATCH_BY.LOT
-    ? `LOT\u0000${lotItemKey(row.lotNumber, row.itemCode)}`
+    ? `LOT\u0000${lotItemKey(row.lotNumber, row.itemCode)}\u0000${row.docSource || ''}\u0000${Number(row.rawAllocationQty) < 0 ? 'OUT' : 'IN'}`
     : groupKeyOf(row.batchNumber, row.lotNumber, row.itemCode));
 
 // Batch terbaru lebih dulu; batch yang baru dibuat oleh file ini (belum punya id) dianggap paling baru
@@ -200,6 +212,7 @@ const calculateLotFifoAllocation = (
                     batchNumber: matchBy === MATCH_BY.LOT ? '' : row.batchNumber,
                     lotNumber: row.lotNumber,
                     itemCode: row.itemCode,
+                    docSource: matchBy === MATCH_BY.LOT ? (row.docSource || '') : '',
                     rows: [],
                     transTypes: [],
                     totalQty: 0,
@@ -312,6 +325,35 @@ const calculateLotFifoAllocation = (
         }
     });
 
+    // Pengurangan per (lot, Doc Source): sisa yang boleh dipulihkan per alokasi asal (item PO, lot, batch)
+    const docStates = new Map();
+    const docStateKey = (lotNumber, productId, docSource) => `${lotKey(lotNumber, productId)}\u0000${docSource}`;
+    const docStateOf = (lotNumber, productId, docSource) => {
+        const key = docStateKey(lotNumber, productId, docSource);
+        if (!docStates.has(key)) docStates.set(key, { hadReduction: false, entries: new Map() });
+        return docStates.get(key);
+    };
+    (context.docReductions || []).forEach((r) => {
+        const lotRow = lotById.get(Number(r.lot_id));
+        if (!lotRow || !r.doc_source) return;
+        const state = docStateOf(lotRow.lot_number, lotRow.id_product, r.doc_source);
+        const reduced = Number(r.reduced_qty) || 0;
+        if (reduced > 0) state.hadReduction = true;
+        const remaining = Math.max(0, reduced - (Number(r.restored_qty) || 0));
+        if (remaining <= 0) return;
+        const key = allocationKey(r.po_detail_id, r.lot_id, r.id_batch);
+        const current = state.entries.get(key);
+        if (current) current.remaining += remaining;
+        else state.entries.set(key, { poDetailId: r.po_detail_id, lotId: r.lot_id, batchId: r.id_batch, remaining });
+    });
+    // Batch yang memproduksi lot (dari baris upload tersimpan): tempat tambahan output non-produksi ditempelkan
+    const lotBatchesByLotId = new Map();
+    (context.lotBatches || []).forEach((b) => {
+        const id = Number(b.lot_id);
+        if (!lotBatchesByLotId.has(id)) lotBatchesByLotId.set(id, []);
+        lotBatchesByLotId.get(id).push({ id: Number(b.id_batch), number: b.batch_number });
+    });
+
     const allocatedGroups = [];
     const unallocatedGroups = [];
 
@@ -346,8 +388,78 @@ const calculateLotFifoAllocation = (
         const hasStoredPair = lotDbId !== null && batchDbId !== null;
         const completedDate = toDateOnly(group.completed);
 
-        // Jenis berbasis lot hanya boleh mengurangi (dijaga oleh daftar jenis transaksi)
-        if (group.totalQty > 0 && lotOnly) return fail(REASONS.CANNOT_ADD);
+        // Jenis non-produksi arah IN: pemulihan lewat Doc Source, atau tambahan output lot
+        let addBatch = null;
+        if (group.totalQty > 0 && lotOnly) {
+            const docState = group.docSource ? docStates.get(docStateKey(group.lotNumber, product.id_product, group.docSource)) : null;
+            if (docState && docState.hadReduction) {
+                // Pemulihan persis ke PO/batch asal, urutan kebalikan pengurangan (PO terlama dahulu)
+                const entries = [...docState.entries.values()];
+                const remainingTotal = entries.reduce((sum, e) => sum + e.remaining, 0);
+                if (remainingTotal <= 0) return fail(REASONS.ALREADY_RETURNED);
+                if (group.totalQty > remainingTotal) return fail(REASONS.RETURN_EXCEEDS_ISSUE);
+
+                const withPo = entries.map((e) => ({ e, po: poStates.get(e.poDetailId) }));
+                if (withPo.some((x) => !x.po)) return fail(REASONS.PO_NOT_ACTIVE);
+                withPo.sort((x, y) => cmpFifo(x.po, y.po) || (batchRank(x.e) - batchRank(y.e)));
+
+                const plan = [];
+                let need = group.totalQty;
+                for (const { e, po } of withPo) {
+                    if (need <= 0) break;
+                    const take = Math.min(need, e.remaining);
+                    const stored = allocByKey.get(allocationKey(e.poDetailId, e.lotId, e.batchId));
+                    if (stored && !ELIGIBLE_ALLOCATION_STATUSES.includes(stored.status)) return fail(REASONS.PO_NOT_ACTIVE);
+                    // Beberapa langkah pada PO yang sama dijumlahkan agar kapasitas dihitung benar
+                    const planned = plan.filter((p) => p.po === po).reduce((sum, p) => sum + p.take, 0);
+                    if (po.baseQty - po.currentFulfilledQty - planned < take) return fail(REASONS.RESTORE_PO_FULL);
+                    plan.push({ e, po, take, stored });
+                    need -= take;
+                }
+
+                const allocations = [];
+                const stockId = stockKey(stockCodes.forProductCode(group.itemCode), group.lotNumber);
+                plan.forEach(({ e, po, take, stored }) => {
+                    const previous = po.currentFulfilledQty;
+                    po.currentFulfilledQty = previous + take;
+                    e.remaining -= take;
+                    addedInFile.set(stockId, (addedInFile.get(stockId) || 0) + take);
+                    if (stored) stored.allocatedQty += take;
+                    else {
+                        const lotEntryKey = lotKey(group.lotNumber, product.id_product);
+                        if (!entriesByLot.has(lotEntryKey)) entriesByLot.set(lotEntryKey, []);
+                        entriesByLot.get(lotEntryKey).push({
+                            poDetailId: e.poDetailId, lotId: e.lotId, batchId: e.batchId,
+                            batchNumber: batchNumberById.get(Number(e.batchId)) || '', allocatedQty: take, status: ALLOCATION_STATUS.OPEN
+                        });
+                    }
+                    allocations.push({
+                        po, delta: take, previous, next: po.currentFulfilledQty,
+                        batchId: e.batchId, batchNumber: batchNumberById.get(Number(e.batchId)) || ''
+                    });
+                });
+                allocatedGroups.push({ group, product, allocations, matchedBy: MATCHED_BY.DOC_SOURCE });
+                return;
+            }
+
+            // Tidak ada pengurangan dengan Doc Source itu: tambahan output lot pada batch tunggal / batch terbaru
+            const candidates = new Map();
+            (lotDbId !== null ? (lotBatchesByLotId.get(Number(lotDbId)) || []) : []).forEach((b) => candidates.set(b.number, { id: b.id, number: b.number }));
+            allocatedGroups.forEach(({ group: g }) => {
+                if (g.matchBy === MATCH_BY.LOT || g.lotNumber !== group.lotNumber || g.itemCode !== group.itemCode) return;
+                if (!candidates.has(g.batchNumber)) {
+                    const known = batchByNumber.get(g.batchNumber);
+                    candidates.set(g.batchNumber, { id: known ? known.id : null, number: g.batchNumber });
+                }
+            });
+            addBatch = [...candidates.values()].sort((x, y) =>
+                (batchRank({ batchId: y.id }) - batchRank({ batchId: x.id })) || String(y.number).localeCompare(String(x.number))
+            )[0] || null;
+            if (!addBatch) return fail(REASONS.NO_BATCH_FOR_LOT);
+        }
+        const effBatchId = lotOnly ? (addBatch ? addBatch.id : null) : batchDbId;
+        const effBatchNumber = lotOnly ? (addBatch ? addBatch.number : '') : group.batchNumber;
+        const effHasStoredPair = lotDbId !== null && effBatchId !== null && effBatchId !== undefined;
 
         if (group.totalQty > 0) {
             // ---------- PLUS: alokasi FIFO ----------
@@ -361,8 +473,8 @@ const calculateLotFifoAllocation = (
                 const eligible = [...poStates.values()]
                     .filter(poFilter)
                     .filter((po) => {
-                        if (!hasStoredPair) return true;
-                        const existing = allocByKey.get(allocationKey(po.poDetailId, lotDbId, batchDbId));
+                        if (!effHasStoredPair) return true;
+                        const existing = allocByKey.get(allocationKey(po.poDetailId, lotDbId, effBatchId));
                         return !existing || ELIGIBLE_ALLOCATION_STATUSES.includes(existing.status);
                     });
                 if (eligible.length === 0) return { reason: REASONS.NO_MATCHING_PO };
@@ -404,15 +516,18 @@ const calculateLotFifoAllocation = (
 
                 const previous = po.currentFulfilledQty;
                 po.currentFulfilledQty = previous + take;
-                allocations.push({ po, delta: take, previous, next: po.currentFulfilledQty });
+                allocations.push({
+                    po, delta: take, previous, next: po.currentFulfilledQty,
+                    ...(lotOnly ? { batchId: effBatchId, batchNumber: effBatchNumber } : {})
+                });
                 remaining -= take;
 
                 // Kunci memakai kode produk lot (sama dengan Delivery Order), walau PO berkode lain lewat pemetaan
                 const stockId = stockKey(stockCodes.forProductCode(group.itemCode), group.lotNumber);
                 addedInFile.set(stockId, (addedInFile.get(stockId) || 0) + take);
 
-                const existing = hasStoredPair
-                    ? allocByKey.get(allocationKey(po.poDetailId, lotDbId, batchDbId))
+                const existing = effHasStoredPair
+                    ? allocByKey.get(allocationKey(po.poDetailId, lotDbId, effBatchId))
                     : undefined;
                 if (existing) {
                     existing.allocatedQty += take;
@@ -423,15 +538,17 @@ const calculateLotFifoAllocation = (
                     entriesByLot.get(lotEntryKey).push({
                         poDetailId: po.poDetailId,
                         lotId: lotDbId,
-                        batchId: batchDbId,
-                        batchNumber: group.batchNumber,
+                        batchId: effBatchId,
+                        batchNumber: effBatchNumber,
                         allocatedQty: take,
                         status: ALLOCATION_STATUS.OPEN
                     });
                 }
             }
 
-            allocatedGroups.push({ group, product, allocations });
+            // Tambahan output non-produksi tersimpan pada batch terpilih (ikut produksi bersih batch itu)
+            if (lotOnly) group.rows.forEach((r) => { r.resolvedBatchNumber = effBatchNumber; });
+            allocatedGroups.push({ group, product, allocations, matchedBy: lotOnly ? MATCHED_BY.LOT : MATCHED_BY.BATCH_LOT });
             return;
         }
 
@@ -516,7 +633,19 @@ const calculateLotFifoAllocation = (
             });
         });
 
-        allocatedGroups.push({ group, product, allocations });
+        // Pengurangan per Doc Source dicatat agar baris IN dokumen yang sama (di file ini atau berikutnya) dapat memulihkannya
+        if (lotOnly && group.docSource) {
+            const state = docStateOf(group.lotNumber, product.id_product, group.docSource);
+            state.hadReduction = true;
+            plan.forEach(({ entry, take }) => {
+                const key = allocationKey(entry.poDetailId, entry.lotId, entry.batchId);
+                const current = state.entries.get(key);
+                if (current) current.remaining += take;
+                else state.entries.set(key, { poDetailId: entry.poDetailId, lotId: entry.lotId, batchId: entry.batchId, remaining: take });
+            });
+        }
+
+        allocatedGroups.push({ group, product, allocations, matchedBy: lotOnly ? MATCHED_BY.LOT : MATCHED_BY.BATCH_LOT });
     });
 
     const finalStatusOf = (po) => (po.currentFulfilledQty >= po.baseQty ? ALLOCATION_STATUS.CLOSED : ALLOCATION_STATUS.OPEN);
@@ -525,8 +654,9 @@ const calculateLotFifoAllocation = (
     const detailedAllocations = [];
     const allocatedKeys = new Set();
 
-    allocatedGroups.forEach(({ group, product, allocations }) => {
+    allocatedGroups.forEach(({ group, product, allocations, matchedBy }) => {
         allocatedKeys.add(group.key);
+        group.rows.forEach((r) => { r.matchedBy = matchedBy; });
 
         const allocationItems = allocations.map(({ po, delta, previous, next, batchId, batchNumber }) => {
             const status = finalStatusOf(po);
@@ -546,6 +676,7 @@ const calculateLotFifoAllocation = (
                 addedQty: delta,
                 rowStatus: status,
                 transType: group.transTypes.join(', '),
+                docSource: group.docSource || '',
                 actualCompletedDatetime: group.completed,
                 expiredDate: group.expiredDate,
                 actDate: group.completed ? group.completed.split(' ')[0] : null
@@ -573,6 +704,8 @@ const calculateLotFifoAllocation = (
 
         previewResults.push({
             lotOnly: group.matchBy === MATCH_BY.LOT,
+            docSource: group.docSource || '',
+            matchedBy,
             transType: group.transTypes.join(', '),
             batchNumber: group.batchNumber,
             lotNumber: group.lotNumber,
@@ -637,6 +770,7 @@ const computeAllocationFingerprint = (calculation) => {
             batch: b.batchNumber,
             lot: b.lotNumber,
             product: b.productCode,
+            ...(b.lotOnly ? { doc: b.docSource || '' } : {}),
             total: b.totalQtyOutput,
             allocations: b.allocations.map((a) => [
                 a.poDetailId,
