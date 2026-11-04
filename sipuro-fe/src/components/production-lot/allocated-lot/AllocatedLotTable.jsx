@@ -9,7 +9,6 @@ import PoSummaryRows from './PoSummaryRows';
 import BatchSummaryRows from './BatchSummaryRows';
 import EditAllocationQtyModal from './EditAllocationQtyModal';
 import AllocationHistoryModal from './AllocationHistoryModal';
-import RebalanceAllocationModal from './RebalanceAllocationModal';
 import { usePermission } from '../../../context/PermissionContext';
 
 import useFilter from '../../../hooks/production-lot/allocated-lot/useFilter';
@@ -17,7 +16,6 @@ import useViewModeSwitcher from '../../../hooks/production-lot/allocated-lot/use
 import useAllocatedLotTable from '../../../hooks/production-lot/allocated-lot/useAllocatedLotTable';
 import useEditAllocationQty from '../../../hooks/production-lot/allocated-lot/useEditAllocationQty';
 import useAllocationHistory from '../../../hooks/production-lot/allocated-lot/useAllocationHistory';
-import useRebalanceAllocation from '../../../hooks/production-lot/allocated-lot/useRebalanceAllocation';
 
 const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
     const { can } = usePermission();
@@ -29,7 +27,6 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
     const refreshAfterAction = onRefreshAll || tableData.refreshData;
     const editQty = useEditAllocationQty(refreshAfterAction);
     const history = useAllocationHistory();
-    const rebalance = useRebalanceAllocation(refreshAfterAction);
 
     const actions = {
         busy: editQty.loading,
@@ -80,19 +77,6 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 onResetFilters={() => filter.handleResetFilters(tableData.setPage)}
                 onExportExcel={filter.handleExportExcel}
             />
-
-            {can('PRODUCTION_LOT', 'update') && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-                    <button
-                        type="button"
-                        onClick={rebalance.handleOpen}
-                        title="Fill older PO items first by moving later lot allocations forward"
-                        style={{ padding: '6px 14px', border: '1px solid #0d6efd', borderRadius: '4px', backgroundColor: '#fff', color: '#0d6efd', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
-                    >
-                        Rebalance Allocation
-                    </button>
-                </div>
-            )}
 
             <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
                 <ViewModeSwitcher
@@ -246,24 +230,6 @@ const AllocatedLotTable = ({ currentUser, reloadTrigger, onRefreshAll }) => {
                 pagination={history.pagination}
                 onPageChange={history.handlePageChange}
                 onLimitChange={history.handleLimitChange}
-            />
-
-            <RebalanceAllocationModal
-                isOpen={rebalance.isOpen}
-                onClose={rebalance.handleClose}
-                products={rebalance.products}
-                productId={rebalance.productId}
-                onProductChange={rebalance.handleProductChange}
-                preview={rebalance.preview}
-                reason={rebalance.reason}
-                onReasonChange={rebalance.setReason}
-                reasonMaxLength={rebalance.reasonMaxLength}
-                error={rebalance.error}
-                loadingProducts={rebalance.loadingProducts}
-                previewing={rebalance.previewing}
-                saving={rebalance.saving}
-                onPreview={rebalance.handlePreview}
-                onCommit={rebalance.handleCommit}
             />
         </div>
     );
