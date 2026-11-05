@@ -8,7 +8,10 @@
  *   - antrean alokasi: PO diurutkan dari tanggal PO tertua (lalu id detail PO),
  *   - baris DO diurutkan dari tanggal DO tertua (lalu nomor DO), lalu mengambil qty dari antrean berurutan.
  * Semua DO pada lot itu (bukan hanya yang tampil di halaman) ikut dihitung, supaya konsumsi antrean benar.
- * Retur (RMA) tidak diperhitungkan: nilai DO tetap seperti saat dikirim.
+ * Retur (RMA) mengurangi DO yang paling tua lebih dulu per (keluarga produk, nomor lot), karena retur membuka kuota
+ * kirim lagi dan tidak membawa nomor DO (perkiraan FIFO juga). Qty yang sudah diretur tidak ikut diperkirakan: baris DO yang
+ * seluruhnya diretur tidak punya PO, retur sebagian hanya memperkirakan sisa qty, dan antrean PO yang dibebaskan retur
+ * dipakai DO berikutnya. Nilai DO yang tersimpan tidak berubah.
  * Kode produk yang dipetakan (mis. 00045 dan 00047) berbagi satu antrean (lihat stockFamilyKey).
  */
 
@@ -40,9 +43,10 @@ const parseEstimatedPoRequest = (query = {}) => {
  * @param {{ allocations: Array, lines: Array, stockCodes: { forProductCode: Function } }} input
  *   allocations: { po_detail_id, po_number, po_created_at, po_product_code, lot_number, lot_product_code, total_qty }
  *   lines: { id, delivery_order_id, do_number, do_datetime, id_product, product_code, lot_number, qty_pcs }
- * @returns {Map<number, { segments: Array, unassignedQty: number }>} kunci = id baris DO (line.id)
+ *   returns: { product_code, lot_number, total_qty } total retur per kode produk dan lot (opsional)
+ * @returns {Map<number, { segments: Array, unassignedQty: number, returnedQty: number }>} kunci = id baris DO (line.id)
  */
-const estimateLines = ({ allocations = [], lines = [], stockCodes }) => {
+const estimateLines = ({ allocations = [], lines = [], returns = [], stockCodes }) => {
     const queues = new Map();
     allocations.forEach((a) => {
         const qty = num(a.total_qty);
@@ -65,12 +69,22 @@ const estimateLines = ({ allocations = [], lines = [], stockCodes }) => {
         sortedQueues.set(key, [...byPo.values()].sort((x, y) => cmp(x.createdAt, y.createdAt) || (x.poDetailId - y.poDetailId)));
     });
 
+    // Retur per (keluarga produk, lot): mengurangi DO tertua lebih dulu
+    const returnPool = new Map();
+    returns.forEach((r) => {
+        const key = stockKey(stockCodes.forProductCode(r.product_code), r.lot_number);
+        returnPool.set(key, (returnPool.get(key) || 0) + num(r.total_qty));
+    });
+
     const result = new Map();
     [...lines]
         .sort((a, b) => cmp(a.do_datetime, b.do_datetime) || cmp(a.do_number, b.do_number) || (a.id - b.id))
         .forEach((line) => {
-            const queue = sortedQueues.get(stockKey(stockCodes.forProductCode(line.product_code), line.lot_number)) || [];
-            let need = num(line.qty_pcs);
+            const key = stockKey(stockCodes.forProductCode(line.product_code), line.lot_number);
+            const queue = sortedQueues.get(key) || [];
+            const returnedQty = Math.min(num(line.qty_pcs), returnPool.get(key) || 0);
+            if (returnedQty > 0) returnPool.set(key, returnPool.get(key) - returnedQty);
+            let need = num(line.qty_pcs) - returnedQty;
             const segments = [];
             for (const entry of queue) {
                 if (need <= 0) break;
@@ -86,7 +100,7 @@ const estimateLines = ({ allocations = [], lines = [], stockCodes }) => {
                     via_mapping: entry.poProductCode !== line.product_code
                 });
             }
-            result.set(line.id, { segments, unassignedQty: need });
+            result.set(line.id, { segments, unassignedQty: need, returnedQty });
         });
     return result;
 };
@@ -109,14 +123,15 @@ const shapeEstimate = (doIds, lines, estimates) => {
     const wanted = new Set(doIds);
     const doMap = new Map();
     lines.filter((l) => wanted.has(l.delivery_order_id)).forEach((line) => {
-        const est = estimates.get(line.id) || { segments: [], unassignedQty: num(line.qty_pcs) };
+        const est = estimates.get(line.id) || { segments: [], unassignedQty: num(line.qty_pcs), returnedQty: 0 };
         if (!doMap.has(line.delivery_order_id)) doMap.set(line.delivery_order_id, { delivery_order_id: line.delivery_order_id, items: new Map() });
         const order = doMap.get(line.delivery_order_id);
         if (!order.items.has(line.id_product)) order.items.set(line.id_product, { id_product: line.id_product, lots: new Map() });
         const item = order.items.get(line.id_product);
-        const lot = item.lots.get(line.lot_number) || { lot_number: line.lot_number, segs: [], unassigned_qty: 0 };
+        const lot = item.lots.get(line.lot_number) || { lot_number: line.lot_number, segs: [], unassigned_qty: 0, returned_qty: 0 };
         lot.segs.push(est.segments);
         lot.unassigned_qty += est.unassignedQty;
+        lot.returned_qty += est.returnedQty || 0;
         item.lots.set(line.lot_number, lot);
     });
 
@@ -125,11 +140,12 @@ const shapeEstimate = (doIds, lines, estimates) => {
         const items = [...order.items.values()].map((item) => {
             const lots = [...item.lots.values()]
                 .sort((a, b) => cmp(a.lot_number, b.lot_number))
-                .map((l) => ({ lot_number: l.lot_number, pos: mergeSegments(l.segs), unassigned_qty: l.unassigned_qty }));
+                .map((l) => ({ lot_number: l.lot_number, pos: mergeSegments(l.segs), unassigned_qty: l.unassigned_qty, returned_qty: l.returned_qty }));
             return {
                 id_product: item.id_product,
                 pos: mergeSegments(lots.map((l) => l.pos)),
                 unassigned_qty: lots.reduce((s, l) => s + l.unassigned_qty, 0),
+                returned_qty: lots.reduce((s, l) => s + l.returned_qty, 0),
                 lots
             };
         });
@@ -149,6 +165,12 @@ const ALLOCATIONS_SQL = `SELECT pla.po_detail_id, h.po_number,
     JOIN products pp ON d.id_product = pp.id_product
     WHERE l.lot_number IN (?) AND pla.status <> '${ALLOCATION_STATUS.CANCELED}' AND ${NOT_DELETED_SQL}
     GROUP BY pla.po_detail_id, h.po_number, h.created_at, pp.product_code, lp.product_code, l.lot_number`;
+
+const RETURNS_SQL = `SELECT p.product_code, r.lot_number, SUM(r.qty_pcs) AS total_qty
+    FROM delivery_returns r
+    JOIN products p ON r.product_id = p.id_product
+    WHERE r.lot_number IN (?)
+    GROUP BY p.product_code, r.lot_number`;
 
 const LINES_SQL = `SELECT dol.id, dol.delivery_order_id, d.do_number,
         DATE_FORMAT(dol.do_datetime, '%Y-%m-%d %H:%i:%s') AS do_datetime,
@@ -177,14 +199,17 @@ const fetchEstimatedPo = async (queryable, doIds) => {
 
     const allocations = [];
     const lines = [];
+    const returns = [];
     for (const part of chunk(lotNumbers, 500)) {
         const [a] = await queryable.query(ALLOCATIONS_SQL, [part]);
         allocations.push(...a);
         const [l] = await queryable.query(LINES_SQL, [part]);
         lines.push(...l.map((r) => ({ ...r, qty_pcs: num(r.qty_pcs) })));
+        const [ret] = await queryable.query(RETURNS_SQL, [part]);
+        returns.push(...ret);
     }
 
-    return shapeEstimate(doIds, lines, estimateLines({ allocations, lines, stockCodes }));
+    return shapeEstimate(doIds, lines, estimateLines({ allocations, lines, returns, stockCodes }));
 };
 
 module.exports = { MAX_DO_IDS, parseEstimatedPoRequest, estimateLines, shapeEstimate, fetchEstimatedPo };

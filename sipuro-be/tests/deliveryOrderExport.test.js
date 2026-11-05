@@ -135,7 +135,7 @@ test('saldo lot: kode lama dan pengganti satu keluarga digabung menjadi satu bar
     assert.equal(data.lotBalance[0].delivered_qty, 100);
 });
 
-test('workbook: tiga sheet datar; sisa kuota = teralokasi - terkirim (retur tidak membukanya)', () => {
+test('workbook: tiga sheet datar; sisa kuota = teralokasi - terkirim bersih (retur membukanya)', () => {
     const buffer = wb.buildExportWorkbookBuffer({
         deliveries: [deliveryRow()],
         returns: [returnRow()],
@@ -153,10 +153,15 @@ test('workbook: tiga sheet datar; sisa kuota = teralokasi - terkirim (retur tida
     assert.equal(delivery[6].z, 'yyyy-mm-dd'); // expired: hanya tanggal
     assert.equal(delivery[7], 30);
     assert.equal(delivery[8], 2.5);
-    assert.deepEqual(sheets[2].aoa[1].slice(3), [100, 60, 5, 40]);
+    assert.deepEqual(sheets[2].aoa[1].slice(3), [100, 60, 5, 45]);
     assert.equal(sheets[0].filter.ref, 'A1:I2');
     // sheet pengiriman tidak membawa nilai tingkat lot
     assert.ok(!wb.DELIVERY_HEADERS.some((h) => /Allocated|Remaining|Delivered|Returned/.test(h)));
+});
+
+test('workbook: DO 100 lalu retur 100 pada alokasi 100 -> sisa kuota 100 lagi', () => {
+    const rows = wb.buildLotBalanceRows([{ product_code: 'P1', product_name: 'Produk 1', lot_number: 'L1', allocated_qty: 100, delivered_qty: 100, returned_qty: 100 }]);
+    assert.equal(rows[1][6], 100);
 });
 
 test('workbook: sisa kuota tidak negatif, sel kosong menjadi null, data kosong tetap punya header', () => {

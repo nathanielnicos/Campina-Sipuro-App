@@ -10,9 +10,10 @@
  *  - delivery_order_lots : satu baris per (DO, item, lot) per upload (qty_pcs, qty_ctn, tanggal dan jam).
  *  - delivery_returns    : satu baris per (nomor retur, item, lot) per upload.
  *  - Batas kirim per (item, lot)     = jumlah allocated_qty alokasi non-Canceled lot tersebut ke PO mana pun
- *                                      (produk ditentukan oleh lots.id_product) dikurangi total yang sudah dikirim.
+ *                                      (produk ditentukan oleh lots.id_product) dikurangi TERKIRIM BERSIH
+ *                                      (total terkirim dikurangi total retur): retur membuka kuota kirim lagi.
  *  - Batas retur per (item, lot)     = total terkirim dikurangi total yang sudah diretur.
- *  - Retur tidak mengubah nilai DO dan tidak membuka kuota kirim lagi.
+ *  - Retur tidak mengubah nilai DO yang sudah tercatat.
  */
 
 const { QTY_COLUMN } = require('../upload-trans-type/uploadTransTypeRules');

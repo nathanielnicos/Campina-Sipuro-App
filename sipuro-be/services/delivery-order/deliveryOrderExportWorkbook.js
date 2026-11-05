@@ -5,7 +5,7 @@
  * Sheet "Deliveries": satu baris per (DO, item, lot), tanpa nilai tingkat lot agar pivot tidak menghitung ganda.
  * Sheet "Returns"   : satu baris per baris retur.
  * Sheet "Lot Balance": satu baris per (kode produk, lot) dengan nilai tingkat lot (teralokasi, terkirim, diretur, sisa kuota).
- * Sisa kuota kirim = teralokasi - terkirim (retur tidak membuka kuota kirim lagi).
+ * Sisa kuota kirim = teralokasi - terkirim bersih (terkirim - retur): retur membuka kuota kirim lagi.
  */
 
 const XLSX = require('xlsx');
@@ -78,14 +78,15 @@ const buildLotBalanceRows = (lotBalance) => [
     ...lotBalance.map((r) => {
         const allocated = Number(r.allocated_qty) || 0;
         const delivered = Number(r.delivered_qty) || 0;
+        const returned = Number(r.returned_qty) || 0;
         return [
             blankIfEmpty(r.product_code),
             blankIfEmpty(r.product_name),
             blankIfEmpty(r.lot_number),
             allocated,
             delivered,
-            Number(r.returned_qty) || 0,
-            Math.max(0, allocated - delivered)
+            returned,
+            Math.max(0, allocated - (delivered - returned))
         ];
     })
 ];

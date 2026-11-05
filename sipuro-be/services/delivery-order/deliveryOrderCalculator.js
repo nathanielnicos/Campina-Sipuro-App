@@ -8,13 +8,15 @@
  *  - Kode item di file = kode produk hasil produksi (produk lot), bisa berbeda dari kode di PO (pemetaan kode).
  *    Pengiriman terikat ke lot, bukan ke PO.
  *  - Baris dikelompokkan per (nomor DO, item, lot). Total grup harus muat PENUH dalam sisa kuota
- *    (keluarga produk, lot) = total alokasi non-Canceled dikurangi yang sudah dikirim. Kode produk yang dipetakan
+ *    (keluarga produk, lot) = total alokasi non-Canceled dikurangi TERKIRIM BERSIH (terkirim dikurangi retur yang sudah
+ *    tersimpan; retur membuka kuota kirim lagi). Kode produk yang dipetakan
  *    (mis. 45 dan 47) satu keluarga: nomor lot yang sama berbagi satu kuota (stock.stockCodes); kalau tidak, seluruh baris
  *    grup menjadi Unallocated. Force Closed ikut dihitung karena qty-nya sudah terpenuhi.
  *  - Urutan grup tetap: tanggal dan jam paling awal, nomor DO, item, lot, lalu urutan di file.
  *  - Retur (RMA Receipt) diproses SETELAH seluruh DO, dikelompokkan per (nomor retur, item, lot),
  *    dan tidak boleh melebihi total terkirim (termasuk DO dalam file yang sama) dikurangi retur sebelumnya.
- *    Retur tidak mengubah nilai DO.
+ *    Retur tidak mengubah nilai DO. Karena retur diproses setelah DO, retur dalam file yang sama TIDAK membuka kuota
+ *    untuk DO dalam file itu; kuota baru terbuka setelah retur tersimpan (upload berikutnya).
  *  - Hanya baris dari grup yang diterima yang masuk newRows (disimpan sebagai "sudah diproses").
  *    Baris yang ditolak tidak disimpan, sehingga bisa diproses di file berikutnya.
  */
@@ -168,7 +170,9 @@ const calculateDeliveryOrders = (
         if (allocated <= 0) {
             return rejectGroup(group, REASONS.NO_ALLOCATION);
         }
-        const available = allocated - sumOf(stock.delivered, key) - sumOf(deliveredInFile, key);
+        // Terkirim bersih: retur yang sudah tersimpan membuka kuota kirim lagi
+        const netDelivered = sumOf(stock.delivered, key) - sumOf(stock.returned, key);
+        const available = allocated - netDelivered - sumOf(deliveredInFile, key);
         if (available < group.totalQty) {
             return rejectGroup(group, `${REASONS.EXCEEDS_ALLOCATION} (Available: ${Math.max(0, available)}, Required: ${group.totalQty})`);
         }

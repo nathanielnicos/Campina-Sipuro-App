@@ -128,3 +128,74 @@ test('fetchEstimatedPo: alur query dan hasil', async () => {
     const empty = await fetchEstimatedPo({ query: async () => [[]] }, [9]);
     assert.deepEqual(empty, []);
 });
+
+test('retur penuh: DO tertua tidak diperkirakan, PO muncul di DO yang baru', () => {
+    const a = line(1, { qty_pcs: 100 });
+    const b = line(2, { qty_pcs: 100 });
+    const returns = [{ product_code: '00047', lot_number: 'L1', total_qty: 100 }];
+    const est = estimateLines({ allocations: [alloc(1)], lines: [a, b], returns, stockCodes: none });
+    assert.deepEqual(segs(est, a), []);
+    assert.equal(est.get(a.id).unassignedQty, 0);
+    assert.equal(est.get(a.id).returnedQty, 100);
+    assert.deepEqual(segs(est, b), [['PO1', 100]]);
+    assert.equal(est.get(b.id).unassignedQty, 0);
+});
+
+test('retur sebagian: hanya sisa qty DO tertua yang diperkirakan, antrean yang dibebaskan dipakai DO berikutnya', () => {
+    const a = line(1, { qty_pcs: 100 });
+    const b = line(2, { qty_pcs: 50 });
+    const returns = [{ product_code: '00047', lot_number: 'L1', total_qty: 30 }];
+    const est = estimateLines({ allocations: [alloc(1), alloc(2)], lines: [a, b], returns, stockCodes: none });
+    assert.deepEqual(segs(est, a), [['PO1', 70]]);
+    assert.equal(est.get(a.id).returnedQty, 30);
+    assert.deepEqual(segs(est, b), [['PO1', 30], ['PO2', 20]]);
+});
+
+test('retur melebihi satu DO mengalir ke DO tertua berikutnya; lot dan keluarga lain tidak terpengaruh', () => {
+    const a = line(1, { qty_pcs: 40 });
+    const b = line(2, { qty_pcs: 40 });
+    const other = line(3, { lot_number: 'L2', qty_pcs: 40 });
+    const returns = [{ product_code: '00045', lot_number: 'L1', total_qty: 60 }]; // kode lama, satu keluarga dengan 00047
+    const allocations = [alloc(1, { total_qty: 200 }), alloc(2, { lot_number: 'L2', total_qty: 200 })];
+    const est = estimateLines({ allocations, lines: [a, b, other], returns, stockCodes: codes });
+    assert.equal(est.get(a.id).returnedQty, 40);
+    assert.equal(est.get(b.id).returnedQty, 20);
+    assert.deepEqual(segs(est, b), [['PO1', 20]]);
+    assert.equal(est.get(other.id).returnedQty, 0);
+    assert.deepEqual(segs(est, other), [['PO2', 40]]);
+});
+
+test('tanpa retur hasil sama seperti sebelumnya dan returned_qty = 0; shapeEstimate membawa returned_qty', () => {
+    const a = line(1, { qty_pcs: 100 });
+    const b = line(2, { qty_pcs: 40 });
+    const lines = [a, b];
+    const none0 = estimateLines({ allocations: [alloc(1)], lines, stockCodes: none });
+    assert.equal(none0.get(a.id).returnedQty, 0);
+    const est = estimateLines({ allocations: [alloc(1)], lines, returns: [{ product_code: '00047', lot_number: 'L1', total_qty: 100 }], stockCodes: none });
+    const [first] = shapeEstimate([1], lines, est);
+    assert.equal(first.items[0].returned_qty, 100);
+    assert.equal(first.items[0].lots[0].returned_qty, 100);
+    assert.deepEqual(first.items[0].pos, []);
+    assert.equal(first.items[0].unassigned_qty, 0);
+});
+
+test('fetchEstimatedPo: total retur dibaca per kode produk dan lot, lalu dipakai perkiraan', async () => {
+    const db = {
+        query: async (sql) => {
+            const text = sql.replace(/\s+/g, ' ').trim();
+            if (/SELECT DISTINCT lot_number FROM delivery_order_lots/.test(text)) return [[{ lot_number: 'L1' }]];
+            if (/FROM products$/.test(text)) return [PRODUCTS];
+            if (/FROM product_code_mappings/.test(text)) return [[]];
+            if (/FROM po_lot_allocations pla/.test(text)) return [[alloc(1, { total_qty: '100' })]];
+            if (/FROM delivery_returns r/.test(text)) { assert.match(text, /GROUP BY p\.product_code, r\.lot_number/); return [[{ product_code: '00047', lot_number: 'L1', total_qty: '100' }]]; }
+            if (/FROM delivery_order_lots dol/.test(text)) return [[
+                { id: 1, delivery_order_id: 7, do_number: 'D7', do_datetime: '2026-07-10 10:00:00', id_product: 2, product_code: '00047', lot_number: 'L1', qty_pcs: '100' },
+                { id: 2, delivery_order_id: 8, do_number: 'D8', do_datetime: '2026-07-20 10:00:00', id_product: 2, product_code: '00047', lot_number: 'L1', qty_pcs: '100' }
+            ]];
+            return [[]];
+        }
+    };
+    const out = await fetchEstimatedPo(db, [7, 8]);
+    assert.deepEqual(out[0].items[0].pos, []);
+    assert.deepEqual(out[1].items[0].pos.map((p) => [p.po_number, p.qty_pcs]), [['PO1', 100]]);
+});
