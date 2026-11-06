@@ -12,9 +12,13 @@ const extraStyle = {
     whiteSpace: 'nowrap'
 };
 
+const tooltipOf = (groups) => groups
+    .map((g) => `${formatDateTime(g.date)}${g.labels.length > 0 ? ` - ${g.labels.join(', ')}` : ''}`)
+    .join('\n');
+
 /**
- * Tanggal pada baris Summary: tanggal paling awal; bila ada tanggal lain pada baris yang sama
- * tampil penanda "+N" dengan daftar tanggalnya di tooltip.
+ * Tanggal satu transaksi (DO atau retur): tanggal paling awal. Bila transaksi punya tanggal lain,
+ * tampil penanda "+N"; tooltip memuat setiap tanggal beserta lot-nya.
  */
 const DoDateCell = ({ dates }) => {
     if (!dates || !dates.first) return null;
@@ -22,7 +26,7 @@ const DoDateCell = ({ dates }) => {
         <>
             {formatDateTime(dates.first)}
             {dates.extra > 0 && (
-                <span style={extraStyle} title={dates.all.map(formatDateTime).join('\n')}>+{dates.extra}</span>
+                <span style={extraStyle} title={tooltipOf(dates.groups)}>+{dates.extra}</span>
             )}
         </>
     );

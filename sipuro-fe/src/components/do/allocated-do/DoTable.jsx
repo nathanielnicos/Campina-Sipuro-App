@@ -16,13 +16,13 @@ const thStyle = { padding: '12px 14px' };
 const QTY_COLUMN = 'Qty (Pcs)';
 const ESTIMATED_PO_COLUMN = 'Estimated PO';
 
-// Kolom per tampilan. DO dan Return memakai urutan yang sama: nomor transaksi, produk, waktu, lot, qty.
+// Kolom per tampilan. DO dan Return memakai urutan yang sama: nomor transaksi, waktu, produk, lot, qty.
 const COLUMNS = {
-    DO_SUMMARY: ['DO Number', 'Product', 'Date and Time', 'Qty (Pcs)'],
-    DO_LOT: ['DO Number', 'Product', 'Date and Time', 'Lot Number', 'Qty (Pcs)'],
+    DO_SUMMARY: ['DO Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
+    DO_LOT: ['DO Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)'],
     LOT: ['Lot Number', 'Product', 'Completed Date and Time', 'Exp Date', 'DO Number', 'Date and Time', 'Qty (Pcs)'],
-    RETURN_SUMMARY: ['Return Number', 'Product', 'Date and Time', 'Qty (Pcs)'],
-    RETURN_LOT: ['Return Number', 'Product', 'Date and Time', 'Lot Number', 'Qty (Pcs)']
+    RETURN_SUMMARY: ['Return Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
+    RETURN_LOT: ['Return Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)']
 };
 
 const DoTable = ({ reloadTrigger }) => {

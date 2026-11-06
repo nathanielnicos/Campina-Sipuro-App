@@ -10,30 +10,29 @@ export const SUMMARY_COLUMN_COUNT = 4;
 
 /**
  * Tampilan DO Number - Summary: satu baris per (DO, item), qty = total semua lot item itu.
- * Nomor DO hanya di baris pertama tiap DO. Tanggal hanya bila berbeda dari baris sebelumnya dalam DO yang sama;
- * bila item dikirim pada beberapa waktu, tampil tanggal paling awal dengan penanda "+N".
+ * Nomor DO dan tanggal DO (delivery_orders.do_datetime, paling awal) hanya di baris pertama tiap DO; bila DO dikirim
+ * pada beberapa waktu, tanggal diberi penanda "+N" (tooltip: tanggal dan lot-nya).
  */
 const DoSummaryRows = ({ mappingList, estimate }) => {
     const showEstimate = Boolean(estimate && estimate.enabled);
-    const entries = (mappingList || []).flatMap((order) => (Array.isArray(order.items) ? order.items : []).map((item) => ({
-        order,
-        item,
-        dates: summarizeDates((Array.isArray(item.lots) ? item.lots : []).map((lot) => lot.date_time).concat(item.lots && item.lots.length ? [] : [order.do_datetime]))
-    })));
+    const entries = (mappingList || []).flatMap((order) => (Array.isArray(order.items) ? order.items : []).map((item) => ({ order, item })));
     if (entries.length === 0) {
         return emptyRow(SUMMARY_COLUMN_COUNT + (showEstimate ? 1 : 0), 'No Delivery Order data available.');
     }
 
     const showDo = markChanges(entries.map((e) => ({ group: e.order.delivery_order_id, value: '' })));
-    const showDate = markChanges(entries.map((e) => ({ group: e.order.delivery_order_id, value: e.dates.key })));
+    const datesOf = new Map((mappingList || []).map((order) => [order.delivery_order_id, summarizeDates(
+        (Array.isArray(order.items) ? order.items : []).flatMap((item) => (Array.isArray(item.lots) ? item.lots : []).map((lot) => ({ date: lot.date_time, label: lot.lot_number }))),
+        order.do_datetime
+    )]));
 
-    return entries.map(({ order, item, dates }, idx) => (
+    return entries.map(({ order, item }, idx) => (
         <tr key={`${order.delivery_order_id}-${item.id_product}`} style={rowStyle}>
             <td style={{ ...cellStyle, fontWeight: 'bold', whiteSpace: 'nowrap' }}>{showDo[idx] ? order.do_number : ''}</td>
+            <td style={{ ...cellStyle, whiteSpace: 'nowrap', fontSize: '12px' }}>{showDo[idx] ? <DoDateCell dates={datesOf.get(order.delivery_order_id)} /> : ''}</td>
             <td style={{ ...cellStyle, minWidth: '220px' }}>
                 <ProductCell code={item.product_code} name={item.product_name} />
             </td>
-            <td style={{ ...cellStyle, whiteSpace: 'nowrap', fontSize: '12px' }}>{showDate[idx] ? <DoDateCell dates={dates} /> : ''}</td>
             <td style={{ ...cellStyle, width: '120px' }}>
                 <QtyStack pcs={item.total_qty_pcs} ctn={item.total_qty_ctn} color="#198754" />
             </td>

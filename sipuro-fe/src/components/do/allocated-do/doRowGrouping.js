@@ -18,11 +18,36 @@ export const markChanges = (entries) => {
 };
 
 /**
- * Ringkasan tanggal satu baris Summary: tanggal paling awal, jumlah tanggal lain, dan kunci untuk membandingkan
- * dengan baris sebelumnya.
- * @param {Array<string|null>} dates
+ * Ringkasan tanggal satu transaksi (DO atau retur): tanggal utama, jumlah tanggal lain, dan rincian tanggal -> label
+ * (mis. nomor lot) untuk tooltip.
+ * @param {Array<{ date: string|null, label?: string }>} entries tanggal tiap baris pengiriman / retur
+ * @param {string|null} [headerDate] tanggal tingkat transaksi (delivery_orders.do_datetime = tanggal paling awal);
+ *                                   bila kosong dipakai tanggal paling awal dari entries
  */
-export const summarizeDates = (dates) => {
-    const distinct = [...new Set((dates || []).filter(Boolean).map(String))].sort();
-    return { key: distinct.join('|'), first: distinct[0] || null, extra: Math.max(0, distinct.length - 1), all: distinct };
+export const summarizeDates = (entries, headerDate = null) => {
+    const byDate = new Map();
+    (entries || []).forEach((entry) => {
+        if (!entry || !entry.date) return;
+        const key = String(entry.date);
+        if (!byDate.has(key)) byDate.set(key, []);
+        const labels = byDate.get(key);
+        if (entry.label && !labels.includes(entry.label)) labels.push(entry.label);
+    });
+    if (headerDate && !byDate.has(String(headerDate))) byDate.set(String(headerDate), []);
+    const dates = [...byDate.keys()].sort();
+    return {
+        first: headerDate ? String(headerDate) : (dates[0] || null),
+        extra: Math.max(0, dates.length - 1),
+        groups: dates.map((date) => ({ date, labels: byDate.get(date) }))
+    };
+};
+
+// Ringkasan tanggal per nomor retur dari seluruh barisnya (paginasi per nomor retur: halaman memuat semua baris retur itu)
+export const returnDates = (rows) => {
+    const byReturn = new Map();
+    rows.forEach((row) => {
+        if (!byReturn.has(row.return_number)) byReturn.set(row.return_number, []);
+        byReturn.get(row.return_number).push({ date: row.return_datetime, label: row.lot_number });
+    });
+    return new Map([...byReturn.entries()].map(([number, entries]) => [number, summarizeDates(entries)]));
 };
