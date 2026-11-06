@@ -6,6 +6,7 @@ import DoSummaryRows from './DoSummaryRows';
 import DoDetailRows from './DoDetailRows';
 import DoLotViewRows from './DoLotViewRows';
 import DoReturnViewRows from './DoReturnViewRows';
+import DoReturnSummaryRows from './DoReturnSummaryRows';
 import useDeliveryOrderTable from '../../../hooks/do/allocated-do/useDeliveryOrderTable';
 import useEstimatedPo from '../../../hooks/do/allocated-do/useEstimatedPo';
 import useDeliveryOrderExport from '../../../hooks/do/allocated-do/useDeliveryOrderExport';
@@ -15,12 +16,13 @@ const thStyle = { padding: '12px 14px' };
 const QTY_COLUMN = 'Qty (Pcs)';
 const ESTIMATED_PO_COLUMN = 'Estimated PO';
 
-// Kolom per tampilan
+// Kolom per tampilan. DO dan Return memakai urutan yang sama: nomor transaksi, produk, waktu, lot, qty.
 const COLUMNS = {
-    DO_SUMMARY: ['DO Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
-    DO_LOT: ['DO Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)'],
+    DO_SUMMARY: ['DO Number', 'Product', 'Date and Time', 'Qty (Pcs)'],
+    DO_LOT: ['DO Number', 'Product', 'Date and Time', 'Lot Number', 'Qty (Pcs)'],
     LOT: ['Lot Number', 'Product', 'Completed Date and Time', 'Exp Date', 'DO Number', 'Date and Time', 'Qty (Pcs)'],
-    RETURN: ['Return Number', 'Date and Time', 'Lot Number', 'Product', 'Qty (Pcs)']
+    RETURN_SUMMARY: ['Return Number', 'Product', 'Date and Time', 'Qty (Pcs)'],
+    RETURN_LOT: ['Return Number', 'Product', 'Date and Time', 'Lot Number', 'Qty (Pcs)']
 };
 
 const DoTable = ({ reloadTrigger }) => {
@@ -29,7 +31,7 @@ const DoTable = ({ reloadTrigger }) => {
     const canExport = can('DO', 'export');
 
     const [viewMode, setViewMode] = useState('DO'); // 'DO' | 'LOT' | 'RETURN'
-    const [detailLevel, setDetailLevel] = useState('SUMMARY'); // 'SUMMARY' | 'LOT' (hanya tampilan DO)
+    const [detailLevel, setDetailLevel] = useState('SUMMARY'); // 'SUMMARY' | 'LOT' (tampilan DO dan Return)
 
     const [searchQuery, setSearchQuery] = useState('');
     const [fromDoDate, setFromDoDate] = useState('');
@@ -55,9 +57,12 @@ const DoTable = ({ reloadTrigger }) => {
         tableData.setPage(1);
     };
 
-    let columns = COLUMNS.RETURN;
+    let columns = COLUMNS.RETURN_LOT;
     let rows = <DoReturnViewRows mappingList={tableData.mappingList} />;
-    if (viewMode === 'DO' && detailLevel === 'SUMMARY') {
+    if (viewMode === 'RETURN' && detailLevel === 'SUMMARY') {
+        columns = COLUMNS.RETURN_SUMMARY;
+        rows = <DoReturnSummaryRows mappingList={tableData.mappingList} />;
+    } else if (viewMode === 'DO' && detailLevel === 'SUMMARY') {
         columns = COLUMNS.DO_SUMMARY;
         rows = <DoSummaryRows mappingList={tableData.mappingList} estimate={estimate} />;
     } else if (viewMode === 'DO') {

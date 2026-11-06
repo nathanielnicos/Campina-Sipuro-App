@@ -33,8 +33,8 @@ const DoViewModeSwitcher = ({ viewMode, onViewModeChange, detailLevel, onDetailL
             </div>
         </div>
 
-        {/* Tingkat detail hanya untuk tampilan DO Number (tampilan lain sudah per lot) */}
-        {viewMode === 'DO' && (
+        {/* Tingkat detail untuk tampilan DO Number dan Return Number (tampilan Lot Number sudah per lot) */}
+        {(viewMode === 'DO' || viewMode === 'RETURN') && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 16px', borderBottom: '1px solid #dee2e6', backgroundColor: '#fff' }}>
                 <span style={{ fontSize: '12px', fontWeight: '600', color: '#6c757d' }}>Detail Level:</span>
                 <div role="group" aria-label="Detail level" style={groupStyle}>

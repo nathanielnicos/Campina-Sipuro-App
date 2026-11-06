@@ -130,7 +130,8 @@ const loadRebalanceInput = async (queryable, productId, { forUpdate = false } = 
     }
 
     const stockCodes = buildStockCodeResolver(allProducts, productMappings);
-    const { delivered: lotDelivered } = await fetchLotStock(queryable, lots.map((l) => l.lot_number), { stockCodes });
+    // Terkirim bersih (terkirim - retur): retur membuka kuota kirim lagi
+    const { netDelivered: lotDelivered } = await fetchLotStock(queryable, lots.map((l) => l.lot_number), { stockCodes });
 
     return {
         productId: Number(productId),

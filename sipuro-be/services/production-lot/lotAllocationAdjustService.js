@@ -148,14 +148,14 @@ const adjustAllocationQty = async (connection, { allocationId, newQty, reason, u
         );
     }
 
-    // Alokasi lot tidak boleh turun di bawah qty yang sudah dikirim (Delivery Order)
+    // Alokasi lot tidak boleh turun di bawah qty terkirim bersih (Delivery Order dikurangi retur)
     if (newQty < oldQty) {
         const balance = await fetchItemLotBalance(connection, { lotId: allocation.lot_id });
         const afterTotal = balance.allocated - oldQty + newQty;
-        if (afterTotal < balance.delivered) {
-            const minAllowed = Math.max(0, balance.delivered - (balance.allocated - oldQty));
+        if (afterTotal < balance.netDelivered) {
+            const minAllowed = Math.max(0, balance.netDelivered - (balance.allocated - oldQty));
             throw new BusinessError(
-                `Quantity cannot be lower than what has already been delivered. Lot ${balance.lotNumber} has ${formatThousand(balance.delivered)} delivered for item ${balance.itemCode} (${formatThousand(balance.allocated)} allocated in total). Minimum allowed for this allocation is ${formatThousand(minAllowed)}.`,
+                `Quantity cannot be lower than what has already been delivered. Lot ${balance.lotNumber} has ${formatThousand(balance.netDelivered)} delivered after returns for item ${balance.itemCode} (${formatThousand(balance.allocated)} allocated in total). Minimum allowed for this allocation is ${formatThousand(minAllowed)}.`,
                 409
             );
         }

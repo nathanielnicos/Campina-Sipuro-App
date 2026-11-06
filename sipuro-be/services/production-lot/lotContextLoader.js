@@ -143,9 +143,9 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
         allocationBatches.push(...rows);
     }
 
-    // 7b. Total alokasi dan qty terkirim per (kode item PO, lot); baris alokasi lot sudah terkunci di atas
+    // 7b. Total alokasi dan qty terkirim BERSIH (terkirim - retur) per (keluarga produk, lot); baris alokasi lot sudah terkunci di atas
     const stockCodes = buildStockCodeResolver(allProducts, productMappings);
-    const { allocated: lotAllocated, delivered: lotDelivered } = await fetchLotStock(queryable, lotNumbers, { stockCodes });
+    const { allocated: lotAllocated, netDelivered: lotDelivered } = await fetchLotStock(queryable, lotNumbers, { stockCodes });
 
     // 7c. Hanya bila file memuat baris non-produksi arah IN (qty positif, berbasis lot):
     //     (i) pengurangan dan pemulihan sebelumnya per (Doc Source, lot, alokasi asal) dari riwayat alokasi,

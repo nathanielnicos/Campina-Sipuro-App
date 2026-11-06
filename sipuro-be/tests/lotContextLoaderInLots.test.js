@@ -7,7 +7,7 @@ const Module = require('module');
 const originalLoad = Module._load;
 Module._load = function patched(request) {
     if (request.endsWith('/delivery-order/deliveryOrderTotals')) {
-        return { fetchLotStock: async () => ({ allocated: new Map(), delivered: new Map() }) };
+        return { fetchLotStock: async () => ({ allocated: new Map(), delivered: new Map(), netDelivered: new Map() }) };
     }
     return originalLoad.apply(this, arguments);
 };

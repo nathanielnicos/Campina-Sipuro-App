@@ -8,7 +8,7 @@ const path = require('path');
 const originalLoad = Module._load;
 Module._load = function patched(request) {
     if (request === './lotContextLoader') return { fetchPoDetails: async (q, where, params) => { poCalls.push([where, params]); return where.startsWith('d.id_product') ? [{ po_detail_id: 1 }] : [{ po_detail_id: 9 }]; } };
-    if (request === '../delivery-order/deliveryOrderTotals') return { fetchLotStock: async (q, nums, opts) => { stockCalls.push(nums); stockOpts.push(opts); return { delivered: new Map([['k', 5]]) }; } };
+    if (request === '../delivery-order/deliveryOrderTotals') return { fetchLotStock: async (q, nums, opts) => { stockCalls.push(nums); stockOpts.push(opts); return { delivered: new Map([['k', 9]]), netDelivered: new Map([['k', 5]]) }; } };
     return originalLoad.apply(this, arguments);
 };
 const poCalls = [];
@@ -45,6 +45,8 @@ test('memuat keluarga kode, produksi bersih, tanggal selesai, edit manual dan qt
     assert.deepEqual(r.firstCompleted, new Map([['10_20', '2026-02-01 10:00:00']]));
     assert.deepEqual(r.manualDeltas, new Map([[100, -20]]));
     assert.deepEqual(stockCalls[0], ['A']);
+    // qty terkirim yang dipakai adalah terkirim BERSIH (terkirim 9, bersih 5), bukan terkirim bruto
+    assert.equal(r.lotDelivered.get('k'), 5);
     // stok dipooling per keluarga produk: penentu kode kanonik diteruskan
     assert.equal(stockOpts[0].stockCodes.forProductCode('P2'), 'P1');
     assert.equal(r.stockCodes.forProductCode('P1'), 'P1');

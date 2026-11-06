@@ -105,7 +105,7 @@ test('pembatalan yang membuat total lot di bawah qty terkirim diblokir', () => {
         manualDeltas: new Map([[2, 30]]),   // edit manual dulu menambah 30; pembatalan menguranginya jadi 70
         lotDelivered: new Map([[stockKey('P1', 'B'), 90]])
     }));
-    assert.ok(r.blockers.some((b) => /below its delivered quantity \(70 allocated after reversal, 90 delivered\)/.test(b)));
+    assert.ok(r.blockers.some((b) => /below its net delivered quantity \(70 allocated after reversal, 90 delivered after returns\)/.test(b)));
 });
 
 test('pembatalan yang membuat qty negatif diblokir', () => {
@@ -168,5 +168,5 @@ test('qty terkirim dipooling per keluarga produk: nomor lot sama berkode lama da
     assert.ok(!ok.blockers.some((b) => /delivered/.test(b)), ok.blockers.join(';'));
     // terkirim 160 melebihi total gabungan 150: diblokir (kuncinya kode kanonik P1, bukan P2)
     const blocked = calculateRebalance({ ...common, lotDelivered: new Map([[stockKey('P1', 'A'), 160]]) });
-    assert.ok(blocked.blockers.some((b) => /below its delivered quantity \(150 allocated after reversal, 160 delivered\)/.test(b)));
+    assert.ok(blocked.blockers.some((b) => /below its net delivered quantity \(150 allocated after reversal, 160 delivered after returns\)/.test(b)));
 });

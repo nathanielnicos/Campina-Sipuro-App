@@ -10,7 +10,7 @@
  * Langkah:
  *  1. Edit qty manual (riwayat tanpa upload dan bukan hasil rebalance) dibatalkan dengan record lawan, mis. 500 -> 400
  *     dibatalkan 400 -> 500. Pembatalan harus muat dalam produksi bersih lot/batch dan tidak boleh membuat total lot di
- *     bawah qty terkirim; bila tidak, proses diblokir dengan alasan yang jelas.
+ *     bawah qty terkirim bersih (terkirim - retur); bila tidak, proses diblokir dengan alasan yang jelas.
  *  2. Alokasi yang bisa digeser (status Open/Closed pada item PO yang aktif) dihitung ulang dari nol memakai kalkulator
  *     alokasi upload (aturan yang sama: lot berurut tanggal selesai, FIFO PO, kode lama didahulukan, filter tanggal PO).
  *     Alokasi Force Closed/Canceled dan alokasi pada item PO yang tidak aktif tidak disentuh, qty-nya tetap
@@ -52,7 +52,7 @@ const num = (v) => Number(v) || 0;
  * @param {Map} input.netByLotBatch lotBatchKey -> produksi bersih (lot, batch)
  * @param {Map} input.netByLot lot id -> produksi bersih lot
  * @param {Map} input.firstCompleted lotBatchKey -> tanggal selesai pertama (urutan FIFO lot)
- * @param {Map} input.lotDelivered stockKey(kode kanonik keluarga, nomor lot) -> qty terkirim (stok dipooling per keluarga produk)
+ * @param {Map} input.lotDelivered stockKey(kode kanonik keluarga, nomor lot) -> qty terkirim BERSIH (terkirim - retur; stok dipooling per keluarga produk)
  * @param {object} input.stockCodes penentu kode kanonik keluarga (stockFamilyKey); default: kode apa adanya
  */
 const calculateRebalance = (input) => {
@@ -119,7 +119,7 @@ const calculateRebalance = (input) => {
         const pooledTotal = scoped.filter((a) => sameNumberLotIds.has(a.lot_id)).reduce((s, a) => s + qtyAfter(a), 0);
         const code = (productById.get(Number(lot.id_product)) || {}).product_code;
         const delivered = num(lotDelivered.get(stockKey(stockCodes.forProductCode(code), lot.lot_number)));
-        if (pooledTotal < delivered) blockers.push(`Reversal would put lot ${lot.lot_number} below its delivered quantity (${pooledTotal} allocated after reversal, ${delivered} delivered).`);
+        if (pooledTotal < delivered) blockers.push(`Reversal would put lot ${lot.lot_number} below its net delivered quantity (${pooledTotal} allocated after reversal, ${delivered} delivered after returns).`);
     });
 
     // ---------- 2. Susun ulang dengan kalkulator alokasi upload ----------

@@ -7,7 +7,7 @@ const path = require('path');
 
 const statusCalls = [];
 let syncedBatchIds = [];
-let balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0 };
+let balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0, netDelivered: 0 };
 const originalLoad = Module._load;
 Module._load = function patched(request) {
     if (request.endsWith('/config/db')) return { sipuroDb: null };
@@ -211,7 +211,7 @@ test('formatThousand: pemisah ribuan gaya Indonesia', () => {
 });
 
 test('kurangi qty di bawah qty terkirim ditolak 409 dengan batas minimum; tidak ada tulis', async () => {
-    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 50 }; // alokasi lain 40, ini 30
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 50, netDelivered: 50 }; // alokasi lain 40, ini 30
     const c = makeConn();
     await assert.rejects(
         svc.adjustAllocationQty(c, { ...ARGS, newQty: 5 }),
@@ -220,11 +220,17 @@ test('kurangi qty di bawah qty terkirim ditolak 409 dengan batas minimum; tidak 
     assert.equal(find(c, /^UPDATE/).length, 0);
     assert.equal(find(c, /po_lot_allocation_logs/).length, 0);
     await assert.doesNotReject(svc.adjustAllocationQty(makeConn(), { ...ARGS, newQty: 10 })); // 40 + 10 = 50 = terkirim
-    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0 };
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0, netDelivered: 0 };
 });
 
 test('menambah qty tidak memeriksa qty terkirim', async () => {
-    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 9999 };
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 9999, netDelivered: 9999 };
     await assert.doesNotReject(svc.adjustAllocationQty(makeConn(), { ...ARGS, newQty: 40 }));
-    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0 };
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0, netDelivered: 0 };
+});
+
+test('retur membuka batas: terkirim bruto 100 tetapi bersih 0 setelah retur -> alokasi boleh diturunkan', async () => {
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 100, returned: 100, netDelivered: 0 };
+    await assert.doesNotReject(svc.adjustAllocationQty(makeConn(), { ...ARGS, newQty: 5 }));
+    balance = { itemCode: 'FG-X', lotNumber: 'L-1', allocated: 70, delivered: 0, netDelivered: 0 };
 });
