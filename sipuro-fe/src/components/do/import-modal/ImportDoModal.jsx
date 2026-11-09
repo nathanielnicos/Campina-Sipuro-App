@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ImportDoSummaryCards from './ImportDoSummaryCards';
 import ImportDoValidDataTab from './ImportDoValidDataTab';
 import ImportDoRawDataTab from './ImportDoRawDataTab';
+import UploadSkippedNotice from '../../upload/UploadSkippedNotice';
 
 const TAB_CONFIGS = {
     new: {
@@ -106,6 +107,11 @@ const ImportDoModal = ({
                             ⚠️ {parsedData.warningMessage || 'This file has already been uploaded previously. Saving is disabled.'}
                         </div>
                     )}
+
+                    <UploadSkippedNotice
+                        skippedRowCount={parsedData.skippedRowCount}
+                        skippedTransTypes={parsedData.skippedTransTypes}
+                    />
 
                     <div style={{
                         backgroundColor: currentConfig.alertBg, color: currentConfig.alertColor,

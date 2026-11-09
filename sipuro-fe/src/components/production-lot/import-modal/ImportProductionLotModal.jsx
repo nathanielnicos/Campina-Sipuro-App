@@ -2,6 +2,7 @@ import { useState } from 'react';
 import SummaryCards from './SummaryCards';
 import ValidDataTab from './ValidDataTab';
 import RawDataTab from './RawDataTab';
+import UploadSkippedNotice from '../../upload/UploadSkippedNotice';
 
 const ImportProductionLotModal = ({
     show,
@@ -156,6 +157,11 @@ const ImportProductionLotModal = ({
                             ⚠️ {parsedData.warningMessage || 'This file has already been uploaded previously. Saving is disabled.'}
                         </div>
                     )}
+
+                    <UploadSkippedNotice
+                        skippedRowCount={parsedData.skippedRowCount}
+                        skippedTransTypes={parsedData.skippedTransTypes}
+                    />
 
                     <div style={{
                         backgroundColor: currentConfig.alertBg,

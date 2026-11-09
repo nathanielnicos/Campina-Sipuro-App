@@ -13,6 +13,7 @@ const { MAX_UPLOAD_ROWS } = require('../../helpers/uploadConfig');
 const { readUploadSheet, parseExcelDateTime, parseQuantity } = require('../../helpers/excelUploadReader');
 const { TRANS_TYPE, COLUMN } = require('./deliveryOrderRules');
 const { DIRECTION } = require('../upload-trans-type/uploadTransTypeRules');
+const { createSkippedRowTracker } = require('../upload-trans-type/uploadSkippedRows');
 
 const text = (value) => (value === undefined || value === null ? '' : String(value).trim());
 
@@ -24,10 +25,15 @@ const parseDeliveryOrderExcel = (fileBuffer, findRule) => {
     const { fileHash, processTimestamp, rows } = readUploadSheet(fileBuffer);
 
     const rawRows = [];
+    const skipped = createSkippedRowTracker();
 
     for (const { cells, excelRowNumber } of rows) {
         const rule = findRule(cells[COLUMN.TRANS_TYPE]);
-        if (!rule) continue;
+        if (!rule) {
+            // Dilaporkan di preview, bukan dibuang diam-diam
+            skipped.add(cells[COLUMN.TRANS_TYPE], excelRowNumber);
+            continue;
+        }
 
         // Arah OUT = pengiriman (Sales order issue, Qty Out / T); IN = retur (RMA Receipt, Qty In / Q).
         // Nilai transType disimpan memakai nama baku di TRANS_TYPE. Tanda qty dipertahankan.
@@ -72,7 +78,7 @@ const parseDeliveryOrderExcel = (fileBuffer, findRule) => {
         );
     }
 
-    return { processTimestamp, fileHash, rawRows };
+    return { processTimestamp, fileHash, rawRows, ...skipped.summary() };
 };
 
 module.exports = { parseDeliveryOrderExcel };

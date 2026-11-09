@@ -60,3 +60,30 @@ test('parser tidak menolak qty desimal (keputusan ada di kalkulator) dan membawa
     assert.equal(out.rawRows[2].rawQtyText, 'abc');
     assert.equal(out.rawRows[2].transType, TRANS_TYPE.RETURN);
 });
+
+test('Trans Type tidak dikenali tidak dibuang diam-diam: dilaporkan per jenis dengan nomor baris Excel', () => {
+    const unknown = (type) => { const r = dataRow(TRANS_TYPE.COMPLETION, 'P1', 5); r[1] = type; return r; };
+    // nomor baris Excel: 7 = dikenali, 8 dan 10 = "Foo Bar" (huruf/spasi berbeda), 9 = "Baz"
+    sheet = makeSheet([
+        dataRow(TRANS_TYPE.COMPLETION, 'P1', 10),
+        unknown('Foo Bar'),
+        unknown('Baz'),
+        unknown('  foo   BAR '),
+        [], // baris kosong bukan baris data
+        (() => { const r = []; r[0] = 'SubTotal'; return r; })() // tanpa Trans Type: bukan baris data
+    ]);
+    const out = parseProductionExcel(Buffer.from('x'), findLotRule);
+    assert.equal(out.rawRows.length, 1);
+    assert.equal(out.skippedRowCount, 3);
+    assert.deepEqual(out.skippedTransTypes, [
+        { transType: 'Foo Bar', rowCount: 2, sampleRows: [8, 10] },
+        { transType: 'Baz', rowCount: 1, sampleRows: [9] }
+    ]);
+});
+
+test('semua baris dikenali: tidak ada baris dilewati', () => {
+    sheet = makeSheet([dataRow(TRANS_TYPE.COMPLETION, 'P1', 10)]);
+    const out = parseProductionExcel(Buffer.from('x'), findLotRule);
+    assert.equal(out.skippedRowCount, 0);
+    assert.deepEqual(out.skippedTransTypes, []);
+});

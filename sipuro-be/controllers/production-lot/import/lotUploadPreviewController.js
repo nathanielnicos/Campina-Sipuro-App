@@ -15,7 +15,7 @@ exports.previewExcelUpload = async (req, res) => {
             throw new BusinessError('Excel file is required.', 400);
         }
 
-        const { processTimestamp, fileHash, rawRows } = parseProductionExcel(req.file.buffer, await loadRuleFinder(db, SCOPE.LOT));
+        const { processTimestamp, fileHash, rawRows, skippedRowCount = 0, skippedTransTypes = [] } = parseProductionExcel(req.file.buffer, await loadRuleFinder(db, SCOPE.LOT));
 
         // Aturan file duplikat: hash ATAU process timestamp sama (mengacu pada tabel log lot baru)
         const [existingLogs] = await db.query(
@@ -45,6 +45,9 @@ exports.previewExcelUpload = async (req, res) => {
                 warningMessage: isAlreadyUploaded ? 'This file or timestamp has been uploaded previously.' : null,
                 // Dikirim kembali saat commit; server menolak jika hasil hitung ulang berbeda
                 fingerprint: computeAllocationFingerprint(calculationResult),
+                // Baris Excel yang dilewati karena Trans Type tidak dikenali (tidak ikut dihitung)
+                skippedRowCount,
+                skippedTransTypes,
                 ...calculationResult
             }
         });

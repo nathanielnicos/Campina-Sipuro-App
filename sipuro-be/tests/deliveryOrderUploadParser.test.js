@@ -99,3 +99,17 @@ test('melebihi batas baris ditolak 422', () => {
     sheet = makeSheet(Array.from({ length: MAX_UPLOAD_ROWS + 1 }, () => line({ type: 'Sales order issue', qtyOut: 1 })));
     assert.throws(() => parseDeliveryOrderExcel(Buffer.from('x'), findDoRule), (e) => e.status === 422);
 });
+
+test('Trans Type tidak dikenali dilaporkan (bukan dibuang diam-diam); baris tanpa Trans Type diabaikan', () => {
+    sheet = makeSheet([
+        line({ type: 'Sales order issue', qtyOut: 5 }),
+        line({ type: 'WIP Completion', qtyIn: 5 }),
+        line({ type: 'wip  completion', qtyIn: 5 }),
+        line({ type: '', qtyIn: 5 }),
+        []
+    ]);
+    const out = parseDeliveryOrderExcel(Buffer.from('x'), findDoRule);
+    assert.equal(out.rawRows.length, 1);
+    assert.equal(out.skippedRowCount, 2);
+    assert.deepEqual(out.skippedTransTypes, [{ transType: 'WIP Completion', rowCount: 2, sampleRows: [8, 9] }]);
+});

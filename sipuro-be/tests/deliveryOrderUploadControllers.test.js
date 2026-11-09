@@ -188,6 +188,20 @@ test('preview: mengembalikan hasil hitung + fingerprint; file duplikat hanya mem
     assert.ok(events.every((e) => !/INSERT|UPDATE|DELETE/.test(e[1] || '')));
 });
 
+test('preview: baris yang dilewati karena Trans Type tidak dikenali diteruskan ke respons (default kosong)', async () => {
+    let res = makeRes();
+    await previewDeliveryOrderUpload(makeReq(), res);
+    assert.equal(res.body.data.skippedRowCount, 0);
+    assert.deepEqual(res.body.data.skippedTransTypes, []);
+
+    const skipped = [{ transType: 'Foo', rowCount: 2, sampleRows: [7, 8] }];
+    parseImpl = () => ({ processTimestamp: 'TS', fileHash: 'HASH', rawRows: [], skippedRowCount: 2, skippedTransTypes: skipped });
+    res = makeRes();
+    await previewDeliveryOrderUpload(makeReq(), res);
+    assert.equal(res.body.data.skippedRowCount, 2);
+    assert.deepEqual(res.body.data.skippedTransTypes, skipped);
+});
+
 test('preview: tanpa file -> 400; error parser BusinessError diteruskan; error sistem -> 500 generik', async () => {
     let res = makeRes();
     await previewDeliveryOrderUpload(makeReq({ file: undefined }), res);

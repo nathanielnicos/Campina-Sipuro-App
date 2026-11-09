@@ -3,6 +3,7 @@ const { BusinessError } = require('../../helpers/businessError');
 const { MAX_UPLOAD_ROWS } = require('../../helpers/uploadConfig');
 const { readUploadSheet, parseExcelDateTime, parseDateOnly, parseQuantity } = require('../../helpers/excelUploadReader');
 const { MATCH_BY } = require('../upload-trans-type/uploadTransTypeRules');
+const { createSkippedRowTracker } = require('../upload-trans-type/uploadSkippedRows');
 
 /**
  * @param {Buffer} fileBuffer
@@ -12,11 +13,14 @@ const parseProductionExcel = (fileBuffer, findRule) => {
     const { fileHash, processTimestamp, rows } = readUploadSheet(fileBuffer);
 
     const rawRows = [];
+    const skipped = createSkippedRowTracker();
 
     for (const { cells: row, excelRowNumber } of rows) {
         // Jenis transaksi dikenali lewat daftar aktif di database (tidak peka huruf besar/kecil)
         const rule = findRule(row[1]);
         if (!rule) {
+            // Tidak dibuang diam-diam: dilaporkan di preview agar pengguna tahu jenis mana yang belum terdaftar
+            skipped.add(row[1], excelRowNumber);
             continue;
         }
 
@@ -94,7 +98,8 @@ const parseProductionExcel = (fileBuffer, findRule) => {
     return {
         processTimestamp,
         fileHash,
-        rawRows
+        rawRows,
+        ...skipped.summary()
     };
 };
 
