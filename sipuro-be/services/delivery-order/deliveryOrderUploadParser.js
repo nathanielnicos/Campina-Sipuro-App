@@ -25,12 +25,12 @@ const parseDeliveryOrderExcel = (fileBuffer, findRule) => {
     const { fileHash, processTimestamp, rows } = readUploadSheet(fileBuffer);
 
     const rawRows = [];
-    const skipped = createSkippedRowTracker();
+    const skipped = createSkippedRowTracker([TRANS_TYPE.ISSUE, TRANS_TYPE.RETURN]);
 
     for (const { cells, excelRowNumber } of rows) {
         const rule = findRule(cells[COLUMN.TRANS_TYPE]);
         if (!rule) {
-            // Dilaporkan di preview, bukan dibuang diam-diam
+            // Jenis wajib DO (Sales Order Issue, RMA Receipt) yang nonaktif dilaporkan di preview; jenis lain dilewati tanpa peringatan
             skipped.add(cells[COLUMN.TRANS_TYPE], excelRowNumber);
             continue;
         }

@@ -5,6 +5,9 @@ const { readUploadSheet, parseExcelDateTime, parseDateOnly, parseQuantity } = re
 const { MATCH_BY } = require('../upload-trans-type/uploadTransTypeRules');
 const { createSkippedRowTracker } = require('../upload-trans-type/uploadSkippedRows');
 
+// Jenis wajib upload produksi (tidak bisa ditambah manual). Jenis lain, termasuk jenis milik upload DO, dilewati tanpa peringatan.
+const PRODUCTION_TRANS_TYPES = ['WIP Completion', 'WIP Completion Return'];
+
 /**
  * @param {Buffer} fileBuffer
  * @param {(rawText: string) => object|undefined} findRule pencari aturan jenis transaksi (scope LOT, lihat uploadTransTypeLoader)
@@ -13,13 +16,13 @@ const parseProductionExcel = (fileBuffer, findRule) => {
     const { fileHash, processTimestamp, rows } = readUploadSheet(fileBuffer);
 
     const rawRows = [];
-    const skipped = createSkippedRowTracker();
+    const skipped = createSkippedRowTracker(PRODUCTION_TRANS_TYPES);
 
     for (const { cells: row, excelRowNumber } of rows) {
         // Jenis transaksi dikenali lewat daftar aktif di database (tidak peka huruf besar/kecil)
         const rule = findRule(row[1]);
         if (!rule) {
-            // Tidak dibuang diam-diam: dilaporkan di preview agar pengguna tahu jenis mana yang belum terdaftar
+            // Jenis wajib yang nonaktif/tidak terdaftar dilaporkan di preview; jenis lain dilewati tanpa peringatan
             skipped.add(row[1], excelRowNumber);
             continue;
         }

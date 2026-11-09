@@ -100,16 +100,20 @@ test('melebihi batas baris ditolak 422', () => {
     assert.throws(() => parseDeliveryOrderExcel(Buffer.from('x'), findDoRule), (e) => e.status === 422);
 });
 
-test('Trans Type tidak dikenali dilaporkan (bukan dibuang diam-diam); baris tanpa Trans Type diabaikan', () => {
+test('jenis wajib DO yang nonaktif dilaporkan; jenis lain (termasuk jenis produksi) diabaikan tanpa peringatan', () => {
+    const { buildRuleFinder } = require('../services/upload-trans-type/uploadTransTypeRules');
+    const onlyReturn = buildRuleFinder(require('./fixtures/transTypeRules').DO_ROWS.filter((r) => r.trans_type === 'RMA Receipt').map(require('../services/upload-trans-type/uploadTransTypeRules').rowToRule));
     sheet = makeSheet([
-        line({ type: 'Sales order issue', qtyOut: 5 }),
+        line({ type: 'RMA Receipt', qtyIn: 5 }),
+        line({ type: 'Sales Order Issue', qtyOut: 5 }),
+        line({ type: 'sales  order issue', qtyOut: 5 }),
         line({ type: 'WIP Completion', qtyIn: 5 }),
-        line({ type: 'wip  completion', qtyIn: 5 }),
+        line({ type: 'Foo', qtyIn: 5 }),
         line({ type: '', qtyIn: 5 }),
         []
     ]);
-    const out = parseDeliveryOrderExcel(Buffer.from('x'), findDoRule);
+    const out = parseDeliveryOrderExcel(Buffer.from('x'), onlyReturn);
     assert.equal(out.rawRows.length, 1);
     assert.equal(out.skippedRowCount, 2);
-    assert.deepEqual(out.skippedTransTypes, [{ transType: 'WIP Completion', rowCount: 2, sampleRows: [8, 9] }]);
+    assert.deepEqual(out.skippedTransTypes, [{ transType: 'Sales Order Issue', rowCount: 2, sampleRows: [8, 9] }]);
 });

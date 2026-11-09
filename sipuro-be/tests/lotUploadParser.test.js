@@ -61,23 +61,27 @@ test('parser tidak menolak qty desimal (keputusan ada di kalkulator) dan membawa
     assert.equal(out.rawRows[2].transType, TRANS_TYPE.RETURN);
 });
 
-test('Trans Type tidak dikenali tidak dibuang diam-diam: dilaporkan per jenis dengan nomor baris Excel', () => {
-    const unknown = (type) => { const r = dataRow(TRANS_TYPE.COMPLETION, 'P1', 5); r[1] = type; return r; };
-    // nomor baris Excel: 7 = dikenali, 8 dan 10 = "Foo Bar" (huruf/spasi berbeda), 9 = "Baz"
+test('jenis wajib produksi yang nonaktif dilaporkan; jenis lain (termasuk jenis DO dan salah ketik) diabaikan tanpa peringatan', () => {
+    const withType = (type) => { const r = dataRow(TRANS_TYPE.COMPLETION, 'P1', 5); r[1] = type; return r; };
+    // tanpa aturan WIP Completion / WIP Completion Return (nonaktif); nomor baris Excel: 7 = Good Issue (dikenali)
+    const { buildRuleFinder } = require('../services/upload-trans-type/uploadTransTypeRules');
+    const onlyIssue = buildRuleFinder(require('./fixtures/transTypeRules').lotRules.filter((r) => r.label === 'WIP Issue'));
     sheet = makeSheet([
-        dataRow(TRANS_TYPE.COMPLETION, 'P1', 10),
-        unknown('Foo Bar'),
-        unknown('Baz'),
-        unknown('  foo   BAR '),
-        [], // baris kosong bukan baris data
-        (() => { const r = []; r[0] = 'SubTotal'; return r; })() // tanpa Trans Type: bukan baris data
+        withType('WIP Issue'),
+        withType('WIP Completion'),
+        withType('Sales Order Issue'),
+        withType('Foo Bar'),
+        withType('  wip   COMPLETION '),
+        withType('WIP Completion Return'),
+        [],
+        (() => { const r = []; r[0] = 'SubTotal'; return r; })()
     ]);
-    const out = parseProductionExcel(Buffer.from('x'), findLotRule);
+    const out = parseProductionExcel(Buffer.from('x'), onlyIssue);
     assert.equal(out.rawRows.length, 1);
     assert.equal(out.skippedRowCount, 3);
     assert.deepEqual(out.skippedTransTypes, [
-        { transType: 'Foo Bar', rowCount: 2, sampleRows: [8, 10] },
-        { transType: 'Baz', rowCount: 1, sampleRows: [9] }
+        { transType: 'WIP Completion', rowCount: 2, sampleRows: [8, 11] },
+        { transType: 'WIP Completion Return', rowCount: 1, sampleRows: [12] }
     ]);
 });
 
