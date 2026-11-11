@@ -6,6 +6,8 @@
  * Sheet "Returns"   : satu baris per baris retur.
  * Sheet "Lot Balance": satu baris per (kode produk, lot) dengan nilai tingkat lot (teralokasi, terkirim, diretur, sisa kuota).
  * Sisa kuota kirim = teralokasi - terkirim bersih (terkirim - retur): retur membuka kuota kirim lagi.
+ * Dua kolom terakhir: Lot Qty (produksi bersih lot dari upload) dan Stock Balance (Lot Qty - terkirim bersih),
+ * sama dengan Qty Lot dan Sisa di tampilan Lot Number.
  */
 
 const XLSX = require('xlsx');
@@ -40,7 +42,9 @@ const LOT_BALANCE_HEADERS = [
     'Allocated (Pcs)',
     'Delivered (Pcs)',
     'Returned (Pcs)',
-    'Remaining Quota (Pcs)'
+    'Remaining Quota (Pcs)',
+    'Lot Qty (Pcs)',
+    'Stock Balance (Pcs)'
 ];
 
 const blankIfEmpty = (value) => (value === null || value === undefined || value === '' ? null : value);
@@ -79,6 +83,7 @@ const buildLotBalanceRows = (lotBalance) => [
         const allocated = Number(r.allocated_qty) || 0;
         const delivered = Number(r.delivered_qty) || 0;
         const returned = Number(r.returned_qty) || 0;
+        const lotQty = Number(r.lot_qty) || 0;
         return [
             blankIfEmpty(r.product_code),
             blankIfEmpty(r.product_name),
@@ -86,7 +91,9 @@ const buildLotBalanceRows = (lotBalance) => [
             allocated,
             delivered,
             returned,
-            Math.max(0, allocated - (delivered - returned))
+            Math.max(0, allocated - (delivered - returned)),
+            lotQty,
+            lotQty - (delivered - returned)
         ];
     })
 ];
@@ -102,7 +109,7 @@ const buildExportWorkbookBuffer = ({ deliveries, returns, lotBalance }) => {
     const workbook = XLSX.utils.book_new();
     addSheet(workbook, 'Deliveries', buildDeliveryRows(deliveries), [22, 22, 18, 45, 20, 22, 18, 14, 14]);
     addSheet(workbook, 'Returns', buildReturnRows(returns), [22, 22, 18, 45, 20, 14, 14]);
-    addSheet(workbook, 'Lot Balance', buildLotBalanceRows(lotBalance), [18, 45, 20, 18, 18, 18, 22]);
+    addSheet(workbook, 'Lot Balance', buildLotBalanceRows(lotBalance), [18, 45, 20, 18, 18, 18, 22, 16, 20]);
     return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 };
 

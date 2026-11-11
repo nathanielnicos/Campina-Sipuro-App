@@ -8,6 +8,8 @@
  *  - lotBalance : satu baris per (keluarga produk, nomor lot) yang muncul di dua kumpulan di atas.
  *                 Nilai tingkat lot (teralokasi, terkirim, diretur, sisa kuota) hanya ada di sini dan dihitung dari
  *                 SELURUH data lot itu (bukan hanya rentang tanggal), memakai rumus bersama fetchLotStock.
+ *                 lot_qty = produksi bersih lot dari upload (IN - OUT, semua status), sama dengan kolom Qty Lot di
+ *                 tampilan Lot Number.
  * Tanggal dikirim sebagai teks murni dari SQL (tanpa pergeseran zona waktu).
  */
 
@@ -36,6 +38,29 @@ const countRows = async (db, deliveries, returns) => {
     return Number(deliveryRow?.total || 0) + Number(returnRow?.total || 0);
 };
 
+// Produksi bersih (IN - OUT, semua status) per (kode kanonik keluarga, lot) dari upload produksi
+const fetchLotQty = async (db, lotNumbers, stockCodes) => {
+    const lotQty = new Map();
+    for (const part of chunk(lotNumbers, 500)) {
+        const [rows] = await db.query(
+            `SELECT u.lot_number, u.item_code,
+                    SUM(CASE t.direction WHEN 'IN' THEN u.qty_pac ELSE -u.qty_pac END) AS net_all
+             FROM production_lot_upload_details u
+             JOIN (SELECT trans_type, MIN(direction) AS direction FROM upload_trans_types
+                   WHERE scope = 'LOT' AND is_active = 1 GROUP BY trans_type) t
+               ON t.trans_type COLLATE utf8mb4_unicode_ci = u.trans_type COLLATE utf8mb4_unicode_ci
+             WHERE u.lot_number IN (?)
+             GROUP BY u.lot_number, u.item_code`,
+            [part]
+        );
+        rows.forEach((row) => {
+            const key = stockKey(stockCodes.forProductCode(row.item_code), row.lot_number);
+            lotQty.set(key, (lotQty.get(key) || 0) + (Number(row.net_all) || 0));
+        });
+    }
+    return lotQty;
+};
+
 // Saldo per (kode kanonik keluarga, lot) dari semua pasangan (kode produk, lot) pada baris ekspor
 const buildLotBalance = async (db, deliveryRows, returnRows) => {
     const pairs = new Map();
@@ -53,6 +78,7 @@ const buildLotBalance = async (db, deliveryRows, returnRows) => {
 
     const lotNumbers = [...new Set([...keys.values()].map((k) => k.lot))];
     const { allocated, delivered, returned } = await fetchLotStock(db, lotNumbers, { stockCodes });
+    const lotQty = await fetchLotQty(db, lotNumbers, stockCodes);
 
     const names = new Map();
     const codes = [...new Set([...keys.values()].map((k) => k.code))];
@@ -68,7 +94,8 @@ const buildLotBalance = async (db, deliveryRows, returnRows) => {
             lot_number: lot,
             allocated_qty: Number(allocated.get(key)) || 0,
             delivered_qty: Number(delivered.get(key)) || 0,
-            returned_qty: Number(returned.get(key)) || 0
+            returned_qty: Number(returned.get(key)) || 0,
+            lot_qty: Number(lotQty.get(key)) || 0
         }))
         .sort((a, b) => a.product_code.localeCompare(b.product_code) || a.lot_number.localeCompare(b.lot_number));
 };

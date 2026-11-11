@@ -95,12 +95,13 @@ const ledger = (type, lot, id, number, at, pcs, ctn, extra = {}) => ({
     entry_type: type, lot_number: lot, id_product: 1, product_code: 'A', product_name: 'Prod A', pcs_per_ctn: 50,
     ref_id: id, ref_number: number, entry_datetime: at, qty_pcs: String(pcs), qty_ctn: String(ctn), ...extra
 });
-const lotInfo = (lot, qty, allocated) => ({
-    lot_number: lot, id_product: 1, actual_completed_datetime: '2025-11-01 08:00:00', expired_date: '2027-11-01',
-    qty_lot: String(qty), allocated_qty: String(allocated)
+const lotInfo = (lot, qty, allocated, extra = {}) => ({
+    lot_number: lot, id_product: 1, product_code: 'A', product_name: 'Prod A', pcs_per_ctn: 50,
+    actual_completed_datetime: '2025-11-01 08:00:00', expired_date: '2027-11-01',
+    qty_lot: String(qty), allocated_qty: String(allocated), ...extra
 });
 
-test('shapeByLot: saldo berjalan = Qty Lot - DO + retur, DO negatif dan retur positif', () => {
+test('shapeByLot: baris pembuka Qty Lot, lalu DO negatif dan retur positif dengan saldo berjalan', () => {
     const rows = shapeByLot(
         [
             ledger('RETURN', 'L1', 7, 'RT1', '2025-12-03 09:00:00', 44, 0.88),
@@ -111,33 +112,39 @@ test('shapeByLot: saldo berjalan = Qty Lot - DO + retur, DO negatif dan retur po
         ['L1']
     );
 
-    assert.deepEqual(rows.map((r) => r.entry_number), ['DO1', 'DO2', 'RT1']);
-    assert.deepEqual(rows.map((r) => r.signed_qty_pcs), [-300, -100, 44]);
-    assert.deepEqual(rows.map((r) => r.signed_qty_ctn), [-6, -2, 0.88]);
-    assert.deepEqual(rows.map((r) => r.balance_pcs), [700, 600, 644]);
+    assert.deepEqual(rows.map((r) => r.entry_type), ['LOT', 'DO', 'DO', 'RETURN']);
+    assert.deepEqual(rows.map((r) => r.entry_number), [null, 'DO1', 'DO2', 'RT1']);
+    assert.deepEqual(rows.map((r) => r.signed_qty_pcs), [1000, -300, -100, 44]);
+    assert.deepEqual(rows.map((r) => r.signed_qty_ctn), [20, -6, -2, 0.88]);
+    assert.deepEqual(rows.map((r) => r.balance_pcs), [1000, 700, 600, 644]);
     assert.equal(rows[0].qty_lot, 1000);
     assert.equal(rows[0].qty_lot_ctn, 20);
-    assert.equal(rows[0].balance_ctn, 14);
     assert.equal(rows[0].is_unallocated, false);
     assert.equal(rows[0].actual_completed_datetime, '2025-11-01 08:00:00');
     assert.equal(rows[0].expired_date, '2027-11-01');
+    // Sisa lot (saldo akhir) sama di semua baris kelompok; saldo baris terakhir = Sisa lot
+    assert.ok(rows.every((r) => r.lot_balance_pcs === 644));
+    assert.equal(rows[3].balance_pcs, rows[3].lot_balance_pcs);
+    assert.equal(rows[0].lot_balance_ctn, 12.88);
 });
 
-test('shapeByLot: field lama tetap ada untuk DO dan null untuk retur', () => {
+test('shapeByLot: field lama tetap ada untuk DO; baris pembuka dan retur tidak punya field DO', () => {
     const rows = shapeByLot(
         [ledger('DO', 'L1', 11, 'DO1', '2025-12-01 08:00:00', 10, 0.2), ledger('RETURN', 'L1', 7, 'RT1', '2025-12-02 08:00:00', 4, 0.08)],
         [lotInfo('L1', 100, 100)], ['L1']
     );
-    assert.equal(rows[0].delivery_order_id, 11);
-    assert.equal(rows[0].do_number, 'DO1');
-    assert.equal(rows[0].do_datetime, '2025-12-01 08:00:00');
-    assert.equal(rows[0].qty_pcs, 10);
-    assert.equal(rows[0].entry_type, 'DO');
-    assert.equal(rows[1].delivery_order_id, null);
-    assert.equal(rows[1].do_number, null);
-    assert.equal(rows[1].do_datetime, null);
-    assert.equal(rows[1].entry_type, 'RETURN');
-    assert.equal(rows[1].qty_pcs, 4);
+    const [open, doRow, returnRow] = rows;
+    assert.equal(open.delivery_order_id, null);
+    assert.equal(open.do_number, null);
+    assert.equal(open.entry_id, null);
+    assert.equal(doRow.delivery_order_id, 11);
+    assert.equal(doRow.do_number, 'DO1');
+    assert.equal(doRow.do_datetime, '2025-12-01 08:00:00');
+    assert.equal(doRow.qty_pcs, 10);
+    assert.equal(returnRow.delivery_order_id, null);
+    assert.equal(returnRow.do_number, null);
+    assert.equal(returnRow.entry_type, 'RETURN');
+    assert.equal(returnRow.qty_pcs, 4);
 });
 
 test('shapeByLot: waktu sama -> DO dulu baru retur (saldo tidak sempat minus semu)', () => {
@@ -146,29 +153,42 @@ test('shapeByLot: waktu sama -> DO dulu baru retur (saldo tidak sempat minus sem
         [ledger('RETURN', 'L1', 1, 'RT1', at, 100, 2), ledger('DO', 'L1', 2, 'DO1', at, 100, 2)],
         [lotInfo('L1', 100, 100)], ['L1']
     );
-    assert.deepEqual(rows.map((r) => r.entry_type), ['DO', 'RETURN']);
-    assert.deepEqual(rows.map((r) => r.balance_pcs), [0, 100]);
+    assert.deepEqual(rows.map((r) => r.entry_type), ['LOT', 'DO', 'RETURN']);
+    assert.deepEqual(rows.map((r) => r.balance_pcs), [100, 0, 100]);
 });
 
-test('shapeByLot: lot tanpa alokasi (mis. rework) ditandai; lot tanpa data lot -> Qty Lot 0, tidak ditandai', () => {
-    const rework = shapeByLot([ledger('DO', 'L1', 1, 'DO1', '2025-12-01 08:00:00', 10, 0.2)], [lotInfo('L1', 1520, 0)], ['L1']);
+test('shapeByLot: lot tanpa DO tetap tampil (baris pembuka saja); lot tanpa alokasi (mis. rework) ditandai', () => {
+    const rework = shapeByLot([], [lotInfo('FM1', 1520, 0)], ['FM1']);
+    assert.equal(rework.length, 1);
+    assert.equal(rework[0].entry_type, 'LOT');
+    assert.equal(rework[0].qty_lot, 1520);
+    assert.equal(rework[0].balance_pcs, 1520);
+    assert.equal(rework[0].lot_balance_pcs, 1520);
     assert.equal(rework[0].is_unallocated, true);
-    assert.equal(rework[0].balance_pcs, 1510);
 
+    const normal = shapeByLot([], [lotInfo('L2', 500, 500)], ['L2']);
+    assert.equal(normal[0].is_unallocated, false);
+});
+
+test('shapeByLot: DO tanpa data lot -> Qty Lot 0, saldo minus, tidak ditandai', () => {
     const unknown = shapeByLot([ledger('DO', 'L9', 1, 'DO1', '2025-12-01 08:00:00', 10, 0.2)], [], ['L9']);
+    assert.deepEqual(unknown.map((r) => r.entry_type), ['LOT', 'DO']);
     assert.equal(unknown[0].qty_lot, 0);
     assert.equal(unknown[0].is_unallocated, false);
-    assert.equal(unknown[0].balance_pcs, -10);
+    assert.equal(unknown[1].balance_pcs, -10);
+    assert.equal(unknown[1].lot_balance_pcs, -10);
     assert.equal(unknown[0].actual_completed_datetime, null);
+    assert.equal(unknown[0].product_code, 'A'); // produk diambil dari transaksi
 });
 
-test('shapeByLot: DO dengan id produk lama tetap memakai data lot bila nomor lot hanya punya satu data lot', () => {
+test('shapeByLot: DO dengan id produk lama masuk ke lot yang sama (tidak membuat kelompok ganda)', () => {
     const rows = shapeByLot(
         [ledger('DO', 'L1', 1, 'DO1', '2025-12-01 08:00:00', 10, 0.2, { id_product: 99 })],
         [lotInfo('L1', 100, 100)], ['L1']
     );
+    assert.deepEqual(rows.map((r) => r.entry_type), ['LOT', 'DO']);
+    assert.deepEqual(rows.map((r) => r.balance_pcs), [100, 90]);
     assert.equal(rows[0].qty_lot, 100);
-    assert.equal(rows[0].balance_pcs, 90);
 });
 
 test('shapeByLot: urutan lot mengikuti halaman, produk tanpa pcs per carton -> carton 0', () => {
@@ -177,27 +197,49 @@ test('shapeByLot: urutan lot mengikuti halaman, produk tanpa pcs per carton -> c
             ledger('DO', 'L2', 1, 'DO1', '2025-12-01 08:00:00', 10, 0, { pcs_per_ctn: 0 }),
             ledger('DO', 'L1', 2, 'DO2', '2025-12-01 08:00:00', 10, 0.2)
         ],
-        [lotInfo('L1', 100, 100), lotInfo('L2', 100, 100)],
+        [lotInfo('L1', 100, 100), lotInfo('L2', 100, 100, { pcs_per_ctn: 0 })],
         ['L2', 'L1']
     );
-    assert.deepEqual(rows.map((r) => r.lot_number), ['L2', 'L1']);
+    assert.deepEqual(rows.map((r) => `${r.lot_number}:${r.entry_type}`), ['L2:LOT', 'L2:DO', 'L1:LOT', 'L1:DO']);
     assert.equal(rows[0].qty_lot_ctn, 0);
-    assert.equal(rows[0].balance_ctn, 0);
+    assert.equal(rows[1].balance_ctn, 0);
 });
 
-test('tampilan lot: induk nomor lot, lalu ledger DO + retur dan data lot untuk lot yang tampil (tanpa filter)', async () => {
+test('filter lot: dari tabel lots; pencarian mencakup lot, produk, nomor DO dan nomor retur; tanggal lewat DO / retur', () => {
+    const none = parseDeliveryOrderRequest({ displayMode: 'BY_LOT' });
+    assert.equal(none.whereSql, '1 = 1');
+    assert.deepEqual(none.params, []);
+
+    const req = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', search: 'FM1_', fromDoDate: '2025-12-01', toDoDate: '2025-12-31' });
+    assert.match(req.whereSql, /l\.lot_number LIKE \?/);
+    assert.match(req.whereSql, /p\.product_code LIKE \?/);
+    assert.match(req.whereSql, /dh\.do_number LIKE \?/);
+    assert.match(req.whereSql, /rx\.return_number LIKE \?/);
+    assert.match(req.whereSql, /dx\.do_datetime >= \?/);
+    assert.match(req.whereSql, /rx\.return_datetime <= \?/);
+    assert.equal(req.params.length, 5 + 4);
+    assert.deepEqual(req.params.slice(0, 5), Array(5).fill('%FM1\\_%'));
+    assert.deepEqual(req.params.slice(5), ['2025-12-01 00:00:00', '2025-12-31 23:59:59', '2025-12-01 00:00:00', '2025-12-31 23:59:59']);
+
+    const onlyFrom = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', fromDoDate: '2025-12-01' });
+    assert.equal(onlyFrom.params.length, 2);
+    assert.ok(!/do_datetime <=/.test(onlyFrom.whereSql));
+});
+
+test('tampilan lot: induk nomor lot dari tabel lots, lalu ledger DO + retur dan data lot (tanpa filter)', async () => {
     const db = fakeDb([
-        [{ total: 1 }],
-        [{ key_id: 'L1' }],
+        [{ total: 2 }],
+        [{ key_id: 'L1' }, { key_id: 'FM1' }],
         [ledger('DO', 'L1', 11, 'DO1', '2025-12-01 08:00:00', 300, 6), ledger('RETURN', 'L1', 7, 'RT1', '2025-12-03 09:00:00', 44, 0.88)],
-        [lotInfo('L1', 1000, 1000)]
+        [lotInfo('L1', 1000, 1000), lotInfo('FM1', 1520, 0)]
     ]);
     const request = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', search: 'DO1', fromDoDate: '2025-12-01' });
     const { data, totalItems } = await fetchDeliveryOrderPage(db, request);
 
-    assert.equal(totalItems, 1);
-    assert.match(db.log[0].sql, /COUNT\(DISTINCT dol\.lot_number\)/);
-    assert.match(db.log[0].sql, /d\.do_number LIKE \?/); // filter menentukan lot yang tampil
+    assert.equal(totalItems, 2);
+    assert.match(db.log[0].sql, /COUNT\(DISTINCT l\.lot_number\) AS total FROM lots l JOIN products p/);
+    assert.match(db.log[0].sql, /dh\.do_number LIKE \?/); // filter menentukan lot yang tampil
+    assert.match(db.log[1].sql, /SELECT l\.lot_number AS key_id FROM lots l/);
     assert.equal(db.log.length, 4);
 
     // ledger: DO dan retur, hanya difilter nomor lot (filter tanggal / pencarian tidak mempengaruhi saldo)
@@ -205,16 +247,18 @@ test('tampilan lot: induk nomor lot, lalu ledger DO + retur dan data lot untuk l
     assert.match(db.log[2].sql, /UNION ALL/);
     assert.match(db.log[2].sql, /r\.lot_number IN \(\?\)/);
     assert.ok(!/LIKE|do_datetime >=/.test(db.log[2].sql));
-    assert.deepEqual(db.log[2].params, [['L1'], ['L1']]);
+    assert.deepEqual(db.log[2].params, [['L1', 'FM1'], ['L1', 'FM1']]);
 
-    // data lot: produksi bersih dari upload (arah IN/OUT) dan alokasi selain Canceled
+    // data lot: produk, produksi bersih dari upload (arah IN/OUT) dan alokasi selain Canceled
     assert.match(db.log[3].sql, /FROM lots l/);
+    assert.match(db.log[3].sql, /p\.product_code, p\.product_name, p\.pcs_per_ctn/);
     assert.match(db.log[3].sql, /upload_trans_types/);
     assert.match(db.log[3].sql, /status <> 'Canceled'/);
-    assert.deepEqual(db.log[3].params, [['L1'], ['L1']]);
+    assert.deepEqual(db.log[3].params, [['L1', 'FM1'], ['L1', 'FM1']]);
 
-    assert.deepEqual(data.map((r) => r.balance_pcs), [700, 744]);
-    assert.deepEqual(data.map((r) => r.signed_qty_pcs), [-300, 44]);
+    assert.deepEqual(data.map((r) => `${r.lot_number}:${r.entry_type}`), ['L1:LOT', 'L1:DO', 'L1:RETURN', 'FM1:LOT']);
+    assert.deepEqual(data.map((r) => r.balance_pcs), [1000, 700, 744, 1520]);
+    assert.equal(data[3].is_unallocated, true);
 });
 
 test('tampilan retur memakai induk nomor retur', async () => {

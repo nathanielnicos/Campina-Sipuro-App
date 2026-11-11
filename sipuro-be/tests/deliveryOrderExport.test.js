@@ -16,7 +16,7 @@ const fakeXlsx = {
 };
 
 // Database tiruan: jawaban dipilih dari bentuk SQL-nya
-const state = { counts: [0, 0], deliveries: [], returns: [], mappings: [], products: [], stock: { allocated: [], delivered: [], returned: [] }, queries: [], dbError: null };
+const state = { counts: [0, 0], deliveries: [], returns: [], mappings: [], products: [], stock: { allocated: [], delivered: [], returned: [] }, lotQty: [], queries: [], dbError: null };
 const fakeDb = {
     query: async (sql, params) => {
         const text = sql.replace(/\s+/g, ' ').trim();
@@ -26,6 +26,7 @@ const fakeDb = {
         if (/^SELECT COUNT\(\*\) AS total FROM delivery_returns/.test(text)) return [[{ total: state.counts[1] }]];
         if (/^SELECT d\.do_number/.test(text)) return [state.deliveries];
         if (/^SELECT r\.return_number/.test(text)) return [state.returns];
+        if (/FROM production_lot_upload_details/.test(text)) return [state.lotQty];
         if (/FROM product_code_mappings/.test(text)) return [state.mappings];
         if (/^SELECT id_product, product_code FROM products/.test(text)) return [state.products];
         if (/^SELECT product_code, product_name FROM products/.test(text)) return [state.products.map((p) => ({ product_code: p.product_code, product_name: `Nama ${p.product_code}` }))];
@@ -52,7 +53,7 @@ const { exportDeliveryOrderExcel } = require(path.join('..', 'controllers/delive
 test.beforeEach(() => {
     state.counts = [0, 0]; state.deliveries = []; state.returns = []; state.mappings = [];
     state.products = [{ id_product: 1, product_code: 'P1' }, { id_product: 2, product_code: 'P2' }];
-    state.stock = { allocated: [], delivered: [], returned: [] }; state.queries = []; state.dbError = null;
+    state.stock = { allocated: [], delivered: [], returned: [] }; state.lotQty = []; state.queries = []; state.dbError = null;
 });
 
 const deliveryRow = (o = {}) => ({
@@ -102,6 +103,7 @@ test('query: pengiriman dikelompokkan per DO + item + lot, memakai filter dan pa
         delivered: [{ product_code: 'P1', lot_number: 'L1', total_qty: '60' }],
         returned: [{ product_code: 'P1', lot_number: 'L1', total_qty: '5' }]
     };
+    state.lotQty = [{ lot_number: 'L1', item_code: 'P1', net_all: '120' }];
     const filters = parseDeliveryOrderExportRequest({ search: 'DO1' });
     const data = await fetchExportData(fakeDb, filters);
 
@@ -115,7 +117,7 @@ test('query: pengiriman dikelompokkan per DO + item + lot, memakai filter dan pa
     assert.equal(data.deliveries.length, 1);
     assert.equal(data.returns.length, 1);
     assert.deepEqual(data.lotBalance, [{
-        product_code: 'P1', product_name: 'Nama P1', lot_number: 'L1', allocated_qty: 100, delivered_qty: 60, returned_qty: 5
+        product_code: 'P1', product_name: 'Nama P1', lot_number: 'L1', allocated_qty: 100, delivered_qty: 60, returned_qty: 5, lot_qty: 120
     }]);
 });
 
@@ -135,11 +137,33 @@ test('saldo lot: kode lama dan pengganti satu keluarga digabung menjadi satu bar
     assert.equal(data.lotBalance[0].delivered_qty, 100);
 });
 
+test('saldo lot: Lot Qty dari produksi bersih; kode lama dan pengganti digabung, query hanya untuk lot yang tampil', async () => {
+    state.counts = [2, 0];
+    state.deliveries = [deliveryRow({ product_code: 'P1' }), deliveryRow({ do_number: 'DO2', product_code: 'P2' })];
+    state.mappings = [{ id_product_old: 1, id_product_new: 2 }];
+    state.lotQty = [{ lot_number: 'L1', item_code: 'P1', net_all: '500' }, { lot_number: 'L1', item_code: 'P2', net_all: '1000' }];
+    const data = await fetchExportData(fakeDb, parseDeliveryOrderExportRequest({}));
+    assert.equal(data.lotBalance.length, 1);
+    assert.equal(data.lotBalance[0].lot_qty, 1500);
+
+    const q = state.queries.find((x) => /FROM production_lot_upload_details/.test(x.sql));
+    assert.match(q.sql, /upload_trans_types/);
+    assert.match(q.sql, /u\.lot_number IN \(\?\)/);
+    assert.deepEqual(q.params, [['L1']]);
+});
+
+test('saldo lot: lot tanpa data produksi -> Lot Qty 0', async () => {
+    state.counts = [1, 0];
+    state.deliveries = [deliveryRow()];
+    const data = await fetchExportData(fakeDb, parseDeliveryOrderExportRequest({}));
+    assert.equal(data.lotBalance[0].lot_qty, 0);
+});
+
 test('workbook: tiga sheet datar; sisa kuota = teralokasi - terkirim bersih (retur membukanya)', () => {
     const buffer = wb.buildExportWorkbookBuffer({
         deliveries: [deliveryRow()],
         returns: [returnRow()],
-        lotBalance: [{ product_code: 'P1', product_name: 'Produk 1', lot_number: 'L1', allocated_qty: 100, delivered_qty: 60, returned_qty: 5 }]
+        lotBalance: [{ product_code: 'P1', product_name: 'Produk 1', lot_number: 'L1', allocated_qty: 100, delivered_qty: 60, returned_qty: 5, lot_qty: 120 }]
     });
     const { sheets } = JSON.parse(buffer.toString());
     assert.deepEqual(sheets.map((s) => s.name), ['Deliveries', 'Returns', 'Lot Balance']);
@@ -153,7 +177,8 @@ test('workbook: tiga sheet datar; sisa kuota = teralokasi - terkirim bersih (ret
     assert.equal(delivery[6].z, 'yyyy-mm-dd'); // expired: hanya tanggal
     assert.equal(delivery[7], 30);
     assert.equal(delivery[8], 2.5);
-    assert.deepEqual(sheets[2].aoa[1].slice(3), [100, 60, 5, 45]);
+    assert.deepEqual(sheets[2].aoa[1].slice(3), [100, 60, 5, 45, 120, 65]);
+    assert.equal(sheets[2].filter.ref, 'A1:I2');
     assert.equal(sheets[0].filter.ref, 'A1:I2');
     // sheet pengiriman tidak membawa nilai tingkat lot
     assert.ok(!wb.DELIVERY_HEADERS.some((h) => /Allocated|Remaining|Delivered|Returned/.test(h)));
@@ -162,6 +187,17 @@ test('workbook: tiga sheet datar; sisa kuota = teralokasi - terkirim bersih (ret
 test('workbook: DO 100 lalu retur 100 pada alokasi 100 -> sisa kuota 100 lagi', () => {
     const rows = wb.buildLotBalanceRows([{ product_code: 'P1', product_name: 'Produk 1', lot_number: 'L1', allocated_qty: 100, delivered_qty: 100, returned_qty: 100 }]);
     assert.equal(rows[1][6], 100);
+});
+
+test('workbook: Stock Balance = Lot Qty - terkirim bersih; kolom lama tidak bergeser, Lot Qty kosong dianggap 0', () => {
+    const rows = wb.buildLotBalanceRows([
+        { product_code: 'P1', product_name: 'Produk 1', lot_number: 'L1', allocated_qty: 100, delivered_qty: 100, returned_qty: 44, lot_qty: 100 },
+        { product_code: 'P1', product_name: 'Produk 1', lot_number: 'L2', allocated_qty: 10, delivered_qty: 0, returned_qty: 0 }
+    ]);
+    assert.deepEqual(wb.LOT_BALANCE_HEADERS.slice(0, 7), ['Product Code', 'Product Name', 'Lot Number', 'Allocated (Pcs)', 'Delivered (Pcs)', 'Returned (Pcs)', 'Remaining Quota (Pcs)']);
+    assert.deepEqual(wb.LOT_BALANCE_HEADERS.slice(7), ['Lot Qty (Pcs)', 'Stock Balance (Pcs)']);
+    assert.deepEqual(rows[1].slice(3), [100, 100, 44, 44, 100, 44]);
+    assert.deepEqual(rows[2].slice(3), [10, 0, 0, 10, 0, 0]);
 });
 
 test('workbook: sisa kuota tidak negatif, sel kosong menjadi null, data kosong tetap punya header', () => {

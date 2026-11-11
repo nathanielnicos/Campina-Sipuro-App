@@ -1,13 +1,14 @@
 'use strict';
 
 /**
- * Query daftar Delivery Order untuk tiga tampilan.
+ * Query daftar Delivery Order untuk tiga tampilan (Ready to Ship ada di deliveryOrderReadyToShip.js bila terpasang).
  * Selalu dua langkah: (1) ambil satu halaman kunci induk yang unik (nomor DO / nomor lot / nomor retur),
  * (2) ambil seluruh barisnya. Dengan begitu pagination menghitung induk, bukan baris join.
  * Filter pencarian dan tanggal ikut dipasang di langkah 2, sehingga baris yang tampil sesuai filter.
  */
 
-const { DO_FROM_SQL, RETURN_FROM_SQL } = require('./deliveryOrderFilters');
+const { DO_FROM_SQL, RETURN_FROM_SQL, LOT_FROM_SQL } = require('./deliveryOrderFilters');
+const { fetchReadyToShipPage } = require('./deliveryOrderReadyToShip');
 
 const num = (value) => Number(value) || 0;
 
@@ -67,58 +68,102 @@ const ctnOf = (pcs, pcsPerCtn) => (num(pcsPerCtn) > 0 ? round2(pcs / num(pcsPerC
 const ENTRY_RANK = { DO: 0, RETURN: 1 };
 
 /**
- * Buku besar per lot (satu lot = satu produk): saldo awal = Qty Lot (produksi bersih dari upload),
- * lalu tiap DO mengurangi dan tiap retur menambah. Urutan: waktu, pada waktu sama DO dulu baru retur.
- * Satu baris keluaran = satu transaksi (DO atau retur) dengan saldo sesudahnya (balance_pcs).
- * Field lama (delivery_order_id, do_number, do_datetime, qty_pcs, qty_ctn) tetap ada; untuk baris retur
- * field DO bernilai null.
+ * Buku besar (kartu stok) per lot. Satu lot (per produk) = satu kelompok baris:
+ *  - baris 'LOT'    : baris pembuka, Qty Lot = produksi bersih dari upload (IN - OUT), saldo = Qty Lot;
+ *  - baris 'DO'     : mengurangi saldo (qty negatif);
+ *  - baris 'RETURN' : menambah saldo (qty positif).
+ * Urutan transaksi: waktu, pada waktu sama DO dulu baru retur. Lot tanpa transaksi hanya punya baris pembuka.
+ * balance_pcs = saldo sesudah baris itu; lot_balance_pcs = saldo akhir lot (Sisa lot), sama di semua baris kelompok.
+ * Field lama (delivery_order_id, do_number, do_datetime, qty_pcs, qty_ctn, qty_lot, ...) tetap ada; untuk baris
+ * pembuka dan retur field DO bernilai null.
  *
  * @param {Array} ledgerRows transaksi DO dan retur untuk lot yang tampil (hasil query ledger)
- * @param {Array} lotRows    data lot: tanggal selesai, exp, qty_lot, allocated_qty
+ * @param {Array} lotRows    data lot: produk, tanggal selesai, exp, qty_lot, allocated_qty
  * @param {Array} keys       urutan nomor lot pada halaman (menentukan urutan tampil)
  */
 const shapeByLot = (ledgerRows, lotRows = [], keys = null) => {
-    const lotInfo = new Map();
-    const lotsByNumber = new Map();
-    lotRows.forEach((row) => {
-        lotInfo.set(`${row.lot_number}|${row.id_product}`, row);
-        lotsByNumber.set(row.lot_number, [...(lotsByNumber.get(row.lot_number) || []), row]);
-    });
-    // Cadangan: DO lama bisa memakai id produk lama (kode diganti), sedangkan lot memakai id produk baru.
-    // Bila nomor lot hanya punya satu data lot, pakai itu.
-    const infoOf = (lot, idProduct) => {
-        const exact = lotInfo.get(`${lot}|${idProduct}`);
-        if (exact) return exact;
-        const sameLot = lotsByNumber.get(lot) || [];
-        return sameLot.length === 1 ? sameLot[0] : {};
-    };
-
     const groups = new Map();
+    const lotsByNumber = new Map();
+    const keyOf = (lot, idProduct) => `${lot}|${idProduct}`;
+
+    lotRows.forEach((info) => {
+        groups.set(keyOf(info.lot_number, info.id_product), {
+            lot_number: info.lot_number, id_product: info.id_product, info, entries: []
+        });
+        lotsByNumber.set(info.lot_number, [...(lotsByNumber.get(info.lot_number) || []), info]);
+    });
+
     ledgerRows.forEach((row) => {
-        const groupKey = `${row.lot_number}|${row.id_product}`;
-        if (!groups.has(groupKey)) groups.set(groupKey, { lot_number: row.lot_number, rows: [] });
-        groups.get(groupKey).rows.push(row);
+        let key = keyOf(row.lot_number, row.id_product);
+        if (!groups.has(key)) {
+            // DO lama bisa memakai id produk lama (kode diganti) sedangkan lot memakai id produk baru:
+            // bila nomor lot hanya punya satu data lot, transaksinya ikut lot itu
+            const sameLot = lotsByNumber.get(row.lot_number) || [];
+            if (sameLot.length === 1) {
+                key = keyOf(sameLot[0].lot_number, sameLot[0].id_product);
+            } else {
+                groups.set(key, { lot_number: row.lot_number, id_product: row.id_product, info: null, entries: [] });
+            }
+        }
+        groups.get(key).entries.push(row);
     });
 
     const keyOrder = new Map((keys || []).map((key, idx) => [String(key), idx]));
     const orderOfLot = (lot) => (keyOrder.has(String(lot)) ? keyOrder.get(String(lot)) : Number.MAX_SAFE_INTEGER);
+    const productCodeOf = (group) => String((group.info || group.entries[0] || {}).product_code || '');
 
-    const orderedGroups = Array.from(groups.entries()).sort(([, a], [, b]) => {
-        const byLot = orderOfLot(a.lot_number) - orderOfLot(b.lot_number);
-        if (byLot !== 0) return byLot;
-        return String(a.rows[0].product_code).localeCompare(String(b.rows[0].product_code));
-    });
+    const orderedGroups = Array.from(groups.values()).sort((a, b) =>
+        orderOfLot(a.lot_number) - orderOfLot(b.lot_number) || productCodeOf(a).localeCompare(productCodeOf(b)));
 
     const out = [];
-    orderedGroups.forEach(([, group]) => {
-        const info = infoOf(group.lot_number, group.rows[0].id_product);
+    orderedGroups.forEach((group) => {
+        const info = group.info || {};
+        const product = group.info || group.entries[0] || {};
+        const pcsPerCtn = product.pcs_per_ctn;
         const qtyLot = num(info.qty_lot);
         const allocatedQty = num(info.allocated_qty);
-        const first = group.rows[0];
-        const entries = [...group.rows].sort((a, b) =>
+
+        const entries = [...group.entries].sort((a, b) =>
             timeOf(a.entry_datetime) - timeOf(b.entry_datetime)
             || ENTRY_RANK[a.entry_type] - ENTRY_RANK[b.entry_type]
             || num(a.ref_id) - num(b.ref_id));
+
+        const finalBalance = entries.reduce(
+            (sum, entry) => sum + (entry.entry_type === 'DO' ? -num(entry.qty_pcs) : num(entry.qty_pcs)),
+            qtyLot
+        );
+
+        const base = {
+            lot_number: group.lot_number,
+            id_product: group.id_product,
+            product_code: product.product_code,
+            product_name: product.product_name,
+            actual_completed_datetime: info.actual_completed_datetime || null,
+            expired_date: info.expired_date || null,
+            qty_lot: qtyLot,
+            qty_lot_ctn: ctnOf(qtyLot, pcsPerCtn),
+            lot_balance_pcs: finalBalance,
+            lot_balance_ctn: ctnOf(finalBalance, pcsPerCtn),
+            // Lot berproduksi tetapi tanpa alokasi PO (mis. rework): penanda untuk dicek manual
+            is_unallocated: qtyLot > 0 && allocatedQty === 0
+        };
+
+        out.push({
+            ...base,
+            entry_type: 'LOT',
+            entry_id: null,
+            entry_number: null,
+            entry_datetime: null,
+            delivery_order_id: null,
+            do_number: null,
+            do_datetime: null,
+            qty_pcs: qtyLot,
+            qty_ctn: ctnOf(qtyLot, pcsPerCtn),
+            signed_qty_pcs: qtyLot,
+            signed_qty_ctn: ctnOf(qtyLot, pcsPerCtn),
+            balance_pcs: qtyLot,
+            balance_ctn: ctnOf(qtyLot, pcsPerCtn)
+        });
 
         let balance = qtyLot;
         entries.forEach((entry) => {
@@ -128,16 +173,7 @@ const shapeByLot = (ledgerRows, lotRows = [], keys = null) => {
             balance += isDo ? -qtyPcs : qtyPcs;
 
             out.push({
-                lot_number: entry.lot_number,
-                id_product: entry.id_product,
-                product_code: entry.product_code,
-                product_name: entry.product_name,
-                actual_completed_datetime: info.actual_completed_datetime || null,
-                expired_date: info.expired_date || null,
-                qty_lot: qtyLot,
-                qty_lot_ctn: ctnOf(qtyLot, first.pcs_per_ctn),
-                // Lot berproduksi tetapi tanpa alokasi PO (mis. rework): penanda untuk dicek manual
-                is_unallocated: qtyLot > 0 && allocatedQty === 0,
+                ...base,
                 entry_type: entry.entry_type,
                 entry_id: entry.ref_id,
                 entry_number: entry.ref_number,
@@ -150,7 +186,7 @@ const shapeByLot = (ledgerRows, lotRows = [], keys = null) => {
                 signed_qty_pcs: isDo ? -qtyPcs : qtyPcs,
                 signed_qty_ctn: isDo ? -qtyCtn : qtyCtn,
                 balance_pcs: balance,
-                balance_ctn: ctnOf(balance, first.pcs_per_ctn)
+                balance_ctn: ctnOf(balance, pcsPerCtn)
             });
         });
     });
@@ -193,6 +229,7 @@ const LOT_LEDGER_SQL = `SELECT 'DO' AS entry_type, dol.lot_number ${COLLATE} AS 
 // Data lot: tanggal selesai, exp, Qty Lot (produksi bersih semua status dari upload: IN dikurangi OUT, sama dengan
 // Cek Saldo Lot) dan total alokasi PO (selain Canceled)
 const LOT_INFO_SQL = `SELECT l.lot_number ${COLLATE} AS lot_number, l.id_product,
+        p.product_code, p.product_name, p.pcs_per_ctn,
         MIN(l.actual_completed_datetime) AS actual_completed_datetime,
         MIN(l.expired_date) AS expired_date,
         COALESCE(MAX(pr.net_all), 0) AS qty_lot,
@@ -214,7 +251,7 @@ const LOT_INFO_SQL = `SELECT l.lot_number ${COLLATE} AS lot_number, l.id_product
         FROM po_lot_allocations WHERE status <> 'Canceled' GROUP BY lot_id
     ) al ON al.lot_id = l.id
     WHERE l.lot_number IN (?)
-    GROUP BY l.lot_number, l.id_product`;
+    GROUP BY l.lot_number, l.id_product, p.product_code, p.product_name, p.pcs_per_ctn`;
 
 async function loadLotLedger(queryable, request, keys) {
     const [ledgerRows] = await queryable.query(LOT_LEDGER_SQL, [keys, keys]);
@@ -240,11 +277,11 @@ const MODES = {
         shape: shapeByDo
     },
     BY_LOT: {
-        fromSql: DO_FROM_SQL,
-        keyExpr: 'dol.lot_number',
-        // Halaman lot ditentukan oleh filter (lot yang punya DO sesuai filter); isi buku besarnya lengkap (loadDetail)
-        pageSql: (order) => `SELECT dol.lot_number AS key_id ${DO_FROM_SQL}`
-            + ` WHERE {WHERE} GROUP BY dol.lot_number ORDER BY dol.lot_number ${order} LIMIT ? OFFSET ?`,
+        fromSql: LOT_FROM_SQL,
+        keyExpr: 'l.lot_number',
+        // Halaman lot ditentukan oleh filter (semua lot, termasuk yang belum pernah dikirim); isi buku besarnya lengkap (loadDetail)
+        pageSql: (order) => `SELECT l.lot_number AS key_id ${LOT_FROM_SQL}`
+            + ` WHERE {WHERE} GROUP BY l.lot_number ORDER BY l.lot_number ${order} LIMIT ? OFFSET ?`,
         loadDetail: loadLotLedger
     },
     BY_RETURN: {
@@ -268,6 +305,8 @@ const withWhere = (sql, whereSql) => sql.replace('{WHERE}', whereSql);
  * @returns {Promise<{ data: Array, totalItems: number }>}
  */
 const fetchDeliveryOrderPage = async (queryable, request) => {
+    if (request.displayMode === 'READY_TO_SHIP') return fetchReadyToShipPage(queryable, request);
+
     const mode = MODES[request.displayMode];
     const { whereSql, params, limit, offset, order } = request;
 

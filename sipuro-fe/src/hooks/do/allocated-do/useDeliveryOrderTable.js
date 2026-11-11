@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchDeliveryOrderMapping } from '../../../services/doApi';
 
-const DISPLAY_MODE_BY_VIEW = { DO: 'BY_DO', LOT: 'BY_LOT', RETURN: 'BY_RETURN' };
+const DISPLAY_MODE_BY_VIEW = { DO: 'BY_DO', LOT: 'BY_LOT', RETURN: 'BY_RETURN', READY: 'READY_TO_SHIP' };
 const toDisplayMode = (viewMode) => DISPLAY_MODE_BY_VIEW[viewMode] || 'BY_DO';
 
 export const useDeliveryOrderTable = (reloadTrigger, filterState, viewMode) => {

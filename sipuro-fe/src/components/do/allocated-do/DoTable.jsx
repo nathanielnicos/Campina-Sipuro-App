@@ -5,6 +5,7 @@ import DoViewModeSwitcher from './DoViewModeSwitcher';
 import DoSummaryRows from './DoSummaryRows';
 import DoDetailRows from './DoDetailRows';
 import DoLotViewRows from './DoLotViewRows';
+import DoReadyRows from './DoReadyRows';
 import DoReturnViewRows from './DoReturnViewRows';
 import DoReturnSummaryRows from './DoReturnSummaryRows';
 import useDeliveryOrderTable from '../../../hooks/do/allocated-do/useDeliveryOrderTable';
@@ -13,14 +14,15 @@ import useDeliveryOrderExport from '../../../hooks/do/allocated-do/useDeliveryOr
 import { usePermission } from '../../../context/PermissionContext';
 
 const thStyle = { padding: '12px 14px' };
-const RIGHT_ALIGNED_COLUMNS = ['Qty (Pcs)', 'Qty Lot', 'Sisa (Pcs)'];
+const RIGHT_ALIGNED_COLUMNS = ['Qty (Pcs)', 'Qty Lot', 'Sisa (Pcs)', 'Saldo (Pcs)', 'Terkirim Bersih (Pcs)', 'Umur (Hari)'];
 const ESTIMATED_PO_COLUMN = 'Estimated PO';
 
 // Kolom per tampilan. DO dan Return memakai urutan yang sama: nomor transaksi, waktu, produk, lot, qty.
 const COLUMNS = {
     DO_SUMMARY: ['DO Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
     DO_LOT: ['DO Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)'],
-    LOT: ['Lot Number', 'Product', 'Completed Date and Time', 'Exp Date', 'DO / Return Number', 'Date and Time', 'Qty (Pcs)', 'Qty Lot', 'Sisa (Pcs)'],
+    LOT: ['Lot Number', 'Product', 'Completed Date and Time', 'Exp Date', 'DO / Return Number', 'Date and Time', 'Qty (Pcs)', 'Saldo (Pcs)'],
+    READY: ['#', 'Lot Number', 'Product', 'FIFO per Produk', 'Completed Date and Time', 'Exp Date', 'Umur (Hari)', 'Qty Lot', 'Terkirim Bersih (Pcs)', 'Sisa (Pcs)'],
     RETURN_SUMMARY: ['Return Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
     RETURN_LOT: ['Return Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)']
 };
@@ -30,7 +32,7 @@ const DoTable = ({ reloadTrigger }) => {
     const { can } = usePermission();
     const canExport = can('DO', 'export');
 
-    const [viewMode, setViewMode] = useState('DO'); // 'DO' | 'LOT' | 'RETURN'
+    const [viewMode, setViewMode] = useState('DO'); // 'DO' | 'RETURN' | 'LOT' | 'READY'
     const [detailLevel, setDetailLevel] = useState('SUMMARY'); // 'SUMMARY' | 'LOT' (tampilan DO dan Return)
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -71,6 +73,9 @@ const DoTable = ({ reloadTrigger }) => {
     } else if (viewMode === 'LOT') {
         columns = COLUMNS.LOT;
         rows = <DoLotViewRows mappingList={tableData.mappingList} />;
+    } else if (viewMode === 'READY') {
+        columns = COLUMNS.READY;
+        rows = <DoReadyRows mappingList={tableData.mappingList} />;
     }
 
     if (estimatedPoActive) columns = [...columns, ESTIMATED_PO_COLUMN];
@@ -108,6 +113,12 @@ const DoTable = ({ reloadTrigger }) => {
                     detailLevel={detailLevel}
                     onDetailLevelChange={setDetailLevel}
                 />
+
+                {viewMode === 'READY' && (
+                    <div style={{ padding: '8px 14px', fontSize: '12px', color: '#6c757d', borderBottom: '1px solid #dee2e6', backgroundColor: '#f8f9fa' }}>
+                        Lots with remaining stock, oldest completed date first. Lots without PO allocation are hidden. The date filter does not apply here.
+                    </div>
+                )}
 
                 {estimatedPoActive && (
                     <div style={{ padding: '8px 14px', fontSize: '12px', color: '#6c757d', borderBottom: '1px solid #dee2e6', backgroundColor: '#f8f9fa' }}>
