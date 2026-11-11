@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { useSetting } from '../../hooks/master/useSetting';
 import { usePermission } from '../../context/PermissionContext';
 import UploadTransTypePanel from './UploadTransTypePanel';
+import UploadFormatPanel from './UploadFormatPanel';
+
+const TABS = [
+    { key: 'po', label: 'PO Number Format' },
+    { key: 'transType', label: 'Upload Trans Types' },
+    { key: 'uploadFormat', label: 'Upload Format' }
+];
 
 export const SettingPage = () => {
     const [activeTab, setActiveTab] = useState('po');
@@ -85,44 +92,28 @@ export const SettingPage = () => {
                 display: 'flex',
                 gap: '8px'
             }}>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('po')}
-                    disabled={saving}
-                    style={{
-                        padding: '8px 16px',
-                        fontSize: '13px',
-                        fontWeight: 'bold',
-                        border: '1px solid #dee2e6',
-                        borderBottom: activeTab === 'po' ? '3px solid #0d6efd' : '1px solid #dee2e6',
-                        backgroundColor: activeTab === 'po' ? '#fff' : '#f8f9fa',
-                        color: activeTab === 'po' ? '#0d6efd' : '#495057',
-                        borderRadius: '4px 4px 0 0',
-                        cursor: saving ? 'not-allowed' : 'pointer',
-                        opacity: saving ? 0.6 : 1
-                    }}
-                >
-                    PO Number Format
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('transType')}
-                    disabled={saving}
-                    style={{
-                        padding: '8px 16px',
-                        fontSize: '13px',
-                        fontWeight: 'bold',
-                        border: '1px solid #dee2e6',
-                        borderBottom: activeTab === 'transType' ? '3px solid #0d6efd' : '1px solid #dee2e6',
-                        backgroundColor: activeTab === 'transType' ? '#fff' : '#f8f9fa',
-                        color: activeTab === 'transType' ? '#0d6efd' : '#495057',
-                        borderRadius: '4px 4px 0 0',
-                        cursor: saving ? 'not-allowed' : 'pointer',
-                        opacity: saving ? 0.6 : 1
-                    }}
-                >
-                    Upload Trans Types
-                </button>
+                {TABS.map((tab) => (
+                    <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setActiveTab(tab.key)}
+                        disabled={saving}
+                        style={{
+                            padding: '8px 16px',
+                            fontSize: '13px',
+                            fontWeight: 'bold',
+                            border: '1px solid #dee2e6',
+                            borderBottom: activeTab === tab.key ? '3px solid #0d6efd' : '1px solid #dee2e6',
+                            backgroundColor: activeTab === tab.key ? '#fff' : '#f8f9fa',
+                            color: activeTab === tab.key ? '#0d6efd' : '#495057',
+                            borderRadius: '4px 4px 0 0',
+                            cursor: saving ? 'not-allowed' : 'pointer',
+                            opacity: saving ? 0.6 : 1
+                        }}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
             </div>
 
             {/* Container Body */}
@@ -134,6 +125,8 @@ export const SettingPage = () => {
             }}>
                 {activeTab === 'transType' ? (
                     <UploadTransTypePanel />
+                ) : activeTab === 'uploadFormat' ? (
+                    <UploadFormatPanel />
                 ) : loading ? (
                     <div style={{ padding: '20px', textAlign: 'center', fontSize: '13px', color: '#6c757d' }}>
                         Loading PO settings...
