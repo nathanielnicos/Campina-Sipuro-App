@@ -13,14 +13,14 @@ import useDeliveryOrderExport from '../../../hooks/do/allocated-do/useDeliveryOr
 import { usePermission } from '../../../context/PermissionContext';
 
 const thStyle = { padding: '12px 14px' };
-const QTY_COLUMN = 'Qty (Pcs)';
+const RIGHT_ALIGNED_COLUMNS = ['Qty (Pcs)', 'Qty Lot', 'Sisa (Pcs)'];
 const ESTIMATED_PO_COLUMN = 'Estimated PO';
 
 // Kolom per tampilan. DO dan Return memakai urutan yang sama: nomor transaksi, waktu, produk, lot, qty.
 const COLUMNS = {
     DO_SUMMARY: ['DO Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
     DO_LOT: ['DO Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)'],
-    LOT: ['Lot Number', 'Product', 'Completed Date and Time', 'Exp Date', 'DO Number', 'Date and Time', 'Qty (Pcs)'],
+    LOT: ['Lot Number', 'Product', 'Completed Date and Time', 'Exp Date', 'DO / Return Number', 'Date and Time', 'Qty (Pcs)', 'Qty Lot', 'Sisa (Pcs)'],
     RETURN_SUMMARY: ['Return Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
     RETURN_LOT: ['Return Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)']
 };
@@ -122,7 +122,7 @@ const DoTable = ({ reloadTrigger }) => {
                         <thead>
                             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6', textAlign: 'left' }}>
                                 {columns.map((label) => (
-                                    <th key={label} style={label === QTY_COLUMN ? { ...thStyle, textAlign: 'right' } : thStyle}>{label}</th>
+                                    <th key={label} style={RIGHT_ALIGNED_COLUMNS.includes(label) ? { ...thStyle, textAlign: 'right' } : thStyle}>{label}</th>
                                 ))}
                             </tr>
                         </thead>

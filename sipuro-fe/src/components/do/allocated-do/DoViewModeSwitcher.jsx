@@ -16,8 +16,8 @@ const groupStyle = { display: 'flex', backgroundColor: '#e9ecef', borderRadius: 
 
 const VIEW_MODES = [
     { value: 'DO', label: 'DO Number' },
-    { value: 'LOT', label: 'Lot Number' },
-    { value: 'RETURN', label: 'Return Number' }
+    { value: 'RETURN', label: 'Return Number' },
+    { value: 'LOT', label: 'Lot Number' }
 ];
 
 const DoViewModeSwitcher = ({ viewMode, onViewModeChange, detailLevel, onDetailLevelChange }) => (
