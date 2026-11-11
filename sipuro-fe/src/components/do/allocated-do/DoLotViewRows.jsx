@@ -68,9 +68,9 @@ const Balance = ({ pcs, ctn, isFinal }) => {
 
 // Penanda Sisa lot (saldo akhir) di bawah nomor lot: level lot, terpisah dari saldo per baris
 const RemainingBadge = ({ row }) => {
-    if (row.lot_balance_pcs < 0) return <div><span style={minusStyle}>Sisa lot minus: {formatQty(row.lot_balance_pcs)}</span></div>;
-    if (row.lot_balance_pcs === 0) return <div><span style={emptyStyle}>Habis</span></div>;
-    return <div><span style={remainingStyle}>Sisa lot: {formatQty(row.lot_balance_pcs)}</span></div>;
+    if (row.lot_balance_pcs < 0) return <div><span style={minusStyle}>Lot balance negative: {formatQty(row.lot_balance_pcs)}</span></div>;
+    if (row.lot_balance_pcs === 0) return <div><span style={emptyStyle}>Depleted</span></div>;
+    return <div><span style={remainingStyle}>Lot remaining: {formatQty(row.lot_balance_pcs)}</span></div>;
 };
 
 /**

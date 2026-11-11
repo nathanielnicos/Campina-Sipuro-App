@@ -14,15 +14,15 @@ import useDeliveryOrderExport from '../../../hooks/do/allocated-do/useDeliveryOr
 import { usePermission } from '../../../context/PermissionContext';
 
 const thStyle = { padding: '12px 14px' };
-const RIGHT_ALIGNED_COLUMNS = ['Qty (Pcs)', 'Qty Lot', 'Sisa (Pcs)', 'Saldo (Pcs)', 'Terkirim Bersih (Pcs)', 'Umur (Hari)'];
+const RIGHT_ALIGNED_COLUMNS = ['Qty (Pcs)', 'Qty Lot', 'Remaining (Pcs)', 'Balance (Pcs)', 'Net Delivered (Pcs)', 'Age (Days)'];
 const ESTIMATED_PO_COLUMN = 'Estimated PO';
 
 // Kolom per tampilan. DO dan Return memakai urutan yang sama: nomor transaksi, waktu, produk, lot, qty.
 const COLUMNS = {
     DO_SUMMARY: ['DO Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
     DO_LOT: ['DO Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)'],
-    LOT: ['Lot Number', 'Product', 'Completed Date and Time', 'Exp Date', 'DO / Return Number', 'Date and Time', 'Qty (Pcs)', 'Saldo (Pcs)'],
-    READY: ['#', 'Lot Number', 'Product', 'FIFO per Produk', 'Completed Date and Time', 'Exp Date', 'Umur (Hari)', 'Qty Lot', 'Terkirim Bersih (Pcs)', 'Sisa (Pcs)'],
+    LOT: ['Lot Number', 'Product', 'Completed Date and Time', 'Exp Date', 'DO / Return Number', 'Date and Time', 'Qty (Pcs)', 'Balance (Pcs)'],
+    READY: ['#', 'Lot Number', 'Product', 'FIFO per Product', 'Completed Date and Time', 'Exp Date', 'Age (Days)', 'Qty Lot', 'Net Delivered (Pcs)', 'Remaining (Pcs)'],
     RETURN_SUMMARY: ['Return Number', 'Date and Time', 'Product', 'Qty (Pcs)'],
     RETURN_LOT: ['Return Number', 'Date and Time', 'Product', 'Lot Number', 'Qty (Pcs)']
 };
