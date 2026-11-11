@@ -34,6 +34,7 @@ const originalLoad = Module._load;
 Module._load = function patched(request) {
     if (request.endsWith('/config/db')) return { sipuroDb: fakeDb };
     if (request.endsWith('/uploadTransTypeLoader')) return { loadRuleFinder: async () => () => undefined };
+    if (request.endsWith('/uploadFormatLoader')) return { loadUploadFormat: async () => ({ startRow: 7, timestampCell: 'K1', columns: {} }) };
     if (request.endsWith('/lotUploadParser')) return { parseProductionExcel: (...a) => parseImpl(...a) };
     if (request.endsWith('/lotAllocationCalculator')) {
         return { calculateLotFifoAllocation: () => calculation, computeAllocationFingerprint: () => fingerprint };

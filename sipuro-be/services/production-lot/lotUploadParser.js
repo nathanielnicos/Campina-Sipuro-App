@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { BusinessError } = require('../../helpers/businessError');
 const { MAX_UPLOAD_ROWS } = require('../../helpers/uploadConfig');
 const { readUploadSheet, parseExcelDateTime, parseDateOnly, parseQuantity } = require('../../helpers/excelUploadReader');
-const { MATCH_BY } = require('../upload-trans-type/uploadTransTypeRules');
+const { MATCH_BY, DIRECTION } = require('../upload-trans-type/uploadTransTypeRules');
 const { createSkippedRowTracker } = require('../upload-trans-type/uploadSkippedRows');
 
 // Jenis wajib upload produksi (tidak bisa ditambah manual). Jenis lain, termasuk jenis milik upload DO, dilewati tanpa peringatan.
@@ -11,41 +11,43 @@ const PRODUCTION_TRANS_TYPES = ['WIP Completion', 'WIP Completion Return'];
 /**
  * @param {Buffer} fileBuffer
  * @param {(rawText: string) => object|undefined} findRule pencari aturan jenis transaksi (scope LOT, lihat uploadTransTypeLoader)
+ * @param {{ startRow: number, timestampCell: string, columns: object }} format format file upload (scope LOT, lihat uploadFormatLoader)
  */
-const parseProductionExcel = (fileBuffer, findRule) => {
-    const { fileHash, processTimestamp, rows } = readUploadSheet(fileBuffer);
+const parseProductionExcel = (fileBuffer, findRule, format) => {
+    const { fileHash, processTimestamp, rows } = readUploadSheet(fileBuffer, format);
+    const col = format.columns;
 
     const rawRows = [];
     const skipped = createSkippedRowTracker(PRODUCTION_TRANS_TYPES);
 
     for (const { cells: row, excelRowNumber } of rows) {
         // Jenis transaksi dikenali lewat daftar aktif di database (tidak peka huruf besar/kecil)
-        const rule = findRule(row[1]);
+        const rule = findRule(row[col.TRANS_TYPE]);
         if (!rule) {
             // Jenis wajib yang nonaktif/tidak terdaftar dilaporkan di preview; jenis lain dilewati tanpa peringatan
-            skipped.add(row[1], excelRowNumber);
+            skipped.add(row[col.TRANS_TYPE], excelRowNumber);
             continue;
         }
 
         const transType = rule.label;
-        const status = row[2] ? String(row[2]).trim() : ''; // Kolom C
-        const transDateRaw = row[3];                         // Kolom D (Trans Date)
-        const itemCode = row[4] ? String(row[4]).trim() : '';  // Kolom E (Item)
+        const status = row[col.STATUS] ? String(row[col.STATUS]).trim() : '';
+        const transDateRaw = row[col.TRANS_DATE];
+        const itemCode = row[col.ITEM] ? String(row[col.ITEM]).trim() : '';
 
-        // Kolom G (Doc Source) -> hapus awalan BATCH (case-insensitive).
+        // Doc Source -> hapus awalan BATCH (case-insensitive).
         // Jenis berbasis lot tidak memakai batch: kolom G hanya disimpan sebagai referensi (docSource).
-        let docSource = row[6] ? String(row[6]).trim() : '';
+        let docSource = row[col.DOC_SOURCE] ? String(row[col.DOC_SOURCE]).trim() : '';
         if (docSource.toUpperCase().startsWith('BATCH')) {
             docSource = docSource.replace(/^BATCH/i, '').trim();
         }
         const matchBy = rule.matchBy;
         const batchNumber = matchBy === MATCH_BY.LOT ? '' : docSource;
 
-        const lotNumber = row[11] ? String(row[11]).trim() : ''; // Kolom L (Lot Num)
-        const expDateRaw = row[15];                             // Kolom P (Exp Date)
+        const lotNumber = row[col.LOT_NUMBER] ? String(row[col.LOT_NUMBER]).trim() : '';
+        const expDateRaw = row[col.EXP_DATE];
 
-        // Kolom qty ditentukan arah jenis: IN = Q (index 16), OUT = T (index 19)
-        const rawQty = row[rule.qtyColumn];
+        // Kolom qty ditentukan arah jenis: IN = kolom Qty In, OUT = kolom Qty Out (menurut format upload)
+        const rawQty = row[rule.direction === DIRECTION.IN ? col.QTY_IN : col.QTY_OUT];
         const qtyResult = parseQuantity(rawQty);
         const storedQtyPac = Math.abs(qtyResult.value);
 

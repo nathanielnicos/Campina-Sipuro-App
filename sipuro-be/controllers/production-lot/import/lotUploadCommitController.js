@@ -1,6 +1,7 @@
 const { sipuroDb: db } = require('../../../config/db');
 const { loadRuleFinder } = require('../../../services/upload-trans-type/uploadTransTypeLoader');
 const { SCOPE } = require('../../../services/upload-trans-type/uploadTransTypeRules');
+const { loadUploadFormat } = require('../../../services/upload-format/uploadFormatLoader');
 const { parseProductionExcel } = require('../../../services/production-lot/lotUploadParser');
 const { calculateLotFifoAllocation, computeAllocationFingerprint } = require('../../../services/production-lot/lotAllocationCalculator');
 const { loadProductionLotContext } = require('../../../services/production-lot/lotContextLoader');
@@ -44,7 +45,11 @@ exports.commitExcelAllocation = async (req, res) => {
             throw new BusinessError('Preview fingerprint is missing. Please upload the file again.', 400);
         }
 
-        const { processTimestamp, fileHash, rawRows } = parseProductionExcel(req.file.buffer, await loadRuleFinder(db, SCOPE.LOT));
+        const { processTimestamp, fileHash, rawRows } = parseProductionExcel(
+            req.file.buffer,
+            await loadRuleFinder(db, SCOPE.LOT),
+            await loadUploadFormat(db, SCOPE.LOT)
+        );
 
         // Commit upload berjalan satu per satu (lintas instance serverless)
         const result = await runInLockedTransaction(db, async (connection) => {

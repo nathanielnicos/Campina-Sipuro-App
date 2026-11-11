@@ -9,6 +9,7 @@ let events = [];
 let lockAcquired = 1;
 let actorExists = true;
 let existingLogs = [];
+let formatRows = [];
 const connection = {
     query: async (sql, params) => {
         events.push(['query', sql.replace(/\s+/g, ' ').trim(), params]);
@@ -27,6 +28,7 @@ const fakeDb = {
     query: async (sql, params) => {
         events.push(['db.query', sql.replace(/\s+/g, ' ').trim(), params]);
         if (/FROM delivery_order_upload_logs/.test(sql)) return [existingLogs];
+        if (/FROM upload_format_settings/.test(sql)) return [formatRows];
         return [[]];
     }
 };
@@ -55,6 +57,7 @@ Module._load = function patched(request) {
 const { commitDeliveryOrderUpload } = require(path.join('..', 'controllers/delivery-order/import/deliveryOrderUploadCommitController'));
 const { previewDeliveryOrderUpload } = require(path.join('..', 'controllers/delivery-order/import/deliveryOrderUploadPreviewController'));
 const { BusinessError } = require('../helpers/businessError');
+const { SCOPE, defaultFormat } = require('../services/upload-format/uploadFormatRules');
 
 const makeRes = () => {
     const res = { code: 200, body: null };
@@ -70,7 +73,7 @@ const makeReq = (over = {}) => ({
 });
 
 test.beforeEach(() => {
-    events = []; lockAcquired = 1; actorExists = true; existingLogs = [];
+    events = []; lockAcquired = 1; actorExists = true; existingLogs = []; formatRows = [];
     calls.load.length = 0; calls.commit.length = 0;
     calculation = { canSave: true, doLines: [{ a: 1 }], returnLines: [], categorizedDetails: { newRows: [] }, summary: {} };
     fingerprint = 'FP1';
@@ -200,6 +203,21 @@ test('preview: baris yang dilewati karena Trans Type tidak dikenali diteruskan k
     await previewDeliveryOrderUpload(makeReq(), res);
     assert.equal(res.body.data.skippedRowCount, 2);
     assert.deepEqual(res.body.data.skippedTransTypes, skipped);
+});
+
+test('preview dan commit: format upload scope DO dimuat dari database dan diberikan ke parser (bawaan bila belum ada)', async () => {
+    const seen = [];
+    parseImpl = (buffer, finder, format) => { seen.push(format); return { processTimestamp: 'TS', fileHash: 'HASH', rawRows: [{ r: 1 }] }; };
+    await previewDeliveryOrderUpload(makeReq(), makeRes());
+    formatRows = [{ setting_key: 'START_ROW', setting_value: '9' }, { setting_key: 'COL_REFERENCE', setting_value: 'AB' }];
+    await previewDeliveryOrderUpload(makeReq(), makeRes());
+    await commitDeliveryOrderUpload(makeReq(), makeRes());
+    assert.deepEqual(seen[0], defaultFormat(SCOPE.DO));
+    assert.equal(seen[1].startRow, 9);
+    assert.equal(seen[1].columns.REFERENCE, 27);
+    assert.equal(seen[2].startRow, 9);
+    assert.ok(events.some((e) => e[0] === 'db.query' && /FROM upload_format_settings/.test(e[1]) ));
+    assert.deepEqual(events.find((e) => e[0] === 'db.query' && /FROM upload_format_settings/.test(e[1]))[2], ['DO']);
 });
 
 test('preview: tanpa file -> 400; error parser BusinessError diteruskan; error sistem -> 500 generik', async () => {

@@ -2,7 +2,8 @@
 
 /**
  * Aturan bersama modul Delivery Order. Satu-satunya tempat yang mendefinisikan jenis transaksi
- * file, kolom Excel yang dibaca, alasan penolakan baris, dan kunci (item, lot).
+ * file, alasan penolakan baris, dan kunci (item, lot). Kolom Excel yang dibaca diatur di format upload
+ * (services/upload-format, Setting > Upload Format).
  *
  * KONTRAK DATA (tanpa hubungan ke PO, karena pengiriman fisik terikat ke lot, bukan ke PO):
  *  - Kode item di file DO = kode produk hasil PRODUKSI (produk lot), bisa berbeda dari kode produk di PO
@@ -16,23 +17,9 @@
  *  - Retur tidak mengubah nilai DO yang sudah tercatat.
  */
 
-const { QTY_COLUMN } = require('../upload-trans-type/uploadTransTypeRules');
-
 const TRANS_TYPE = Object.freeze({
     ISSUE: 'Sales order issue',
     RETURN: 'RMA Receipt'
-});
-
-// Indeks kolom Excel (0 = kolom A)
-const COLUMN = Object.freeze({
-    TRANS_TYPE: 1,  // B
-    STATUS: 2,      // C
-    TRANS_DATE: 3,  // D
-    ITEM: 4,        // E
-    LOT: 11,        // L
-    QTY_IN: QTY_COLUMN.IN,   // Q  (RMA Receipt)
-    QTY_OUT: QTY_COLUMN.OUT, // T  (Sales order issue)
-    REFERENCE: 25   // Z  (nomor DO untuk Sales order issue, nomor retur untuk RMA Receipt)
 });
 
 const REASONS = Object.freeze({
@@ -51,4 +38,4 @@ const REASONS = Object.freeze({
 // Kunci pasangan (kode produk lot, nomor lot)
 const stockKey = (itemCode, lotNumber) => `${itemCode}\u0000${lotNumber}`;
 
-module.exports = { TRANS_TYPE, COLUMN, REASONS, stockKey };
+module.exports = { TRANS_TYPE, REASONS, stockKey };

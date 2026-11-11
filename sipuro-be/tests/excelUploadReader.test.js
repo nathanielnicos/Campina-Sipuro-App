@@ -22,6 +22,7 @@ Module._load = function patched(request) {
     return originalLoad.apply(this, arguments);
 };
 const { parseExcelDateTime, parseDateOnly, parseQuantity, readUploadSheet } = require('../helpers/excelUploadReader');
+const FORMAT = { startRow: 7, timestampCell: 'K1' };
 
 test('parseExcelDateTime: teks DD-Mon-YYYY dengan dan tanpa jam, serial number, kosong, salah', () => {
     assert.equal(parseExcelDateTime('01-Dec-2025 08:55:17'), '2025-12-01 08:55:17');
@@ -53,7 +54,7 @@ test('parseQuantity: bulat, desimal, kosong, bukan angka, tanda dipertahankan', 
 test('readUploadSheet: K1, hash, dan baris data mulai baris ke-7 dengan nomor baris Excel', () => {
     sheet = [['h1'], ['h2'], ['h3'], ['h4'], ['h5'], ['h6'], ['data7'], null, ['data9']];
     sheetMeta = { '!ref': 'A1:AA20', K1: { w: 'Proses : 27 Oct 2026 08:50:26' } };
-    const out = readUploadSheet(Buffer.from('abc'));
+    const out = readUploadSheet(Buffer.from('abc'), FORMAT);
     assert.equal(out.processTimestamp, 'Proses : 27 Oct 2026 08:50:26');
     assert.equal(out.fileHash.length, 64);
     assert.deepEqual(out.rows.map((r) => r.excelRowNumber), [7, 9]);
@@ -63,8 +64,27 @@ test('readUploadSheet: K1, hash, dan baris data mulai baris ke-7 dengan nomor ba
 test('readUploadSheet: K1 kosong ditolak 422, file rusak ditolak 400', () => {
     sheet = [[]];
     sheetMeta = { '!ref': 'A1:AA20' };
-    assert.throws(() => readUploadSheet(Buffer.from('x')), (e) => e.status === 422);
+    assert.throws(() => readUploadSheet(Buffer.from('x'), FORMAT), (e) => e.status === 422);
     readFails = true;
-    assert.throws(() => readUploadSheet(Buffer.from('x')), (e) => e.status === 400);
+    assert.throws(() => readUploadSheet(Buffer.from('x'), FORMAT), (e) => e.status === 400);
     readFails = false;
+});
+
+test('readUploadSheet: baris data pertama dan sel process timestamp mengikuti format (bukan tertanam)', () => {
+    sheet = [['h1'], ['h2'], ['h3'], ['h4'], ['h5'], ['h6'], ['h7'], ['h8'], ['data9'], null, ['data11']];
+    sheetMeta = { '!ref': 'A1:AA20', M2: { w: 'Proses : 01 Jan 2027 09:00:00' }, K1: { w: 'TIDAK DIPAKAI' } };
+    const out = readUploadSheet(Buffer.from('abc'), { startRow: 9, timestampCell: 'M2' });
+    assert.equal(out.processTimestamp, 'Proses : 01 Jan 2027 09:00:00');
+    assert.deepEqual(out.rows.map((r) => r.excelRowNumber), [9, 11]);
+    assert.deepEqual(out.rows[0].cells, ['data9']);
+});
+
+test('readUploadSheet: sel timestamp tidak ada di sheet -> dibaca dari data baris; pesan galat menyebut sel yang dipakai', () => {
+    sheet = [[], ['x', 'y', 'z', 'ts-dari-data']];
+    sheetMeta = { '!ref': 'A1:AA20' };
+    assert.equal(readUploadSheet(Buffer.from('abc'), { startRow: 3, timestampCell: 'D2' }).processTimestamp, 'ts-dari-data');
+    assert.throws(
+        () => readUploadSheet(Buffer.from('abc'), { startRow: 3, timestampCell: 'M2' }),
+        (e) => e.status === 422 && /Cell M2/.test(e.message)
+    );
 });

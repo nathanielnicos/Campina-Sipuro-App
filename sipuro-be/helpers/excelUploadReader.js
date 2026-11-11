@@ -2,16 +2,16 @@
 
 /**
  * Pembaca file Excel laporan "Running Stock" (RORCWMS06) yang dipakai fitur upload.
- * Hanya utilitas generik: hash file, process timestamp (K1), baris data (mulai baris 7),
- * serta pembaca tanggal dan qty. Aturan bisnis per fitur (jenis transaksi, kolom yang diambil)
- * ada di parser fitur masing-masing.
+ * Hanya utilitas generik: hash file, process timestamp, baris data, serta pembaca tanggal dan qty.
+ * Letak process timestamp dan baris data pertama berasal dari format upload (Setting > Upload Format),
+ * bukan tertanam di sini. Aturan bisnis per fitur (jenis transaksi, kolom yang diambil) ada di parser fitur masing-masing.
  */
 
 const xlsx = require('xlsx');
 const crypto = require('crypto');
 const { BusinessError } = require('./businessError');
+const { parseCellAddress } = require('./excelColumns');
 
-const DATA_START_INDEX = 6; // baris ke-7 pada Excel
 const pad = (n) => String(n).padStart(2, '0');
 
 const MONTHS = {
@@ -73,10 +73,12 @@ const parseQuantity = (raw) => {
 };
 
 /**
- * Membaca sheet pertama: hash file, process timestamp (K1), dan baris data (baris ke-7 dst).
+ * Membaca sheet pertama: hash file, process timestamp, dan baris data mulai baris data pertama.
+ * @param {Buffer} fileBuffer
+ * @param {{ startRow: number, timestampCell: string }} format startRow = nomor baris Excel (mulai 1); timestampCell mis. "K1"
  * @returns {{ fileHash: string, processTimestamp: string, rows: Array<{ cells: any[], excelRowNumber: number }> }}
  */
-const readUploadSheet = (fileBuffer) => {
+const readUploadSheet = (fileBuffer, format) => {
     const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
 
     let rawData;
@@ -93,18 +95,24 @@ const readUploadSheet = (fileBuffer) => {
         throw new BusinessError('The file could not be read as an Excel workbook.', 400);
     }
 
+    const { startRow, timestampCell } = format;
     let processTimestamp = '';
-    if (worksheet && worksheet['K1']) {
-        processTimestamp = String(worksheet['K1'].w || worksheet['K1'].v || '').trim();
-    } else if (rawData[0] && rawData[0][10]) {
-        processTimestamp = String(rawData[0][10]).trim();
+    const timestampSheetCell = worksheet ? worksheet[timestampCell] : undefined;
+    if (timestampSheetCell) {
+        processTimestamp = String(timestampSheetCell.w || timestampSheetCell.v || '').trim();
+    } else {
+        const address = parseCellAddress(timestampCell);
+        const fallbackRow = address ? rawData[address.row - firstSheetRow] : undefined;
+        if (fallbackRow && fallbackRow[address.col]) processTimestamp = String(fallbackRow[address.col]).trim();
     }
     if (!processTimestamp) {
-        throw new BusinessError('Process timestamp not found in file header (Cell K1).', 422);
+        throw new BusinessError(`Process timestamp not found in file header (Cell ${timestampCell}).`, 422);
     }
 
+    // Indeks data dihitung dari nomor baris Excel (mulai 1), disesuaikan dengan awal rentang sheet
+    const startIndex = Math.max(0, startRow - 1 - firstSheetRow);
     const rows = [];
-    for (let i = DATA_START_INDEX; i < rawData.length; i++) {
+    for (let i = startIndex; i < rawData.length; i++) {
         if (!rawData[i]) continue;
         rows.push({ cells: rawData[i], excelRowNumber: i + 1 + firstSheetRow });
     }

@@ -5,13 +5,15 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const Module = require('module');
 
+const { findLotRule, lotFormat, placeCells } = require('./fixtures/transTypeRules');
+
 let sheet = [];
 const statusCalls = [];
 const originalLoad = Module._load;
 Module._load = function patched(request) {
     if (request === 'xlsx') {
         return {
-            read: () => ({ SheetNames: ['S'], Sheets: { S: { '!ref': 'A1:T20', K1: { w: '2026-02-01 10:00:00' } } } }),
+            read: () => ({ SheetNames: ['S'], Sheets: { S: { '!ref': 'A1:AA20', [lotFormat.timestampCell]: { w: '2026-02-01 10:00:00' } } } }),
             utils: { sheet_to_json: () => sheet, decode_range: () => ({ s: { r: 0 } }) }
         };
     }
@@ -34,7 +36,6 @@ const { parseProductionExcel } = require('../services/production-lot/lotUploadPa
 const { calculateLotFifoAllocation, computeAllocationFingerprint, REASONS } = require('../services/production-lot/lotAllocationCalculator');
 const { commitProductionAllocationTransaction } = require(path.join('..', 'services/production-lot/lotCommitService'));
 const { stockKey } = require('../services/delivery-order/deliveryOrderRules');
-const { findLotRule } = require('./fixtures/transTypeRules');
 
 test('kunci grup lot-item membedakan lot dan item', () => {
     assert.notEqual(rules.lotItemKey('L1', 'P1'), rules.lotItemKey('L1', 'P2'));
@@ -43,21 +44,18 @@ test('kunci grup lot-item membedakan lot dan item', () => {
 
 // ---------- parser ----------
 
-const header = () => { const h = Array.from({ length: 6 }, () => []); h[0][10] = '2026-02-01 10:00:00'; return h; };
-const excelRow = (type, { qtyCol, qty, batch = 'BATCH B1', lot = 'L1', item = 'P1', date = '2026-02-01 10:00:00' }) => {
-    const r = [];
-    r[1] = type; r[2] = 'GOOD'; r[3] = date; r[4] = item; r[6] = batch; r[11] = lot; r[15] = '2027-02-01';
-    r[qtyCol] = qty;
-    return r;
-};
+const header = () => Array.from({ length: 6 }, () => []);
+const excelRow = (type, { qtyKey, qty, batch = 'BATCH B1', lot = 'L1', item = 'P1', date = '2026-02-01 10:00:00' }) => placeCells(lotFormat, {
+    TRANS_TYPE: type, STATUS: 'GOOD', TRANS_DATE: date, ITEM: item, DOC_SOURCE: batch, LOT_NUMBER: lot, EXP_DATE: '2027-02-01', [qtyKey]: qty
+});
 
 test('parser: jenis berbasis lot memakai kolom T, mengabaikan kolom G, dan bertanda negatif', () => {
     sheet = [...header(),
-        excelRow('Good Issue Sample QC', { qtyCol: 19, qty: 264, batch: '499600' }),
-        excelRow('good issue sample rnd', { qtyCol: 19, qty: 16, batch: '505874' }),
-        excelRow('WIP  Issue', { qtyCol: 19, qty: 5508, batch: 'BATCHW1R2600027' })
+        excelRow('Good Issue Sample QC', { qtyKey: 'QTY_OUT', qty: 264, batch: '499600' }),
+        excelRow('good issue sample rnd', { qtyKey: 'QTY_OUT', qty: 16, batch: '505874' }),
+        excelRow('WIP  Issue', { qtyKey: 'QTY_OUT', qty: 5508, batch: 'BATCHW1R2600027' })
     ];
-    const { rawRows } = parseProductionExcel(Buffer.from('x'), findLotRule);
+    const { rawRows } = parseProductionExcel(Buffer.from('x'), findLotRule, lotFormat);
     assert.equal(rawRows.length, 3);
     assert.deepEqual(rawRows.map((r) => r.transType), ['Good Issue Sample QC', 'Good Issue Sample RND', 'WIP Issue']);
     assert.deepEqual(rawRows.map((r) => r.batchNumber), ['', '', '']);
@@ -71,18 +69,18 @@ test('parser: jenis berbasis lot memakai kolom T, mengabaikan kolom G, dan berta
 
 test('parser: Completion dan Return tetap berbasis batch dengan kolom lamanya; jenis tak dikenal dilewati', () => {
     sheet = [...header(),
-        excelRow('WIP Completion', { qtyCol: 16, qty: 10 }),
-        excelRow('WIP Completion Return', { qtyCol: 19, qty: 4 }),
-        excelRow('Sales order issue', { qtyCol: 19, qty: 9 })
+        excelRow('WIP Completion', { qtyKey: 'QTY_IN', qty: 10 }),
+        excelRow('WIP Completion Return', { qtyKey: 'QTY_OUT', qty: 4 }),
+        excelRow('Sales order issue', { qtyKey: 'QTY_OUT', qty: 9 })
     ];
-    const { rawRows } = parseProductionExcel(Buffer.from('x'), findLotRule);
+    const { rawRows } = parseProductionExcel(Buffer.from('x'), findLotRule, lotFormat);
     assert.equal(rawRows.length, 2);
     assert.deepEqual(rawRows.map((r) => [r.transType, r.batchNumber, r.matchBy, r.rawAllocationQty]),
         [['WIP Completion', 'B1', 'BATCH_LOT', 10], ['WIP Completion Return', 'B1', 'BATCH_LOT', -4]]);
 });
 
 test('parser: hash baris lot-only memuat Doc Source; hash lama (tanpa Doc Source) tetap dihitung sebagai legacyRowHash', () => {
-    const parse = (batch) => { sheet = [...header(), excelRow('WIP Issue', { qtyCol: 19, qty: 5, batch })]; return parseProductionExcel(Buffer.from('x'), findLotRule).rawRows[0]; };
+    const parse = (batch) => { sheet = [...header(), excelRow('WIP Issue', { qtyKey: 'QTY_OUT', qty: 5, batch })]; return parseProductionExcel(Buffer.from('x'), findLotRule, lotFormat).rawRows[0]; };
     const a = parse('111');
     const b = parse('BATCH111');
     const c = parse('BATCH999');
@@ -99,8 +97,8 @@ test('parser: hash baris lot-only memuat Doc Source; hash lama (tanpa Doc Source
 });
 
 test('parser: jenis berbasis batch tidak berubah (hash sama dengan rumus lama, tanpa legacyRowHash)', () => {
-    sheet = [...header(), excelRow('WIP Completion', { qtyCol: 16, qty: 10, batch: 'BATCH B1' })];
-    const row = parseProductionExcel(Buffer.from('x'), findLotRule).rawRows[0];
+    sheet = [...header(), excelRow('WIP Completion', { qtyKey: 'QTY_IN', qty: 10, batch: 'BATCH B1' })];
+    const row = parseProductionExcel(Buffer.from('x'), findLotRule, lotFormat).rawRows[0];
     const legacy = require('crypto').createHash('sha256')
         .update(['B1', 'L1', 'P1', 'WIP Completion', 10, '2026-02-01 10:00:00', '2027-02-01'].join('|')).digest('hex');
     assert.equal(row.rowHash, legacy);
