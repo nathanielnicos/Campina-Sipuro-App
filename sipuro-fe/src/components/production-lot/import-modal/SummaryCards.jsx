@@ -64,9 +64,9 @@ const SummaryCards = ({ summary, activeTab, setActiveTab }) => {
                 <div style={{ fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{summary.duplicateCount || 0} Rows</div>
             </div>
 
-            {/* Card 4: Duplicate Status Update Only */}
+            {/* Card 4: Data Changed (status berubah / tanggal kedaluwarsa berbeda) */}
             <div
-                onClick={() => setActiveTab('duplicate_status_update')}
+                onClick={() => setActiveTab('data_changed')}
                 style={{
                     flex: '1 1 0px',
                     minWidth: 0,
@@ -74,15 +74,15 @@ const SummaryCards = ({ summary, activeTab, setActiveTab }) => {
                     padding: '8px 8px',
                     borderRadius: '6px',
                     transition: 'all 0.2s ease',
-                    backgroundColor: activeTab === 'duplicate_status_update' ? '#e2e3e5' : '#f8f9fa',
+                    backgroundColor: activeTab === 'data_changed' ? '#e2e3e5' : '#f8f9fa',
                     color: '#383d41',
-                    border: activeTab === 'duplicate_status_update' ? '2px solid #6c757d' : '1px solid #d6d8db',
+                    border: activeTab === 'data_changed' ? '2px solid #6c757d' : '1px solid #d6d8db',
                     boxSizing: 'border-box',
                     overflow: 'hidden'
                 }}
             >
-                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Status Update</div>
-                <div style={{ fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{summary.duplicateStatusUpdateCount || 0} Rows</div>
+                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Data Changed</div>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{summary.dataChangedCount || 0} Rows</div>
             </div>
 
             {/* Card 5: Non-GOOD Status */}

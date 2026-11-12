@@ -3,7 +3,7 @@ import { formatQty } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/dateHelper';
 import PaginationControl from '../../common/PaginationControl';
 
-const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showReason = false }) => {
+const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showReason = false, showChange = false }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
@@ -31,12 +31,14 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                             {/* Kolom Start Datetime dihapus karena sistem baru berbasis Completed Datetime (Trans Date) */}
                             <th style={{ textAlign: 'center', padding: '8px' }}>Completed Datetime</th>
                             {showReason && <th style={{ textAlign: 'left', padding: '8px', minWidth: '200px' }}>Reason</th>}
+                            {showChange && <th style={{ textAlign: 'left', padding: '8px', minWidth: '220px' }}>Reason</th>}
+                            {showChange && <th style={{ textAlign: 'left', padding: '8px', whiteSpace: 'nowrap' }}>Result</th>}
                         </tr>
                     </thead>
                     <tbody>
                         {paginatedRows.length === 0 ? (
                             <tr>
-                                <td colSpan={(showReason ? 9 : 8) + (showMatchedBy ? 1 : 0)} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
+                                <td colSpan={8 + (showReason ? 1 : 0) + (showChange ? 2 : 0) + (showMatchedBy ? 1 : 0)} style={{ textAlign: 'center', padding: '16px', color: '#666' }}>
                                     {emptyMessage}
                                 </td>
                             </tr>
@@ -67,6 +69,8 @@ const RawDataTab = ({ rawData = [], emptyMessage = "No data available.", showRea
                                         </td>
                                         <td style={{ textAlign: 'center', padding: '8px' }}>{formatDateTime(row.actualCompletedDatetime) || '-'}</td>
                                         {showReason && <td style={{ padding: '8px', color: '#842029' }}>{row.reason || '-'}</td>}
+                                        {showChange && <td style={{ padding: '8px', color: '#664d03' }}>{(row.dataChange && row.dataChange.reason) || '-'}</td>}
+                                        {showChange && <td style={{ padding: '8px', whiteSpace: 'nowrap', fontWeight: 'bold' }}>{(row.dataChange && row.dataChange.result) || '-'}</td>}
                                     </tr>
                                 );
                             })

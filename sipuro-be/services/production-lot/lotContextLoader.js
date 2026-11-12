@@ -105,6 +105,21 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
         }
     }
 
+    // 5a. Baris upload yang sudah tersimpan pada lot-lot di file: dasar mendeteksi baris yang sama dengan tanggal
+    //     kedaluwarsa berbeda (hanya dibaca, dipakai sebagai peringatan di preview)
+    const existingDetailRows = [];
+    for (const part of chunk(lotNumbers.filter(Boolean), 500)) {
+        const [rows] = await queryable.query(
+            `SELECT batch_number, lot_number, item_code, trans_type, qty_pac,
+                    DATE_FORMAT(actual_completed_datetime, '%Y-%m-%d %H:%i:%s') AS completed,
+                    DATE_FORMAT(expired_date, '%Y-%m-%d') AS expired, doc_source
+             FROM production_lot_upload_details
+             WHERE lot_number IN (?)`,
+            [part]
+        );
+        existingDetailRows.push(...rows);
+    }
+
     // 6. Lock berurutan (po_details) agar tidak deadlock antar-commit saat proses simpan
     if (forUpdate && productIds.length > 0) {
         await queryable.query(
@@ -229,6 +244,7 @@ const loadProductionLotContext = async (queryable, rawRows, { forUpdate = false 
             lotDelivered,
             docReductions,
             lotBatches,
+            existingDetailRows,
             productMappings
         }
     };

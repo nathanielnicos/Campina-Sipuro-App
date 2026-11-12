@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SummaryCards from './SummaryCards';
 import ValidDataTab from './ValidDataTab';
 import RawDataTab from './RawDataTab';
@@ -12,6 +12,12 @@ const ImportProductionLotModal = ({
     loading = false
 }) => {
     const [activeTab, setActiveTab] = useState('new');
+    // Centang "sudah baca" untuk baris Data Changed; direset setiap ada hasil preview baru
+    const [dataChangedAck, setDataChangedAck] = useState(false);
+
+    useEffect(() => {
+        setDataChangedAck(false);
+    }, [parsedData]);
 
     if (!show || !parsedData) return null;
 
@@ -21,7 +27,7 @@ const ImportProductionLotModal = ({
         previewResults: validData = [],
         unallocatedRows = [],
         duplicateRows = [],
-        duplicateStatusUpdateRows = [],
+        dataChangedRows = [],
         nonGoodRows = [],
         unregisteredRows = []
     } = parsedData;
@@ -48,12 +54,12 @@ const ImportProductionLotModal = ({
             alertBorder: '#ffecb5',
             alertMessage: 'The rows below are exact duplicates and will be skipped during processing.'
         },
-        duplicate_status_update: {
-            title: 'Duplicate Status Update Only',
+        data_changed: {
+            title: 'Duplicate Data Changed',
             alertBg: '#e2e3e5',
             alertColor: '#41464b',
             alertBorder: '#d3d6d8',
-            alertMessage: 'The rows below were previously imported but now have a different lot status. They are displayed for information only and are not processed. To adjust an existing allocation, use the Edit Quantity or Force Close action on the Production Lot page.'
+            alertMessage: 'The rows below match data that was imported before, but something has changed. Nothing is updated automatically. Rows with a changed lot status are NOT saved. Rows with a different expiry date ARE saved as new records, so their quantity is added again. Please check the Reason and Result columns and correct the existing data manually if needed (for example with Edit Quantity on the Production Lot page).'
         },
         non_good: {
             title: 'Non-GOOD Status Rows',
@@ -74,7 +80,8 @@ const ImportProductionLotModal = ({
     const currentConfig = tabConfigs[activeTab] || tabConfigs.new;
 
     // Save hanya aktif jika ada minimal satu lot yang teralokasi (canSave dari server), file belum pernah diupload, dan tidak sedang menyimpan
-    const isSaveDisabled = loading || parsedData.isReupload || !parsedData.canSave;
+    const hasDataChanged = dataChangedRows.length > 0;
+    const isSaveDisabled = loading || parsedData.isReupload || !parsedData.canSave || (hasDataChanged && !dataChangedAck);
 
     return (
         <div style={{
@@ -158,6 +165,44 @@ const ImportProductionLotModal = ({
                         </div>
                     )}
 
+                    {/* Peringatan wajib dibaca: ada baris yang cocok dengan data lama tetapi isinya berubah */}
+                    {hasDataChanged && (
+                        <div style={{
+                            backgroundColor: '#fff3cd',
+                            color: '#664d03',
+                            border: '1px solid #ffecb5',
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            marginBottom: '16px',
+                            fontSize: '13px'
+                        }}>
+                            <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
+                                ⚠️ {dataChangedRows.length} row(s) match previously imported data but have changed.
+                            </div>
+                            <div style={{ marginBottom: '8px' }}>
+                                Changed lot status: not saved. Different expiry date: saved as a new record (quantity is added again).
+                                Nothing is updated automatically. Review them in the{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('data_changed')}
+                                    style={{ background: 'none', border: 'none', padding: 0, color: '#0d6efd', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}
+                                >
+                                    Data Changed
+                                </button>{' '}
+                                tab.
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={dataChangedAck}
+                                    onChange={(e) => setDataChangedAck(e.target.checked)}
+                                    disabled={loading}
+                                />
+                                I have read and noted these {dataChangedRows.length} row(s).
+                            </label>
+                        </div>
+                    )}
+
                     <UploadSkippedNotice
                         skippedRowCount={parsedData.skippedRowCount}
                         skippedTransTypes={parsedData.skippedTransTypes}
@@ -196,10 +241,11 @@ const ImportProductionLotModal = ({
                             />
                         )}
 
-                        {activeTab === 'duplicate_status_update' && (
+                        {activeTab === 'data_changed' && (
                             <RawDataTab
-                                rawData={duplicateStatusUpdateRows}
-                                emptyMessage="No status update duplicates found."
+                                rawData={dataChangedRows}
+                                emptyMessage="No changed data found."
+                                showChange
                             />
                         )}
 

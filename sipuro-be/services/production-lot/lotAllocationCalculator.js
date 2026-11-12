@@ -23,6 +23,9 @@
  *    (2) bila tidak ada pengurangan dengan Doc Source itu, diperlakukan sebagai tambahan output lot: FIFO ke PO terbuka,
  *    ditempelkan ke batch tunggal lot itu, atau batch terbaru bila lot punya beberapa batch.
  *  - Filter tanggal PO berlaku untuk mencocokkan completed date lot terhadap po_headers.created_at.
+ *  - Peringatan "Data Changed" (hanya informasi, tidak mengubah alur simpan): (a) baris dengan hash sama tetapi status lot bukan
+ *    GOOD (tidak disimpan), dan (b) baris GOOD yang sama dengan baris upload tersimpan (lot, item, jenis, qty, tanggal-jam, dan batch
+ *    atau Doc Source) tetapi tanggal kedaluwarsanya berbeda (tetap diproses sebagai baris baru). Keduanya dikumpulkan di dataChangedRows.
  *  - Grup tanpa nomor batch, tanpa nomor lot, atau tanpa tanggal selesai tidak dialokasikan
  *    dan menjadi Unallocated dengan alasan yang jelas (bukan menggagalkan commit).
  */
@@ -106,6 +109,11 @@ const cmpBatchNewestFirst = (x, y) => {
     return by > bx ? 1 : -1;
 };
 
+// Kunci dasar baris upload (tanpa batch, Doc Source, dan kedaluwarsa): lot, item, jenis transaksi, qty, tanggal-jam
+const detailBaseKey = (lotNumber, itemCode, transType, qty, completed) => [
+    lotNumber || '', itemCode || '', transType || '', String(Number(qty) || 0), toDateTimeString(completed) || ''
+].join('\u0000');
+
 const cmpFifo = (a, b) => {
     const c = cmpNullLast(a.createdAt || '', b.createdAt || '');
     return c !== 0 ? c : a.poDetailId - b.poDetailId;
@@ -157,11 +165,27 @@ const calculateLotFifoAllocation = (
 
     const hashSet = new Set(existingHashes);
 
+    // Baris upload yang sudah tersimpan, diindeks per kunci dasar: dipakai mendeteksi baris yang sama dengan tanggal kedaluwarsa berbeda
+    const storedByKey = new Map();
+    (context.existingDetailRows || []).forEach((d) => {
+        const key = detailBaseKey(d.lot_number, d.item_code, d.trans_type, d.qty_pac, d.completed);
+        if (!storedByKey.has(key)) storedByKey.set(key, []);
+        storedByKey.get(key).push(d);
+    });
+    // Jenis berbasis batch dicocokkan dengan nomor batch; jenis berbasis lot dengan Doc Source
+    const storedMatchesOf = (row) => (storedByKey.get(
+        detailBaseKey(row.lotNumber, row.itemCode, row.transType, row.qtyPac, row.actualCompletedDatetime)
+    ) || []).filter((d) => (row.matchBy === MATCH_BY.LOT
+        ? String(d.doc_source || '') === String(row.docSource || '')
+        : String(d.batch_number || '') === String(row.batchNumber || '')));
+
     const categorizedDetails = {
         newRows: [],
         unallocatedRows: [],
         duplicateRows: [],
         duplicateStatusUpdateRows: [],
+        expiryChangedRows: [],
+        dataChangedRows: [],
         unregisteredRows: [],
         nonGoodRows: []
     };
@@ -189,6 +213,11 @@ const calculateLotFifoAllocation = (
             if (!isLotGood) {
                 row.rowStatusCategory = 'DUP_STATUS_UPDATE';
                 row.previousLotStatus = 'GOOD';
+                row.dataChange = {
+                    type: 'STATUS',
+                    reason: `Lot status changed: GOOD \u2192 ${row.lotStatus || '-'}`,
+                    result: 'Not saved'
+                };
                 categorizedDetails.duplicateStatusUpdateRows.push(row);
             } else {
                 row.rowStatusCategory = 'DUPLICATE';
@@ -200,6 +229,20 @@ const calculateLotFifoAllocation = (
         } else {
             row.rowStatusCategory = 'NEW';
             newRowsInFileOrder.push(row);
+
+            // Baris sama dengan baris tersimpan tetapi tanggal kedaluwarsa berbeda: tetap baris baru, hanya diberi peringatan
+            const storedMatches = storedMatchesOf(row);
+            const fileExpired = toDateOnly(row.expiredDate);
+            if (storedMatches.length > 0 && storedMatches.every((d) => toDateOnly(d.expired) !== fileExpired)) {
+                const savedExpired = toDateOnly(storedMatches[0].expired);
+                row.dataChange = {
+                    type: 'EXPIRY',
+                    reason: `Exp Date differs from saved row: ${savedExpired || '-'} \u2192 ${fileExpired || '-'}`,
+                    existingExpiredDate: savedExpired,
+                    result: 'Saved as new row'
+                };
+                categorizedDetails.expiryChangedRows.push(row);
+            }
 
             // Grouping key: Batch + Lot + Item; jenis berbasis lot: Lot + Item (tanpa batch)
             const matchBy = row.matchBy || MATCH_BY.BATCH_LOT;
@@ -725,6 +768,16 @@ const calculateLotFifoAllocation = (
         allocatedKeys.has(groupKeyOfRow(r))
     );
 
+    // Baris berkedaluwarsa berbeda yang ternyata tidak teralokasi tidak disimpan
+    categorizedDetails.expiryChangedRows.forEach((r) => {
+        if (!allocatedKeys.has(groupKeyOfRow(r))) r.dataChange.result = 'Not saved (unallocated)';
+    });
+    // Satu daftar peringatan untuk preview: status berubah dan kedaluwarsa berbeda, urut baris Excel
+    categorizedDetails.dataChangedRows = [
+        ...categorizedDetails.duplicateStatusUpdateRows,
+        ...categorizedDetails.expiryChangedRows
+    ].sort((a, b) => (a.excelRowNumber || 0) - (b.excelRowNumber || 0));
+
     // Baris unallocated & kategori lain dengan atribut lengkap untuk tabel preview
     unallocatedGroups.forEach(({ group, reason }) => {
         group.rows.forEach((row) => {
@@ -745,6 +798,8 @@ const calculateLotFifoAllocation = (
         unallocatedRows: categorizedDetails.unallocatedRows,
         duplicateRows: categorizedDetails.duplicateRows,
         duplicateStatusUpdateRows: categorizedDetails.duplicateStatusUpdateRows,
+        expiryChangedRows: categorizedDetails.expiryChangedRows,
+        dataChangedRows: categorizedDetails.dataChangedRows,
         unregisteredRows: categorizedDetails.unregisteredRows,
         nonGoodRows: categorizedDetails.nonGoodRows,
         summary: {
@@ -754,6 +809,8 @@ const calculateLotFifoAllocation = (
             unallocatedCount: categorizedDetails.unallocatedRows.length,
             duplicateCount: categorizedDetails.duplicateRows.length,
             duplicateStatusUpdateCount: categorizedDetails.duplicateStatusUpdateRows.length,
+            expiryChangedCount: categorizedDetails.expiryChangedRows.length,
+            dataChangedCount: categorizedDetails.dataChangedRows.length,
             unregisteredCount: categorizedDetails.unregisteredRows.length,
             nonGoodCount: categorizedDetails.nonGoodRows.length
         },
