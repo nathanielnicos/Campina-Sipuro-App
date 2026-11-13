@@ -4,8 +4,8 @@
  * Tampilan Ready to Ship: daftar lot yang masih punya sisa dan sebaiknya dikirim duluan (satu baris per lot).
  *
  * Aturan:
- *  - Sisa = produksi bersih lot (upload: IN - OUT, semua status) - terkirim bersih (DO - retur), sama dengan kolom
- *    Sisa di tampilan Lot Number. Hanya lot dengan Sisa > 0.
+ *  - Sisa = produksi bersih lot (upload: IN - OUT, semua status, ditambah lots.adjusted_qty) - terkirim bersih
+ *    (DO - retur), sama dengan kolom Sisa di tampilan Lot Number. Hanya lot dengan Sisa > 0.
  *  - Lot tanpa alokasi PO (selain Canceled) disembunyikan (mis. lot rework yang secara fisik sudah habis).
  *    Status alokasi (Open / Closed / ...) tidak dipakai: tidak mempengaruhi DO.
  *  - Urutan: tanggal selesai produksi terlama dulu; tanpa tanggal selesai di paling akhir; lalu nomor lot.
@@ -18,12 +18,15 @@ const num = (value) => Number(value) || 0;
 
 const COLLATE = 'COLLATE utf8mb4_unicode_ci';
 
+// Qty lot = produksi bersih dari upload + penyesuaian manual (lots.adjusted_qty)
+const LOT_QTY_SQL = 'COALESCE(pr.net_all, 0) + l.adjusted_qty';
+
 // Semua lot siap kirim beserta fifo_rank; pencarian dipasang di luar (alias x) agar fifo_rank tetap utuh
 const READY_BASE_SQL = `SELECT l.id AS lot_id, l.lot_number, p.id_product, p.product_code, p.product_name, p.pcs_per_ctn,
         l.actual_completed_datetime, l.expired_date,
-        COALESCE(pr.net_all, 0) AS qty_lot,
+        ${LOT_QTY_SQL} AS qty_lot,
         COALESCE(dd.kirim, 0) - COALESCE(rt.retur, 0) AS net_delivered,
-        COALESCE(pr.net_all, 0) - (COALESCE(dd.kirim, 0) - COALESCE(rt.retur, 0)) AS balance_pcs,
+        ${LOT_QTY_SQL} - (COALESCE(dd.kirim, 0) - COALESCE(rt.retur, 0)) AS balance_pcs,
         ROW_NUMBER() OVER (
             PARTITION BY l.id_product
             ORDER BY (l.actual_completed_datetime IS NULL), l.actual_completed_datetime, l.lot_number, l.id
@@ -49,7 +52,7 @@ const READY_BASE_SQL = `SELECT l.id AS lot_id, l.lot_number, p.id_product, p.pro
     LEFT JOIN (
         SELECT lot_number, product_id, SUM(qty_pcs) AS retur FROM delivery_returns GROUP BY lot_number, product_id
     ) rt ON rt.lot_number ${COLLATE} = l.lot_number ${COLLATE} AND rt.product_id = l.id_product
-    WHERE COALESCE(pr.net_all, 0) - (COALESCE(dd.kirim, 0) - COALESCE(rt.retur, 0)) > 0`;
+    WHERE ${LOT_QTY_SQL} - (COALESCE(dd.kirim, 0) - COALESCE(rt.retur, 0)) > 0`;
 
 const round2 = (value) => Math.round(value * 100) / 100;
 const ctnOf = (pcs, pcsPerCtn) => (num(pcsPerCtn) > 0 ? round2(pcs / num(pcsPerCtn)) : 0);

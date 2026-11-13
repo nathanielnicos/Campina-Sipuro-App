@@ -8,8 +8,8 @@
  *  - lotBalance : satu baris per (keluarga produk, nomor lot) yang muncul di dua kumpulan di atas.
  *                 Nilai tingkat lot (teralokasi, terkirim, diretur, sisa kuota) hanya ada di sini dan dihitung dari
  *                 SELURUH data lot itu (bukan hanya rentang tanggal), memakai rumus bersama fetchLotStock.
- *                 lot_qty = produksi bersih lot dari upload (IN - OUT, semua status), sama dengan kolom Qty Lot di
- *                 tampilan Lot Number.
+ *                 lot_qty = produksi bersih lot dari upload (IN - OUT, semua status) ditambah lots.adjusted_qty,
+ *                 sama dengan kolom Qty Lot di tampilan Lot Number.
  * Tanggal dikirim sebagai teks murni dari SQL (tanpa pergeseran zona waktu).
  */
 
@@ -38,24 +38,29 @@ const countRows = async (db, deliveries, returns) => {
     return Number(deliveryRow?.total || 0) + Number(returnRow?.total || 0);
 };
 
-// Produksi bersih (IN - OUT, semua status) per (kode kanonik keluarga, lot) dari upload produksi
+// Produksi bersih (IN - OUT, semua status) ditambah penyesuaian manual (lots.adjusted_qty)
+// per (kode kanonik keluarga, lot) dari upload produksi
 const fetchLotQty = async (db, lotNumbers, stockCodes) => {
     const lotQty = new Map();
     for (const part of chunk(lotNumbers, 500)) {
         const [rows] = await db.query(
             `SELECT u.lot_number, u.item_code,
-                    SUM(CASE t.direction WHEN 'IN' THEN u.qty_pac ELSE -u.qty_pac END) AS net_all
+                    SUM(CASE t.direction WHEN 'IN' THEN u.qty_pac ELSE -u.qty_pac END) AS net_all,
+                    COALESCE(MAX(l.adjusted_qty), 0) AS adjusted_qty
              FROM production_lot_upload_details u
              JOIN (SELECT trans_type, MIN(direction) AS direction FROM upload_trans_types
                    WHERE scope = 'LOT' AND is_active = 1 GROUP BY trans_type) t
                ON t.trans_type COLLATE utf8mb4_unicode_ci = u.trans_type COLLATE utf8mb4_unicode_ci
+             LEFT JOIN products p ON p.product_code COLLATE utf8mb4_unicode_ci = u.item_code COLLATE utf8mb4_unicode_ci
+             LEFT JOIN lots l ON l.lot_number COLLATE utf8mb4_unicode_ci = u.lot_number COLLATE utf8mb4_unicode_ci
+                             AND l.id_product = p.id_product
              WHERE u.lot_number IN (?)
              GROUP BY u.lot_number, u.item_code`,
             [part]
         );
         rows.forEach((row) => {
             const key = stockKey(stockCodes.forProductCode(row.item_code), row.lot_number);
-            lotQty.set(key, (lotQty.get(key) || 0) + (Number(row.net_all) || 0));
+            lotQty.set(key, (lotQty.get(key) || 0) + (Number(row.net_all) || 0) + (Number(row.adjusted_qty) || 0));
         });
     }
     return lotQty;

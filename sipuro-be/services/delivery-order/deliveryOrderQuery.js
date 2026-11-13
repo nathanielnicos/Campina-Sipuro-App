@@ -227,12 +227,12 @@ const LOT_LEDGER_SQL = `SELECT 'DO' AS entry_type, dol.lot_number ${COLLATE} AS 
     GROUP BY r.lot_number, p.id_product, p.product_code, p.product_name, p.pcs_per_ctn, r.return_number`;
 
 // Data lot: tanggal selesai, exp, Qty Lot (produksi bersih semua status dari upload: IN dikurangi OUT, sama dengan
-// Cek Saldo Lot) dan total alokasi PO (selain Canceled)
+// Cek Saldo Lot, ditambah lots.adjusted_qty = penyesuaian qty manual) dan total alokasi PO (selain Canceled)
 const LOT_INFO_SQL = `SELECT l.lot_number ${COLLATE} AS lot_number, l.id_product,
         p.product_code, p.product_name, p.pcs_per_ctn,
         MIN(l.actual_completed_datetime) AS actual_completed_datetime,
         MIN(l.expired_date) AS expired_date,
-        COALESCE(MAX(pr.net_all), 0) AS qty_lot,
+        COALESCE(MAX(pr.net_all), 0) + COALESCE(MAX(l.adjusted_qty), 0) AS qty_lot,
         COALESCE(SUM(al.allocated), 0) AS allocated_qty
     FROM lots l
     JOIN products p ON p.id_product = l.id_product
