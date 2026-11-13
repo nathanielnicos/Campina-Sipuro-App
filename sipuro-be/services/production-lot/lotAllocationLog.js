@@ -2,6 +2,34 @@
  * Helper untuk mencatat riwayat/audit trail pada tabel po_lot_allocation_logs
  */
 
+const { MANUAL_ADJUSTMENT_TYPE, REVERSAL_TYPE } = require('./lotRebalanceTypes');
+
+// Jenis riwayat yang mengubah lots.adjusted_qty: edit qty manual (pensil) dan pembatalannya oleh rebalance.
+// Nilai lots.adjusted_qty = jumlah selisih (new - old) seluruh riwayat UPDATE berjenis ini pada lot itu.
+const ADJUSTED_QTY_TYPES = new Set([MANUAL_ADJUSTMENT_TYPE, REVERSAL_TYPE]);
+
+/**
+ * Menambahkan selisih qty manual ke lots.adjusted_qty (satu UPDATE per lot, urut id lot agar lock konsisten).
+ * Berjalan di dalam transaksi yang sama dengan penulisan riwayat. Jenis lain (upload, Allocation Shift) diabaikan.
+ */
+const applyAdjustedQty = async (connection, items) => {
+    const deltaByLot = new Map();
+    items.forEach((item) => {
+        const type = String(item.trans_type || item.transType || '').trim();
+        const lotId = item.lot_id || item.lotId;
+        if (!ADJUSTED_QTY_TYPES.has(type) || !lotId) return;
+        const delta = (Number(item.new_allocated_qty) || 0) - (Number(item.old_allocated_qty) || 0);
+        deltaByLot.set(lotId, (deltaByLot.get(lotId) || 0) + delta);
+    });
+    const lotIds = [...deltaByLot.keys()].sort((a, b) => a - b);
+    for (const lotId of lotIds) {
+        const delta = deltaByLot.get(lotId);
+        if (delta === 0) continue;
+        await connection.query('UPDATE lots SET adjusted_qty = adjusted_qty + ? WHERE id = ?', [delta, lotId]);
+    }
+};
+exports.applyAdjustedQty = applyAdjustedQty;
+
 /**
  * Log saat alokasi PO - Lot baru dibuat (INSERT)
  */
@@ -74,6 +102,7 @@ exports.logAllocationUpdate = async (connection, updates, createdBy = null) => {
     `;
 
     await connection.query(query, [values]);
+    await applyAdjustedQty(connection, items);
 };
 
 /**
