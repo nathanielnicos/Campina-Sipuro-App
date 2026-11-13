@@ -2,6 +2,13 @@ import React from 'react';
 import DateRangePicker from '../../common/DateRangePicker';
 import { RANGE_FIELDS, hasAnyRange } from '../../../hooks/do/allocated-do/doDateRanges';
 
+// Tiga tombol berlebar tetap (tidak ikut melebar) agar semua isian selalu sebaris pada layar lebar
+const BUTTON_SLOTS = {
+    estimated: { flex: '0 0 150px' },
+    export: { flex: '0 0 130px' },
+    reset: { flex: '0 0 120px' }
+};
+
 const DoFilter = ({
     searchQuery,
     ranges,
@@ -26,12 +33,12 @@ const DoFilter = ({
             borderRadius: '8px',
             border: '1px solid #dee2e6',
             marginBottom: '20px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            display: 'flex',
+            flexWrap: 'wrap',
             gap: '12px',
-            alignItems: 'end'
+            alignItems: 'flex-end'
         }}>
-            <div>
+            <div style={{ flex: '1.4 1 200px', minWidth: 0 }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: 'bold' }}>Search DO Data</label>
                 <input
                     type="text"
@@ -44,19 +51,20 @@ const DoFilter = ({
 
             {/* Tiga rentang tanggal selalu tampil; yang tidak berlaku di tampilan aktif dinonaktifkan agar bentuk header tetap */}
             {RANGE_FIELDS.map(({ key, label }) => (
-                <DateRangePicker
-                    key={key}
-                    label={label}
-                    fromDate={ranges[key].from}
-                    toDate={ranges[key].to}
-                    disabled={!rangeEnabled[key]}
-                    disabledTitle="This date range is not used in the current view"
-                    onFromDateChange={(e) => onRangeChange(key, 'from', getValue(e))}
-                    onToDateChange={(e) => onRangeChange(key, 'to', getValue(e))}
-                />
+                <div key={key} style={{ flex: '1 1 170px', minWidth: 0 }}>
+                    <DateRangePicker
+                        label={label}
+                        fromDate={ranges[key].from}
+                        toDate={ranges[key].to}
+                        disabled={!rangeEnabled[key]}
+                        disabledTitle="This date range is not used in the current view"
+                        onFromDateChange={(e) => onRangeChange(key, 'from', getValue(e))}
+                        onToDateChange={(e) => onRangeChange(key, 'to', getValue(e))}
+                    />
+                </div>
             ))}
 
-            <div>
+            <div style={BUTTON_SLOTS.estimated}>
                 <button
                     type="button"
                     onClick={onToggleEstimatedPo}
@@ -67,7 +75,7 @@ const DoFilter = ({
                         : 'Estimated PO is only available in the DO Number view'}
                     style={{
                         width: '100%',
-                        padding: '8px 12px',
+                        padding: '8px 10px',
                         backgroundColor: !estimatedPoEnabled ? '#e9ecef' : (estimatedPoOn ? '#0d6efd' : '#fff'),
                         color: !estimatedPoEnabled ? '#adb5bd' : (estimatedPoOn ? '#fff' : '#0d6efd'),
                         border: !estimatedPoEnabled ? '1px solid #ced4da' : '1px solid #0d6efd',
@@ -83,7 +91,7 @@ const DoFilter = ({
             </div>
 
             {canExport && (
-                <div>
+                <div style={BUTTON_SLOTS.export}>
                     <button
                         type="button"
                         onClick={onExport}
@@ -91,7 +99,7 @@ const DoFilter = ({
                         title="Download Delivery Orders, returns and lot balance as Excel (uses the current search, the DO date range for deliveries and the Return date range for returns)"
                         style={{
                             width: '100%',
-                            padding: '8px 12px',
+                            padding: '8px 10px',
                             backgroundColor: '#198754',
                             color: '#fff',
                             border: '1px solid #198754',
@@ -108,13 +116,13 @@ const DoFilter = ({
                 </div>
             )}
 
-            <div>
+            <div style={BUTTON_SLOTS.reset}>
                 <button
                     onClick={onResetFilters}
                     disabled={!isFilterActive}
                     style={{
                         width: '100%',
-                        padding: '8px 12px',
+                        padding: '8px 10px',
                         backgroundColor: isFilterActive ? '#dc3545' : '#e9ecef',
                         color: isFilterActive ? '#fff' : '#adb5bd',
                         border: isFilterActive ? '1px solid #dc3545' : '1px solid #ced4da',
