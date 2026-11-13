@@ -23,7 +23,7 @@ const lotRow = (o = {}) => ({
     qty_lot: '1000', net_delivered: '300', balance_pcs: '700', fifo_rank: '1', ...o
 });
 
-test('mode READY_TO_SHIP dikenali; pencarian memakai produk dan lot, tanggal tidak dipakai', () => {
+test('mode READY_TO_SHIP dikenali; pencarian memakai produk dan lot, rentang DO tidak dipakai', () => {
     assert.ok(DISPLAY_MODES.includes('READY_TO_SHIP'));
     const req = parseDeliveryOrderRequest({ displayMode: 'READY_TO_SHIP', search: '50%_x', fromDoDate: '2026-10-01' });
     assert.equal(req.displayMode, 'READY_TO_SHIP');
@@ -37,6 +37,35 @@ test('mode READY_TO_SHIP dikenali; pencarian memakai produk dan lot, tanggal tid
     assert.deepEqual(none.params, []);
     // validasi tanggal tetap berlaku
     assert.throws(() => parseDeliveryOrderRequest({ displayMode: 'READY_TO_SHIP', fromDoDate: '2026-12-02', toDoDate: '2026-12-01' }), (e) => e.status === 400);
+});
+
+test('rentang Completed: menyaring tanggal selesai lot di query luar; rentang DO dan Return diabaikan', () => {
+    const only = parseDeliveryOrderRequest({ displayMode: 'READY_TO_SHIP', fromCompletedDate: '2026-10-01', toCompletedDate: '2026-10-31', fromReturnDate: '2026-01-01' });
+    assert.equal(only.whereSql, 'x.actual_completed_datetime >= ? AND x.actual_completed_datetime <= ?');
+    assert.deepEqual(only.params, ['2026-10-01 00:00:00', '2026-10-31 23:59:59']);
+
+    const fromOnly = parseDeliveryOrderRequest({ displayMode: 'READY_TO_SHIP', fromCompletedDate: '2026-10-01' });
+    assert.equal(fromOnly.whereSql, 'x.actual_completed_datetime >= ?');
+    const toOnly = parseDeliveryOrderRequest({ displayMode: 'READY_TO_SHIP', toCompletedDate: '2026-10-31' });
+    assert.equal(toOnly.whereSql, 'x.actual_completed_datetime <= ?');
+
+    // dengan pencarian: pencarian dulu, lalu tanggal; jumlah ? = jumlah parameter
+    const both = parseDeliveryOrderRequest({ displayMode: 'READY_TO_SHIP', search: 'A', fromCompletedDate: '2026-10-01', toCompletedDate: '2026-10-31' });
+    assert.match(both.whereSql, /^\(x\.product_code LIKE \? OR x\.product_name LIKE \? OR x\.lot_number LIKE \?\) AND x\.actual_completed_datetime >= \? AND x\.actual_completed_datetime <= \?$/);
+    assert.deepEqual(both.params, ['%A%', '%A%', '%A%', '2026-10-01 00:00:00', '2026-10-31 23:59:59']);
+    assert.equal((both.whereSql.match(/\?/g) || []).length, both.params.length);
+});
+
+test('rentang Completed dipasang di luar READY_BASE_SQL: fifo_rank tidak berubah, rank menyambung pada hasil tersaring', async () => {
+    const db = fakeDb([[{ total: 2 }], [lotRow({ fifo_rank: '4' }), lotRow({ lot_id: 2, lot_number: 'L2', fifo_rank: '5' })]]);
+    const request = parseDeliveryOrderRequest({ displayMode: 'READY_TO_SHIP', fromCompletedDate: '2026-09-01', page: '1', limit: '10' });
+    const { data } = await fetchReadyToShipPage(db, request);
+
+    assert.match(db.log[0].sql, /\) x WHERE x\.actual_completed_datetime >= \?$/);
+    assert.deepEqual(db.log[0].params, ['2026-09-01 00:00:00']);
+    assert.doesNotMatch(READY_BASE_SQL, /\?/);                       // saringan tidak masuk ke query dasar
+    assert.deepEqual(data.map((r) => r.fifo_rank), [4, 5]);          // FIFO per produk dari semua lot siap kirim
+    assert.deepEqual(data.map((r) => r.rank), [1, 2]);               // urutan pada hasil yang tampil
 });
 
 test('query dasar: hanya lot dengan sisa > 0 dan beralokasi, FIFO per produk, status alokasi tidak dipakai', () => {

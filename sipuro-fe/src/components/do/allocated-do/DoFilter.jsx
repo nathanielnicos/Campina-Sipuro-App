@@ -1,22 +1,22 @@
 import React from 'react';
 import DateRangePicker from '../../common/DateRangePicker';
+import { RANGE_FIELDS, hasAnyRange } from '../../../hooks/do/allocated-do/doDateRanges';
 
 const DoFilter = ({
     searchQuery,
-    fromDoDate,
-    toDoDate,
+    ranges,
+    rangeEnabled,
     onSearchChange,
-    onFromDoDateChange,
-    onToDoDateChange,
+    onRangeChange,
     onResetFilters,
-    showEstimatedPoToggle = false,
+    estimatedPoEnabled = false,
     estimatedPoOn = false,
     onToggleEstimatedPo,
     canExport = false,
     exporting = false,
     onExport
 }) => {
-    const isFilterActive = Boolean(searchQuery || fromDoDate || toDoDate);
+    const isFilterActive = Boolean(searchQuery || hasAnyRange(ranges));
     const getValue = (e) => (e?.target ? e.target.value : e);
 
     return (
@@ -42,38 +42,45 @@ const DoFilter = ({
                 />
             </div>
 
-            <DateRangePicker
-                label="Date Range"
-                fromDate={fromDoDate}
-                toDate={toDoDate}
-                onFromDateChange={(e) => onFromDoDateChange(getValue(e))}
-                onToDateChange={(e) => onToDoDateChange(getValue(e))}
-            />
+            {/* Tiga rentang tanggal selalu tampil; yang tidak berlaku di tampilan aktif dinonaktifkan agar bentuk header tetap */}
+            {RANGE_FIELDS.map(({ key, label }) => (
+                <DateRangePicker
+                    key={key}
+                    label={label}
+                    fromDate={ranges[key].from}
+                    toDate={ranges[key].to}
+                    disabled={!rangeEnabled[key]}
+                    disabledTitle="This date range is not used in the current view"
+                    onFromDateChange={(e) => onRangeChange(key, 'from', getValue(e))}
+                    onToDateChange={(e) => onRangeChange(key, 'to', getValue(e))}
+                />
+            ))}
 
-            {showEstimatedPoToggle && (
-                <div>
-                    <button
-                        type="button"
-                        onClick={onToggleEstimatedPo}
-                        aria-pressed={estimatedPoOn}
-                        title="Show a FIFO estimate of which PO each DO belongs to"
-                        style={{
-                            width: '100%',
-                            padding: '8px 12px',
-                            backgroundColor: estimatedPoOn ? '#0d6efd' : '#fff',
-                            color: estimatedPoOn ? '#fff' : '#0d6efd',
-                            border: '1px solid #0d6efd',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            height: '38px',
-                            transition: 'all 0.2s ease'
-                        }}
-                    >
-                        {estimatedPoOn ? 'Hide Estimated PO' : 'Show Estimated PO'}
-                    </button>
-                </div>
-            )}
+            <div>
+                <button
+                    type="button"
+                    onClick={onToggleEstimatedPo}
+                    disabled={!estimatedPoEnabled}
+                    aria-pressed={estimatedPoEnabled && estimatedPoOn}
+                    title={estimatedPoEnabled
+                        ? 'Show a FIFO estimate of which PO each DO belongs to'
+                        : 'Estimated PO is only available in the DO Number view'}
+                    style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        backgroundColor: !estimatedPoEnabled ? '#e9ecef' : (estimatedPoOn ? '#0d6efd' : '#fff'),
+                        color: !estimatedPoEnabled ? '#adb5bd' : (estimatedPoOn ? '#fff' : '#0d6efd'),
+                        border: !estimatedPoEnabled ? '1px solid #ced4da' : '1px solid #0d6efd',
+                        borderRadius: '4px',
+                        cursor: estimatedPoEnabled ? 'pointer' : 'not-allowed',
+                        fontWeight: 'bold',
+                        height: '38px',
+                        transition: 'all 0.2s ease'
+                    }}
+                >
+                    {estimatedPoEnabled && estimatedPoOn ? 'Hide Estimated PO' : 'Show Estimated PO'}
+                </button>
+            </div>
 
             {canExport && (
                 <div>
@@ -81,7 +88,7 @@ const DoFilter = ({
                         type="button"
                         onClick={onExport}
                         disabled={exporting}
-                        title="Download Delivery Orders, returns and lot balance as Excel (uses the current search and date range)"
+                        title="Download Delivery Orders, returns and lot balance as Excel (uses the current search, the DO date range for deliveries and the Return date range for returns)"
                         style={{
                             width: '100%',
                             padding: '8px 12px',

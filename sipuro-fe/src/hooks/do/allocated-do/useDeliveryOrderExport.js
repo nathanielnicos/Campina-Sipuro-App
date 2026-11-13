@@ -5,8 +5,9 @@ import { useGlobalModal } from '../../../context/ModalContext';
 /**
  * Unduh Excel DO dengan filter yang sedang aktif (pencarian dan rentang tanggal).
  * Berlaku untuk semua tampilan: file selalu berisi pengiriman, retur, dan saldo lot.
+ * Rentang DO menyaring pengiriman dan rentang Return menyaring retur (yang nonaktif di tampilan ini dikirim kosong).
  */
-export const useDeliveryOrderExport = ({ searchQuery, fromDoDate, toDoDate }) => {
+export const useDeliveryOrderExport = ({ searchQuery, fromDoDate, toDoDate, fromReturnDate, toReturnDate }) => {
     const { showAlert } = useGlobalModal();
     const [exporting, setExporting] = useState(false);
     // Guard sinkron terhadap klik ganda (state bisa terlambat diperbarui)
@@ -17,7 +18,7 @@ export const useDeliveryOrderExport = ({ searchQuery, fromDoDate, toDoDate }) =>
         exportingRef.current = true;
         setExporting(true);
 
-        const res = await exportDeliveryOrderExcelApi({ search: searchQuery, fromDoDate, toDoDate });
+        const res = await exportDeliveryOrderExcelApi({ search: searchQuery, fromDoDate, toDoDate, fromReturnDate, toReturnDate });
 
         exportingRef.current = false;
         setExporting(false);

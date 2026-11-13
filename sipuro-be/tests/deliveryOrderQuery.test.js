@@ -205,25 +205,73 @@ test('shapeByLot: urutan lot mengikuti halaman, produk tanpa pcs per carton -> c
     assert.equal(rows[1].balance_ctn, 0);
 });
 
-test('filter lot: dari tabel lots; pencarian mencakup lot, produk, nomor DO dan nomor retur; tanggal lewat DO / retur', () => {
+test('filter lot: dari tabel lots; pencarian mencakup lot, produk, nomor DO dan nomor retur', () => {
     const none = parseDeliveryOrderRequest({ displayMode: 'BY_LOT' });
     assert.equal(none.whereSql, '1 = 1');
     assert.deepEqual(none.params, []);
 
-    const req = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', search: 'FM1_', fromDoDate: '2025-12-01', toDoDate: '2025-12-31' });
+    const req = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', search: 'FM1_' });
     assert.match(req.whereSql, /l\.lot_number LIKE \?/);
     assert.match(req.whereSql, /p\.product_code LIKE \?/);
     assert.match(req.whereSql, /dh\.do_number LIKE \?/);
     assert.match(req.whereSql, /rx\.return_number LIKE \?/);
-    assert.match(req.whereSql, /dx\.do_datetime >= \?/);
-    assert.match(req.whereSql, /rx\.return_datetime <= \?/);
-    assert.equal(req.params.length, 5 + 4);
-    assert.deepEqual(req.params.slice(0, 5), Array(5).fill('%FM1\\_%'));
-    assert.deepEqual(req.params.slice(5), ['2025-12-01 00:00:00', '2025-12-31 23:59:59', '2025-12-01 00:00:00', '2025-12-31 23:59:59']);
+    assert.deepEqual(req.params, Array(5).fill('%FM1\\_%'));
+});
 
-    const onlyFrom = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', fromDoDate: '2025-12-01' });
-    assert.equal(onlyFrom.params.length, 2);
-    assert.ok(!/do_datetime <=/.test(onlyFrom.whereSql));
+test('filter lot: rentang DO, Return, dan Completed terpisah dan berlaku bersamaan (AND)', () => {
+    const doOnly = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', fromDoDate: '2025-12-01', toDoDate: '2025-12-31' });
+    assert.match(doOnly.whereSql, /EXISTS \(SELECT 1 FROM delivery_order_lots dx[\s\S]*dx\.do_datetime >= \? AND dx\.do_datetime <= \?\)/);
+    assert.ok(!/rx\.return_datetime|actual_completed_datetime/.test(doOnly.whereSql));
+    assert.deepEqual(doOnly.params, ['2025-12-01 00:00:00', '2025-12-31 23:59:59']);
+
+    const returnOnly = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', toReturnDate: '2025-12-31' });
+    assert.match(returnOnly.whereSql, /rx\.return_datetime <= \?/);
+    assert.ok(!/dx\.do_datetime|actual_completed_datetime/.test(returnOnly.whereSql));
+    assert.deepEqual(returnOnly.params, ['2025-12-31 23:59:59']);
+
+    const completedOnly = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', fromCompletedDate: '2026-10-01' });
+    assert.equal(completedOnly.whereSql, '1 = 1 AND l.actual_completed_datetime >= ?');
+    assert.deepEqual(completedOnly.params, ['2026-10-01 00:00:00']);
+
+    // semua terisi + pencarian: urutan parameter = pencarian, DO, Return, Completed
+    const all = parseDeliveryOrderRequest({
+        displayMode: 'BY_LOT', search: 'X',
+        fromDoDate: '2025-01-01', toDoDate: '2025-01-31',
+        fromReturnDate: '2025-02-01', toReturnDate: '2025-02-28',
+        fromCompletedDate: '2025-03-01', toCompletedDate: '2025-03-31'
+    });
+    assert.deepEqual(all.params.slice(5), [
+        '2025-01-01 00:00:00', '2025-01-31 23:59:59',
+        '2025-02-01 00:00:00', '2025-02-28 23:59:59',
+        '2025-03-01 00:00:00', '2025-03-31 23:59:59'
+    ]);
+    assert.match(all.whereSql, /dx\.do_datetime >= \?[\s\S]*rx\.return_datetime >= \?[\s\S]*l\.actual_completed_datetime >= \?/);
+    assert.equal((all.whereSql.match(/\?/g) || []).length, all.params.length);
+});
+
+test('rentang tanggal terpisah per tampilan: DO untuk BY_DO, Return untuk BY_RETURN; rentang lain diabaikan', () => {
+    const doReq = parseDeliveryOrderRequest({ fromDoDate: '2025-12-01', fromReturnDate: '2025-11-01', fromCompletedDate: '2025-10-01' });
+    assert.deepEqual(doReq.params, ['2025-12-01 00:00:00']);
+    assert.ok(!/return_datetime|completed/.test(doReq.whereSql));
+
+    const retReq = parseDeliveryOrderRequest({ displayMode: 'BY_RETURN', fromDoDate: '2025-12-01', fromReturnDate: '2025-11-01', toReturnDate: '2025-11-30' });
+    assert.match(retReq.whereSql, /r\.return_datetime >= \?/);
+    assert.match(retReq.whereSql, /r\.return_datetime <= \?/);
+    assert.deepEqual(retReq.params, ['2025-11-01 00:00:00', '2025-11-30 23:59:59']);
+
+    // BY_RETURN tidak lagi memakai rentang DO
+    const noReturn = parseDeliveryOrderRequest({ displayMode: 'BY_RETURN', fromDoDate: '2025-12-01' });
+    assert.equal(noReturn.whereSql, '1 = 1');
+    assert.deepEqual(noReturn.params, []);
+});
+
+test('rentang tanggal: ketiganya selalu divalidasi (salah / terbalik = 400) di semua tampilan', () => {
+    for (const displayMode of ['BY_DO', 'BY_RETURN', 'BY_LOT', 'READY_TO_SHIP']) {
+        assert.throws(() => parseDeliveryOrderRequest({ displayMode, fromReturnDate: '2025-02-31' }), (e) => e.status === 400, displayMode);
+        assert.throws(() => parseDeliveryOrderRequest({ displayMode, fromReturnDate: '2025-12-02', toReturnDate: '2025-12-01' }), (e) => e.status === 400, displayMode);
+        assert.throws(() => parseDeliveryOrderRequest({ displayMode, fromCompletedDate: '2025-12-02', toCompletedDate: '2025-12-01' }), (e) => e.status === 400, displayMode);
+        assert.throws(() => parseDeliveryOrderRequest({ displayMode, toCompletedDate: 'abc' }), (e) => e.status === 400, displayMode);
+    }
 });
 
 test('tampilan lot: induk nomor lot dari tabel lots, lalu ledger DO + retur dan data lot (tanpa filter)', async () => {
@@ -233,12 +281,13 @@ test('tampilan lot: induk nomor lot dari tabel lots, lalu ledger DO + retur dan 
         [ledger('DO', 'L1', 11, 'DO1', '2025-12-01 08:00:00', 300, 6), ledger('RETURN', 'L1', 7, 'RT1', '2025-12-03 09:00:00', 44, 0.88)],
         [lotInfo('L1', 1000, 1000), lotInfo('FM1', 1520, 0)]
     ]);
-    const request = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', search: 'DO1', fromDoDate: '2025-12-01' });
+    const request = parseDeliveryOrderRequest({ displayMode: 'BY_LOT', search: 'DO1', fromDoDate: '2025-12-01', fromCompletedDate: '2025-10-01' });
     const { data, totalItems } = await fetchDeliveryOrderPage(db, request);
 
     assert.equal(totalItems, 2);
     assert.match(db.log[0].sql, /COUNT\(DISTINCT l\.lot_number\) AS total FROM lots l JOIN products p/);
     assert.match(db.log[0].sql, /dh\.do_number LIKE \?/); // filter menentukan lot yang tampil
+    assert.match(db.log[0].sql, /l\.actual_completed_datetime >= \?/);
     assert.match(db.log[1].sql, /SELECT l\.lot_number AS key_id FROM lots l/);
     assert.equal(db.log.length, 4);
 

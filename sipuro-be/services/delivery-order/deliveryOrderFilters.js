@@ -3,11 +3,18 @@
 /**
  * Membaca dan memvalidasi parameter daftar Delivery Order (tanpa akses database).
  *
- * Tiga tampilan:
+ * Empat tampilan:
  *  BY_DO     : delivery_order_lots (alias dol) + delivery_orders (d) + products (p)
  *  BY_LOT    : lots (l) + products (p); lot tanpa DO / retur tetap tampil. DO dan retur hanya sebagai pencarian / rentang tanggal
  *  BY_RETURN : delivery_returns (r) + products (p)
- *  READY_TO_SHIP : lot yang masih punya sisa (lihat deliveryOrderReadyToShip.js); hanya pencarian, tanpa filter tanggal
+ *  READY_TO_SHIP : lot yang masih punya sisa (lihat deliveryOrderReadyToShip.js)
+ *
+ * Tiga rentang tanggal terpisah (kosong = tanpa batas), masing-masing hanya berlaku di tampilannya:
+ *  DO        (fromDoDate / toDoDate)               : BY_DO; BY_LOT = lot yang punya DO dalam rentang
+ *  Return    (fromReturnDate / toReturnDate)       : BY_RETURN; BY_LOT = lot yang punya retur dalam rentang
+ *  Completed (fromCompletedDate / toCompletedDate) : tanggal selesai produksi lot; BY_LOT dan READY_TO_SHIP
+ * Di BY_LOT rentang yang terisi berlaku bersamaan (AND). Lot tanpa tanggal selesai tidak lolos rentang Completed.
+ * Semua rentang selalu divalidasi (tanggal salah / from melewati to = 400), apa pun tampilannya.
  */
 
 const { BusinessError } = require('../../helpers/businessError');
@@ -33,7 +40,7 @@ const orderOf = (sortOrder) => (asText(sortOrder).toUpperCase() === 'ASC' ? 'ASC
 /**
  * @returns {{ whereSql: string, params: any[] }} kondisi untuk tampilan DO / lot (dol, d, p)
  */
-const buildDoFilters = (query, from, to) => {
+const buildDoFilters = (query, { from, to }) => {
     const conditions = ['1 = 1'];
     const params = [];
 
@@ -50,7 +57,7 @@ const buildDoFilters = (query, from, to) => {
 };
 
 // Kondisi untuk tampilan retur (r, p)
-const buildReturnFilters = (query, from, to) => {
+const buildReturnFilters = (query, { from, to }) => {
     const conditions = ['1 = 1'];
     const params = [];
 
@@ -66,15 +73,27 @@ const buildReturnFilters = (query, from, to) => {
     return { whereSql: conditions.join(' AND '), params };
 };
 
-// Kondisi untuk tampilan Ready to Ship; dipasang pada hasil gabungan lot (alias x): produk atau nomor lot
-const buildReadyFilters = (query) => {
+// Kondisi rentang tanggal selesai produksi pada kolom tertentu; parameter ditambahkan ke daftar params
+const pushRange = (conditions, params, column, { from, to }) => {
+    if (from) { conditions.push(`${column} >= ?`); params.push(`${from} 00:00:00`); }
+    if (to) { conditions.push(`${column} <= ?`); params.push(`${to} 23:59:59`); }
+};
+
+// Kondisi untuk tampilan Ready to Ship; dipasang pada hasil gabungan lot (alias x): produk / nomor lot dan tanggal selesai.
+// Dipasang di luar perhitungan fifo_rank, sehingga urutan FIFO per produk tidak terpengaruh.
+const buildReadyFilters = (query, completed) => {
+    const conditions = [];
+    const params = [];
+
     const search = asText(query.search);
-    if (!search) return { whereSql: '1 = 1', params: [] };
-    const like = `%${escapeLike(search)}%`;
-    return {
-        whereSql: '(x.product_code LIKE ? OR x.product_name LIKE ? OR x.lot_number LIKE ?)',
-        params: [like, like, like]
-    };
+    if (search) {
+        const like = `%${escapeLike(search)}%`;
+        conditions.push('(x.product_code LIKE ? OR x.product_name LIKE ? OR x.lot_number LIKE ?)');
+        params.push(like, like, like);
+    }
+    pushRange(conditions, params, 'x.actual_completed_datetime', completed);
+
+    return { whereSql: conditions.length > 0 ? conditions.join(' AND ') : '1 = 1', params };
 };
 
 const LOT_COLLATE = 'COLLATE utf8mb4_unicode_ci';
@@ -86,9 +105,11 @@ const RETURN_OF_LOT_SQL = `SELECT 1 FROM delivery_returns rx WHERE rx.lot_number
 
 /**
  * @returns {{ whereSql: string, params: any[] }} kondisi untuk tampilan Lot Number (l, p).
- * Pencarian: nomor lot, kode / nama produk, nomor DO, nomor retur. Tanggal: lot yang punya DO atau retur dalam rentang.
+ * Pencarian: nomor lot, kode / nama produk, nomor DO, nomor retur.
+ * Tanggal (bila diisi, semuanya berlaku bersamaan): lot yang punya DO dalam rentang DO, lot yang punya retur dalam
+ * rentang Return, dan lot yang selesai produksi dalam rentang Completed.
  */
-const buildLotFilters = (query, from, to) => {
+const buildLotFilters = (query, doRange, returnRange, completed) => {
     const conditions = ['1 = 1'];
     const params = [];
 
@@ -100,37 +121,37 @@ const buildLotFilters = (query, from, to) => {
             OR EXISTS (${RETURN_OF_LOT_SQL} AND rx.return_number LIKE ?))`);
         params.push(like, like, like, like, like);
     }
-    if (from || to) {
+    if (doRange.from || doRange.to) {
         const doConditions = [];
-        const returnConditions = [];
-        const rangeParams = [];
-        if (from) {
-            doConditions.push('dx.do_datetime >= ?');
-            returnConditions.push('rx.return_datetime >= ?');
-            rangeParams.push(`${from} 00:00:00`);
-        }
-        if (to) {
-            doConditions.push('dx.do_datetime <= ?');
-            returnConditions.push('rx.return_datetime <= ?');
-            rangeParams.push(`${to} 23:59:59`);
-        }
-        conditions.push(`(EXISTS (${DO_OF_LOT_SQL} AND ${doConditions.join(' AND ')})
-            OR EXISTS (${RETURN_OF_LOT_SQL} AND ${returnConditions.join(' AND ')}))`);
-        params.push(...rangeParams, ...rangeParams);
+        pushRange(doConditions, params, 'dx.do_datetime', doRange);
+        conditions.push(`EXISTS (${DO_OF_LOT_SQL} AND ${doConditions.join(' AND ')})`);
     }
+    if (returnRange.from || returnRange.to) {
+        const returnConditions = [];
+        pushRange(returnConditions, params, 'rx.return_datetime', returnRange);
+        conditions.push(`EXISTS (${RETURN_OF_LOT_SQL} AND ${returnConditions.join(' AND ')})`);
+    }
+    pushRange(conditions, params, 'l.actual_completed_datetime', completed);
 
     return { whereSql: conditions.join(' AND '), params };
 };
 
-// Rentang tanggal DO / retur dari query (kosong = tanpa batas); from tidak boleh melewati to
-const parseDateRange = (query) => {
-    const from = parseDateParam(query.fromDoDate, 'From date');
-    const to = parseDateParam(query.toDoDate, 'To date');
+// Satu rentang tanggal dari query (kosong = tanpa batas); from tidak boleh melewati to
+const parseRange = (query, fromKey, toKey, name) => {
+    const from = parseDateParam(query[fromKey], `From ${name} date`);
+    const to = parseDateParam(query[toKey], `To ${name} date`);
     if (from && to && from > to) {
-        throw new BusinessError('From date must not be later than To date.', 400);
+        throw new BusinessError(`From ${name} date must not be later than To ${name} date.`, 400);
     }
     return { from, to };
 };
+
+// Ketiga rentang tanggal; semuanya divalidasi walaupun tampilan aktif hanya memakai sebagian
+const parseDateRanges = (query) => ({
+    doRange: parseRange(query, 'fromDoDate', 'toDoDate', 'DO'),
+    returnRange: parseRange(query, 'fromReturnDate', 'toReturnDate', 'return'),
+    completed: parseRange(query, 'fromCompletedDate', 'toCompletedDate', 'completed')
+});
 
 /**
  * Seluruh parameter daftar: filter + mode tampilan + halaman + urutan.
@@ -141,27 +162,27 @@ const parseDeliveryOrderRequest = (query = {}) => {
         throw new BusinessError('Invalid display mode.', 400);
     }
 
-    const { from, to } = parseDateRange(query);
+    const { doRange, returnRange, completed } = parseDateRanges(query);
 
     let filters;
-    if (displayMode === 'BY_RETURN') filters = buildReturnFilters(query, from, to);
-    else if (displayMode === 'BY_LOT') filters = buildLotFilters(query, from, to);
-    else if (displayMode === 'READY_TO_SHIP') filters = buildReadyFilters(query);
-    else filters = buildDoFilters(query, from, to);
+    if (displayMode === 'BY_RETURN') filters = buildReturnFilters(query, returnRange);
+    else if (displayMode === 'BY_LOT') filters = buildLotFilters(query, doRange, returnRange, completed);
+    else if (displayMode === 'READY_TO_SHIP') filters = buildReadyFilters(query, completed);
+    else filters = buildDoFilters(query, doRange);
     const { page, limit, offset } = parsePageParams(query, { defaultLimit: DEFAULT_PAGE_LIMIT, maxLimit: MAX_PAGE_LIMIT });
 
     return { displayMode, ...filters, page, limit, offset, order: orderOf(query.sortOrder) };
 };
 
 /**
- * Parameter ekspor: pencarian dan rentang tanggal yang sama dengan daftar, berlaku untuk pengiriman DO dan retur
- * sekaligus. Tanpa mode tampilan dan tanpa halaman.
+ * Parameter ekspor: pencarian yang sama dengan daftar; rentang DO menyaring pengiriman dan rentang Return menyaring
+ * retur. Rentang Completed tidak dipakai. Tanpa mode tampilan dan tanpa halaman.
  */
 const parseDeliveryOrderExportRequest = (query = {}) => {
-    const { from, to } = parseDateRange(query);
+    const { doRange, returnRange } = parseDateRanges(query);
     return {
-        deliveries: buildDoFilters(query, from, to),
-        returns: buildReturnFilters(query, from, to)
+        deliveries: buildDoFilters(query, doRange),
+        returns: buildReturnFilters(query, returnRange)
     };
 };
 

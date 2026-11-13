@@ -12,6 +12,7 @@ import useDeliveryOrderTable from '../../../hooks/do/allocated-do/useDeliveryOrd
 import useEstimatedPo from '../../../hooks/do/allocated-do/useEstimatedPo';
 import useDeliveryOrderExport from '../../../hooks/do/allocated-do/useDeliveryOrderExport';
 import { usePermission } from '../../../context/PermissionContext';
+import { EMPTY_RANGES, EXPORT_RANGE_KEYS, rangeEnabledFor, rangeParams } from '../../../hooks/do/allocated-do/doDateRanges';
 
 const thStyle = { padding: '12px 14px' };
 const RIGHT_ALIGNED_COLUMNS = ['Qty (Pcs)', 'Qty Lot', 'Remaining (Pcs)', 'Balance (Pcs)', 'Net Delivered (Pcs)', 'Age (Days)'];
@@ -36,13 +37,15 @@ const DoTable = ({ reloadTrigger }) => {
     const [detailLevel, setDetailLevel] = useState('SUMMARY'); // 'SUMMARY' | 'LOT' (tampilan DO dan Return)
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [fromDoDate, setFromDoDate] = useState('');
-    const [toDoDate, setToDoDate] = useState('');
+    // Tiga rentang tanggal terpisah: do (DO Date), return (Return Date), completed (Lot Completed Date)
+    const [ranges, setRanges] = useState(EMPTY_RANGES);
 
     const [showEstimatedPo, setShowEstimatedPo] = useState(false);
 
-    const tableData = useDeliveryOrderTable(reloadTrigger, { searchQuery, fromDoDate, toDoDate }, viewMode);
-    const exportData = useDeliveryOrderExport({ searchQuery, fromDoDate, toDoDate });
+    // Hanya rentang yang berlaku di tampilan aktif yang dikirim; ekspor hanya memakai rentang DO dan Return
+    const rangeEnabled = rangeEnabledFor(viewMode);
+    const tableData = useDeliveryOrderTable(reloadTrigger, { searchQuery, ...rangeParams(viewMode, ranges) }, viewMode);
+    const exportData = useDeliveryOrderExport({ searchQuery, ...rangeParams(viewMode, ranges, EXPORT_RANGE_KEYS) });
 
     // Perkiraan PO hanya untuk tampilan DO Number (Summary dan Per Lot), atas DO yang sedang tampil
     const estimatedPoActive = showEstimatedPo && viewMode === 'DO';
@@ -52,10 +55,14 @@ const DoTable = ({ reloadTrigger }) => {
     );
     const estimate = useEstimatedPo(estimatedPoActive, visibleDoIds);
 
+    const handleRangeChange = (key, edge, value) => {
+        setRanges((prev) => ({ ...prev, [key]: { ...prev[key], [edge]: value } }));
+        tableData.setPage(1);
+    };
+
     const handleReset = () => {
         setSearchQuery('');
-        setFromDoDate('');
-        setToDoDate('');
+        setRanges(EMPTY_RANGES);
         tableData.setPage(1);
     };
 
@@ -92,13 +99,12 @@ const DoTable = ({ reloadTrigger }) => {
 
             <DoFilter
                 searchQuery={searchQuery}
-                fromDoDate={fromDoDate}
-                toDoDate={toDoDate}
+                ranges={ranges}
+                rangeEnabled={rangeEnabled}
                 onSearchChange={(e) => { setSearchQuery(e.target.value); tableData.setPage(1); }}
-                onFromDoDateChange={(val) => { setFromDoDate(val); tableData.setPage(1); }}
-                onToDoDateChange={(val) => { setToDoDate(val); tableData.setPage(1); }}
+                onRangeChange={handleRangeChange}
                 onResetFilters={handleReset}
-                showEstimatedPoToggle={viewMode === 'DO'}
+                estimatedPoEnabled={viewMode === 'DO'}
                 estimatedPoOn={showEstimatedPo}
                 onToggleEstimatedPo={() => setShowEstimatedPo((on) => !on)}
                 canExport={canExport}
@@ -114,9 +120,15 @@ const DoTable = ({ reloadTrigger }) => {
                     onDetailLevelChange={setDetailLevel}
                 />
 
+                {viewMode === 'LOT' && (
+                    <div style={{ padding: '8px 14px', fontSize: '12px', color: '#6c757d', borderBottom: '1px solid #dee2e6', backgroundColor: '#f8f9fa' }}>
+                        Date ranges select lots that have a matching DO, return, or completed date. Each lot always shows its full history so the balance stays correct.
+                    </div>
+                )}
+
                 {viewMode === 'READY' && (
                     <div style={{ padding: '8px 14px', fontSize: '12px', color: '#6c757d', borderBottom: '1px solid #dee2e6', backgroundColor: '#f8f9fa' }}>
-                        Lots with remaining stock, oldest completed date first. Lots without PO allocation are hidden. The date filter does not apply here.
+                        Lots with remaining stock, oldest completed date first. Lots without PO allocation are hidden. The Lot Completed Date Range applies here; lots without a completed date are hidden when it is set.
                     </div>
                 )}
 

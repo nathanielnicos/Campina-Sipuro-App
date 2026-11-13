@@ -18,8 +18,13 @@ export const useDeliveryOrderTable = (reloadTrigger, filterState, viewMode) => {
     const requestSeq = useRef(0);
 
     const searchQuery = filterState?.searchQuery || '';
+    // Tiga rentang tanggal terpisah (DO, Return, Lot Completed); yang tidak berlaku di tampilan ini dikirim kosong oleh pemanggil
     const fromDoDate = filterState?.fromDoDate || '';
     const toDoDate = filterState?.toDoDate || '';
+    const fromReturnDate = filterState?.fromReturnDate || '';
+    const toReturnDate = filterState?.toReturnDate || '';
+    const fromCompletedDate = filterState?.fromCompletedDate || '';
+    const toCompletedDate = filterState?.toCompletedDate || '';
     const displayMode = toDisplayMode(viewMode);
 
     const loadData = useCallback(async () => {
@@ -31,7 +36,11 @@ export const useDeliveryOrderTable = (reloadTrigger, filterState, viewMode) => {
                 search: searchQuery,
                 displayMode,
                 fromDoDate,
-                toDoDate
+                toDoDate,
+                fromReturnDate,
+                toReturnDate,
+                fromCompletedDate,
+                toCompletedDate
             });
             if (seq !== requestSeq.current) return;
 
@@ -54,7 +63,7 @@ export const useDeliveryOrderTable = (reloadTrigger, filterState, viewMode) => {
         } finally {
             if (seq === requestSeq.current) setLoading(false);
         }
-    }, [page, limit, displayMode, searchQuery, fromDoDate, toDoDate]);
+    }, [page, limit, displayMode, searchQuery, fromDoDate, toDoDate, fromReturnDate, toReturnDate, fromCompletedDate, toCompletedDate]);
 
     useEffect(() => {
         loadData();

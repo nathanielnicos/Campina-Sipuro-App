@@ -7,7 +7,9 @@ const DateRangePicker = ({
     fromDate,
     toDate,
     onFromDateChange,
-    onToDateChange
+    onToDateChange,
+    disabled = false,
+    disabledTitle = ''
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [tempFrom, setTempFrom] = useState(fromDate || '');
@@ -41,6 +43,7 @@ const DateRangePicker = ({
 
     // Toggle pop-up dan reset temp state sesuai prop aktif saat ini
     const handleToggleOpen = () => {
+        if (disabled) return;
         if (!isOpen) {
             setTempFrom(fromDate || '');
             setTempTo(toDate || '');
@@ -72,8 +75,12 @@ const DateRangePicker = ({
     };
 
     return (
-        <div ref={containerRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#212529' }}>
+        <div
+            ref={containerRef}
+            title={disabled ? disabledTitle : undefined}
+            style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '4px' }}
+        >
+            <label style={{ fontSize: '12px', fontWeight: 'bold', color: disabled ? '#adb5bd' : '#212529' }}>
                 {label}
             </label>
 
@@ -86,8 +93,9 @@ const DateRangePicker = ({
                     fontSize: '13px',
                     borderRadius: '4px',
                     border: '1px solid #ced4da',
-                    backgroundColor: '#fff',
-                    cursor: 'pointer',
+                    backgroundColor: disabled ? '#e9ecef' : '#fff',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    opacity: disabled ? 0.65 : 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -100,7 +108,7 @@ const DateRangePicker = ({
                 </span>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {(fromDate || toDate) && (
+                    {!disabled && (fromDate || toDate) && (
                         <span
                             onClick={handleClear}
                             title="Clear Date"
@@ -120,7 +128,7 @@ const DateRangePicker = ({
             </div>
 
             {/* Custom Pop-up Picker */}
-            {isOpen && (
+            {isOpen && !disabled && (
                 <div style={{
                     position: 'absolute',
                     top: '100%',

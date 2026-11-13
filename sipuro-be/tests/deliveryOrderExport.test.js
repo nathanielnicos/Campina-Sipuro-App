@@ -64,15 +64,33 @@ const returnRow = (o = {}) => ({
     return_number: 'RT1', return_datetime: '2026-10-05 09:00:00', product_code: 'P1', product_name: 'Produk 1', lot_number: 'L1', qty_pcs: '5', qty_ctn: '0.5', ...o
 });
 
-test('filter ekspor: pencarian dan tanggal berlaku untuk pengiriman dan retur', () => {
-    const f = parseDeliveryOrderExportRequest({ search: 'ab_c', fromDoDate: '2026-10-01', toDoDate: '2026-10-31', displayMode: 'BY_RETURN', page: '3' });
+test('filter ekspor: pencarian untuk keduanya; rentang DO menyaring pengiriman, rentang Return menyaring retur', () => {
+    const f = parseDeliveryOrderExportRequest({
+        search: 'ab_c', fromDoDate: '2026-10-01', toDoDate: '2026-10-31',
+        fromReturnDate: '2026-11-01', toReturnDate: '2026-11-30',
+        fromCompletedDate: '2026-01-01', displayMode: 'BY_RETURN', page: '3'
+    });
     assert.match(f.deliveries.whereSql, /d\.do_number LIKE \?/);
     assert.match(f.deliveries.whereSql, /dol\.do_datetime >= \?/);
     assert.match(f.returns.whereSql, /r\.return_number LIKE \?/);
     assert.match(f.returns.whereSql, /r\.return_datetime <= \?/);
     assert.equal(f.deliveries.params[0], '%ab\\_c%');
+    assert.equal(f.returns.params[0], '%ab\\_c%');
     assert.deepEqual(f.deliveries.params.slice(-2), ['2026-10-01 00:00:00', '2026-10-31 23:59:59']);
-    assert.deepEqual(f.returns.params.slice(-2), ['2026-10-01 00:00:00', '2026-10-31 23:59:59']);
+    assert.deepEqual(f.returns.params.slice(-2), ['2026-11-01 00:00:00', '2026-11-30 23:59:59']);
+    // rentang Completed tidak dipakai ekspor
+    assert.ok(!/completed/.test(f.deliveries.whereSql + f.returns.whereSql));
+});
+
+test('filter ekspor: hanya rentang DO -> retur tidak tersaring tanggal; hanya rentang Return -> pengiriman tidak tersaring', () => {
+    const onlyDo = parseDeliveryOrderExportRequest({ fromDoDate: '2026-10-01' });
+    assert.deepEqual(onlyDo.deliveries.params, ['2026-10-01 00:00:00']);
+    assert.equal(onlyDo.returns.whereSql, '1 = 1');
+    assert.deepEqual(onlyDo.returns.params, []);
+
+    const onlyReturn = parseDeliveryOrderExportRequest({ toReturnDate: '2026-11-30' });
+    assert.equal(onlyReturn.deliveries.whereSql, '1 = 1');
+    assert.deepEqual(onlyReturn.returns.params, ['2026-11-30 23:59:59']);
 });
 
 test('filter ekspor: tanpa filter, dan tanggal salah ditolak', () => {
@@ -81,6 +99,7 @@ test('filter ekspor: tanpa filter, dan tanggal salah ditolak', () => {
     assert.deepEqual(f.returns.params, []);
     assert.throws(() => parseDeliveryOrderExportRequest({ fromDoDate: '2026-11-01', toDoDate: '2026-10-01' }), (e) => e.status === 400);
     assert.throws(() => parseDeliveryOrderExportRequest({ fromDoDate: 'xx' }), (e) => e.status === 400);
+    assert.throws(() => parseDeliveryOrderExportRequest({ fromReturnDate: '2026-11-01', toReturnDate: '2026-10-01' }), (e) => e.status === 400);
 });
 
 test('query: hitung dulu; di atas batas ditolak 400 tanpa membaca data', async () => {
