@@ -151,13 +151,13 @@ const commitProductionAllocationTransaction = async (connection, {
         if (!batchIdByNumber.has(group.batchNumber) && !processedBatchNumbers.has(group.batchNumber)) {
             processedBatchNumbers.add(group.batchNumber);
             // Tanggal selesai batch diisi syncBatchCompletedDates (satu aturan di satu tempat)
+            // Tanggal expired tidak disimpan di batch: hanya di tabel lots (per nomor lot + produk)
             newBatchesToInsert.push([
                 group.batchNumber,
                 group.idProduct,
                 null,
                 null,
                 null,
-                group.expiredDate || null,
                 'Open',
                 userId,
                 userId
@@ -171,7 +171,7 @@ const commitProductionAllocationTransaction = async (connection, {
 
     if (newBatchesToInsert.length > 0) {
         await connection.query(
-            `INSERT INTO batches (batch_number, id_product, plan_production_date, actual_production_date, actual_completed_date, expired_date, status, created_by, updated_by)
+            `INSERT INTO batches (batch_number, id_product, plan_production_date, actual_production_date, actual_completed_date, status, created_by, updated_by)
              VALUES ?`,
             [newBatchesToInsert]
         );

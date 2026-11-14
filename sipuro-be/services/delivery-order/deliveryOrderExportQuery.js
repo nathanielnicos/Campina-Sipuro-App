@@ -24,6 +24,12 @@ const MAX_EXPORT_ROWS = 20000;
 
 const DATETIME_SQL = (column) => `DATE_FORMAT(${column}, '%Y-%m-%d %H:%i:%s')`;
 
+// Tanggal lot per item: lot dengan produk yang sama didahulukan (satu nomor lot bisa dipakai beberapa item dengan tanggal
+// berbeda). Bila lot terdaftar pada kode produk lain (pemetaan kode), jatuh ke nilai terkecil dari nomor lot itu.
+const LOT_DATE_SQL = (expr) => `COALESCE(
+                (SELECT ${expr} FROM lots l WHERE l.lot_number = dol.lot_number AND l.id_product = p.id_product),
+                (SELECT ${expr} FROM lots l WHERE l.lot_number = dol.lot_number))`;
+
 const DELIVERY_GROUP_SQL = 'GROUP BY d.id, d.do_number, p.id_product, p.product_code, p.product_name, dol.lot_number';
 
 const countRows = async (db, deliveries, returns) => {
@@ -124,8 +130,8 @@ const fetchExportData = async (db, { deliveries, returns }) => {
             p.product_code,
             p.product_name,
             dol.lot_number,
-            (SELECT ${DATETIME_SQL('MIN(l.actual_completed_datetime)')} FROM lots l WHERE l.lot_number = dol.lot_number) AS lot_completed_at,
-            (SELECT DATE_FORMAT(MIN(l.expired_date), '%Y-%m-%d') FROM lots l WHERE l.lot_number = dol.lot_number) AS lot_expired_date,
+            ${LOT_DATE_SQL(DATETIME_SQL('MIN(l.actual_completed_datetime)'))} AS lot_completed_at,
+            ${LOT_DATE_SQL("DATE_FORMAT(MIN(l.expired_date), '%Y-%m-%d')")} AS lot_expired_date,
             SUM(dol.qty_pcs) AS qty_pcs,
             SUM(dol.qty_ctn) AS qty_ctn
          ${DO_FROM_SQL}
