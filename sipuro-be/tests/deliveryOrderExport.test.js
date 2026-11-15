@@ -140,7 +140,7 @@ test('query: pengiriman dikelompokkan per DO + item + lot, memakai filter dan pa
     }]);
 });
 
-test('saldo lot: kode lama dan pengganti satu keluarga digabung menjadi satu baris berkode kanonik', async () => {
+test('saldo lot: kode lama dan pengganti satu keluarga tampil sebagai dua baris, masing-masing kode produksi apa adanya', async () => {
     state.counts = [2, 0];
     state.deliveries = [deliveryRow({ product_code: 'P1' }), deliveryRow({ do_number: 'DO2', product_code: 'P2' })];
     state.mappings = [{ id_product_old: 1, id_product_new: 2 }];
@@ -150,20 +150,20 @@ test('saldo lot: kode lama dan pengganti satu keluarga digabung menjadi satu bar
         returned: []
     };
     const data = await fetchExportData(fakeDb, parseDeliveryOrderExportRequest({}));
-    assert.equal(data.lotBalance.length, 1);
-    assert.equal(data.lotBalance[0].product_code, 'P1'); // id terkecil = kanonik
-    assert.equal(data.lotBalance[0].allocated_qty, 16405);
-    assert.equal(data.lotBalance[0].delivered_qty, 100);
+    assert.equal(data.lotBalance.length, 2);
+    assert.deepEqual(data.lotBalance.map((r) => [r.product_code, r.allocated_qty, r.delivered_qty]), [['P1', 725, 0], ['P2', 15680, 100]]);
+    // mapping tidak dipakai sama sekali pada saldo lot
+    assert.ok(!state.queries.some((q) => /FROM product_code_mappings/.test(q.sql)));
 });
 
-test('saldo lot: Lot Qty dari produksi bersih; kode lama dan pengganti digabung, query hanya untuk lot yang tampil', async () => {
+test('saldo lot: Lot Qty per kode produksi (tidak digabung per keluarga), query hanya untuk lot yang tampil', async () => {
     state.counts = [2, 0];
     state.deliveries = [deliveryRow({ product_code: 'P1' }), deliveryRow({ do_number: 'DO2', product_code: 'P2' })];
     state.mappings = [{ id_product_old: 1, id_product_new: 2 }];
     state.lotQty = [{ lot_number: 'L1', item_code: 'P1', net_all: '500' }, { lot_number: 'L1', item_code: 'P2', net_all: '1000' }];
     const data = await fetchExportData(fakeDb, parseDeliveryOrderExportRequest({}));
-    assert.equal(data.lotBalance.length, 1);
-    assert.equal(data.lotBalance[0].lot_qty, 1500);
+    assert.equal(data.lotBalance.length, 2);
+    assert.deepEqual(data.lotBalance.map((r) => [r.product_code, r.lot_qty]), [['P1', 500], ['P2', 1000]]);
 
     const q = state.queries.find((x) => /FROM production_lot_upload_details/.test(x.sql));
     assert.match(q.sql, /upload_trans_types/);
@@ -219,10 +219,10 @@ test('workbook: Stock Balance = Lot Qty - terkirim bersih; kolom lama tidak berg
     assert.deepEqual(rows[2].slice(3), [10, 0, 0, 10, 0, 0]);
 });
 
-test('workbook: sisa kuota tidak negatif, sel kosong menjadi null, data kosong tetap punya header', () => {
+test('workbook: sisa kuota tidak dibatasi 0 (agar pivot menjumlah benar), sel kosong menjadi null, data kosong tetap punya header', () => {
     const rows = wb.buildLotBalanceRows([{ product_code: 'P1', product_name: '', lot_number: 'L1', allocated_qty: 10, delivered_qty: 12, returned_qty: 0 }]);
     assert.equal(rows[1][1], null);
-    assert.equal(rows[1][6], 0);
+    assert.equal(rows[1][6], -2);
     const empty = JSON.parse(wb.buildExportWorkbookBuffer({ deliveries: [], returns: [], lotBalance: [] }).toString());
     assert.equal(empty.sheets[0].aoa.length, 1);
     assert.equal(empty.sheets[0].filter.ref, 'A1:I1');

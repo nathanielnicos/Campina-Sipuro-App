@@ -55,7 +55,7 @@ test('ekspor: Lot Qty = produksi bersih + adjusted_qty; query menggabungkan lots
     assert.match(q.sql, /GROUP BY u\.lot_number, u\.item_code/);
 });
 
-test('ekspor: kode lama dan pengganti satu keluarga, penyesuaian ikut dijumlahkan', async () => {
+test('ekspor: kode lama dan pengganti satu keluarga tampil dua baris, penyesuaian ikut pada kode masing-masing', async () => {
     const state = {
         queries: [], mappings: [{ id_product_old: 1, id_product_new: 2 }],
         deliveries: [delivery({ product_code: 'P1' }), delivery({ do_number: 'DO2', product_code: 'P2' })],
@@ -65,8 +65,8 @@ test('ekspor: kode lama dan pengganti satu keluarga, penyesuaian ikut dijumlahka
         ]
     };
     const data = await fetchExportData(exportDb(state), parseDeliveryOrderExportRequest({}));
-    assert.equal(data.lotBalance.length, 1);
-    assert.equal(data.lotBalance[0].lot_qty, 1480);
+    assert.equal(data.lotBalance.length, 2);
+    assert.deepEqual(data.lotBalance.map((r) => [r.product_code, r.lot_qty]), [['P1', 480], ['P2', 1000]]);
 });
 
 test('ekspor: tanpa adjusted_qty (kolom kosong) hasil sama dengan sebelumnya', async () => {

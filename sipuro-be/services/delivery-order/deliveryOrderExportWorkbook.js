@@ -4,8 +4,10 @@
  * Menyusun workbook ekspor Delivery Order.
  * Sheet "Deliveries": satu baris per (DO, item, lot), tanpa nilai tingkat lot agar pivot tidak menghitung ganda.
  * Sheet "Returns"   : satu baris per baris retur.
- * Sheet "Lot Balance": satu baris per (kode produk, lot) dengan nilai tingkat lot (teralokasi, terkirim, diretur, sisa kuota).
+ * Sheet "Lot Balance": satu baris per (kode produksi, lot) dengan nilai tingkat lot (teralokasi, terkirim, diretur, sisa kuota).
+ * Kode produksi apa adanya, sama dengan tampilan Lot Number, sehingga angkanya bisa dijumlah di pivot.
  * Sisa kuota kirim = teralokasi - terkirim bersih (terkirim - retur): retur membuka kuota kirim lagi.
+ * Tidak dibatasi 0: nilai negatif berarti kode itu mengirim melebihi alokasinya sendiri.
  * Dua kolom terakhir: Lot Qty (produksi bersih lot dari upload) dan Stock Balance (Lot Qty - terkirim bersih),
  * sama dengan Qty Lot dan Sisa di tampilan Lot Number.
  */
@@ -91,7 +93,7 @@ const buildLotBalanceRows = (lotBalance) => [
             allocated,
             delivered,
             returned,
-            Math.max(0, allocated - (delivered - returned)),
+            allocated - (delivered - returned),
             lotQty,
             lotQty - (delivered - returned)
         ];
