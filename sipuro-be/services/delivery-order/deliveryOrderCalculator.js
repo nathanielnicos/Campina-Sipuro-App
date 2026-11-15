@@ -8,10 +8,11 @@
  *  - Kode item di file = kode produk hasil produksi (produk lot), bisa berbeda dari kode di PO (pemetaan kode).
  *    Pengiriman terikat ke lot, bukan ke PO.
  *  - Baris dikelompokkan per (nomor DO, item, lot). Total grup harus muat PENUH dalam sisa kuota
- *    (keluarga produk, lot) = total alokasi non-Canceled dikurangi TERKIRIM BERSIH (terkirim dikurangi retur yang sudah
- *    tersimpan; retur membuka kuota kirim lagi). Kode produk yang dipetakan
- *    (mis. 45 dan 47) satu keluarga: nomor lot yang sama berbagi satu kuota (stock.stockCodes); kalau tidak, seluruh baris
- *    grup menjadi Unallocated. Force Closed ikut dihitung karena qty-nya sudah terpenuhi.
+ *    (kode item, lot) = total alokasi non-Canceled dikurangi TERKIRIM BERSIH (terkirim dikurangi retur yang sudah
+ *    tersimpan; retur membuka kuota kirim lagi); kalau tidak, seluruh baris grup menjadi Unallocated.
+ *    Kuota dan retur dihitung per pasangan (kode item, lot) persis seperti di file, TANPA pemetaan kode:
+ *    kode lama dan pengganti tidak berbagi kuota, dan pasangan (lot, kode) harus ada di tabel lots.
+ *    Force Closed ikut dihitung karena qty-nya sudah terpenuhi.
  *  - Urutan grup tetap: tanggal dan jam paling awal, nomor DO, item, lot, lalu urutan di file.
  *  - Retur (RMA Receipt) diproses SETELAH seluruh DO, dikelompokkan per (nomor retur, item, lot),
  *    dan tidak boleh melebihi total terkirim (termasuk DO dalam file yang sama) dikurangi retur sebelumnya.
@@ -24,7 +25,6 @@
 const crypto = require('crypto');
 const { BusinessError } = require('../../helpers/businessError');
 const { TRANS_TYPE, REASONS, stockKey } = require('./deliveryOrderRules');
-const { IDENTITY_STOCK_CODES } = require('../product-code-mapping/stockFamilyKey');
 
 const cmp = (a, b) => (a === b ? 0 : (a < b ? -1 : 1));
 
@@ -36,7 +36,7 @@ const toCtn = (qtyPcs, pcsPerCtn) => {
 const groupKeyOf = (row) => `${row.referenceNum}\u0000${row.itemCode}\u0000${row.lotNumber}`;
 
 const emptyStock = () => ({
-    lotsFound: new Set(),
+    lotItemsFound: new Set(),
     allocated: new Map(),
     delivered: new Map(),
     returned: new Map()
@@ -49,8 +49,7 @@ const calculateDeliveryOrders = (
     stockInput = {}
 ) => {
     const stock = { ...emptyStock(), ...stockInput };
-    const stockCodes = stock.stockCodes || IDENTITY_STOCK_CODES;
-    const stockKeyOf = (itemCode, lotNumber) => stockKey(stockCodes.forProductCode(itemCode), lotNumber);
+    const stockKeyOf = (itemCode, lotNumber) => stockKey(itemCode, lotNumber);
     const hashSet = new Set(existingHashes);
     const productByCode = new Map(allProducts.map((p) => [p.product_code, p]));
 
@@ -164,7 +163,7 @@ const calculateDeliveryOrders = (
         const key = stockKeyOf(group.itemCode, group.lotNumber);
         const allocated = sumOf(stock.allocated, key);
 
-        if (!stock.lotsFound.has(group.lotNumber)) {
+        if (!stock.lotItemsFound.has(key)) {
             return rejectGroup(group, REASONS.LOT_NOT_FOUND);
         }
         if (allocated <= 0) {
@@ -184,7 +183,7 @@ const calculateDeliveryOrders = (
     [...returnGroups.values()].sort(byOrder).forEach((group) => {
         const key = stockKeyOf(group.itemCode, group.lotNumber);
 
-        if (!stock.lotsFound.has(group.lotNumber)) {
+        if (!stock.lotItemsFound.has(key)) {
             return rejectGroup(group, REASONS.LOT_NOT_FOUND);
         }
         const delivered = sumOf(stock.delivered, key) + sumOf(deliveredInFile, key);

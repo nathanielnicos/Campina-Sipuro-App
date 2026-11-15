@@ -15,7 +15,7 @@ const makeDb = () => {
             log.push({ text, params });
             if (/FROM products$/.test(text)) return [[{ id_product: 1, product_code: 'A', product_name: 'Prod A', pcs_per_ctn: 10 }]];
             if (/FROM delivery_order_upload_details/.test(text)) return [[{ row_hash: 'h1' }]];
-            if (/SELECT DISTINCT lot_number FROM lots/.test(text)) return [[{ lot_number: 'L1' }]];
+            if (/FROM lots l JOIN products p/.test(text)) return [[{ product_code: 'A', lot_number: 'L1' }]];
             if (/FROM po_lot_allocations pla JOIN po_details/.test(text)) return [[{ product_code: 'A', lot_number: 'L1', total_qty: '1000' }]];
             if (/FROM delivery_order_lots t/.test(text)) return [[{ product_code: 'A', lot_number: 'L1', total_qty: '300' }]];
             if (/FROM delivery_returns t/.test(text)) return [[{ product_code: 'A', lot_number: 'L1', total_qty: '20' }]];
@@ -47,9 +47,21 @@ test('preview (tanpa lock): tidak ada FOR UPDATE; hash, lot, dan total dimuat', 
     const db = makeDb();
     const ctx = await loadDeliveryOrderContext(db, [{ rowHash: 'h1', lotNumber: 'L1' }, { rowHash: 'h2', lotNumber: 'L1' }]);
     assert.deepEqual(ctx.existingHashes, ['h1']);
-    assert.ok(ctx.stock.lotsFound.has('L1'));
+    assert.ok(ctx.stock.lotItemsFound.has(stockKey('A', 'L1')));
+    assert.ok(!ctx.stock.lotItemsFound.has(stockKey('B', 'L1')));
     assert.equal(ctx.allProducts.length, 1);
     assert.ok(db.log.every((q) => !/FOR UPDATE/.test(q.text)));
+});
+
+test('pemetaan kode tidak dibaca dan tidak dipakai: tidak ada query product_code_mappings, tanpa stockCodes', async () => {
+    const db = makeDb();
+    const ctx = await loadDeliveryOrderContext(db, [{ rowHash: 'h1', lotNumber: 'L1' }]);
+    assert.ok(db.log.every((q) => !/product_code_mappings/.test(q.text)));
+    assert.equal(ctx.stock.stockCodes, undefined);
+    assert.equal(ctx.stock.allocated.get(stockKey('A', 'L1')), 1000);
+    const lotQuery = db.log.find((q) => /FROM lots l JOIN products p/.test(q.text));
+    assert.match(lotQuery.text, /SELECT DISTINCT p\.product_code, l\.lot_number/);
+    assert.deepEqual(lotQuery.params, [['L1']]);
 });
 
 test('commit (forUpdate): alokasi lot dikunci berurutan id SEBELUM total dibaca', async () => {

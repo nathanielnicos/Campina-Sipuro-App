@@ -31,9 +31,15 @@ const row = (over = {}) => {
 };
 const ret = (over = {}) => row({ transType: TRANS_TYPE.RETURN, referenceNum: '1300000003', ...over });
 
+// lots: 'L' = lot ada untuk semua produk di PRODUCTS; 'KODE|L' = lot ada hanya untuk pasangan itu
 const makeStock = ({ lots = [], allocated = {}, delivered = {}, returned = {} } = {}) => {
     const toMap = (o) => new Map(Object.entries(o).map(([k, v]) => [stockKey(...k.split('|')), v]));
-    return { lotsFound: new Set(lots), allocated: toMap(allocated), delivered: toMap(delivered), returned: toMap(returned) };
+    const lotItems = new Set();
+    lots.forEach((entry) => {
+        if (entry.includes('|')) lotItems.add(stockKey(...entry.split('|')));
+        else PRODUCTS.forEach((p) => lotItems.add(stockKey(p.product_code, entry)));
+    });
+    return { lotItemsFound: lotItems, allocated: toMap(allocated), delivered: toMap(delivered), returned: toMap(returned) };
 };
 const calc = (rows, stock, hashes = []) => calculateDeliveryOrders(rows, hashes, PRODUCTS, stock);
 const reasonsOf = (result) => result.categorizedDetails.unallocatedRows.map((r) => r.reason);
@@ -271,16 +277,32 @@ test('retur dalam file yang sama tidak membuka kuota untuk DO dalam file itu (re
     assert.match(reasonsOf(out)[0], /Available: 0, Required: 100/);
 });
 
-test('terkirim bersih berlaku per keluarga produk (kuota bersama kode lama dan baru)', () => {
-    const stockCodes = { forProductCode: () => 'FAM' };
-    const stock = { ...makeStock({
-        lots: ['L'],
-        allocated: { 'FAM|L': 100 },
-        delivered: { 'FAM|L': 100 },
-        returned: { 'FAM|L': 100 }
-    }), stockCodes };
-    const out = calc([row({ lotNumber: 'L', qty: 100 })], stock);
-    assert.equal(out.doLines.length, 1);
+test('kuota per pasangan (kode, lot): kode lain pada lot yang sama tidak berbagi kuota', () => {
+    const stock = makeStock({ lots: ['L'], allocated: { 'FG-RA-00092|L': 100, 'FG-ST-00046|L': 1000 } });
+    const out = calc([row({ lotNumber: 'L', qty: 150 })], stock);
+    assert.equal(out.doLines.length, 0);
+    assert.match(reasonsOf(out)[0], /Exceeds allocated quantity \(Available: 100, Required: 150\)/);
+});
+
+test('DO ditolak bila pasangan (kode, lot) tidak ada di lots, walau lot ada untuk kode lain', () => {
+    const stock = makeStock({ lots: ['FG-ST-00046|L'], allocated: { 'FG-RA-00092|L': 1000, 'FG-ST-00046|L': 1000 } });
+    const out = calc([row({ lotNumber: 'L', qty: 10 })], stock);
+    assert.equal(out.doLines.length, 0);
+    assert.deepEqual(reasonsOf(out), [REASONS.LOT_NOT_FOUND]);
+    assert.equal(REASONS.LOT_NOT_FOUND, 'Lot not found for this item code');
+    const ok = calc([row({ itemCode: 'FG-ST-00046', lotNumber: 'L', qty: 10 })], stock);
+    assert.equal(ok.doLines.length, 1);
+});
+
+test('retur per pasangan (kode, lot): tidak boleh terhadap pengiriman kode lain; pasangan tidak ada ditolak', () => {
+    const stock = makeStock({ lots: ['FG-RA-00092|L', 'FG-ST-00046|L'], delivered: { 'FG-RA-00092|L': 100 } });
+    const other = calc([ret({ itemCode: 'FG-ST-00046', lotNumber: 'L', qty: 10 })], stock);
+    assert.equal(other.returnLines.length, 0);
+    assert.deepEqual(reasonsOf(other), [REASONS.NO_DELIVERY]);
+    const same = calc([ret({ itemCode: 'FG-RA-00092', lotNumber: 'L', qty: 10 })], stock);
+    assert.equal(same.returnLines.length, 1);
+    const noPair = calc([ret({ itemCode: 'FG-NO-CTN', lotNumber: 'L', qty: 1 })], stock);
+    assert.deepEqual(reasonsOf(noPair), [REASONS.LOT_NOT_FOUND]);
 });
 
 test('fingerprint stabil untuk input sama dan berubah bila hasil berubah', () => {

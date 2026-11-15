@@ -14,6 +14,8 @@
  *                                      (produk ditentukan oleh lots.id_product) dikurangi TERKIRIM BERSIH
  *                                      (total terkirim dikurangi total retur): retur membuka kuota kirim lagi.
  *  - Batas retur per (item, lot)     = total terkirim dikurangi total yang sudah diretur.
+ *  - (item, lot) = pasangan kode produk lot dan nomor lot persis seperti di file; kode produk yang dipetakan
+ *    TIDAK dipooling di upload DO dan retur (pemetaan hanya dipakai pada alokasi PO dan perkiraan PO).
  *  - Retur tidak mengubah nilai DO yang sudah tercatat.
  */
 
@@ -28,7 +30,7 @@ const REASONS = Object.freeze({
     MISSING_LOT: 'Missing lot number',
     MISSING_DATE: 'Missing or invalid transaction date',
     NON_POSITIVE_QTY: 'Quantity must be greater than zero',
-    LOT_NOT_FOUND: 'Lot number not found',
+    LOT_NOT_FOUND: 'Lot not found for this item code',
     NO_ALLOCATION: 'No PO allocation for this item and lot',
     EXCEEDS_ALLOCATION: 'Exceeds allocated quantity',
     NO_DELIVERY: 'No delivered quantity for this item and lot',

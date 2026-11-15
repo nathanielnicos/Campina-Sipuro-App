@@ -32,29 +32,37 @@ const row = (n, { item = '00047', lot = 'FS2-260720', qty = 64, ref = '340000042
     transType: type, transDateTime: '2026-07-21 10:00:00', rowHash: `h${n}`
 });
 
-const stockWith = (allocated, stockCodes) => ({
-    lotsFound: new Set(['FS2-260720']),
+// Pasangan lot-item yang ada: 45 dan 47 sama-sama tercatat pada lot FS2-260720
+const stockWith = (allocated, { delivered = [], returned = [], stockCodes } = {}) => ({
+    lotItemsFound: new Set([stockKey('00045', 'FS2-260720'), stockKey('00047', 'FS2-260720')]),
     allocated: new Map(allocated),
-    delivered: new Map(),
-    returned: new Map(),
+    delivered: new Map(delivered),
+    returned: new Map(returned),
     ...(stockCodes ? { stockCodes } : {})
 });
 
-test('DO: kasus 45/47 - alokasi 725 (45) + 15.680 (47) dipakai bersama untuk baris berkode 47', () => {
-    const codes = buildStockCodeResolver(PRODUCTS, MAPPINGS);
-    const key = stockKey('00045', 'FS2-260720');
-    const stock = stockWith([[key, 725 + 15680]], codes);
-    const res = calculateDeliveryOrders([row(1, { qty: 16000 })], [], PRODUCTS, stock);
-    assert.equal(res.categorizedDetails.unallocatedRows.length, 0);
-    assert.equal(res.doLines.length, 1);
-    assert.equal(res.doLines[0].itemCode, '00047');
+test('DO: kasus 45/47 - tiap kode memakai kuotanya sendiri, tidak dipooling (47 hanya 15.680)', () => {
+    const stock = stockWith([[stockKey('00045', 'FS2-260720'), 725], [stockKey('00047', 'FS2-260720'), 15680]]);
+    const over = calculateDeliveryOrders([row(1, { qty: 16000 })], [], PRODUCTS, stock);
+    assert.equal(over.doLines.length, 0);
+    assert.match(over.categorizedDetails.unallocatedRows[0].reason, /Available: 15680, Required: 16000/);
+    const ok = calculateDeliveryOrders([row(1, { qty: 15680 })], [], PRODUCTS, stock);
+    assert.equal(ok.categorizedDetails.unallocatedRows.length, 0);
+    assert.equal(ok.doLines[0].itemCode, '00047');
 });
 
-test('DO: melebihi total keluarga tetap ditolak, dan pengiriman dalam satu file saling mengurangi', () => {
+test('DO: stockCodes pada stock diabaikan (pemetaan tidak memengaruhi upload DO)', () => {
     const codes = buildStockCodeResolver(PRODUCTS, MAPPINGS);
-    const stock = stockWith([[stockKey('00045', 'FS2-260720'), 100]], codes);
+    const stock = stockWith([[stockKey('00045', 'FS2-260720'), 725 + 15680]], { stockCodes: codes });
+    const res = calculateDeliveryOrders([row(1, { qty: 16000 })], [], PRODUCTS, stock);
+    assert.equal(res.doLines.length, 0);
+    assert.equal(res.categorizedDetails.unallocatedRows.length, 1);
+});
+
+test('DO: pengiriman dalam satu file saling mengurangi kuota kode yang sama', () => {
+    const stock = stockWith([[stockKey('00047', 'FS2-260720'), 100]]);
     const res = calculateDeliveryOrders(
-        [row(1, { item: '00045', qty: 60, ref: 'D1' }), row(2, { item: '00047', qty: 60, ref: 'D2' })],
+        [row(1, { item: '00047', qty: 60, ref: 'D1' }), row(2, { item: '00047', qty: 60, ref: 'D2' })],
         [], PRODUCTS, stock
     );
     assert.equal(res.doLines.length, 1);
@@ -62,23 +70,20 @@ test('DO: melebihi total keluarga tetap ditolak, dan pengiriman dalam satu file 
     assert.match(res.categorizedDetails.unallocatedRows[0].reason, /Available: 40, Required: 60/);
 });
 
-test('DO: retur kode 45 terhadap pengiriman kode 47 dihitung satu keluarga', () => {
-    const codes = buildStockCodeResolver(PRODUCTS, MAPPINGS);
-    const stock = stockWith([[stockKey('00045', 'FS2-260720'), 100]], codes);
+test('DO: retur kode 45 terhadap pengiriman kode 47 ditolak; retur kode 47 diterima', () => {
+    const stock = stockWith([[stockKey('00047', 'FS2-260720'), 100]]);
     const res = calculateDeliveryOrders(
-        [row(1, { item: '00047', qty: 50, ref: 'D1' }), row(2, { item: '00045', qty: 20, ref: 'R1', type: TRANS_TYPE.RETURN })],
+        [
+            row(1, { item: '00047', qty: 50, ref: 'D1' }),
+            row(2, { item: '00045', qty: 20, ref: 'R1', type: TRANS_TYPE.RETURN }),
+            row(3, { item: '00047', qty: 20, ref: 'R2', type: TRANS_TYPE.RETURN })
+        ],
         [], PRODUCTS, stock
     );
     assert.equal(res.doLines.length, 1);
-    assert.equal(res.returnLines.length, 1);
-});
-
-test('DO: tanpa stockCodes perilaku lama (per kode produk) tidak berubah', () => {
-    const stock = stockWith([[stockKey('00047', 'FS2-260720'), 100]]);
-    const ok = calculateDeliveryOrders([row(1, { item: '00047', qty: 64 })], [], PRODUCTS, stock);
-    assert.equal(ok.doLines.length, 1);
-    const bad = calculateDeliveryOrders([row(1, { item: '00045', qty: 64 })], [], PRODUCTS, stock);
-    assert.equal(bad.categorizedDetails.unallocatedRows.length, 1);
+    assert.deepEqual(res.returnLines.map((l) => [l.referenceNum, l.itemCode]), [['R2', '00047']]);
+    assert.equal(res.categorizedDetails.unallocatedRows.length, 1);
+    assert.equal(res.categorizedDetails.unallocatedRows[0].referenceNum, 'R1');
 });
 
 test('fetchLotStock: total kode 45 dan 47 pada lot yang sama dijumlahkan ke satu kunci', async () => {

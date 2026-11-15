@@ -8,18 +8,12 @@
 
 const { chunk } = require('../../helpers/arrayUtils');
 const { fetchLotStock } = require('./deliveryOrderTotals');
-const { buildStockCodeResolver } = require('../product-code-mapping/stockFamilyKey');
+const { stockKey } = require('./deliveryOrderRules');
 
 const loadDeliveryOrderContext = async (queryable, rawRows, { forUpdate = false } = {}) => {
     const [allProducts] = await queryable.query(
         'SELECT id_product, product_code, product_name, pcs_per_ctn FROM products'
     );
-
-    // Pemetaan kode produk AKTIF: kode lama dan pengganti berbagi kuota per nomor lot
-    const [productMappings] = await queryable.query(
-        'SELECT id_product_old, id_product_new FROM product_code_mappings WHERE is_active = 1'
-    );
-    const stockCodes = buildStockCodeResolver(allProducts, productMappings);
 
     // Baris yang sudah pernah diproses (detail upload DO dan retur)
     const existingHashes = [];
@@ -34,10 +28,16 @@ const loadDeliveryOrderContext = async (queryable, rawRows, { forUpdate = false 
 
     const lotNumbers = [...new Set(rawRows.map((r) => r.lotNumber).filter(Boolean))];
 
-    const lotsFound = new Set();
+    // Pasangan (kode produk lot, nomor lot) yang ada di tabel lots; kode apa adanya, tanpa pemetaan
+    const lotItemsFound = new Set();
     for (const part of chunk(lotNumbers, 500)) {
-        const [rows] = await queryable.query('SELECT DISTINCT lot_number FROM lots WHERE lot_number IN (?)', [part]);
-        rows.forEach((r) => lotsFound.add(r.lot_number));
+        const [rows] = await queryable.query(
+            `SELECT DISTINCT p.product_code, l.lot_number
+             FROM lots l JOIN products p ON p.id_product = l.id_product
+             WHERE l.lot_number IN (?)`,
+            [part]
+        );
+        rows.forEach((r) => lotItemsFound.add(stockKey(r.product_code, r.lot_number)));
     }
 
     // Alokasi lot dikunci berurutan (id) agar total yang dibaca tidak berubah oleh proses lain
@@ -53,12 +53,13 @@ const loadDeliveryOrderContext = async (queryable, rawRows, { forUpdate = false 
         }
     }
 
-    const { allocated, delivered, returned } = await fetchLotStock(queryable, lotNumbers, { stockCodes });
+    // Tanpa stockCodes: kunci = kode produk apa adanya (kuota per pasangan kode-lot)
+    const { allocated, delivered, returned } = await fetchLotStock(queryable, lotNumbers);
 
     return {
         existingHashes,
         allProducts,
-        stock: { lotsFound, allocated, delivered, returned, stockCodes }
+        stock: { lotItemsFound, allocated, delivered, returned }
     };
 };
 
