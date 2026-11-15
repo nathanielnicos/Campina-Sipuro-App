@@ -20,9 +20,10 @@ export const groupReturnsByProduct = (rows) => {
         const key = `${row.return_number}\u0000${row.product_code}`;
         let group = groups.get(key);
         if (!group) {
-            group = { key, return_number: row.return_number, id_product: row.id_product, product_code: row.product_code, product_name: row.product_name, qty_pcs: 0, qty_ctn: 0 };
+            group = { key, return_number: row.return_number, id_product: row.id_product, product_code: row.product_code, product_name: row.product_name, qty_pcs: 0, qty_ctn: 0, lots: [] };
             groups.set(key, group);
         }
+        if (!group.lots.includes(row.lot_number)) group.lots.push(row.lot_number);
         group.qty_pcs += Number(row.qty_pcs) || 0;
         group.qty_ctn = round2(group.qty_ctn + (Number(row.qty_ctn) || 0));
     });
@@ -57,7 +58,7 @@ const DoReturnSummaryRows = ({ mappingList, estimate }) => {
             </td>
             {showEstimate && (
                 <td style={{ ...cellStyle, minWidth: '200px' }}>
-                    <EstimatedPoCell variant="RETURN" estimate={estimate} entry={estimate.getItem(g.return_number, g.id_product)} />
+                    <EstimatedPoCell variant="RETURN" estimate={estimate} entry={estimate.getItemForLots(g.return_number, g.id_product, g.lots)} />
                 </td>
             )}
         </tr>

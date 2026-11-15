@@ -38,7 +38,7 @@ const DoSummaryRows = ({ mappingList, estimate }) => {
             </td>
             {showEstimate && (
                 <td style={{ ...cellStyle, minWidth: '200px' }}>
-                    <EstimatedPoCell estimate={estimate} entry={estimate.getItem(order.delivery_order_id, item.id_product)} />
+                    <EstimatedPoCell estimate={estimate} entry={estimate.getItemForLots(order.delivery_order_id, item.id_product, (Array.isArray(item.lots) ? item.lots : []).map((lot) => lot.lot_number))} />
                 </td>
             )}
         </tr>

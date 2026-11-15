@@ -33,7 +33,9 @@ const EstimatedPoCell = ({ estimate, entry, variant = 'DO' }) => {
     const unassigned = Number(entry.unassigned_qty) || 0;
     const unmatched = Number(entry.unmatched_qty) || 0;
     const unassignedReleased = Number(entry.unassigned_released_qty) || 0;
-    if (pos.length === 0 && unassigned === 0 && unmatched === 0 && unassignedReleased === 0) {
+    // Retur DO yang memakai bagian tanpa PO: tidak tertempel pada PO mana pun, jadi ditampilkan terpisah
+    const returnedWithoutPo = isReturn ? 0 : Math.max(0, (Number(entry.returned_qty) || 0) - pos.reduce((sum, po) => sum + (Number(po.returned_pcs) || 0), 0));
+    if (pos.length === 0 && unassigned === 0 && unmatched === 0 && unassignedReleased === 0 && returnedWithoutPo === 0) {
         return <span style={{ color: '#6c757d', fontSize: '12px' }}>-</span>;
     }
 
@@ -61,6 +63,11 @@ const EstimatedPoCell = ({ estimate, entry, variant = 'DO' }) => {
             {unassigned > 0 && (
                 <div style={{ color: '#dc3545', whiteSpace: 'nowrap' }} title="Quantity not covered by any PO allocation of this lot">
                     Unassigned · {formatQty(unassigned)}
+                </div>
+            )}
+            {returnedWithoutPo > 0 && (
+                <div style={returnedStyle} title="This quantity was delivered beyond the PO allocation of the lot and has been returned">
+                    Returned (no PO) · {formatQty(returnedWithoutPo)}
                 </div>
             )}
             {unassignedReleased > 0 && (
