@@ -18,6 +18,7 @@ const canExport = requirePermission('DO', 'export');
 // 1. RUTE STATIS (GET)
 router.get('/mapping', canView, deliveryOrderListController.getDeliveryOrderMapping);
 router.get('/estimated-po', canView, deliveryOrderEstimatedPoController.getEstimatedPo);
+router.get('/estimated-po/returns', canView, deliveryOrderEstimatedPoController.getEstimatedReturnPo);
 router.get('/export', canExport, deliveryOrderExportController.exportDeliveryOrderExcel);
 
 // 2. RUTE DINAMIS (GET dengan Parameter)

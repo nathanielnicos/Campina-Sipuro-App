@@ -71,8 +71,8 @@ const DoFilter = ({
                     disabled={!estimatedPoEnabled}
                     aria-pressed={estimatedPoEnabled && estimatedPoOn}
                     title={estimatedPoEnabled
-                        ? 'Show a FIFO estimate of which PO each DO belongs to'
-                        : 'Estimated PO is only available in the DO Number view'}
+                        ? 'Show an estimate of which PO each DO or return belongs to'
+                        : 'Estimated PO is only available in the DO Number and Return Number views'}
                     style={{
                         width: '100%',
                         padding: '8px 10px',

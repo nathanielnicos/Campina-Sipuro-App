@@ -27,6 +27,17 @@ export const fetchEstimatedPo = async (doIds = []) => {
     }
 };
 
+// Perkiraan PO yang dilepas retur (retur dicocokkan ke DO terbaru sebelum tanggal retur) untuk nomor retur yang sedang tampil; hanya baca
+export const fetchEstimatedReturnPo = async (returnNumbers = []) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/estimated-po/returns`, { params: { returnNumbers: returnNumbers.join(',') } });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching estimated PO for returns:', error);
+        return { success: false, message: error.response?.data?.message || 'Failed to fetch estimated PO for returns.' };
+    }
+};
+
 // Ekspor DO ke Excel (pengiriman, retur, saldo lot) dengan filter yang sama dengan daftar (tanpa halaman dan mode tampilan)
 export const exportDeliveryOrderExcelApi = async (filters = {}) => {
     try {

@@ -9,7 +9,7 @@ import DoReadyRows from './DoReadyRows';
 import DoReturnViewRows from './DoReturnViewRows';
 import DoReturnSummaryRows from './DoReturnSummaryRows';
 import useDeliveryOrderTable from '../../../hooks/do/allocated-do/useDeliveryOrderTable';
-import useEstimatedPo from '../../../hooks/do/allocated-do/useEstimatedPo';
+import useEstimatedPo, { ESTIMATE_MODE } from '../../../hooks/do/allocated-do/useEstimatedPo';
 import useDeliveryOrderExport from '../../../hooks/do/allocated-do/useDeliveryOrderExport';
 import { usePermission } from '../../../context/PermissionContext';
 import { EMPTY_RANGES, EXPORT_RANGE_KEYS, rangeEnabledFor, rangeParams } from '../../../hooks/do/allocated-do/doDateRanges';
@@ -17,6 +17,8 @@ import { EMPTY_RANGES, EXPORT_RANGE_KEYS, rangeEnabledFor, rangeParams } from '.
 const thStyle = { padding: '12px 14px' };
 const RIGHT_ALIGNED_COLUMNS = ['Qty (Pcs)', 'Qty Lot', 'Remaining (Pcs)', 'Balance (Pcs)', 'Net Delivered (Pcs)', 'Age (Days)'];
 const ESTIMATED_PO_COLUMN = 'Estimated PO';
+const DO_ESTIMATE_NOTE = 'Estimated PO is a chronological estimate per lot: deliveries take the oldest PO first, and a return gives its quantity back to the PO of the latest earlier delivery of that lot, so a re-shipment uses it again. It is not recorded data and does not change DO values.';
+const RETURN_ESTIMATE_NOTE = 'Each return is matched to the latest earlier delivery of the same lot (DO date on or before the return date) and shows the PO that delivery used, with the DO it came from. It is an estimate, not recorded data. "Unmatched" means no earlier delivery of that lot exists in the DO data.';
 
 // Kolom per tampilan. DO dan Return memakai urutan yang sama: nomor transaksi, waktu, produk, lot, qty.
 const COLUMNS = {
@@ -47,13 +49,16 @@ const DoTable = ({ reloadTrigger }) => {
     const tableData = useDeliveryOrderTable(reloadTrigger, { searchQuery, ...rangeParams(viewMode, ranges) }, viewMode);
     const exportData = useDeliveryOrderExport({ searchQuery, ...rangeParams(viewMode, ranges, EXPORT_RANGE_KEYS) });
 
-    // Perkiraan PO hanya untuk tampilan DO Number (Summary dan Per Lot), atas DO yang sedang tampil
-    const estimatedPoActive = showEstimatedPo && viewMode === 'DO';
-    const visibleDoIds = useMemo(
-        () => (viewMode === 'DO' ? tableData.mappingList.map((order) => order.delivery_order_id) : []),
-        [viewMode, tableData.mappingList]
-    );
-    const estimate = useEstimatedPo(estimatedPoActive, visibleDoIds);
+    // Perkiraan PO untuk tampilan DO Number dan Return Number (Summary dan Per Lot), atas DO / retur yang sedang tampil
+    const estimatedPoAvailable = viewMode === 'DO' || viewMode === 'RETURN';
+    const estimatedPoActive = showEstimatedPo && estimatedPoAvailable;
+    const estimateMode = viewMode === 'RETURN' ? ESTIMATE_MODE.RETURN : ESTIMATE_MODE.DO;
+    const visibleEstimateKeys = useMemo(() => {
+        if (viewMode === 'DO') return tableData.mappingList.map((order) => order.delivery_order_id);
+        if (viewMode === 'RETURN') return [...new Set(tableData.mappingList.map((row) => row.return_number))];
+        return [];
+    }, [viewMode, tableData.mappingList]);
+    const estimate = useEstimatedPo(estimatedPoActive, estimateMode, visibleEstimateKeys);
 
     const handleRangeChange = (key, edge, value) => {
         setRanges((prev) => ({ ...prev, [key]: { ...prev[key], [edge]: value } }));
@@ -67,10 +72,10 @@ const DoTable = ({ reloadTrigger }) => {
     };
 
     let columns = COLUMNS.RETURN_LOT;
-    let rows = <DoReturnViewRows mappingList={tableData.mappingList} />;
+    let rows = <DoReturnViewRows mappingList={tableData.mappingList} estimate={estimate} />;
     if (viewMode === 'RETURN' && detailLevel === 'SUMMARY') {
         columns = COLUMNS.RETURN_SUMMARY;
-        rows = <DoReturnSummaryRows mappingList={tableData.mappingList} />;
+        rows = <DoReturnSummaryRows mappingList={tableData.mappingList} estimate={estimate} />;
     } else if (viewMode === 'DO' && detailLevel === 'SUMMARY') {
         columns = COLUMNS.DO_SUMMARY;
         rows = <DoSummaryRows mappingList={tableData.mappingList} estimate={estimate} />;
@@ -104,7 +109,7 @@ const DoTable = ({ reloadTrigger }) => {
                 onSearchChange={(e) => { setSearchQuery(e.target.value); tableData.setPage(1); }}
                 onRangeChange={handleRangeChange}
                 onResetFilters={handleReset}
-                estimatedPoEnabled={viewMode === 'DO'}
+                estimatedPoEnabled={estimatedPoAvailable}
                 estimatedPoOn={showEstimatedPo}
                 onToggleEstimatedPo={() => setShowEstimatedPo((on) => !on)}
                 canExport={canExport}
@@ -136,7 +141,7 @@ const DoTable = ({ reloadTrigger }) => {
                     <div style={{ padding: '8px 14px', fontSize: '12px', color: '#6c757d', borderBottom: '1px solid #dee2e6', backgroundColor: '#f8f9fa' }}>
                         {estimate.error
                             ? <span style={{ color: '#dc3545' }}>{estimate.error}</span>
-                            : 'Estimated PO is a FIFO estimate per lot (oldest PO and oldest DO first). It is not recorded data and does not change DO values.'}
+                            : (viewMode === 'RETURN' ? RETURN_ESTIMATE_NOTE : DO_ESTIMATE_NOTE)}
                     </div>
                 )}
 

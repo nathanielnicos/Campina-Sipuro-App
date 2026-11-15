@@ -2,6 +2,7 @@ import React from 'react';
 import QtyStack from '../../common/QtyStack';
 import ProductCell from './ProductCell';
 import DoDateCell from './DoDateCell';
+import EstimatedPoCell from './EstimatedPoCell';
 import { markChanges, returnDates } from './doRowGrouping';
 import { cellStyle, rowStyle, emptyRow } from './doRowStyles';
 
@@ -19,7 +20,7 @@ export const groupReturnsByProduct = (rows) => {
         const key = `${row.return_number}\u0000${row.product_code}`;
         let group = groups.get(key);
         if (!group) {
-            group = { key, return_number: row.return_number, product_code: row.product_code, product_name: row.product_name, qty_pcs: 0, qty_ctn: 0 };
+            group = { key, return_number: row.return_number, id_product: row.id_product, product_code: row.product_code, product_name: row.product_name, qty_pcs: 0, qty_ctn: 0 };
             groups.set(key, group);
         }
         group.qty_pcs += Number(row.qty_pcs) || 0;
@@ -32,11 +33,13 @@ export const groupReturnsByProduct = (rows) => {
  * Tampilan Return Number - Summary: satu baris per (retur, produk), qty = total semua lot produk itu.
  * Nomor retur dan tanggal retur (paling awal) hanya di baris pertama tiap nomor retur; bila retur punya beberapa
  * tanggal, tanggal diberi penanda "+N" (tooltip: tanggal dan lot-nya).
+ * Kolom Estimated PO (bila dinyalakan): PO yang dilepas retur itu, gabungan semua lot produk tersebut.
  */
-const DoReturnSummaryRows = ({ mappingList }) => {
+const DoReturnSummaryRows = ({ mappingList, estimate }) => {
+    const showEstimate = Boolean(estimate && estimate.enabled);
     const groups = groupReturnsByProduct(mappingList);
     if (groups.length === 0) {
-        return emptyRow(RETURN_SUMMARY_COLUMN_COUNT, 'No return data available.');
+        return emptyRow(RETURN_SUMMARY_COLUMN_COUNT + (showEstimate ? 1 : 0), 'No return data available.');
     }
 
     const showReturn = markChanges(groups.map((g) => ({ group: g.return_number, value: '' })));
@@ -52,6 +55,11 @@ const DoReturnSummaryRows = ({ mappingList }) => {
             <td style={{ ...cellStyle, width: '120px' }}>
                 <QtyStack pcs={g.qty_pcs} ctn={g.qty_ctn} color="#dc3545" />
             </td>
+            {showEstimate && (
+                <td style={{ ...cellStyle, minWidth: '200px' }}>
+                    <EstimatedPoCell variant="RETURN" estimate={estimate} entry={estimate.getItem(g.return_number, g.id_product)} />
+                </td>
+            )}
         </tr>
     ));
 };
