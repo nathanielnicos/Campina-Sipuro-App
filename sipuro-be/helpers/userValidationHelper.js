@@ -2,7 +2,6 @@ const { BusinessError } = require('./businessError');
 
 /**
  * Memastikan userId berupa bilangan bulat positif dan ada di tabel employees.
- * (created_by pada po_batch_allocation_logs NOT NULL, jadi userId kosong akan membuat insert log gagal.)
  * Catatan: ini hanya memeriksa keberadaan user, bukan mengamankan identitas (tidak ada auth/JWT).
  */
 const resolveValidUserId = async (queryable, rawUserId) => {
