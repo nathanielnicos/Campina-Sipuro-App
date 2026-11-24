@@ -26,6 +26,10 @@
  *  - Peringatan "Data Changed" (hanya informasi, tidak mengubah alur simpan): (a) baris dengan hash sama tetapi status lot bukan
  *    GOOD (tidak disimpan), dan (b) baris GOOD yang sama dengan baris upload tersimpan (lot, item, jenis, qty, tanggal-jam, dan batch
  *    atau Doc Source) tetapi tanggal kedaluwarsanya berbeda (tetap diproses sebagai baris baru). Keduanya dikumpulkan di dataChangedRows.
+ *  - Peringatan "PO terlompati" (hanya informasi, tidak mengubah alur simpan dan tidak masuk fingerprint): alokasi plus ke
+ *    sebuah PO dicatat di skippedPoWarnings bila ada PO LEBIH BARU (urutan FIFO) dengan produk PO yang sama yang sudah
+ *    memegang alokasi (terpenuhi > 0), padahal PO yang menerima ini masih punya sisa. Artinya PO lama itu pernah dilewati
+ *    oleh lot-lot sebelumnya (mis. ditutup manual di luar sistem), dan lot baru akan mengisinya kembali.
  *  - Grup tanpa nomor batch, tanpa nomor lot, atau tanpa tanggal selesai tidak dialokasikan
  *    dan menjadi Unallocated dengan alasan yang jelas (bukan menggagalkan commit).
  */
@@ -399,6 +403,20 @@ const calculateLotFifoAllocation = (
 
     const allocatedGroups = [];
     const unallocatedGroups = [];
+    const skippedPoWarnings = [];
+
+    // PO LEBIH BARU (urutan FIFO) dengan produk PO yang sama yang sudah memegang alokasi: bukti PO `po` pernah terlompati.
+    // Bila ada beberapa, diambil yang terbaru. PO yang sudah Closed/Force Closed tidak ada di poStates.
+    const newerFilledPoOf = (po) => {
+        let found = null;
+        poStates.forEach((other) => {
+            if (other === po || Number(other.idProduct) !== Number(po.idProduct)) return;
+            if (cmpFifo(po, other) >= 0) return;
+            if (other.currentFulfilledQty <= 0) return;
+            if (!found || cmpFifo(other, found) > 0) found = other;
+        });
+        return found;
+    };
 
     const passesDateFilter = (po, completedDate) => {
         if (!po.createdDate) return true;
@@ -558,6 +576,24 @@ const calculateLotFifoAllocation = (
                 if (take <= 0) continue;
 
                 const previous = po.currentFulfilledQty;
+                // Dicek sebelum state PO diubah: apakah PO lama ini sebelumnya dilewati oleh alokasi ke PO yang lebih baru
+                const newerPo = newerFilledPoOf(po);
+                if (newerPo) {
+                    skippedPoWarnings.push({
+                        excelRowNumber: group.rows[0] ? group.rows[0].excelRowNumber : null,
+                        rowCount: group.rows.length,
+                        batchNumber: effBatchNumber,
+                        lotNumber: group.lotNumber,
+                        itemCode: group.itemCode,
+                        transType: group.transTypes.join(', '),
+                        poDetailId: po.poDetailId,
+                        poNumber: po.poNumber,
+                        poRemainingBefore: Math.max(po.baseQty - previous, 0),
+                        addedQty: take,
+                        newerPoNumber: newerPo.poNumber,
+                        newerPoFulfilledQty: newerPo.currentFulfilledQty
+                    });
+                }
                 po.currentFulfilledQty = previous + take;
                 allocations.push({
                     po, delta: take, previous, next: po.currentFulfilledQty,
@@ -778,6 +814,8 @@ const calculateLotFifoAllocation = (
         ...categorizedDetails.expiryChangedRows
     ].sort((a, b) => (a.excelRowNumber || 0) - (b.excelRowNumber || 0));
 
+    skippedPoWarnings.sort((a, b) => (a.excelRowNumber || 0) - (b.excelRowNumber || 0) || a.poDetailId - b.poDetailId);
+
     // Baris unallocated & kategori lain dengan atribut lengkap untuk tabel preview
     unallocatedGroups.forEach(({ group, reason }) => {
         group.rows.forEach((row) => {
@@ -802,6 +840,8 @@ const calculateLotFifoAllocation = (
         dataChangedRows: categorizedDetails.dataChangedRows,
         unregisteredRows: categorizedDetails.unregisteredRows,
         nonGoodRows: categorizedDetails.nonGoodRows,
+        // Peringatan PO terlompati: hanya informasi, tidak masuk fingerprint
+        skippedPoWarnings,
         summary: {
             totalRows: rawRows.length,
             newCount: previewResults.length,
@@ -811,6 +851,7 @@ const calculateLotFifoAllocation = (
             duplicateStatusUpdateCount: categorizedDetails.duplicateStatusUpdateRows.length,
             expiryChangedCount: categorizedDetails.expiryChangedRows.length,
             dataChangedCount: categorizedDetails.dataChangedRows.length,
+            skippedPoCount: skippedPoWarnings.length,
             unregisteredCount: categorizedDetails.unregisteredRows.length,
             nonGoodCount: categorizedDetails.nonGoodRows.length
         },

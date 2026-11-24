@@ -126,6 +126,27 @@ const SummaryCards = ({ summary, activeTab, setActiveTab }) => {
                 <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Unregistered SKU</div>
                 <div style={{ fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{summary.unregisteredCount || 0} Rows</div>
             </div>
+
+            {/* Card 7: Skipped PO (lot baru mengisi PO lama yang pernah terlompati) */}
+            <div
+                onClick={() => setActiveTab('skipped_po')}
+                style={{
+                    flex: '1 1 0px',
+                    minWidth: 0,
+                    cursor: 'pointer',
+                    padding: '8px 8px',
+                    borderRadius: '6px',
+                    transition: 'all 0.2s ease',
+                    backgroundColor: activeTab === 'skipped_po' ? '#e0d4f5' : '#f3eefb',
+                    color: '#432874',
+                    border: activeTab === 'skipped_po' ? '2px solid #6f42c1' : '1px solid #d3c3ee',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden'
+                }}
+            >
+                <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Skipped PO</div>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{summary.skippedPoCount || 0} Rows</div>
+            </div>
         </div>
     );
 };

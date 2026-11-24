@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import SummaryCards from './SummaryCards';
 import ValidDataTab from './ValidDataTab';
 import RawDataTab from './RawDataTab';
+import SkippedPoTab from './SkippedPoTab';
 import UploadSkippedNotice from '../../upload/UploadSkippedNotice';
 
 const ImportProductionLotModal = ({
@@ -14,9 +15,12 @@ const ImportProductionLotModal = ({
     const [activeTab, setActiveTab] = useState('new');
     // Centang "sudah baca" untuk baris Data Changed; direset setiap ada hasil preview baru
     const [dataChangedAck, setDataChangedAck] = useState(false);
+    // Centang setuju untuk alokasi lot baru ke PO lama yang terlompati; juga direset setiap ada hasil preview baru
+    const [skippedPoAck, setSkippedPoAck] = useState(false);
 
     useEffect(() => {
         setDataChangedAck(false);
+        setSkippedPoAck(false);
     }, [parsedData]);
 
     if (!show || !parsedData) return null;
@@ -29,7 +33,8 @@ const ImportProductionLotModal = ({
         duplicateRows = [],
         dataChangedRows = [],
         nonGoodRows = [],
-        unregisteredRows = []
+        unregisteredRows = [],
+        skippedPoWarnings = []
     } = parsedData;
 
     const tabConfigs = {
@@ -68,6 +73,13 @@ const ImportProductionLotModal = ({
             alertBorder: '#ffd0a8',
             alertMessage: 'The rows below have a Non-GOOD quality status and require special attention or will be skipped.'
         },
+        skipped_po: {
+            title: 'Skipped PO',
+            alertBg: '#e0d4f5',
+            alertColor: '#432874',
+            alertBorder: '#d3c3ee',
+            alertMessage: 'The rows below will be allocated to an older PO that was skipped before: a newer PO of the same product already has allocated stock, but the older PO still has remaining quantity. This often happens when the older PO was closed manually outside the system. This data is saved as shown. If the older PO should stay closed, cancel this upload and close that PO item first (customer Request Close, then PPIC approval).'
+        },
         unregistered: {
             title: 'Unregistered SKU Rows',
             alertBg: '#f8d7da',
@@ -81,7 +93,10 @@ const ImportProductionLotModal = ({
 
     // Save hanya aktif jika ada minimal satu lot yang teralokasi (canSave dari server), file belum pernah diupload, dan tidak sedang menyimpan
     const hasDataChanged = dataChangedRows.length > 0;
-    const isSaveDisabled = loading || parsedData.isReupload || !parsedData.canSave || (hasDataChanged && !dataChangedAck);
+    const hasSkippedPo = skippedPoWarnings.length > 0;
+    const isSaveDisabled = loading || parsedData.isReupload || !parsedData.canSave
+        || (hasDataChanged && !dataChangedAck)
+        || (hasSkippedPo && !skippedPoAck);
 
     return (
         <div style={{
@@ -203,6 +218,45 @@ const ImportProductionLotModal = ({
                         </div>
                     )}
 
+                    {/* Peringatan wajib dibaca: lot baru akan mengisi PO lama yang pernah terlompati */}
+                    {hasSkippedPo && (
+                        <div style={{
+                            backgroundColor: '#f3eefb',
+                            color: '#432874',
+                            border: '1px solid #d3c3ee',
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            marginBottom: '16px',
+                            fontSize: '13px'
+                        }}>
+                            <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
+                                ⚠️ {skippedPoWarnings.length} allocation(s) go to an older PO that was skipped before.
+                            </div>
+                            <div style={{ marginBottom: '8px' }}>
+                                A newer PO of the same product already has allocated stock, but the older PO still has remaining quantity,
+                                so the new lot will fill the older PO. If that PO was closed manually outside the system, close it first
+                                (customer Request Close, then PPIC approval) and upload again. Review them in the{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('skipped_po')}
+                                    style={{ background: 'none', border: 'none', padding: 0, color: '#0d6efd', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}
+                                >
+                                    Skipped PO
+                                </button>{' '}
+                                tab.
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={skippedPoAck}
+                                    onChange={(e) => setSkippedPoAck(e.target.checked)}
+                                    disabled={loading}
+                                />
+                                I agree to allocate these {skippedPoWarnings.length} allocation(s) to the older PO(s) listed.
+                            </label>
+                        </div>
+                    )}
+
                     <UploadSkippedNotice
                         skippedRowCount={parsedData.skippedRowCount}
                         skippedTransTypes={parsedData.skippedTransTypes}
@@ -253,6 +307,13 @@ const ImportProductionLotModal = ({
                             <RawDataTab
                                 rawData={nonGoodRows}
                                 emptyMessage="No Non-GOOD status rows found."
+                            />
+                        )}
+
+                        {activeTab === 'skipped_po' && (
+                            <SkippedPoTab
+                                rows={skippedPoWarnings}
+                                emptyMessage="No skipped PO found."
                             />
                         )}
 
