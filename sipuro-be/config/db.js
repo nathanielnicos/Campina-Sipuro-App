@@ -36,7 +36,7 @@ const sipuroDb = mysql.createPool({
 });
 
 // Samakan zona waktu SESI di setiap koneksi baru, agar NOW(), CURDATE(),
-// CURRENT_TIMESTAMP, dan kolom TIMESTAMP bekerja dalam WIB di Aiven maupun lokal.
+// CURRENT_TIMESTAMP, dan kolom TIMESTAMP bekerja dalam WIB.
 sipuroDb.pool.on('connection', (connection) => {
   connection.query('SET time_zone = ?', [dbTimezone], (err) => {
     if (err) {
@@ -44,7 +44,7 @@ sipuroDb.pool.on('connection', (connection) => {
     }
   });
 
-  // Batas panjang hasil GROUP_CONCAT. Bawaan MySQL (Aiven) hanya 1024 karakter sehingga hasil
+  // Batas panjang hasil GROUP_CONCAT. Bawaan MySQL hanya 1024 karakter sehingga hasil
   // bisa terpotong diam-diam; MariaDB lokal sudah 1 MB, jadi masalah ini tidak terlihat di lokal.
   connection.query('SET SESSION group_concat_max_len = 1048576', (err) => {
     if (err) {
