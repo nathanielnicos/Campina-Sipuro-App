@@ -1,8 +1,7 @@
 const { sipuroDb } = require('../../config/db');
 const { hashPassword, validateNewPassword } = require('../../helpers/authHelper');
 const { safeError } = require('../../helpers/safeError');
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const { isValidEmail } = require('../../helpers/emailValidation');
 
 // Batas panjang mengikuti lebar kolom di database
 const LIMITS = {
@@ -45,7 +44,7 @@ exports.register = async (req, res) => {
                 return res.status(400).json({ success: false, message: 'Employee Code must be exactly 5 characters.' });
             }
 
-            if (!EMAIL_REGEX.test(cleanEmail) || cleanEmail.length > LIMITS.employeeEmail) {
+            if (!isValidEmail(cleanEmail, LIMITS.employeeEmail)) {
                 return res.status(400).json({ success: false, message: 'Invalid email format.' });
             }
 
@@ -117,7 +116,7 @@ exports.register = async (req, res) => {
                 return res.status(400).json({ success: false, message: `Full name must not exceed ${LIMITS.customerFullName} characters.` });
             }
 
-            if (!EMAIL_REGEX.test(cleanEmail) || cleanEmail.length > LIMITS.customerEmail) {
+            if (!isValidEmail(cleanEmail, LIMITS.customerEmail)) {
                 return res.status(400).json({ success: false, message: 'Invalid email format.' });
             }
 
