@@ -21,12 +21,20 @@ const uploadFormatRoutes = require('./routes/uploadFormatRoutes');
 const siRoutes = require('./routes/siRoutes');
 const productionSchedule = require('./routes/productionScheduleRoutes');
 const { requireAuth } = require('./middleware/auth');
+const { apiLimiter } = require('./middleware/rateLimiters');
 
 const app = express();
 
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 const isVercel = Boolean(process.env.VERCEL);
+
+// Di belakang proxy (Vercel) alamat IP pengunjung dibaca dari header X-Forwarded-For, dan hanya dipercaya bila memang ada proxy.
+// TRUST_PROXY_HOPS = jumlah proxy di depan server (Vercel: 1). Di komputer lokal 0, supaya header itu tidak bisa dipalsukan.
+const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS || (isVercel ? '1' : '0'), 10);
+if (Number.isInteger(trustProxyHops) && trustProxyHops > 0) {
+    app.set('trust proxy', trustProxyHops);
+}
 
 // ---------------------------------------------------------------------------
 // CORS
@@ -66,6 +74,9 @@ if (!isProduction) {
     const testRoutes = require('./routes/testRoutes');
     app.use('/api/test', testRoutes);
 }
+
+// Pembatas jumlah permintaan untuk seluruh /api (dipasang sebelum route mana pun, termasuk login dan requireAuth)
+app.use('/api', apiLimiter);
 
 // Register API Routes
 // 1) authRoutes: login & register publik; profile & change-password sudah dilindungi di dalam router-nya
