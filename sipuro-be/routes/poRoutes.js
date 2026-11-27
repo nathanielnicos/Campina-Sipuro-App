@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const poController = require('../controllers/po/poController');
+const poController = require('../controllers/purchase-order/poController');
 const { requirePermission } = require('../middleware/requirePermission');
 
 // Login sudah diwajibkan secara global di server.js (requireAuth).

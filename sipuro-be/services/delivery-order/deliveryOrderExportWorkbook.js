@@ -13,7 +13,7 @@
  */
 
 const XLSX = require('xlsx');
-const { toExcelDate } = require('../../helpers/excelDate');
+const { toExcelDate } = require('../../utils/excelDate');
 
 const DELIVERY_HEADERS = [
     'DO Number',

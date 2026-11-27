@@ -14,7 +14,7 @@
  */
 
 const { SCOPE, QTY_COLUMN } = require('../upload-trans-type/uploadTransTypeRules');
-const { columnToIndex, indexToColumn, parseCellAddress } = require('../../helpers/excelColumns');
+const { columnToIndex, indexToColumn, parseCellAddress } = require('../../utils/excelColumns');
 
 const DEFAULT_START_ROW = 7;
 const DEFAULT_TIMESTAMP_CELL = 'I1';

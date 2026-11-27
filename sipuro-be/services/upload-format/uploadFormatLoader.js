@@ -5,7 +5,7 @@
  * Kunci yang belum tersimpan memakai nilai bawaan (format sebelum pengaturan ada).
  */
 
-const { BusinessError } = require('../../helpers/businessError');
+const { BusinessError } = require('../../utils/businessError');
 const { validateSettings, settingsFromRows, buildFormat } = require('./uploadFormatRules');
 
 const loadUploadSettings = async (queryable, scope) => {

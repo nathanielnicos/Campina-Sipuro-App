@@ -1,7 +1,7 @@
 const { sipuroDb } = require('../../../config/db');
 const { parseDeliveryOrderRequest } = require('../../../services/delivery-order/deliveryOrderFilters');
 const { fetchDeliveryOrderPage } = require('../../../services/delivery-order/deliveryOrderQuery');
-const { sendControllerError } = require('../../../helpers/businessError');
+const { sendControllerError } = require('../../../utils/businessError');
 
 exports.getDeliveryOrderMapping = async (req, res) => {
     try {

@@ -1,5 +1,5 @@
 const { sipuroDb } = require('../../config/db');
-const { getWibYear, getWibDate } = require('../../helpers/dateHelper');
+const { getWibYear, getWibDate } = require('../../utils/dateHelper');
 
 // Statistik Dashboard
 exports.getDashboardStats = async (req, res) => {

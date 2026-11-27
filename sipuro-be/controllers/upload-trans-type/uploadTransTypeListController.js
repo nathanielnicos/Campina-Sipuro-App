@@ -1,5 +1,5 @@
 const { sipuroDb } = require('../../config/db');
-const { sendControllerError } = require('../../helpers/businessError');
+const { sendControllerError } = require('../../utils/businessError');
 const { listTransTypes } = require('../../services/upload-trans-type/uploadTransTypeService');
 
 /**

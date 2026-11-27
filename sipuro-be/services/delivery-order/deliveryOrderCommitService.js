@@ -9,7 +9,7 @@
  * Tidak mengubah po_details maupun po_lot_allocations.
  */
 
-const { chunk } = require('../../helpers/arrayUtils');
+const { chunk } = require('../../utils/arrayUtils');
 const { TRANS_TYPE } = require('./deliveryOrderRules');
 
 const insertInChunks = async (connection, sql, rows) => {

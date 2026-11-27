@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const siController = require('../controllers/si/salesInvoiceController');
+const siController = require('../controllers/sales-invoice/salesInvoiceController');
 const { handleExcelUpload } = require('../middleware/excelUpload');
 const { requirePermission } = require('../middleware/requirePermission');
 

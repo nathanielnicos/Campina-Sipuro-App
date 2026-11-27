@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const productionScheduleController = require('../controllers/productionSchedule/productionScheduleController');
+const productionScheduleController = require('../controllers/production-schedule/productionScheduleController');
 const { requirePermission } = require('../middleware/requirePermission');
 
 // Production Schedule: izin diatur Superadmin (menu Access Permission); awalnya melihat untuk PPIC dan SUPERADMIN,

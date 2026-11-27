@@ -11,8 +11,8 @@
  * Perubahan berjalan di dalam transaksi ber-lock bersama upload (helpers/lockedTransaction).
  */
 
-const { BusinessError } = require('../../helpers/businessError');
-const { parseIdParam } = require('../../helpers/queryParams');
+const { BusinessError } = require('../../utils/businessError');
+const { parseIdParam } = require('../../utils/queryParams');
 const { SCOPE, MATCH_BY, normalizeTransType, validateTransTypeInput } = require('./uploadTransTypeRules');
 
 const COLLATION = 'utf8mb4_unicode_ci';

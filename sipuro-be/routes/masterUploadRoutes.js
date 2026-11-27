@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const uploadController = require('../controllers/superadmin/upload/uploadController');
+const uploadController = require('../controllers/master-data/upload/uploadController');
 const { requirePermission } = require('../middleware/requirePermission');
 
 // Upload master data: izin per menu (awalnya hanya SUPERADMIN)

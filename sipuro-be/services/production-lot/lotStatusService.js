@@ -1,5 +1,5 @@
 const { sipuroDb: db } = require('../../config/db');
-const { logPOHeader } = require('../../helpers/poLogHelper');
+const { logPOHeader } = require('../purchase-order/poLogHelper');
 const { logAllocationUpdate } = require('./lotAllocationLog');
 const {
     ALLOCATION_STATUS,

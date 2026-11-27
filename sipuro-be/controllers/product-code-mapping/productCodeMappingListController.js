@@ -1,6 +1,6 @@
 const { sipuroDb } = require('../../config/db');
-const { sendControllerError } = require('../../helpers/businessError');
-const { asText, parsePageParams } = require('../../helpers/queryParams');
+const { sendControllerError } = require('../../utils/businessError');
+const { asText, parsePageParams } = require('../../utils/queryParams');
 const { listMappings } = require('../../services/product-code-mapping/productCodeMappingService');
 
 /**

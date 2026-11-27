@@ -1,8 +1,8 @@
 'use strict';
 
 const { sipuroDb } = require('../../config/db');
-const { sendControllerError } = require('../../helpers/businessError');
-const { buildListQuery, REMAINING_SQL } = require('../../helpers/outstanding-po/outstandingQueryHelper');
+const { sendControllerError } = require('../../utils/businessError');
+const { buildListQuery, REMAINING_SQL } = require('../../services/outstanding-po/outstandingQueryHelper');
 
 const FROM_SQL = `
     FROM sipuro_db.po_details d

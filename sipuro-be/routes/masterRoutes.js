@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const masterController = require('../controllers/masterController');
+const masterController = require('../controllers/master-data/masterController');
 const { requireAccess } = require('../middleware/auth');
 
 // Mengambil produk aktif & harga berlaku saat ini (untuk katalog/order)

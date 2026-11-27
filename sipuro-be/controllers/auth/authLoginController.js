@@ -1,7 +1,7 @@
 const { sipuroDb } = require('../../config/db');
-const { comparePassword, dummyCompare, hashPassword, isHashed, getClientIp } = require('../../helpers/authHelper');
-const { signToken } = require('../../helpers/tokenHelper');
-const { safeError } = require('../../helpers/safeError');
+const { comparePassword, dummyCompare, hashPassword, isHashed, getClientIp } = require('../../services/auth/authHelper');
+const { signToken } = require('../../services/auth/tokenHelper');
+const { safeError } = require('../../utils/safeError');
 
 // Pembatasan percobaan login: 5 kali gagal dalam 15 menit per kombinasi (jenis user + username + IP)
 const MAX_FAILED_ATTEMPTS = 5;

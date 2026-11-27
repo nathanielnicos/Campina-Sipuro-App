@@ -1,7 +1,7 @@
 const { sipuroDb } = require('../../../config/db');
 const { getAllocationLogs } = require('../../../services/production-lot/lotAllocationLog');
-const { BusinessError, sendControllerError } = require('../../../helpers/businessError');
-const { parsePageParams } = require('../../../helpers/queryParams');
+const { BusinessError, sendControllerError } = require('../../../utils/businessError');
+const { parsePageParams } = require('../../../utils/queryParams');
 
 const MAX_LOG_LIMIT = 100;
 

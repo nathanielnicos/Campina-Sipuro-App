@@ -8,7 +8,7 @@
  * Tanggal dikirim sebagai teks murni dari SQL (tanpa pergeseran zona waktu).
  */
 
-const { BusinessError } = require('../../helpers/businessError');
+const { BusinessError } = require('../../utils/businessError');
 const { MAPPING_FROM_SQL } = require('./lotMappingFilters');
 const { allocatedQtySql } = require('./lotAllocationRules');
 

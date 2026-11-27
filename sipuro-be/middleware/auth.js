@@ -1,5 +1,5 @@
 const { sipuroDb } = require('../config/db');
-const { verifyToken } = require('../helpers/tokenHelper');
+const { verifyToken } = require('../services/auth/tokenHelper');
 
 const normalize = (value) => String(value || '').trim().toUpperCase();
 

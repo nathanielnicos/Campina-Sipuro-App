@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const dataController = require('../controllers/superadmin/data/dataController');
+const dataController = require('../controllers/master-data/dataController');
 const { requirePermission } = require('../middleware/requirePermission');
 
 // Data master & manajemen akun: izin per menu diatur Superadmin (menu Access Permission); awalnya hanya SUPERADMIN.

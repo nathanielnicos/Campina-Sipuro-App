@@ -1,5 +1,5 @@
-const { chunk } = require('../../helpers/arrayUtils');
-const { BusinessError } = require('../../helpers/businessError');
+const { chunk } = require('../../utils/arrayUtils');
+const { BusinessError } = require('../../utils/businessError');
 const { syncBatchCompletedDates } = require('./lotStatusService');
 const { persistAllocationItems } = require('./lotAllocationPersist');
 const { allocationKey, lotKey } = require('./lotAllocationRules');

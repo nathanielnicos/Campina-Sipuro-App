@@ -1,6 +1,6 @@
 const { sipuroDb } = require('../../config/db');
-const { comparePassword, hashPassword, validateNewPassword } = require('../../helpers/authHelper');
-const { safeError } = require('../../helpers/safeError');
+const { comparePassword, hashPassword, validateNewPassword } = require('../../services/auth/authHelper');
+const { safeError } = require('../../utils/safeError');
 
 /**
  * Profil akun yang sedang login. Identitas diambil dari token (req.user), bukan dari parameter klien.

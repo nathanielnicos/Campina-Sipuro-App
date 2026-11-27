@@ -1,6 +1,6 @@
 const { sipuroDb } = require('../../config/db');
-const { sendControllerError } = require('../../helpers/businessError');
-const { parsePageParams } = require('../../helpers/queryParams');
+const { sendControllerError } = require('../../utils/businessError');
+const { parsePageParams } = require('../../utils/queryParams');
 const { loadMatrixView, listLogs } = require('../../services/access-permission/accessPermissionService');
 
 /** Matriks izin (menu x aksi per kelompok), dibaca langsung dari database. */

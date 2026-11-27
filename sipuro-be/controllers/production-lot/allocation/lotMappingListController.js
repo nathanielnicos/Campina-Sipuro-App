@@ -2,7 +2,7 @@ const { sipuroDb } = require('../../../config/db');
 const { getPOTolerance } = require('../../../services/production-lot/lotStatusService');
 const { parseMappingRequest } = require('../../../services/production-lot/lotMappingFilters');
 const { fetchMappingPage } = require('../../../services/production-lot/lotMappingQuery');
-const { sendControllerError } = require('../../../helpers/businessError');
+const { sendControllerError } = require('../../../utils/businessError');
 
 /**
  * Toleransi PO hanya dikirim ke frontend untuk pewarnaan persentase.

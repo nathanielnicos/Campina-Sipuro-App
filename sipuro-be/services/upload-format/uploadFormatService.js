@@ -6,7 +6,7 @@
  * Perubahan berjalan di dalam transaksi ber-lock bersama upload (helpers/lockedTransaction).
  */
 
-const { BusinessError } = require('../../helpers/businessError');
+const { BusinessError } = require('../../utils/businessError');
 const {
     SCOPE, fieldsOf, cleanText, defaultSettings, validateSettings, settingsToEntries, settingsFromRows
 } = require('./uploadFormatRules');

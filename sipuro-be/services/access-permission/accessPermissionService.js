@@ -6,7 +6,7 @@
  * (helpers/lockedTransaction); cache izin dibersihkan oleh pemanggil setelah commit.
  */
 
-const { BusinessError } = require('../../helpers/businessError');
+const { BusinessError } = require('../../utils/businessError');
 const {
     GROUPS, MENUS, isValidGroup, isValidMenuAction, isLockedCell, cellKey
 } = require('./permissionCatalog');

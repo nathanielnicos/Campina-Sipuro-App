@@ -6,8 +6,8 @@
  * bila sidik jari hasilnya sama dengan yang dilihat pengguna (seperti upload): semua atau tidak sama sekali.
  */
 
-const { BusinessError } = require('../../helpers/businessError');
-const { parseIdParam } = require('../../helpers/queryParams');
+const { BusinessError } = require('../../utils/businessError');
+const { parseIdParam } = require('../../utils/queryParams');
 const { loadRebalanceInput } = require('./lotRebalanceLoader');
 const { calculateRebalance, computeRebalanceFingerprint } = require('./lotRebalanceCalculator');
 const { persistAllocationItems } = require('./lotAllocationPersist');

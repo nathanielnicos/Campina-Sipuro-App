@@ -1,7 +1,7 @@
 const { sipuroDb } = require('../../config/db');
-const { sendControllerError } = require('../../helpers/businessError');
-const { runInLockedTransaction } = require('../../helpers/lockedTransaction');
-const { parseActorId, assertActorExists } = require('../../helpers/actorHelper');
+const { sendControllerError } = require('../../utils/businessError');
+const { runInLockedTransaction } = require('../../utils/lockedTransaction');
+const { parseActorId, assertActorExists } = require('../../utils/actorHelper');
 const { parseUpdateInput, updateFormat } = require('../../services/upload-format/uploadFormatService');
 
 /**

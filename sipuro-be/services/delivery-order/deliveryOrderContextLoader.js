@@ -6,7 +6,7 @@
  * keduanya menghitung dari bentuk data yang sama.
  */
 
-const { chunk } = require('../../helpers/arrayUtils');
+const { chunk } = require('../../utils/arrayUtils');
 const { fetchLotStock } = require('./deliveryOrderTotals');
 const { stockKey } = require('./deliveryOrderRules');
 

@@ -1,5 +1,5 @@
 const { sipuroDb } = require('../../config/db');
-const { sendControllerError } = require('../../helpers/businessError');
+const { sendControllerError } = require('../../utils/businessError');
 const { groupOf, permissionsOf } = require('../../services/access-permission/permissionStore');
 
 /** Izin pengguna yang sedang login (menu dan aksi), dipakai FE untuk menu dan tombol. */

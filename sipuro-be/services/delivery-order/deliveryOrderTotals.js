@@ -17,8 +17,8 @@
  * Satu-satunya tempat yang mendefinisikan rumus ini.
  */
 
-const { chunk } = require('../../helpers/arrayUtils');
-const { NOT_DELETED_SQL } = require('../../helpers/po/openItemRules');
+const { chunk } = require('../../utils/arrayUtils');
+const { NOT_DELETED_SQL } = require('../purchase-order/openItemRules');
 const { ALLOCATION_STATUS } = require('../production-lot/lotAllocationRules');
 const { stockKey } = require('./deliveryOrderRules');
 const { buildStockCodeResolver, IDENTITY_STOCK_CODES } = require('../product-code-mapping/stockFamilyKey');

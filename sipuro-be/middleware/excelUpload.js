@@ -1,5 +1,5 @@
 const multer = require('multer');
-const { MAX_UPLOAD_FILE_BYTES } = require('../helpers/uploadConfig');
+const { MAX_UPLOAD_FILE_BYTES } = require('../utils/uploadConfig');
 
 const upload = multer({
     storage: multer.memoryStorage(),

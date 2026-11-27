@@ -1,7 +1,7 @@
 const { sipuroDb } = require('../../config/db');
-const { hashPassword, validateNewPassword } = require('../../helpers/authHelper');
-const { safeError } = require('../../helpers/safeError');
-const { isValidEmail } = require('../../helpers/emailValidation');
+const { hashPassword, validateNewPassword } = require('../../services/auth/authHelper');
+const { safeError } = require('../../utils/safeError');
+const { isValidEmail } = require('../../services/auth/emailValidation');
 
 // Batas panjang mengikuti lebar kolom di database
 const LIMITS = {

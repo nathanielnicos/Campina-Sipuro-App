@@ -34,7 +34,7 @@
  *    dan menjadi Unallocated dengan alasan yang jelas (bukan menggagalkan commit).
  */
 const crypto = require('crypto');
-const { BusinessError } = require('../../helpers/businessError');
+const { BusinessError } = require('../../utils/businessError');
 const { buildFamilyIndex } = require('../product-code-mapping/productFamilies');
 const { buildStockCodeResolver } = require('../product-code-mapping/stockFamilyKey');
 const {
