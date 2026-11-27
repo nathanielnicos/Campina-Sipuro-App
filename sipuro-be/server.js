@@ -5,21 +5,21 @@ const cors = require('cors');
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
-const masterRoutes = require('./routes/masterRoutes');
-const masterUploadRoutes = require('./routes/masterUploadRoutes');
-const superadminRoutes = require('./routes/superadminRoutes');
-const poRoutes = require('./routes/poRoutes');
+const masterLookupRoutes = require('./routes/masterLookupRoutes');
+const masterDataUploadRoutes = require('./routes/masterDataUploadRoutes');
+const masterDataRoutes = require('./routes/masterDataRoutes');
+const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
 const outstandingPoRoutes = require('./routes/outstandingPoRoutes');
 const productionLotRoutes = require('./routes/productionLotRoutes');
 const productCodeMappingRoutes = require('./routes/productCodeMappingRoutes');
 const accessPermissionRoutes = require('./routes/accessPermissionRoutes');
-const permissionRoutes = require('./routes/permissionRoutes');
+const myPermissionsRoutes = require('./routes/myPermissionsRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
-const doRoutes = require('./routes/doRoutes');
+const deliveryOrderRoutes = require('./routes/deliveryOrderRoutes');
 const uploadTransTypeRoutes = require('./routes/uploadTransTypeRoutes');
 const uploadFormatRoutes = require('./routes/uploadFormatRoutes');
-const siRoutes = require('./routes/siRoutes');
-const productionSchedule = require('./routes/productionScheduleRoutes');
+const salesInvoiceRoutes = require('./routes/salesInvoiceRoutes');
+const productionScheduleRoutes = require('./routes/productionScheduleRoutes');
 const { requireAuth } = require('./middleware/auth');
 const { apiLimiter } = require('./middleware/rateLimiters');
 
@@ -86,21 +86,21 @@ app.use('/api', authRoutes);
 app.use('/api', requireAuth);
 
 app.use('/api', dashboardRoutes);
-app.use('/api', masterRoutes);
-app.use('/api/upload/master', masterUploadRoutes);
+app.use('/api', masterLookupRoutes);
+app.use('/api/upload/master', masterDataUploadRoutes);
 app.use('/api/superadmin/product-code-mappings', productCodeMappingRoutes);
 app.use('/api/superadmin/access-permissions', accessPermissionRoutes);
-app.use('/api/superadmin', superadminRoutes);
-app.use('/api/po', poRoutes);
+app.use('/api/superadmin', masterDataRoutes);
+app.use('/api/po', purchaseOrderRoutes);
 app.use('/api/outstanding-po', outstandingPoRoutes);
 app.use('/api/production-lot', productionLotRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/permissions', permissionRoutes);
-app.use('/api/do', doRoutes);
+app.use('/api/permissions', myPermissionsRoutes);
+app.use('/api/do', deliveryOrderRoutes);
 app.use('/api/upload-trans-types', uploadTransTypeRoutes);
 app.use('/api/upload-formats', uploadFormatRoutes);
-app.use('/api/si', siRoutes);
-app.use('/api/production-schedule', productionSchedule);
+app.use('/api/si', salesInvoiceRoutes);
+app.use('/api/production-schedule', productionScheduleRoutes);
 
 // 404 handler (route tidak ditemukan)
 app.use((req, res) => {

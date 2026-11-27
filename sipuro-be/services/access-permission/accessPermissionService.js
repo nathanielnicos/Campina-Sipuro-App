@@ -3,7 +3,7 @@
 /**
  * Pengelolaan matriks izin akses oleh Superadmin: tampilan matriks, simpan perubahan (dengan riwayat), dan riwayat.
  * Tidak ada penghapusan: sel hanya diizinkan atau tidak (is_allowed). Perubahan berjalan di transaksi ber-lock
- * (helpers/lockedTransaction); cache izin dibersihkan oleh pemanggil setelah commit.
+ * (utils/lockedTransaction); cache izin dibersihkan oleh pemanggil setelah commit.
  */
 
 const { BusinessError } = require('../../utils/businessError');

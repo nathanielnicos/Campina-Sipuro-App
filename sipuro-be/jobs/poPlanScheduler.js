@@ -21,7 +21,7 @@ async function checkPoVsProductionPlan() {
         const formattedWeekKeys = weekList.map(w => `${w.year}-${String(w.week_number).padStart(2, '0')}`);
 
         // 2. Query Outstanding PO per Customer and Production Plan summary
-        // Definisi outstanding sama dengan menu Outstanding PO dan PO Requirement (helpers/po/openItemRules.js).
+        // Definisi outstanding sama dengan menu Outstanding PO dan PO Requirement (services/purchase-order/openItemRules.js).
         const query = `
             SELECT 
                 h.customer_id,

@@ -20,7 +20,7 @@ const { forceCloseOpenAllocations } = require('../../services/production-lot/lot
  * dan UPDATE selalu disertai syarat status, sehingga dua aksi yang berjalan bersamaan
  * tidak bisa saling menimpa. Pelaku selalu dari token login.
  * Approve juga mengubah alokasi lot, jadi berjalan di bawah lock bersama upload/edit qty
- * (helpers/lockedTransaction); lock itu diambil SEBELUM kunci baris agar tidak terjadi deadlock.
+ * (utils/lockedTransaction); lock itu diambil SEBELUM kunci baris agar tidak terjadi deadlock.
  */
 
 const toBusinessError = (error) => {

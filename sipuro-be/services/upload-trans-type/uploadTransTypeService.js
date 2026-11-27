@@ -8,7 +8,7 @@
  *  - Jenis scope LOT boleh ditambah. Nama, arah, dan cara cocok hanya boleh diubah selama jenis itu belum pernah
  *    dipakai pada upload (tanda qty data lama tidak boleh berubah mundur).
  *  - Jenis scope DO (Sales Order Issue, RMA Receipt) hanya bisa diaktifkan/dinonaktifkan: logika DO dan retur ada di kode.
- * Perubahan berjalan di dalam transaksi ber-lock bersama upload (helpers/lockedTransaction).
+ * Perubahan berjalan di dalam transaksi ber-lock bersama upload (utils/lockedTransaction).
  */
 
 const { BusinessError } = require('../../utils/businessError');

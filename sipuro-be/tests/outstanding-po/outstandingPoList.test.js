@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Tes daftar Outstanding PO: penyusun query (helpers/outstanding-po/outstandingQueryHelper.js)
+ * Tes daftar Outstanding PO: penyusun query (services/outstanding-po/outstandingQueryHelper.js)
  * dan controller daftar. Memakai database tiruan. Jalankan dengan: npm test
  */
 

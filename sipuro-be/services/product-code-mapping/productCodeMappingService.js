@@ -4,7 +4,7 @@
  * Pengelolaan pemetaan kode produk (kode lama <-> kode baru, produk yang sebenarnya sama).
  * Hanya SUPERADMIN. Tidak ada penghapusan: pemetaan diaktifkan/dinonaktifkan (is_active). Hanya pemetaan
  * aktif yang membentuk keluarga produk. Perubahan berjalan di dalam transaksi ber-lock bersama upload lot
- * (helpers/lockedTransaction), sehingga hasil preview/commit upload tidak berubah di tengah proses.
+ * (utils/lockedTransaction), sehingga hasil preview/commit upload tidak berubah di tengah proses.
  */
 
 const { BusinessError } = require('../../utils/businessError');

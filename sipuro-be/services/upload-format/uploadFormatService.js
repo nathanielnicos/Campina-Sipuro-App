@@ -3,7 +3,7 @@
 /**
  * Pengelolaan format file Excel upload (kolom tiap field, baris data pertama, sel process timestamp), dipakai halaman Setting.
  * Tidak ada penghapusan. Setiap perubahan dicatat per nilai di upload_format_setting_logs (nilai lama, nilai baru, pelaku).
- * Perubahan berjalan di dalam transaksi ber-lock bersama upload (helpers/lockedTransaction).
+ * Perubahan berjalan di dalam transaksi ber-lock bersama upload (utils/lockedTransaction).
  */
 
 const { BusinessError } = require('../../utils/businessError');

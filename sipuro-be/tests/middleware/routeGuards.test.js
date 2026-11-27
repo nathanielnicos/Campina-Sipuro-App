@@ -12,8 +12,8 @@ const path = require('path');
 const { isValidMenuAction } = require('../../services/access-permission/permissionCatalog');
 
 const GUARDED = [
-    'dashboardRoutes', 'doRoutes', 'masterUploadRoutes', 'outstandingPoRoutes', 'poRoutes', 'productCodeMappingRoutes',
-    'productionLotRoutes', 'productionScheduleRoutes', 'siRoutes', 'superadminRoutes', 'accessPermissionRoutes',
+    'dashboardRoutes', 'deliveryOrderRoutes', 'masterDataUploadRoutes', 'outstandingPoRoutes', 'purchaseOrderRoutes', 'productCodeMappingRoutes',
+    'productionLotRoutes', 'productionScheduleRoutes', 'salesInvoiceRoutes', 'masterDataRoutes', 'accessPermissionRoutes',
     'uploadTransTypeRoutes'
 ];
 

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Tes pembatasan akses rute Delivery Order (routes/doRoutes.js), dengan izin awal dari permissionDefaults:
+ * Tes pembatasan akses rute Delivery Order (routes/deliveryOrderRoutes.js), dengan izin awal dari permissionDefaults:
  *  - daftar DO dan retur : PPIC, LOGISTIC, FINANCE
  *  - upload (preview dan commit): LOGISTIC saja
  *  - export Excel                : PPIC, LOGISTIC, FINANCE
@@ -42,7 +42,7 @@ Module._load = function patchedLoad(request) {
     return originalLoad.apply(this, arguments);
 };
 
-require('../../routes/doRoutes');
+require('../../routes/deliveryOrderRoutes');
 
 const USERS = {
     customer: { type: 'CUSTOMER', role: 'CUSTOMER', department: null, customerId: 5 },

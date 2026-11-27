@@ -6,7 +6,7 @@
  * lengkap dengan riwayat per alokasi. Alokasi Closed dan Canceled tidak disentuh.
  * fulfilled_qty tidak berubah (Force Closed tetap dihitung; hanya Canceled yang dikeluarkan).
  *
- * Dipanggil di dalam transaksi ber-lock (helpers/lockedTransaction) dan setelah item PO terkunci.
+ * Dipanggil di dalam transaksi ber-lock (utils/lockedTransaction) dan setelah item PO terkunci.
  */
 
 const { logAllocationUpdate } = require('./lotAllocationLog');

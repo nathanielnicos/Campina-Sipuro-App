@@ -2,7 +2,7 @@
 
 /**
  * Scheduler mingguan PO vs Production Plan harus memakai definisi outstanding yang sama
- * dengan menu Outstanding PO dan PO Requirement (helpers/po/openItemRules.js).
+ * dengan menu Outstanding PO dan PO Requirement (services/purchase-order/openItemRules.js).
  * Database, cron, dan notifikasi diganti tiruan.
  */
 

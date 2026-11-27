@@ -1,4 +1,4 @@
-// Contoh di routes/poRequirementRoutes.js atau routes/testRoutes.js
+// Route pengujian: hanya dipasang di luar production (lihat server.js).
 const express = require('express');
 const router = express.Router();
 const { checkPoVsProductionPlan } = require('../jobs/poPlanScheduler');

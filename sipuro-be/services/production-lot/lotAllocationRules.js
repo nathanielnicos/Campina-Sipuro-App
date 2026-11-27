@@ -11,7 +11,7 @@
  * yang statusnya bukan 'Canceled' (lihat allocatedQtySql). Granularitas alokasi: (item PO, lot, batch). Hanya recalculateFulfilledQty
  * (lotStatusService) yang menulis kolom itu untuk alur lot.
  *
- * Catatan perbedaan dengan helpers/po/openItemRules.js (Outstanding PO / PO Requirement):
+ * Catatan perbedaan dengan services/purchase-order/openItemRules.js (Outstanding PO / PO Requirement):
  * alokasi lot sengaja memuat header 'Production Completed' dan item yang sudah terpenuhi
  * penuh, supaya retur produksi masih bisa mengurangi alokasi yang sudah ada.
  */
